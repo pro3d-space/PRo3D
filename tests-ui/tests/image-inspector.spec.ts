@@ -87,7 +87,7 @@ test("image inspector: orientation and 2D <-> 3D hover", async ({ browser }) => 
     const inspector = await context.newPage();
     await inspector.setViewportSize({ width: 900, height: 900 });
     await inspector.goto(app.url + "?page=imageinspector");
-    await expect(inspector.locator("text=/hover the image/")).toBeVisible({ timeout: 120_000 });
+    await expect(inspector.locator("text=/^hover: yellow/")).toBeVisible({ timeout: 120_000 });
     const control = inspector.locator("img.rendercontrol");
     await expect(control).toBeVisible({ timeout: 60_000 });
 
@@ -105,6 +105,8 @@ test("image inspector: orientation and 2D <-> 3D hover", async ({ browser }) => 
     const [fx, fy] = brightCentroid(source);
     await inspector.mouse.move(box.x + fx * box.width, box.y + fy * box.height);
     await expect(inspector.locator("text=/-> surface hit/")).toBeVisible({ timeout: 60_000 });
+    const pixelAt = async () => (await inspector.locator("text=/-> surface hit/").first().innerText()).match(/pixel \(([\d.]+), ([\d.]+)\)/)!.slice(1).map(Number);
+    const before = await pixelAt();
     await render.waitForTimeout(1500);
     const renderHover = await render.screenshot();
     fs.writeFileSync(path.join(artifacts, "inspector-render-hover.png"), renderHover);
@@ -112,12 +114,41 @@ test("image inspector: orientation and 2D <-> 3D hover", async ({ browser }) => 
     console.log(`marker diff: ${(dHover.changedFraction * 100).toFixed(3)}%`);
     expect(dHover.changedFraction, "the hover marker should appear in 3D").toBeGreaterThan(0.0002);
 
+    // zoom about the pointer: the pixel under it stays put, the view magnifies
+    for (let i = 0; i < 2; i++) { await inspector.mouse.wheel(0, -200); await inspector.waitForTimeout(300); }
+    await expect(inspector.locator("text=/zoom 4.0x/")).toBeVisible({ timeout: 30_000 });
+    await inspector.mouse.move(box.x + fx * box.width + 1, box.y + fy * box.height);
+    await inspector.waitForTimeout(200); // past the client's 33 ms move throttle
+    await inspector.mouse.move(box.x + fx * box.width, box.y + fy * box.height);
+    await expect(inspector.locator("text=/-> surface hit/")).toBeVisible({ timeout: 30_000 });
+    const after = await pixelAt();
+    console.log(`pixel before zoom ${before}, after ${after}`);
+    expect(Math.hypot(after[0] - before[0], after[1] - before[1]), "zoom must keep the pixel under the pointer").toBeLessThan(1.0);
+    // drag pans: dragging left by a tenth of the panel brings image content from the right
+    // under the pointer -- at 4x that is 1020 / 4 / 10 ~ 25 px
+    const cx = box.x + fx * box.width, cy = box.y + fy * box.height;
+    await inspector.mouse.down();
+    await inspector.mouse.move(cx - 0.1 * box.width, cy, { steps: 8 });
+    await inspector.mouse.up();
+    await inspector.mouse.move(cx + 1, cy);
+    await inspector.waitForTimeout(200);
+    await inspector.mouse.move(cx, cy);
+    await inspector.waitForTimeout(500);
+    const panned = await pixelAt();
+    console.log(`pixel after drag ${panned}`);
+    expect(panned[0] - after[0], "drag left must move the image left under the pointer").toBeGreaterThan(15);
+    expect(Math.abs(panned[1] - after[1]), "horizontal drag must not move vertically").toBeLessThan(2);
+    const zoomed = await control.screenshot();
+    fs.writeFileSync(path.join(artifacts, "inspector-zoomed.png"), zoomed);
+    await inspector.mouse.dblclick(box.x + fx * box.width, box.y + fy * box.height);
+    await expect(inspector.locator("text=/zoom 4.0x/")).toHaveCount(0, { timeout: 30_000 });
+
     await inspector.mouse.move(box.x + 0.02 * box.width, box.y + 0.02 * box.height);
     await expect(inspector.locator("text=/-> no surface hit/")).toBeVisible({ timeout: 30_000 });
 
     // leaving the panel clears the hover
     await inspector.mouse.move(box.x + box.width + 50, box.y + box.height + 50);
-    await expect(inspector.locator("text=/hover the image/")).toBeVisible({ timeout: 30_000 });
+    await expect(inspector.locator("text=/^hover: yellow/")).toBeVisible({ timeout: 30_000 });
 
     // 3. Ctrl-hover in 3D -> cyan crosshair in the panel
     const vp = render.viewportSize()!;
@@ -138,4 +169,33 @@ test("image inspector: orientation and 2D <-> 3D hover", async ({ browser }) => 
     await render.keyboard.up("Control");
     await inspector.screenshot({ path: path.join(artifacts, "inspector-crosshair.png") });
     expect(found, "a 3D surface hover should show the cyan crosshair in the panel").toBe(true);
+
+    // 4. shadow measurement: rim on the body, tip along the drawn sun line
+    await inspector.bringToFront();
+    await inspector.locator("button", { hasText: "Measure shadow" }).click();
+    await expect(inspector.locator("text=/click the crater rim/")).toBeVisible({ timeout: 30_000 });
+    await inspector.mouse.click(box.x + fx * box.width, box.y + fy * box.height);
+    await expect(inspector.locator("text=/click the shadow tip/")).toBeVisible({ timeout: 30_000 });
+    // the dashed sun line, in percent of the panel
+    const sunLine = inspector.locator("svg line");
+    await expect(sunLine).toHaveCount(1, { timeout: 30_000 });
+    const [x1, y1, x2, y2] = await Promise.all(["x1", "y1", "x2", "y2"].map(async (a) => Number(await sunLine.getAttribute(a))));
+    const len = Math.hypot(x2 - x1, y2 - y1);
+    // 3 % of the panel along the line, plus a little off it: the click must snap
+    const tx = x1 + (x2 - x1) / len * 3 + 0.3, ty = y1 + (y2 - y1) / len * 3 + 0.3;
+    await inspector.mouse.click(box.x + tx / 100 * box.width, box.y + ty / 100 * box.height);
+    const result = inspector.locator("text=/^(depth |measure: (?!click))/");
+    await expect(result).toBeVisible({ timeout: 30_000 });
+    const resultText = await result.innerText();
+    console.log(`measurement: ${resultText}`);
+    expect(resultText, "measurement result").toMatch(/^depth -?[\d.]+ m/);
+    await inspector.screenshot({ path: path.join(artifacts, "inspector-measure.png") });
+    await render.waitForTimeout(1500);
+    await render.screenshot({ path: path.join(artifacts, "inspector-measure-3d.png") });
+
+    expect(resultText, "the read-out names the phase angle").toMatch(/phase [\d.]+°/);
+    await inspector.locator("button", { hasText: "Create scale bar" }).click();
+    const bars = await context.newPage();
+    await bars.goto(app.url + "?page=scalebars");
+    await expect(bars.locator("text=/Sky_planet/").first()).toBeVisible({ timeout: 30_000 });
 });

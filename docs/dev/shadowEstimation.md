@@ -103,9 +103,27 @@ The ray segment also previews the measurement geometry: camera ray and sun ray m
 - 3D → 2D: `m.surfaceIntersection` (the existing preview pick) projected into the image → cyan
   crosshair.
 
-Open in the spike: zoom/pan; picking on the UI thread (move to the background pick thread);
+- Zoom/pan: transient `Model.imageView` (centre + scale over projector NDC) drives the panel's
+  ortho camera; pointer positions arrive as panel NDC and go through `ImageView.toImage`.
+
+Open in the spike: nearest-neighbour sampling when zoomed in; picking on the UI thread (move to the background pick thread);
 the projection-surface choice duplicates `flyToImageCamera` (extract one helper); the existing
 "Selected Image" preview renders png/jpg white (`createInstrumentScene`), the inspector does not.
+
+### Milestone 2 spike (implemented, first version)
+
+- `ImageInspector.click`: rim click → mesh hit; `sunLine` projects the shadow ray
+  (`rim − t·sun`, two points) into the image; the tip click is `snap`ped onto it and
+  `triangulate`d (closest approach of camera ray and sun ray, `t > 0`).
+- Sun: `InstrumentObservation.sunDirection` in the surface's frame at the image's `obs_date`,
+  cached per (image, frame, body). Up: radial from the body-fixed origin.
+- `measure`: depth, horizontal length, sun elevation, depth per pixel (re-triangulated one pixel
+  further along the line), mesh hit under the tip.
+- State `Model.shadowMeasure` is transient; **Create scale bar** emits an ordinary
+  `ScaleVisualization` (Sky_planet, Pivot.Left, metres) — persisted the old way, so older releases
+  show it.
+- Not yet: plane fit for up, persistence of the measurement itself, `docs/ShadowMeasurement.md`
+  split-out, bowl correction, uncertainty from the solar disc.
 
 ## Milestone 2 — measurement
 

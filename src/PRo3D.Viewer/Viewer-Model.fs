@@ -82,6 +82,24 @@ type PickPivot =
 //type ScaleToolAction = 
 //    | PlaneExtrudeAction of PlaneExtrude.App.Action
 
+/// Image Inspector panel events. Positions are *panel* NDC ([-1,1]^2 over the visible
+/// extent, y up); ImageInspector.update maps them through the zoom to projector NDC.
+type ImageInspectorAction =
+    /// pointer over the panel; None when it leaves
+    | Hover     of Option<V2d>
+    /// wheel: zoom by 2^steps about the given panel position
+    | Zoom      of steps : float * at : V2d
+    | DragStart of V2d
+    | DragMove  of V2d
+    | DragEnd
+    | ResetView
+    /// click without drag: in measure mode, sets the rim, then the shadow tip
+    | Click     of V2d
+    | ToggleMeasure
+    | ClearMeasure
+    /// a scale bar standing at the shadow tip, as tall as the measured depth
+    | CreateScaleBar
+
 type ViewerAction =
 | ToggleDirectToolMode
 | DrawingMessage                  of DrawingAction
@@ -202,9 +220,8 @@ type ViewerAction =
 | CrossSectionMessage            of CrossSectionAction
 | AnnotationExportMessage        of AnnotationExportAction
 | MapProjectionMessage           of PRo3D.MapProjection.MapProjectionAction
-/// Pointer over the Image Inspector panel, in the selected image's normalised device
-/// coordinates (= the projector's NDC); None when it leaves. See docs/dev/shadowEstimation.md.
-| ImageInspectorHover            of Option<V2d>
+/// Image Inspector panel interaction, see ImageInspector and docs/dev/shadowEstimation.md
+| ImageInspectorMessage          of ImageInspectorAction
 | SBookmarksToPoseDefinition
 | SetUserPreferences             of UserPreferences
 | Nop
@@ -575,6 +592,59 @@ type ImageHover =
         hit       : Option<V3d>
     }
 
+/// The Image Inspector's zoom/pan: the panel shows projector NDC
+/// [center - 1/scale, center + 1/scale]. Transient, like the hover.
+type ImageView =
+    {
+        center   : V2d
+        scale    : float
+        /// panel NDC of the last drag position while panning
+        dragFrom : Option<V2d>
+        /// the current/last press moved the view: its click is not a measurement click
+        dragMoved : bool
+    }
+
+/// A shadow measurement's outcome, render space. See docs/dev/shadowEstimation.md.
+type ShadowResult =
+    {
+        /// triangulated shadow tip: camera ray through the tip pixel meets the sun ray
+        /// grazing the rim -- independent of the mesh at the tip
+        tip          : V3d
+        /// where the tip pixel's camera ray meets the mesh, for comparison
+        meshTip      : Option<V3d>
+        /// local vertical used (radial from the body centre)
+        up           : V3d
+        depth        : float
+        /// horizontal shadow length
+        length       : float
+        sunElevation : float
+        /// angle between sun and camera at the rim, degrees; near 0 the rays are parallel
+        phase        : float
+        /// depth change when the tip moves one pixel along the sun line
+        depthPerPixel : Option<float>
+    }
+
+/// Shadow measurement state (milestone 2 spike). Transient: never persisted.
+type ShadowMeasure =
+    {
+        active : bool
+        /// rim pixel (projector NDC) and its mesh hit, render space
+        rim    : Option<V2d * V3d>
+        /// tip pixel, snapped onto the sun line (projector NDC)
+        tip    : Option<V2d>
+        result : Option<Result<ShadowResult, string>>
+    }
+
+module ShadowMeasure =
+    let initial = { active = false; rim = None; tip = None; result = None }
+
+module ImageView =
+    let initial = { center = V2d.Zero; scale = 1.0; dragFrom = None; dragMoved = false }
+    /// panel NDC -> projector NDC
+    let toImage (v : ImageView) (panel : V2d) = v.center + panel / v.scale
+    /// projector NDC -> panel NDC
+    let toPanel (v : ImageView) (image : V2d) = (image - v.center) * v.scale
+
 /// Per-vertex attribute values under the 3D cursor, shown in the "Cursor" panel.
 /// Refreshed by the background preview pick, so it only exists while the preview
 /// cursor is enabled and the mouse is over a surface in picking mode.
@@ -700,6 +770,8 @@ type Model = {
     cursorAttributes    : Option<CursorAttributes>
     /// Image Inspector hover (2D -> 3D), see ImageInspector
     imageHover          : Option<ImageHover>
+    imageView           : ImageView
+    shadowMeasure       : ShadowMeasure
     ellipseModel        : Option<EllipseModel>
     pickPreviewRequested : ConsumableAsyncValue<Model * SceneHit * string>
 

@@ -1083,14 +1083,52 @@ module ViewerApp =
         | CrossSectionMessage msg,_ ->
             let csm = CrossSectionApp.update m.scene.crossSectionModel msg
             { m with scene = { m.scene with crossSectionModel = csm } }
-        | ImageInspectorHover None, _ ->
-            { m with imageHover = None }
-        | ImageInspectorHover (Some ndc), _ ->
-            match ImageInspector.tryContext m.scene.gisApp m.scene.surfacesModel m.scene.referenceSystem with
-            | Result.Error _ -> { m with imageHover = None }
-            | Ok ctx ->
-                let pick (r : Ray3d) = Picking.pickRay m (FastRay3d r) None |> Option.map snd
-                { m with imageHover = Some (ImageInspector.hover pick ctx ndc) }
+        | ImageInspectorMessage msg, _ ->
+            // a move reported with a button held but no drag of ours in progress (the press
+            // happened elsewhere, or its mousedown never reached us) is a hover
+            let msg =
+                match msg with
+                | ImageInspectorAction.DragMove p when m.imageView.dragFrom.IsNone ->
+                    ImageInspectorAction.Hover (Some p)
+                | _ -> msg
+            let view = ImageInspector.updateView m.imageView msg
+            match msg with
+            | ImageInspectorAction.Hover None ->
+                { m with imageView = view; imageHover = None }
+            | ImageInspectorAction.Hover (Some panel) when view.dragFrom.IsNone ->
+                match ImageInspector.tryContext m.scene.gisApp m.scene.surfacesModel m.scene.referenceSystem with
+                | Result.Error _ -> { m with imageView = view; imageHover = None }
+                | Ok ctx ->
+                    let pick (r : Ray3d) = Picking.pickRay m (FastRay3d r) None |> Option.map snd
+                    let ndc = ImageView.toImage view panel
+                    { m with imageView = view; imageHover = Some (ImageInspector.hover pick ctx ndc) }
+            | ImageInspectorAction.ToggleMeasure ->
+                { m with shadowMeasure = { m.shadowMeasure with active = not m.shadowMeasure.active } }
+            | ImageInspectorAction.ClearMeasure ->
+                { m with shadowMeasure = { ShadowMeasure.initial with active = m.shadowMeasure.active } }
+            | ImageInspectorAction.Click panel when m.shadowMeasure.active && not m.imageView.dragMoved ->
+                match ImageInspector.tryContext m.scene.gisApp m.scene.surfacesModel m.scene.referenceSystem with
+                | Result.Error e -> { m with shadowMeasure = { m.shadowMeasure with result = Some (Result.Error e) } }
+                | Ok ctx ->
+                    let pick (r : Ray3d) = Picking.pickRay m (FastRay3d r) None |> Option.map snd
+                    let ndc = ImageView.toImage view panel
+                    { m with imageView = view; shadowMeasure = ImageInspector.click pick ctx m.shadowMeasure ndc }
+            | ImageInspectorAction.CreateScaleBar ->
+                match m.shadowMeasure.result with
+                | Some (Ok r) ->
+                    // stands at the tip, points up (Sky_planet = the planet's up there, which
+                    // for a small body in its body-fixed frame is the radial up used here)
+                    let drawing =
+                        { m.scaleBarsDrawing with
+                            orientation = PRo3D.Core.Orientation.Sky_planet
+                            alignment = PRo3D.Core.Pivot.Left
+                            unit = PRo3D.Core.Unit.m
+                            length = { m.scaleBarsDrawing.length with value = Math.Round(r.depth, 2) } }
+                    let msg = ScaleBarsAction.AddScaleBar(r.tip, drawing, m.navigation.camera.view)
+                    { m with scene = { m.scene with scaleBars = ScaleBarsApp.update m.scene.scaleBars msg m.scene.referenceSystem } }
+                | _ -> m
+            | _ ->
+                { m with imageView = view }
         | MapProjectionMessage msg,_ ->
             { m with mapProjection = PRo3D.MapProjection.MapProjectionApp.update m.mapProjection msg }
         | AnnotationExportMessage msg,_ ->
@@ -2773,6 +2811,7 @@ module ViewerApp =
             priorityTraverses
             distancePointsText
             ImageInspector.hoverSg m.imageHover view
+            ImageInspector.measureSg m.shadowMeasure view
         ] |> Sg.ofList
                                  
     /// While a control point is grabbed, shows where it would land: straight lines from the live

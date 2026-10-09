@@ -22,7 +22,7 @@ open PRo3D.InstrumentProjection
 ///   surfaces, marked in 3D (`hoverSg`);
 /// - hover in 3D: the main view's surface hit projected into the image, marked in 2D.
 ///
-/// The panel draws the image with screen NDC = projector NDC (a full-screen quad sampled at
+/// The panel draws the image with panel NDC = projector NDC, up to zoom/pan (ImageView) (a quad sampled at
 /// tc = 0.5 + 0.5 * ndc, exactly as the projection shader samples it), so a pointer position
 /// in the panel IS the projector NDC: no pixel convention sits between panel and projection.
 /// Pixel coordinates are only a read-out.
@@ -41,12 +41,20 @@ module ImageInspector =
             toWorld : Trafo3d
             /// native image size from the statistics sidecar, when present
             size    : Option<V2i>
+            /// unit vector towards the sun at the image's acquisition time, render space
+            sun     : Result<V3d, string>
+            /// the body centre (body-fixed origin), render space
+            centre  : V3d
         }
 
     // projectDirect calls SPICE behind a global lock; hovering must not pay for it per
     // mouse move. Keyed like ProjectedImagesListHelpers' projector cache.
     let private projectorCache =
         System.Collections.Concurrent.ConcurrentDictionary<Guid * ProjectionMethod * (float * float * float) * string * string, Option<Trafo3d>>()
+
+    // sun direction per (image, frame, body): SPICE, and constant for an image
+    let private sunCache =
+        System.Collections.Concurrent.ConcurrentDictionary<Guid * string * string, Result<V3d, string>>()
 
     /// The surface the projection is placed on: the first one bound to a SPICE body, else one
     /// inheriting the scene body -- the same choice as the fly-to (Viewer.flyToImageCamera).
@@ -99,7 +107,20 @@ module ImageInspector =
                     match InstrumentMetadata.tryParseMetadataForImagePath image.texture with
                     | _, Some meta when meta.image_width > 0 && meta.image_height > 0 -> Some (V2i(meta.image_width, meta.image_height))
                     | _ -> None
-                Ok { imageId = image.id; full = full; toWorld = placement * surface.preTransform; size = size }
+                let toWorld = placement * surface.preTransform
+                // at the image's own time -- never the scene's current SPICE time
+                let sunBody =
+                    match observedSystem, InstrumentMetadata.tryParseMetadataForImagePath image.texture with
+                    | Some r, (Some mbi, _) ->
+                        let (EntitySpiceName body) = r.body
+                        sunCache.GetOrAdd((image.id, frame.Value, body), fun _ ->
+                            PRo3D.SPICE.InstrumentProjection.withSpiceLock (fun () ->
+                                InstrumentObservation.sunDirection frame.Value body mbi.obs_date))
+                    | None, _ -> Result.Error "the projection surface has no SPICE body"
+                    | _ -> Result.Error "the image has no mbi sidecar (no acquisition time)"
+                let sun = sunBody |> Result.map (fun d -> toWorld.Forward.TransformDir d |> Vec.normalize)
+                Ok { imageId = image.id; full = full; toWorld = toWorld; size = size
+                     sun = sun; centre = toWorld.Forward.TransformPos V3d.Zero }
 
     /// Camera ray through a projector NDC point, render space.
     let ray (ctx : Context) (ndc : V2d) : Ray3d =
@@ -129,6 +150,127 @@ module ImageInspector =
         let r = ray ctx ndc
         { ndc = ndc; pixel = pixelOf ctx ndc; direction = r.Direction; hit = pick r }
 
+    // ---------------------------------------------------------------- shadow measurement
+
+    /// Render-space point -> projector NDC, unbounded (the sun line leaves the image).
+    let private projectAny (ctx : Context) (p : V3d) : Option<V2d> =
+        let b = ctx.toWorld.Backward.TransformPos p
+        let h = ctx.full.Forward.Transform(V4d(b.X, b.Y, b.Z, 1.0))
+        if h.W <= 0.0 || not (Double.IsFinite h.W) then None
+        else Some (V2d(h.X / h.W, h.Y / h.W))
+
+    /// The shadow's direction in the image: the ray from the rim away from the sun, projected.
+    /// A projected 3D line is a 2D line, so two points fix it. Origin and unit direction,
+    /// projector NDC.
+    let sunLine (ctx : Context) (sun : V3d) (rim : V3d) : Option<V2d * V2d> =
+        let step = 1e-3 * Vec.distance (ray ctx V2d.Zero).Origin rim
+        match projectAny ctx rim, projectAny ctx (rim - sun * step) with
+        | Some a, Some b when Vec.distance a b > 1e-12 -> Some (a, Vec.normalize (b - a))
+        | _ -> None
+
+    /// Nearest point on the (forward) sun line.
+    let snap (origin : V2d, dir : V2d) (q : V2d) =
+        origin + dir * max 0.0 (Vec.dot (q - origin) dir)
+
+    /// Where the camera ray through `ndc` meets the sun ray from the rim (closest approach of
+    /// the two lines); the parameter along the shadow direction must be positive.
+    let private triangulate (ctx : Context) (sun : V3d) (rim : V3d) (ndc : V2d) : Option<V3d> =
+        let r = ray ctx ndc
+        let u = -sun
+        let c = r.Direction
+        let w0 = rim - r.Origin
+        let b = Vec.dot u c
+        let d = Vec.dot u w0
+        let e = Vec.dot c w0
+        let denom = 1.0 - b * b
+        if denom < 1e-12 then None
+        else
+            let t = (b * e - d) / denom
+            if t > 0.0 then Some (rim + u * t) else None
+
+    /// Below this phase angle (degrees) camera and sun rays are too close to parallel for the
+    /// triangulation to mean much; the read-out says so.
+    let lowPhase = 15.0
+
+    /// The measurement for a rim point and a (snapped) tip pixel. Up is radial from the
+    /// body centre (v1; a plane fitted through rim clicks is next).
+    let measure (pick : Ray3d -> Option<V3d>) (ctx : Context) (rim : V3d) (tipNdc : V2d) : Result<ShadowResult, string> =
+        match ctx.sun with
+        | Result.Error e -> Result.Error e
+        | Ok sun ->
+            let up = Vec.normalize (rim - ctx.centre)
+            let elevation = asin (clamp -1.0 1.0 (Vec.dot sun up))
+            if elevation <= 0.0 then Result.Error "the sun is below the local horizon at the rim"
+            else
+                match triangulate ctx sun rim tipNdc with
+                | None -> Result.Error "the tip does not lie on the shadow side of the rim"
+                | Some tip ->
+                    let depthOf (t : V3d) = Vec.dot (rim - t) up
+                    let depth = depthOf tip
+                    let horizontal = (tip - rim) - up * Vec.dot (tip - rim) up
+                    // one pixel further along the sun line
+                    let depthPerPixel =
+                        match ctx.size, sunLine ctx sun rim with
+                        | Some s, Some (_, dir) ->
+                            triangulate ctx sun rim (tipNdc + dir * (2.0 / float s.X))
+                            |> Option.map (fun t -> abs (depthOf t - depth))
+                        | _ -> None
+                    let toCamera = Vec.normalize ((ray ctx tipNdc).Origin - rim)
+                    Ok {
+                        phase = acos (clamp -1.0 1.0 (Vec.dot sun toCamera)) * Constant.DegreesPerRadian
+                        tip = tip
+                        meshTip = pick (ray ctx tipNdc)
+                        up = up
+                        depth = depth
+                        length = Vec.length horizontal
+                        sunElevation = elevation * Constant.DegreesPerRadian
+                        depthPerPixel = depthPerPixel
+                    }
+
+    /// A measurement click: the first sets the rim (pixel -> mesh), the second the tip
+    /// (snapped to the sun line, triangulated); a third starts over.
+    let click (pick : Ray3d -> Option<V3d>) (ctx : Context) (s : ShadowMeasure) (ndc : V2d) : ShadowMeasure =
+        let setRim () =
+            match pick (ray ctx ndc) with
+            | Some p -> { s with rim = Some (ndc, p); tip = None; result = None }
+            | None -> { s with rim = None; tip = None; result = Some (Result.Error "the rim pixel does not hit the surface") }
+        match s.rim, s.tip with
+        | Some (_, rim), None ->
+            match ctx.sun |> Result.map (fun sun -> sunLine ctx sun rim) with
+            | Ok (Some line) ->
+                let tip = snap line ndc
+                { s with tip = Some tip; result = Some (measure pick ctx rim tip) }
+            | Ok None -> { s with result = Some (Result.Error "no sun line in this image") }
+            | Result.Error e -> { s with result = Some (Result.Error e) }
+        | _ -> setRim ()
+
+    /// 3D: rim, triangulated tip, the sun ray between them, the depth, the mesh hit under the tip.
+    let measureSg (s : aval<ShadowMeasure>) (view : aval<CameraView>) : ISg<'msg> =
+        (s, view)
+        ||> AVal.map2 (fun s view ->
+            let cross (c : C4b) (p : V3d) =
+                let k = 0.004 * Vec.distance view.Location p
+                Sg.ofList [
+                    for a in [ V3d.IOO; V3d.OIO; V3d.OOI ] ->
+                        PRo3D.Core.Drawing.Sg.lines c 3.0 [| p - a * k; p + a * k |]
+                ]
+            match s.rim, s.result with
+            | Some (_, rim), Some (Ok r) ->
+                Sg.ofList [
+                    yield cross C4b.Orange rim
+                    yield cross C4b.Magenta r.tip
+                    yield PRo3D.Core.Drawing.Sg.lines C4b.Yellow 2.0 [| rim; r.tip |]
+                    // the depth: straight up from the tip to the rim's height
+                    yield PRo3D.Core.Drawing.Sg.lines C4b.Cyan 2.0 [| r.tip; r.tip + r.up * r.depth |]
+                    match r.meshTip with
+                    | Some m -> yield cross C4b.Gray m
+                    | None -> ()
+                ]
+            | Some (_, rim), _ -> cross C4b.Orange rim
+            | _ -> Sg.empty)
+        |> Sg.dynamic
+        |> Sg.noEvents
+
     // ---------------------------------------------------------------- 3D marker
 
     /// Marker at the hovered pixel's surface hit: an axis cross (gimbal colours) and the last
@@ -154,27 +296,71 @@ module ImageInspector =
 
     // ---------------------------------------------------------------- 2D panel
 
-    /// Pointer events carrying the position relative to the element and its size; throttled
-    /// to ~30/s on the client, since each move triggers a KdTree pick. (Mouse, not pointer
-    /// events: the render control registers its own pointer handlers.)
-    let private ndcEvent (name : string) (throttle : bool) (f : Option<V2d> -> ViewerAction) =
+    /// Most magnification the panel allows: at AFC's 1020 px, 64x shows ~16 pixels across.
+    let maxScale = 64.0
+
+    /// Zoom/pan state for a panel event. Zoom keeps the image point under the cursor fixed;
+    /// the centre stays inside the image so the view cannot be lost.
+    let updateView (v : ImageView) (msg : ImageInspectorAction) : ImageView =
+        let clampCenter (scale : float) (c : V2d) =
+            let r = 1.0 - 1.0 / scale
+            V2d(clamp -r r c.X, clamp -r r c.Y)
+        match msg with
+        | ImageInspectorAction.Zoom (steps, at) ->
+            let fixedPoint = ImageView.toImage v at
+            let scale = clamp 1.0 maxScale (v.scale * Math.Pow(2.0, steps))
+            { v with scale = scale; center = clampCenter scale (fixedPoint - at / scale) }
+        | ImageInspectorAction.DragStart p -> { v with dragFrom = Some p; dragMoved = false }
+        | ImageInspectorAction.DragMove p ->
+            match v.dragFrom with
+            | Some from ->
+                { v with
+                    center = clampCenter v.scale (v.center - (p - from) / v.scale)
+                    dragFrom = Some p
+                    // a jitter is still a click
+                    dragMoved = v.dragMoved || Vec.distance p from > 0.01 }
+            | None -> v
+        // a buttonless move (Hover) also ends a drag: a mouseup lost outside the panel, or
+        // swallowed by the render control, must not leave hovering blocked
+        | ImageInspectorAction.DragEnd
+        | ImageInspectorAction.Hover _ -> { v with dragFrom = None }
+        | ImageInspectorAction.ResetView -> ImageView.initial
+        | ImageInspectorAction.Click _
+        | ImageInspectorAction.ToggleMeasure
+        | ImageInspectorAction.ClearMeasure
+        | ImageInspectorAction.CreateScaleBar -> v
+
+    /// A mouse event carrying the panel NDC of the pointer (and optional extra values); moves
+    /// are throttled to ~30/s on the client, since each hover triggers a KdTree pick. (Mouse,
+    /// not pointer events: the render control registers its own pointer handlers.)
+    let private panelEvent (name : string) (throttle : bool) (preventDefault : bool) (extra : list<string>)
+                           (f : list<string> -> V2d -> Option<ImageInspectorAction>) =
         name, AttributeValue.Event {
             clientSide = fun send src ->
                 let sendIt =
                     String.concat ";" [
                         "var rect = this.getBoundingClientRect()"
-                        send src [ "{ X: ((event.clientX - rect.left) / rect.width).toFixed(10), Y: ((event.clientY - rect.top) / rect.height).toFixed(10) }" ]
+                        // toFixed: FsPickler reads a V2d component only from a float literal
+                        send src ([ "{ X: ((event.clientX - rect.left) / rect.width).toFixed(10), Y: ((event.clientY - rect.top) / rect.height).toFixed(10) }" ] @ extra)
                     ]
+                let prevent = if preventDefault then "event.preventDefault();" else ""
                 if throttle then
-                    sprintf "var now = performance.now(); if (!this.__iiT || now - this.__iiT > 33) { this.__iiT = now; %s }" sendIt
-                else sendIt
+                    sprintf "%s var now = performance.now(); if (event.buttons !== 0 || !this.__iiT || now - this.__iiT > 33) { this.__iiT = now; %s }" prevent sendIt
+                else prevent + sendIt
             serverSide = fun _ _ args ->
                 match args with
-                | rel :: _ ->
+                | rel :: rest ->
                     let r : V2d = Pickler.json.UnPickleOfString rel
-                    Seq.singleton (f (Some (V2d(2.0 * r.X - 1.0, 1.0 - 2.0 * r.Y))))
+                    match f rest (V2d(2.0 * r.X - 1.0, 1.0 - 2.0 * r.Y)) with
+                    | Some a -> Seq.singleton (ImageInspectorMessage a)
+                    | None -> Seq.empty
                 | _ -> Seq.empty
         }
+
+    let private parseFloat (s : string) =
+        match Double.TryParse(s.Trim('"'), Globalization.NumberStyles.Float, Globalization.CultureInfo.InvariantCulture) with
+        | true, v -> Some v
+        | _ -> None
 
     let private imageSg (m : AdaptiveModel) : ISg<ViewerAction> =
         let list = m.scene.gisApp.projectedImageList
@@ -189,7 +375,8 @@ module ImageInspector =
         let colormap =
             extract' DefaultTextures.checkerboard (fun i ->
                 i.colorMap |> AVal.map (ColorMap.getColorMapFileName >> PRo3D.InstrumentVisualization.InstrumentImageVisualization.getColorMapTexture))
-        // same transfer function as the "Selected Image" preview (ProjectedImageApp)
+        // same transfer function as the "Selected Image" preview (ProjectedImageApp); the
+        // quad spans projector NDC [-1,1]^2 and the camera (zoom/pan) picks the visible part
         Sg.fullScreenQuad
         |> Sg.noEvents
         |> Sg.texture "InstrumentImage" texture
@@ -198,19 +385,49 @@ module ImageInspector =
         |> Sg.uniform "MaxValue" (extract 1.0 (fun i -> i.falseColorModel.upperBound.value))
         |> Sg.uniform "UseFalseColor" (extract false (fun i -> i.falseColorPreview |> AVal.map not))
         |> Sg.uniform "DataType" (extract 2 (fun i -> i.dataType |> AVal.map int))
-        |> Sg.shader { do! PRo3D.ImageMapping.Shaders.hshColors }
+        |> Sg.shader {
+            do! DefaultSurfaces.trafo
+            do! PRo3D.ImageMapping.Shaders.hshColors
+        }
 
-    /// Crosshair at a projector NDC, as an overlay in percent of the image extent.
-    let private crosshair (colour : string) (ndc : V2d) =
-        let x = 50.0 * (ndc.X + 1.0)
-        let y = 50.0 * (1.0 - ndc.Y)
-        let line (s : string) = div [ style (sprintf "position:absolute; pointer-events:none; background:%s; %s" colour s) ] []
-        div [ style "position:absolute; inset:0; pointer-events:none" ] [
-            line (sprintf "left:%.4f%%; top:0; bottom:0; width:1px" x)
-            line (sprintf "top:%.4f%%; left:0; right:0; height:1px" y)
+    /// Crosshair at a panel NDC, as an overlay in percent of the panel; None outside it.
+    let private crosshair (colour : string) (panel : V2d) =
+        if abs panel.X > 1.0 || abs panel.Y > 1.0 then None
+        else
+            let x = 50.0 * (panel.X + 1.0)
+            let y = 50.0 * (1.0 - panel.Y)
+            let line (s : string) = div [ style (sprintf "position:absolute; pointer-events:none; background:%s; %s" colour s) ] []
+            Some (
+                div [ style "position:absolute; inset:0; pointer-events:none" ] [
+                    line (sprintf "left:%.4f%%; top:0; bottom:0; width:1px" x)
+                    line (sprintf "top:%.4f%%; left:0; right:0; height:1px" y)
+                ])
+
+    /// A marker dot at a panel NDC; None outside the panel.
+    let private dot (colour : string) (panel : V2d) =
+        if abs panel.X > 1.0 || abs panel.Y > 1.0 then None
+        else
+            Some (
+                div [ style (sprintf "position:absolute; pointer-events:none; left:calc(%.4f%% - 5px); top:calc(%.4f%% - 5px); width:10px; height:10px; border-radius:50%%; border:2px solid %s; box-sizing:border-box"
+                                (50.0 * (panel.X + 1.0)) (50.0 * (1.0 - panel.Y)) colour) ] [])
+
+    /// The sun line from `a` along `dir` (panel NDC), drawn far past the panel and clipped.
+    let private sunLineSvg (a : V2d) (dir : V2d) =
+        let b = a + dir * 8.0
+        let px (p : V2d) = 50.0 * (p.X + 1.0)
+        let py (p : V2d) = 50.0 * (1.0 - p.Y)
+        Svg.svg [ attribute "viewBox" "0 0 100 100"; attribute "preserveAspectRatio" "none"
+                  style "position:absolute; inset:0; width:100%; height:100%; pointer-events:none; overflow:hidden" ] [
+            Svg.line [
+                attribute "x1" (sprintf "%.5f" (px a)); attribute "y1" (sprintf "%.5f" (py a))
+                attribute "x2" (sprintf "%.5f" (px b)); attribute "y2" (sprintf "%.5f" (py b))
+                attribute "stroke" "#ffd400"; attribute "stroke-width" "1.5"; attribute "stroke-dasharray" "6 4"
+                attribute "vector-effect" "non-scaling-stroke"
+            ]
         ]
 
     let private fmt (v : float) = v.ToString("0.0", Globalization.CultureInfo.InvariantCulture)
+    let private fmt2 (v : float) = v.ToString("0.00", Globalization.CultureInfo.InvariantCulture)
 
     let view (m : AdaptiveModel) : DomNode<ViewerAction> =
         // whole-model snapshots: they change rarely compared with the hover, and the projector
@@ -227,21 +444,38 @@ module ImageInspector =
                 | Ok ctx, Some h -> project ctx h.hitPoint
                 | _ -> None)
 
+        // the visible part of projector NDC: [center - 1/scale, center + 1/scale]
         let camera =
-            AVal.constant (Camera.create (CameraView.lookAt V3d.OOI V3d.Zero V3d.OIO) (Frustum.ortho (Box3d(-V3d.III, V3d.III))))
+            m.imageView |> AVal.map (fun v ->
+                let h = 1.0 / v.scale
+                let box = Box3d(V3d(v.center.X - h, v.center.Y - h, 0.1), V3d(v.center.X + h, v.center.Y + h, 10.0))
+                Camera.create (CameraView.lookAt V3d.OOI V3d.Zero V3d.OIO) (Frustum.ortho box))
 
         let attributes =
             AttributeMap.ofList [
-                style "position:absolute; inset:0; width:100%; height:100%"
-                ndcEvent "onmousemove" true ImageInspectorHover
+                style "position:absolute; inset:0; width:100%; height:100%; cursor:crosshair"
+                // a move with no button held ends a drag whose mouseup happened outside
+                panelEvent "onmousemove" true false [ "event.buttons" ] (fun rest p ->
+                    match rest with
+                    | "0" :: _ -> Some (ImageInspectorAction.Hover (Some p))
+                    | _ -> Some (ImageInspectorAction.DragMove p))
+                panelEvent "onmousedown" false false [] (fun _ p -> Some (ImageInspectorAction.DragStart p))
+                panelEvent "onmouseup" false false [] (fun _ _ -> Some ImageInspectorAction.DragEnd)
+                panelEvent "ondblclick" false false [] (fun _ _ -> Some ImageInspectorAction.ResetView)
+                panelEvent "onclick" false false [] (fun _ p -> Some (ImageInspectorAction.Click p))
+                // browser deltaY: about 100 per notch, positive when scrolling down (= zoom out)
+                panelEvent "onwheel" false true [ "event.deltaY" ] (fun rest p ->
+                    match rest with
+                    | d :: _ -> parseFloat d |> Option.map (fun dy -> ImageInspectorAction.Zoom(-dy / 200.0, p))
+                    | [] -> None)
                 "onmouseleave", AttributeValue.Event {
                     clientSide = fun send src -> send src []
-                    serverSide = fun _ _ _ -> Seq.singleton (ImageInspectorHover None)
+                    serverSide = fun _ _ _ -> Seq.singleton (ImageInspectorMessage (ImageInspectorAction.Hover None))
                 }
             ]
 
-        // the image extent: render control and overlays share it, so overlay percentages
-        // and pointer fractions are both image fractions. Only attributes and overlays
+        // the panel extent: render control and overlays share it, so overlay percentages
+        // and pointer fractions are both panel fractions. Only attributes and overlays
         // are incremental -- the render control itself is never rebuilt.
         let extentAttributes =
             amap {
@@ -255,26 +489,50 @@ module ImageInspector =
 
         let overlays =
             alist {
+                let! view = m.imageView
                 let! main = fromMainView
-                match main with
-                | Some ndc -> yield crosshair "#00e5ff" ndc
+                match main |> Option.bind (ImageView.toPanel view >> crosshair "#00e5ff") with
+                | Some c -> yield c
                 | None -> ()
                 let! hover = m.imageHover
-                match hover with
-                | Some h -> yield crosshair "rgba(255,255,0,0.6)" h.ndc
+                match hover |> Option.bind (fun h -> h.ndc |> ImageView.toPanel view |> crosshair "rgba(255,255,0,0.6)") with
+                | Some c -> yield c
                 | None -> ()
+                // measurement: rim, sun line, snapped tip
+                let! ctx = context
+                let! s = m.shadowMeasure
+                match ctx, s.rim with
+                | Ok ctx, Some (rimNdc, rim) ->
+                    match ctx.sun |> Result.toOption |> Option.bind (fun sun -> sunLine ctx sun rim) with
+                    | Some (a, dir) ->
+                        let pa = ImageView.toPanel view a
+                        let pb = ImageView.toPanel view (a + dir * 0.01)
+                        yield sunLineSvg pa (Vec.normalize (pb - pa))
+                    | None -> ()
+                    match dot "#ff8c00" (ImageView.toPanel view rimNdc) with
+                    | Some d -> yield d
+                    | None -> ()
+                    match s.tip |> Option.bind (ImageView.toPanel view >> dot "#ff00ff") with
+                    | Some d -> yield d
+                    | None -> ()
+                | _ -> ()
             }
 
+        // The bar is two incremental blocks on purpose: the text follows every hover, the
+        // controls only the measurement and the zoom. Rebuilding a button on hover replaces it
+        // between mousedown and mouseup -- moving onto it changes the hover -- and the click
+        // is lost.
         let readout =
             alist {
                 let! ctx = context
                 let! hover = m.imageHover
+                let! s = m.shadowMeasure
                 let line =
                     match ctx, hover with
                     | Result.Error e, _ ->
                         sprintf "Image Inspector: %s. Select an image in GIS View -> projected images." e
                     | Ok _, None ->
-                        "hover the image: yellow = pointer, its surface hit is marked in 3D; cyan = the 3D cursor seen from this image"
+                        "hover: yellow = pointer, its surface hit is marked in 3D; cyan = the 3D cursor seen from this image. Wheel zooms, drag pans, double-click resets."
                     | Ok _, Some h ->
                         let px =
                             match h.pixel with
@@ -283,7 +541,37 @@ module ImageInspector =
                         match h.hit with
                         | Some _ -> px + " -> surface hit"
                         | None -> px + " -> no surface hit"
-                yield text line
+                let line =
+                    if not s.active then line
+                    else
+                        match s.rim, s.result with
+                        | _, Some (Result.Error e) -> "measure: " + e
+                        | None, _ -> "measure: click the crater rim where the shadow starts"
+                        | Some _, None -> "measure: click the shadow tip (snaps to the dashed sun line)"
+                        | Some _, Some (Ok r) ->
+                            let perPx = r.depthPerPixel |> Option.map (fun d -> sprintf " (±%s m/px)" (fmt2 d)) |> Option.defaultValue ""
+                            let mesh =
+                                r.meshTip |> Option.map (fun mt -> sprintf ", mesh %s m off" (fmt2 (Vec.distance mt r.tip))) |> Option.defaultValue ""
+                            let warn = if r.phase < lowPhase then " -- LOW PHASE: sun and camera rays nearly parallel, unreliable" else ""
+                            sprintf "depth %s m%s, shadow %s m, sun %s° up, phase %s°%s%s" (fmt2 r.depth) perPx (fmt2 r.length) (fmt r.sunElevation) (fmt r.phase) mesh warn
+                yield div [ style "overflow:hidden; text-overflow:ellipsis" ] [ text line ]
+            }
+
+        let controls =
+            alist {
+                let! s = m.shadowMeasure
+                let! view = m.imageView
+                if view.scale > 1.0 then
+                    yield div [ style "white-space:nowrap; margin-left:8px" ] [ text (sprintf "zoom %sx" (fmt view.scale)) ]
+                    yield button [ clazz "ui mini inverted basic button"; style "margin-left:8px"; onClick (fun _ -> ImageInspectorMessage ImageInspectorAction.ResetView) ] [ text "Reset" ]
+                let measureButton = if s.active then "ui mini inverted button active" else "ui mini inverted basic button"
+                yield button [ clazz measureButton; style "margin-left:8px"; onClick (fun _ -> ImageInspectorMessage ImageInspectorAction.ToggleMeasure) ] [ text "Measure shadow" ]
+                if s.active && s.rim.IsSome then
+                    yield button [ clazz "ui mini inverted basic button"; onClick (fun _ -> ImageInspectorMessage ImageInspectorAction.ClearMeasure) ] [ text "Clear" ]
+                match s.result with
+                | Some (Ok _) ->
+                    yield button [ clazz "ui mini inverted basic button"; onClick (fun _ -> ImageInspectorMessage ImageInspectorAction.CreateScaleBar) ] [ text "Create scale bar" ]
+                | _ -> ()
             }
 
         div [ style "position:relative; width:100%; height:100%; display:flex; flex-direction:column; color:#ddd; font-size:12px" ] [
@@ -291,8 +579,13 @@ module ImageInspector =
                 Incremental.div extentAttributes (
                     alist {
                         yield DomNode.RenderControl(attributes, camera, imageSg m, RenderControlConfig.standard)
-                        yield Incremental.div (AttributeMap.ofList [ style "position:absolute; inset:0; pointer-events:none" ]) overlays
+                        yield Incremental.div (AttributeMap.ofList [ style "position:absolute; inset:0; pointer-events:none; overflow:hidden" ]) overlays
                     })
             ]
-            Incremental.div (AttributeMap.ofList [ style "padding:4px 8px; border-top:1px solid #333" ]) readout
+            // fixed-height bar: showing zoom/Reset must not resize the image above it, which
+            // would move the image under a resting pointer
+            div [ style "flex:none; height:32px; box-sizing:border-box; padding:0 8px; border-top:1px solid #333; display:flex; align-items:center; overflow:hidden; white-space:nowrap" ] [
+                Incremental.div (AttributeMap.ofList [ style "flex:1; min-width:0; overflow:hidden" ]) readout
+                Incremental.div (AttributeMap.ofList [ style "flex:none; display:flex; align-items:center" ]) controls
+            ]
         ]
