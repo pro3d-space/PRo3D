@@ -683,13 +683,21 @@ type ShadowMeasure =
         secondSnap : Option<float>
         /// further clicks defining the reference plane (ShadowUp.Plane): pixel and mesh hit
         planePoints : list<V2d * V3d>
+        /// the image the clicks belong to; another selected image starts a new measurement
+        imageId : Option<System.Guid>
+        /// radial up at the anchor, for its marker before a result exists
+        anchorUp : Option<V3d>
+        /// the second click lies on the sun line and triangulates: only then do further clicks
+        /// (Up: plane) add plane points rather than start over
+        secondOk : bool
         result : Option<Result<ShadowResult, string>>
     }
 
 module ShadowMeasure =
     let initial =
         { active = false; kind = ShadowKind.Depth; upMode = ShadowUp.Local; snap = true
-          anchor = None; second = None; anchorSnap = None; secondSnap = None; planePoints = []; result = None }
+          anchor = None; second = None; anchorSnap = None; secondSnap = None; planePoints = []; result = None
+          imageId = None; anchorUp = None; secondOk = false }
 
 module ImageView =
     let initial = { center = V2d.Zero; scale = 1.0; dragFrom = None; dragMoved = false }

@@ -123,5 +123,9 @@ geometry.
   for the measurement.
 - Hover picking runs on a background thread, newest position wins; the first hovers can lag
   while kd-trees load. Measurement clicks pick on the UI thread.
+- A measurement belongs to the image it was made on: selecting another image hides it, and the
+  next click starts a new one. Its 3D markers are placed for the scene time it was made at;
+  after changing the scene time, measure again.
+- *per pixel* and *pixel on ground* assume square image pixels (true for AFC).
 - The projection surface is the first surface bound to a SPICE body (the same choice as
   *fly to image*).

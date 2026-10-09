@@ -1128,7 +1128,8 @@ module ViewerApp =
                 | Ok ctx ->
                     let pick (r : Ray3d) = Picking.pickRay m (FastRay3d r) None |> Option.map snd
                     { m with shadowMeasure = ImageInspector.remeasure pick ctx s }
-                | Result.Error _ -> { m with shadowMeasure = s }
+                // no context to re-measure in: drop the result rather than show one for the old up
+                | Result.Error _ -> { m with shadowMeasure = { s with result = None } }
             | ImageInspectorAction.ToggleSnap ->
                 { m with shadowMeasure = { m.shadowMeasure with snap = not m.shadowMeasure.snap } }
             | ImageInspectorAction.ClearMeasure ->
@@ -3006,7 +3007,7 @@ module ViewerApp =
                 curtainSg
                 // Image Inspector markers: real geometry, depth-tested against the terrain
                 ImageInspector.hoverSg m.imageHover view
-                ImageInspector.measureSg m.shadowMeasure view
+                ImageInspector.measureSg m.shadowMeasure m.scene.gisApp.projectedImageList.selectedImage view
             ] |> Sg.ofList
 
         let heightValidationDiscs =

@@ -50,14 +50,27 @@ module ImageInspector =
             channel : int
         }
 
-    // projectDirect calls SPICE behind a global lock; hovering must not pay for it per
-    // mouse move. Keyed like ProjectedImagesListHelpers' projector cache.
+    // tryContext runs on every hover: everything it derives from files or SPICE is cached.
+    // Only successes are kept -- a projector or sun that failed (kernels not loaded yet) is
+    // tried again next time rather than failing for the rest of the session.
+    // projectDirect calls SPICE behind a global lock; keyed like ProjectedImagesListHelpers'.
     let private projectorCache =
-        System.Collections.Concurrent.ConcurrentDictionary<Guid * ProjectionMethod * (float * float * float) * string * string, Option<Trafo3d>>()
+        System.Collections.Concurrent.ConcurrentDictionary<Guid * ProjectionMethod * (float * float * float) * string * string, Trafo3d>()
 
     // sun direction per (image, frame, body): SPICE, and constant for an image
     let private sunCache =
-        System.Collections.Concurrent.ConcurrentDictionary<Guid * string * string, Result<V3d, string>>()
+        System.Collections.Concurrent.ConcurrentDictionary<Guid * string * string, V3d>()
+
+    /// Look up, or compute and keep only when it succeeded.
+    let private cachedOk (cache : System.Collections.Concurrent.ConcurrentDictionary<'k, 'v>) (key : 'k) (compute : unit -> Result<'v, string>) =
+        match cache.TryGetValue key with
+        | true, v -> Ok v
+        | _ ->
+            let r = compute ()
+            match r with
+            | Ok v -> cache.[key] <- v
+            | Result.Error _ -> ()
+            r
 
     /// Width and height from a PNG's IHDR chunk -- png frames carry no statistics sidecar.
     let private pngSize (path : string) : Option<V2i> =
@@ -69,6 +82,21 @@ module ImageInspector =
                 Some (V2i(be 16, be 20))
             else None
         with _ -> None
+
+    /// Sidecar metadata and image size per texture path. Parsing scans the image folder's
+    /// sidecars (and logs for COP or png data), so it must not run per mouse move; a
+    /// sidecar does not change during a session.
+    let private imageInfoCache =
+        System.Collections.Concurrent.ConcurrentDictionary<string, InstrumentMetadata.ParsedMetadata * Option<V2i>>()
+
+    let private imageInfo (path : string) =
+        imageInfoCache.GetOrAdd(path, fun _ ->
+            let md = InstrumentMetadata.tryParseMetadataForImagePath path
+            let size =
+                match md with
+                | _, Some meta when meta.image_width > 0 && meta.image_height > 0 -> Some (V2i(meta.image_width, meta.image_height))
+                | _ -> pngSize path
+            md, size)
 
     /// The surface the projection is placed on: the first one bound to a SPICE body, else one
     /// inheriting the scene body -- the same choice as the fly-to (Viewer.flyToImageCamera).
@@ -101,14 +129,17 @@ module ImageInspector =
             let b = list.boresightAdjustment
             let boresightKey = (b.roll.value, b.pitch.value, b.yaw.value)
             let key = (image.id, list.projectionMethod, boresightKey, observer, frame.Value)
+            let metadata, size = imageInfo image.texture
             let full =
-                projectorCache.GetOrAdd(key, fun _ ->
+                cachedOk projectorCache key (fun () ->
                     // same boresight composition as ProjectedImagesListHelpers.computeBoresight
                     let boresight =
                         Trafo3d.RotationXInDegrees(b.yaw.value) * Trafo3d.RotationYInDegrees(b.pitch.value) * Trafo3d.RotationZInDegrees(b.roll.value)
-                    let metadata = InstrumentMetadata.tryParseMetadataForImagePath image.texture
                     // "MARS" only as the fallback target, as the viewer passes it
-                    Visualization.projectDirect observer frame.Value metadata "MARS" (Some boresight) list.projectionMethod)
+                    match Visualization.projectDirect observer frame.Value metadata "MARS" (Some boresight) list.projectionMethod with
+                    | Some t -> Ok t
+                    | None -> Result.Error "no projector")
+                |> Result.toOption
             let surface =
                 surfaces.surfaces.flat |> HashMap.tryFind surfaceId |> Option.map Leaf.toSurface
             match full, surface with
@@ -117,17 +148,13 @@ module ImageInspector =
             | Some full, Some surface ->
                 let observedSystem = Gis.GisApp.getSpiceReferenceSystem gis surfaceId
                 let placement = TransformationApp.fullTrafo' surface.transformation refSystem observedSystem (Some observerSystem)
-                let size =
-                    match InstrumentMetadata.tryParseMetadataForImagePath image.texture with
-                    | _, Some meta when meta.image_width > 0 && meta.image_height > 0 -> Some (V2i(meta.image_width, meta.image_height))
-                    | _ -> pngSize image.texture
                 let toWorld = placement * surface.preTransform
                 // at the image's own time -- never the scene's current SPICE time
                 let sunBody =
-                    match observedSystem, InstrumentMetadata.tryParseMetadataForImagePath image.texture with
+                    match observedSystem, metadata with
                     | Some r, (Some mbi, _) ->
                         let (EntitySpiceName body) = r.body
-                        sunCache.GetOrAdd((image.id, frame.Value, body), fun _ ->
+                        cachedOk sunCache (image.id, frame.Value, body) (fun () ->
                             PRo3D.SPICE.InstrumentProjection.withSpiceLock (fun () ->
                                 InstrumentObservation.sunDirection frame.Value body mbi.obs_date))
                     | None, _ -> Result.Error "the projection surface has no SPICE body"
@@ -280,7 +307,10 @@ module ImageInspector =
         | _ -> None
 
     let band (path : string) (channel : int) : Option<V2i * (int -> int -> float)> =
-        bandCache.GetOrAdd((path, channel), fun _ ->
+        match bandCache.TryGetValue((path, channel)) with
+        | true, b -> b
+        | _ ->
+        let b =
             try
                 let pi =
                     match IO.Path.GetExtension(path).ToLowerInvariant() with
@@ -295,7 +325,9 @@ module ImageInspector =
                 pi |> Option.bind (fun pi -> accessor pi |> Option.map (fun f -> pi.Size, f))
             with e ->
                 Log.warn "[ImageInspector] cannot read %s for edge snapping: %s" path e.Message
-                None)
+                None
+        if b.IsSome then bandCache.[(path, channel)] <- b
+        b
 
     /// Bilinear sample at a continuous pixel coordinate (integers are pixel centres).
     let private sampleAt (size : V2i, f : int -> int -> float) (p : V2d) =
@@ -507,11 +539,16 @@ module ImageInspector =
         let image = if s.snap then band ctx.texture ctx.channel else None
         let shadowDir (at : V3d) =
             ctx.sun |> Result.toOption |> Option.bind (fun sun -> sunLine ctx ShadowKind.Depth sun at) |> Option.map snd
+        // clicks belong to one image: another selected image starts a new measurement
+        let s =
+            if s.imageId = Some ctx.imageId then s
+            else { s with anchor = None; second = None; anchorSnap = None; secondSnap = None; planePoints = []
+                          result = None; secondOk = false; anchorUp = None; imageId = Some ctx.imageId }
         let setAnchor () =
             match pick (ray ctx ndc) with
             | None ->
-                { s with anchor = None; second = None; anchorSnap = None; secondSnap = None; planePoints = []
-                         result = Some (Result.Error "that pixel does not hit the surface") }
+                { s with anchor = None; second = None; anchorSnap = None; secondSnap = None; planePoints = []; secondOk = false
+                         anchorUp = None; result = Some (Result.Error "that pixel does not hit the surface") }
             | Some p ->
                 // crater: the rim, where the shadow begins (lit -> dark along the shadow);
                 // boulder: the shadow's tip on the ground, where it ends (dark -> lit)
@@ -523,7 +560,8 @@ module ImageInspector =
                     match snapped |> Option.bind (fun q -> pick (ray ctx q) |> Option.map (fun a -> q, a)) with
                     | Some (q, a) -> q, a
                     | None -> ndc, p
-                { s with anchor = Some (anchorNdc, anchor); second = None; planePoints = []; result = None
+                { s with anchor = Some (anchorNdc, anchor); second = None; planePoints = []; result = None; secondOk = false
+                         anchorUp = Some (Vec.normalize (anchor - ctx.centre))
                          anchorSnap = snapped |> Option.bind (fun q -> pixelDistance ctx ndc q); secondSnap = None }
         match s.anchor, s.second with
         | Some (anchorNdc, anchor), None ->
@@ -537,17 +575,22 @@ module ImageInspector =
                     | Some img, ShadowKind.Depth -> snapToEdge img ctx false 6.0 q (snd line) |> Option.map (snap line)
                     | _ -> None
                 let q' = defaultArg snapped q
-                { s with second = Some q'; secondSnap = snapped |> Option.bind (fun x -> pixelDistance ctx q x)
+                // on the line and triangulating: only then may further clicks be plane points
+                let ok =
+                    match ctx.sun with
+                    | Ok sun -> (triangulate ctx (alongSun s.kind sun) anchor q').IsSome
+                    | Result.Error _ -> false
+                { s with second = Some q'; secondOk = ok; secondSnap = snapped |> Option.bind (fun x -> pixelDistance ctx q x)
                          result = Some (measure pick ctx s anchorNdc anchor q') }
             // a failed second click still ends the attempt: the next click starts over
             | Ok None -> { s with second = Some ndc; result = Some (Result.Error "no sun line in this image") }
             | Result.Error e -> { s with second = Some ndc; result = Some (Result.Error e) }
-        | Some (anchorNdc, anchor), Some q when s.upMode = ShadowUp.Plane ->
+        | Some (anchorNdc, anchor), Some q when s.upMode = ShadowUp.Plane && s.secondOk ->
             match pick (ray ctx ndc) with
             | Some p ->
                 let s = { s with planePoints = s.planePoints @ [ ndc, p ] }
                 { s with result = Some (measure pick ctx s anchorNdc anchor q) }
-            | None -> s
+            | None -> { s with result = Some (Result.Error "that plane point misses the surface -- click on the terrain") }
         | _ -> setAnchor ()
 
     /// Recompute a finished measurement (after the up choice changed).
@@ -641,7 +684,12 @@ module ImageInspector =
     /// (red = horizontal towards the sun, green = across, blue = up) at the anchor and at the
     /// triangulated end; yellow = the sun ray between them; cyan = the measured depth/height,
     /// vertical from the lower end; gray = where the mesh is under the triangulated end.
-    let measureSg (s : aval<ShadowMeasure>) (view : aval<CameraView>) : ISg<'msg> =
+    let measureSg (measurement : aval<ShadowMeasure>) (selected : aval<Option<Guid>>) (view : aval<CameraView>) : ISg<'msg> =
+        // nothing while Measure is off or another image is selected
+        let s =
+            (measurement, selected) ||> AVal.map2 (fun s sel ->
+                if s.active && s.imageId.IsSome && s.imageId = sel then s
+                else { s with anchor = None; result = None })
         let ok = s |> AVal.map (fun s ->
             match s.anchor, s.result with
             | Some (_, a), Some (Ok r) -> Some (a, r)
@@ -653,7 +701,7 @@ module ImageInspector =
                 match s.anchor, s.result with
                 | Some (_, a), Some (Ok r) -> Some (localFrame a r)
                 | Some (_, a), _ ->
-                    let up = Vec.normalize a
+                    let up = s.anchorUp |> Option.defaultValue (Vec.normalize a)
                     let x = Vec.normalize (Vec.cross up (if abs up.Z < 0.9 then V3d.OOI else V3d.IOO))
                     Some (a, x, Vec.cross up x, up)
                 | _ -> None)
@@ -961,7 +1009,7 @@ module ImageInspector =
                 let! ctx = context
                 let! s = m.shadowMeasure
                 match ctx, s.anchor with
-                | Ok ctx, Some (anchorNdc, anchor) ->
+                | Ok ctx, Some (anchorNdc, anchor) when s.imageId = Some ctx.imageId ->
                     match ctx.sun |> Result.toOption |> Option.bind (fun sun -> sunLine ctx s.kind sun anchor) with
                     | Some (a, dir) ->
                         let pa = ImageView.toPanel view a
@@ -1006,7 +1054,7 @@ module ImageInspector =
                         | Some _, None, _ ->
                             if crater then "click the end of the shadow" + snapHint
                             else "click the boulder's top edge (snaps to the dashed line)"
-                        | Some _, Some _, Some (Result.Error e) when s.upMode = ShadowUp.Plane -> e
+                        | Some _, Some _, Some (Result.Error e) when s.upMode = ShadowUp.Plane && s.secondOk -> e
                         | Some _, Some _, Some (Result.Error e) -> e + " -- click to start over"
                         | Some _, Some _, Some (Ok r) when s.upMode = ShadowUp.Plane ->
                             sprintf "%s %s m -- click more plane points, or Clear" (if crater then "depth" else "height") (fmt2 r.value)
@@ -1028,7 +1076,8 @@ module ImageInspector =
         let resultBox =
             alist {
                 let! s = m.shadowMeasure
-                match s.active, s.result with
+                let! selected = m.scene.gisApp.projectedImageList.selectedImage
+                match s.active && s.imageId.IsSome && s.imageId = selected, s.result with
                 | true, Some (Ok r) ->
                     let crater = s.kind <> ShadowKind.Height
                     let row (label : string) (value : string) =
