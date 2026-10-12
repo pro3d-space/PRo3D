@@ -79,6 +79,11 @@ module AreaSelection =
             {m with highResolution = not m.highResolution}
         | AreaSelectionAction.UpdateStatistics -> 
             m
+        | AreaSelectionAction.SetLegendVisible show ->
+            let statistics =
+                m.statistics
+                |> Option.map (fun s -> { s with colorLegend = { s.colorLegend with useFalseColors = show } })
+            { m with statistics = statistics }
         | AreaSelectionAction.Nop -> m
 
     //let sgPoints (m : AdaptiveAreaSelection) = 

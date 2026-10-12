@@ -25,6 +25,7 @@
     <Compile Include="ColorByCategoryPersistenceTest.fs" />
     <Compile Include="TransformationScalingTest.fs" />
     <Compile Include="ColorByCategoryColorTest.fs" />
+    <Compile Include="ColorLegendDockTest.fs" />
     <Compile Include="SpiceTests.fs" />
     <Compile Include="HeraSpiceTests.fs" />
     <Compile Include="SbmtImportAlignmentTest.fs" />

@@ -161,14 +161,10 @@ gradient shows up immediately.
 
 # Legend placement
 
-The legend sits at the top left of the render view, in the same spot as the other color
-legends (`Gui.colorByCategoryAttributes`, `left: 0%; top: 25%`). Its attribute map is a copy
-of `Gui.falseColorAttributes` widened to 170px, because the hue wheel drawn for the cyclic
-attributes captions itself and the caption does not fit into 55px.
-
-**Known issue:** every render-view legend is pinned to `left: 0%` — Dip&Strike, Color by
-Category, surface scalars, the projected image and the area comparison all draw on top of each
-other when more than one is switched on. They are not yet told apart or laid out side by side.
+The legend is one tile of the render view's [color legend dock](ColorLegends.md), side by
+side with the other color legends. Its tile header carries the caption (attribute and unit,
+or the surface layer name), from `ColorByCategory.Draw.legendTitle`; the hue wheel no longer
+draws a caption of its own. The header's close button clears *show legend*.
 
 # Implementation
 
@@ -205,7 +201,7 @@ other when more than one is switched on. They are not yet told apart or laid out
 - Sampling: `sampleSurfaceForCbc` in [`Viewer.fs`](../src/PRo3D.Viewer/Viewer/Viewer.fs) runs
   the `ResampleSurface` pass (`DrawingApp.update` has no `SurfaceModel` in scope). The
   `surfaceSamples` store is transient and Viewer-owned.
-- GUI wiring: `Gui.colorByCategoryLegend`, `Gui.viewColorByCategory`,
+- GUI wiring: `Gui.colorLegendDock` (legend tile), `Gui.viewColorByCategory`,
   `Gui.surfaceScalarLayerLabels` and `Gui.colorByCategorySurfaceStale` in
   [`ViewerGUI.fs`](../src/PRo3D.Viewer/Viewer/ViewerGUI.fs).
 

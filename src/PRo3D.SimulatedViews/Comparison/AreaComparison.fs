@@ -415,8 +415,13 @@ module AreaComparison =
                 let legendRange = Range1d.FromMinAndSize (minDistance, floatRange)
                 let fromColor = C4b(0.0, 1.0, 0.1)
                 let toColor   = C4b(1.0, 0.0, 0.1)
+                // a legend closed in the legend dock stays closed when the statistics are recomputed
+                let legendVisible =
+                    area.statistics
+                    |> Option.map (fun s -> s.colorLegend.useFalseColors)
+                    |> Option.defaultValue true
                 let legend = {FalseColorsModel.initDefinedScalarsLegend 
-                                legendRange with useFalseColors = true}
+                                legendRange with useFalseColors = legendVisible}
                 let legend = {legend with interval = {legend.interval with value = (floatRange * 0.1)}
                                           lowerColor      = {legend.lowerColor with c = fromColor}
                                           upperColor      = {legend.upperColor with c = toColor}}

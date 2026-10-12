@@ -44,6 +44,7 @@ let allTests (parameters : TestUtils.TestParameters) : Test =
         ColorByCategoryPersistence.Tests.tests()
         TransformationScaling.Tests.tests()
         ColorByCategoryColor.Tests.tests()
+        ColorLegendDock.Tests.tests()
         SpiceTests.tests()
         TriangleSetTests.tests()
         BulkAnnotationRoseTest.tests()

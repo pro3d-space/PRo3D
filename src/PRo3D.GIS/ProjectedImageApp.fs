@@ -232,6 +232,8 @@ module ProjectedImageApp =
                 { m with falseColorPreview = (not m.falseColorPreview) }
             | ToggleFalseColorLegend -> 
                 { m with falseColorModel = { m.falseColorModel with useFalseColors = not m.falseColorModel.useFalseColors } }
+            | SetFalseColorLegend show ->
+                { m with falseColorModel = { m.falseColorModel with useFalseColors = show } }
 
             | ImageMessage.Empty ->
                 m

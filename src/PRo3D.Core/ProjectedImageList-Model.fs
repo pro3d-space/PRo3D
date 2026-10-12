@@ -207,6 +207,8 @@ type ImageMessage =
     | SetColorMap of ColorMap
     | ToggleFalseColor
     | ToggleFalseColorLegend
+    /// shows/hides the legend; sent by the close button in the render view's legend dock
+    | SetFalseColorLegend of bool
     | SetEXRChannel of Channel
     | Empty
 

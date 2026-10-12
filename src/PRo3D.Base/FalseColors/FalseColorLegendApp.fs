@@ -18,6 +18,8 @@ module FalseColorLegendApp =
             
     type Action =
         | UseFalseColors    
+        /// shows/hides the legend; unlike the UseFalseColors toggle, sending it twice is harmless
+        | SetUseFalseColors of bool
         | SetLowerBound     of Numeric.Action
         | SetUpperBound     of Numeric.Action
         | SetInterval       of Numeric.Action
@@ -34,6 +36,8 @@ module FalseColorLegendApp =
         match act with
         | UseFalseColors -> 
             { model with useFalseColors = (not model.useFalseColors) }                    
+        | SetUseFalseColors show ->
+            { model with useFalseColors = show }
         | SetLowerBound l -> 
             { model with lowerBound = Numeric.update model.lowerBound l }
         | SetUpperBound u -> 

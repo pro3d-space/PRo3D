@@ -18,7 +18,8 @@ Open it with the **Surface Comparison** dashboard mode; it adds the **Comparison
    or `Spherical`). The sphere is replaced by the sampled points, coloured green
    (close) to red (far), with grey lines connecting each pair. Select an area to see its
    colour legend and statistics. Clicking the **Area Comparison** header recomputes only
-   the areas.
+   the areas. The legend is a tile of the [color legend dock](ColorLegends.md); the paint
+   brush icon in the area's row shows/hides it, as does the tile's close button.
 
 **Update Measurements** also compares the two surfaces' coordinate systems (size along the
 axes and their rotation; the **Origin** drop-down picks the centre). **Export** writes everything
