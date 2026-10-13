@@ -2953,7 +2953,16 @@ module ViewerApp =
 
         let ioverlayed = getOverlayed m m.scene.viewPlans.instrumentCam frustum
 
-        let size = m.viewPortSizes |> AMap.tryFind id |> AVal.map (Option.defaultValue V2i.II)
+        // The instrument page reports its size only on resize/focus events; until one arrives
+        // the control has the size its CSS gives it - half the instrument resolution
+        // (pageRouting's instrumentViewAttributes). The offscreen surfaces need a real size
+        // from the first frame, or they render at 1x1 and the view stays black.
+        let size =
+            (m.viewPortSizes |> AMap.tryFind id, ViewPlanApp.getInstrumentResolution m.scene.viewPlans)
+            ||> AVal.map2 (fun reported (hor, vert) ->
+                match reported with
+                | Some s when s.X > 1 && s.Y > 1 -> s
+                | _ -> V2i(int (hor / 2u), int (vert / 2u)))
         let offscreen =
             ViewerUtils.offscreenView runtime dataSamples m.scene.surfacesModel.sgGrouped
                 m.scene.viewPlans.instrumentCam frustum size false true m

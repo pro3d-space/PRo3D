@@ -93,7 +93,7 @@
     <Compile Include="VertexEditingTests.fs" />
     <Compile Include="SurfaceEffectSwitchTest.fs" />
     <Compile Include="MapProjectionRenderTest.fs" />
-    <Compile Include="FillStencilRenderTest.fs" />
+    <Compile Include="FillRenderTest.fs" />
     <Compile Include="SlowProfileExportTest.fs" />
     <Compile Include="BoulderStatisticsExportTest.fs" />
     <Compile Include="SurfaceComparisonTest.fs" />

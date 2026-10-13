@@ -1001,8 +1001,8 @@ module PackedRendering =
 
     /// The fills run ahead of the main pass, so outlines, points and everything else
     /// annotation-related draw over them; the terrain is already in the depth buffer from the
-    /// preceding render command. One pass for all fills - their order comes from the ordered
-    /// render command in packedFillRender, not from passes (which are expensive).
+    /// preceding render command. One pass for all fills: the deferred fills are a single draw,
+    /// and the stencil fallback orders its batches with a render command (packedFillRender).
     let fillPass = RenderPass.before "annotation-fills" RenderPassOrder.Arbitrary RenderPass.main
 
     /// Fills per batch: one stencil bit each (Depth24Stencil8).
@@ -1030,9 +1030,13 @@ module PackedRendering =
             Fail        = StencilOperation.Keep
             DepthFail   = StencilOperation.Keep }
 
-    /// Visible fills: per fill, mark the terrain inside its prism in the stencil, then colour
-    /// exactly those pixels. Lies on the terrain at every level of detail, with no depth bias -
-    /// the fix for the z-fighting of #841.
+    /// Visible fills without a surface depth texture - the fallback for Snapshots, which render
+    /// surfaces directly. Views with offscreen surfaces use DeferredFills (one draw). Per fill,
+    /// mark the terrain inside its prism in the stencil, then colour exactly those pixels.
+    ///
+    /// Slow at scale: the batches are strictly ordered, so the cost grows with the number of
+    /// fills - ~1 ms at 512, ~10-23 ms at 10k fills (laptop RTX), against ~0.06-0.15 ms for
+    /// DeferredFills at 10k.
     ///
     /// Why not all at once: the colour draw paints a pixel from the prism faces covering it on
     /// screen, and only the stencil knows which prism contains the terrain there. With one
@@ -1047,7 +1051,7 @@ module PackedRendering =
     /// batch always has all eight slots - unused ones draw nothing - so editing a fill only
     /// changes buffer contents and ranges; render objects come and go only when the number of
     /// filled annotations crosses a multiple of eight.
-    let packedFillRenderBatched (fillsPerBatch : int) (fills : FillGeometry) =
+    let packedFillRender (fills : FillGeometry) =
         let empty = DrawCallInfo(FaceVertexCount = 0, InstanceCount = 1)
 
         // slot i of the fill order: fill i's range, or nothing
@@ -1058,8 +1062,8 @@ module PackedRendering =
         let batch (b : int) =
             let draws (state : int -> ISg -> ISg) =
                 Sg.ofList [
-                    for j in 0 .. fillsPerBatch - 1 do
-                        Sg.indirectDraw IndexedGeometryMode.TriangleList (slot (b * fillsPerBatch + j))
+                    for j in 0 .. FillsPerBatch - 1 do
+                        Sg.indirectDraw IndexedGeometryMode.TriangleList (slot (b * FillsPerBatch + j))
                         |> state j
                 ]
 
@@ -1099,7 +1103,7 @@ module PackedRendering =
 
         let commands =
             fills.ranges
-            |> AVal.map (fun r -> (r.Length + fillsPerBatch - 1) / fillsPerBatch)
+            |> AVal.map (fun r -> (r.Length + FillsPerBatch - 1) / FillsPerBatch)
             |> AVal.map (fun batchCount ->
                 IndexList.ofList [
                     for b in 0 .. batchCount - 1 do
@@ -1120,8 +1124,6 @@ module PackedRendering =
         |> Sg.depthClamp' true
         |> Sg.pass fillPass
 
-    /// packedFillRenderBatched with all eight stencil bits in use.
-    let packedFillRender (fills : FillGeometry) = packedFillRenderBatched FillsPerBatch fills
 
     /// Fills against the terrain depth as a texture (#841, "B2"): every prism in ONE draw,
     /// independent of how many fills there are.

@@ -70,7 +70,7 @@ let private arbitraryRingGen =
             |> Array.ofList
     }
 
-let private config = { FsCheckConfig.defaultConfig with maxTest = 300 }
+let private config = { FsCheckConfig.defaultConfig with maxTest = 2000 }
 
 // ---------------------------------------------------------------------------------------------
 
@@ -166,6 +166,20 @@ let tests () =
                 Expect.isNone (build 1.0 xyChart V3d.Zero square) "zero axis"
                 Expect.isNone (build 1.0 xyChart (V3d(nan, 0.0, 1.0)) square) "NaN axis"
                 Expect.isNone (build 0.0 xyChart V3d.OOI square) "flat ring with no reach has no volume"
+            }
+
+            test "a self-intersecting ring whose cap contains a sliver triangle stays closed" {
+                // FsCheck counterexample: a crossing vertex nearly collinear with (-8,10)-(-7,3)
+                // gives a sliver whose winding sign is rounding noise; re-orienting triangles one
+                // by one flipped it and left the prism open
+                let ring =
+                    [| V3d(5,-4,0.1); V3d(-7,3,-0.2); V3d(5,1,0); V3d(-6,-4,0); V3d(-8,10,0.3); V3d(6,-1,-0.1)
+                       V3d(0,8,0.1); V3d(-2,-3,0.1); V3d(-8,-10,-0.3); V3d(-10,0,0); V3d(5,10,0.2) |]
+                match build 1.0 xyChart V3d.OOI ring with
+                | None -> failtest "the ring must produce a volume"
+                | Some tris ->
+                    Expect.isEmpty (openEdges tris) "closed"
+                    Expect.isGreaterThan (signedVolume tris) 0.0 "outward"
             }
 
             testPropertyWithConfig config "simple rings: closed, volume = 2h * cap area" <|

@@ -1,10 +1,12 @@
-/// Annotation fills drawn onto the terrain with stencil volumes (#841), on the GPU.
+/// Annotation fills drawn onto the terrain (#841), on the GPU: the deferred path the views use
+/// (offscreen surfaces + one-draw DeferredFills), and the stencil fallback (Snapshots) in the
+/// benchmark.
 ///
 /// The old fill was a flat lid between the outline points: terrain rising inside the outline
 /// covered it, which is the z-fighting users reported. These render a terrain with a bump,
 /// then fills through the real PackedRendering code, and read back pixels. Self-skip without
 /// a GL context.
-module FillStencilRenderTest
+module FillRenderTest
 
 open System
 open System.Diagnostics
@@ -165,7 +167,7 @@ let private withGL (f : IRuntime -> IFramebufferSignature -> unit) =
     | Some (runtime, signature) -> f runtime signature
 
 let tests () =
-    testList "fill stencil render" [
+    testList "fill render" [
 
         test "the fill covers terrain rising inside the outline, and nothing outside" {
             withGL (fun runtime signature ->
@@ -265,7 +267,7 @@ let tests () =
                 Expect.isFalse (samePixel ab b cx cy) "the overlap is not just the second fill")
         }
 
-        test "benchmark: 512 and 10240 fills, deferred one-draw fills against the stencil variants" {
+        test "benchmark: 512 and 10240 fills, deferred one-draw fills against the stencil fallback" {
             withGL (fun runtime signature ->
                 // grids of small squares around the bump; the camera moves every frame, as in
                 // navigation, so the surfaces and the fill accumulation really re-render
@@ -318,8 +320,8 @@ let tests () =
                     let direct   = measure "terrain, direct" [ withCamera terrain ]
                     let deferred = measure "terrain, offscreen + blit" (deferredScene runtime signature viewTrafo projTrafo None)
                     let b2       = measure "fills: deferred one draw (B2)" (deferredScene runtime signature viewTrafo projTrafo (Some geometry))
-                    let batched  = measure "fills: stencil, bit-batched" (stencilSg (PackedRendering.packedFillRender geometry))
-                    printfn "[fill-bench] fills cost: B2 %.3f ms (over offscreen terrain), stencil bit-batched %.3f ms (over direct terrain); offscreen+blit itself %.3f ms"
+                    let batched  = measure "fills: stencil fallback" (stencilSg (PackedRendering.packedFillRender geometry))
+                    printfn "[fill-bench] fills cost: B2 %.3f ms (over offscreen terrain), stencil fallback %.3f ms (over direct terrain); offscreen+blit itself %.3f ms"
                         (b2 - deferred) (batched - direct) (deferred - direct)
                     Expect.isGreaterThan b2 0.0 "measured")
         }

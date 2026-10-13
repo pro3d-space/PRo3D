@@ -58,7 +58,7 @@ let allTests (parameters : TestUtils.TestParameters) : Test =
         PRo3D.Tests.SurfaceEffectSwitchTest.tests()
         // map projection view (#772): Dimorphos OPC rendered headless; self-skips without GPU/data
         MapProjectionRenderTest.tests()
-        FillStencilRenderTest.tests()
+        FillRenderTest.tests()
         PolygonFillTests.tests()
         FillVolumeTests.tests()
         RegionOpsTests.tests()

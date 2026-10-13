@@ -73,15 +73,6 @@ module FillVolume =
                 if d > hi then hi <- d
             (hi - lo) + reach
 
-    /// Twice the signed area of a triangle in chart space; None when the chart refuses a vertex.
-    let private chartOrientation (chart : SurfaceChart) (a : V3d) (b : V3d) (c : V3d) =
-        match chart.toChart a, chart.toChart b, chart.toChart c with
-        | Some a, Some b, Some c ->
-            let u = b - a
-            let v = c - a
-            Some (u.X * v.Y - u.Y * v.X)
-        | _ -> None
-
     /// Outward-oriented triangle list (three entries per triangle) of the prism around a fill
     /// mesh, extruded `halfHeight` both ways along `axis` (normalized). Each cap vertex column
     /// is offset from its own rim point, so the caps follow the outline rather than a plane.
@@ -92,22 +83,17 @@ module FillVolume =
         let tris = mesh.positions
         let triCount = tris.Length / 3
 
-        // every cap triangle counter-clockwise in the chart. libtess emits a consistent winding
-        // already; re-checking per triangle costs nothing and keeps the walls below honest
-        let caps = Array.zeroCreate<V3d> (triCount * 3)
+        // libtess emits every triangle with the same winding, so the cap is consistently
+        // oriented as it comes. Do not "correct" triangles one by one: a sliver triangle
+        // (collinear points around an invented crossing vertex) has a winding sign that is pure
+        // rounding noise, and flipping it breaks the cap's consistency - edges then appear twice
+        // in the same direction and the prism is no longer closed (FsCheck found exactly that).
+        let caps = tris
         let mutable area = V3d.Zero
         for t in 0 .. triCount - 1 do
-            let a = tris.[3 * t]
-            let b = tris.[3 * t + 1]
-            let c = tris.[3 * t + 2]
-            let flip =
-                match chartOrientation mesh.chart a b c with
-                | Some o -> o < 0.0
-                | None   -> false
-            let b, c = if flip then c, b else b, c
-            caps.[3 * t] <- a
-            caps.[3 * t + 1] <- b
-            caps.[3 * t + 2] <- c
+            let a = caps.[3 * t]
+            let b = caps.[3 * t + 1]
+            let c = caps.[3 * t + 2]
             area <- area + Vec.Cross(b - a, c - a)
 
         // the chart's handedness relative to axis decides which cap faces +axis. Summed vector

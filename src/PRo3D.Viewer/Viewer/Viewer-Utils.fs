@@ -1974,9 +1974,6 @@ module ViewerUtils =
             for sg in offscreen.grouped do
                 yield RenderCommand<_>.Render (OffscreenSurfaces.pickOnly sg)
 
-            // the stencil fill renderer (fallback, see DrawingApp.view) counts in the stencil;
-            // start it from zero, whatever selection outlines left behind
-            yield RenderCommand<_>.ClearStencil 0
             yield RenderCommand<_>.Render depthTested
             yield RenderCommand<_>.ClearDepth 1.0
 

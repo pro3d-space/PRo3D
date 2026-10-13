@@ -118,7 +118,9 @@ module SnapshotSg =
                     if (not calcDepth) then yield RenderCommand.ClearDepth 1.0
                     yield RenderCommand.Render sg
                     
-                // the annotation fills count in the stencil (#841)
+                // Snapshots render surfaces directly (no offscreen depth texture), so their fills
+                // use the stencil renderer (PackedRendering.packedFillRender), which counts in the
+                // stencil: start it from zero, whatever selection outlines left behind (#841)
                 yield RenderCommand.ClearStencil 0
                 yield RenderCommand.Render depthTested
                 if (not calcDepth) then 

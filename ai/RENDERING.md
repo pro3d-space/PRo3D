@@ -132,7 +132,15 @@ The main and instrument views render their surfaces **offscreen** (`OffscreenSur
 
 - **Picking** stays on scene events: the grouped surface scene graphs are added to the control a second time through `OffscreenSurfaces.pickOnly` — a typed applicator whose `RenderObjects` rule returns nothing, so their `Sg.pickable'`/`withEvents` still fire.
 - The offscreen projection is `RenderControlConfig.standard.adjustAspect size frustum` — what the render control applies itself; the blit and the fill composite map `gl_FragCoord` through `ViewportSize`, so a target of another size stays aligned.
-- **Known gap:** a server-side screenshot (`/rendering/screenshot`, other size) still gets surface textures of the control's size, scaled. Snapshots (`SnapshotSg`) keep rendering surfaces directly.
+- **Lifetime:** the offscreen tasks are compiled inside an `AdaptiveResource` (`OffscreenSurfaces.renderTargets`) — on first acquire, disposed on last release. The render control's per-client scene task acquires them, so they live exactly as long as a page shows them. Compiled eagerly in the view function they leaked a full copy of the surfaces' GPU data per page load (view functions run again per `?page=` request).
+- **Size:** the main view uses the size the page reports (`OnResize`); the instrument view falls back to its CSS size (half the instrument resolution) until it reports one — without that it rendered at 1×1 and stayed black.
+
+**Known limitations:**
+- A server-side screenshot (`/rendering/screenshot`) at another size gets surface textures of the control's size, scaled (aligned, not sharper).
+- Snapshots (`SnapshotSg`) render surfaces directly and use the stencil fill fallback.
+- Instrument view: verified by screenshot (headless probe, `fillProblem` scene) that surfaces show after the size fallback; fills there not checked separately.
+- GPU memory grows while the camera moves — on develop as much as here (OPC LoD caching), pre-existing.
+- The closing edge of Sky-projected polygon outlines is not drawn — pre-existing, unrelated to fills.
 
 ### Annotation fills — against the surface depth (#841)
 
@@ -142,13 +150,13 @@ Visible fills are **not** a mesh. A flat cap between the outline points only tou
 2. `PackedRendering.DeferredFills`: **all prisms in one draw** into an RGBA32F accumulation target. A face fragment *behind* the surface depth adds its fill's premultiplied colour, +1 for back faces, −1 for front faces — the z-fail count per fill, in colour, order-independent. Inside a prism the sum is ±1×colour, outside 0; prisms in front of the terrain contribute nothing. Depth clamp keeps faces beyond near/far; the shader clamps `gl_FragCoord.z` itself and skips pixels without surface.
 3. A fullscreen composite (in `fillPass`, before `main`, so outlines draw on top) turns the sums into straight-alpha colour; `abs` makes it independent of the winding convention.
 
-Cost: 10240 fills ≈ 0.15 ms/frame with a moving camera (RTX 500 Ada), offscreen + blit ≈ 0.04 ms. Translucent fills overlapping *on the terrain* blend as a weighted average with alpha min(1, Σα).
+Cost: 10240 fills ≈ 0.06-0.15 ms/frame with a moving camera (RTX 500 Ada), offscreen + blit ≈ 0.04-0.05 ms. Translucent fills overlapping *on the terrain* blend as a weighted average with alpha min(1, Σα).
 
-**Why not the stencil** (kept as fallback where no surface depth exists — Snapshots): a shared stencil mark cannot say *which* prism contains the terrain, so the colour pass painted a pixel from whichever prism face reached it first — a near prism's wall took a far fill's terrain (straight cuts in oblique views). One stencil bit per fill, eight per ordered batch (`packedFillRender`), is correct but costs ~23 ms at 10k fills. Render passes per fill are worse still (passes are heavyweight).
+**Why not the stencil** (kept as fallback where no surface depth exists — Snapshots): a shared stencil mark cannot say *which* prism contains the terrain, so the colour pass painted a pixel from whichever prism face reached it first — a near prism's wall took a far fill's terrain (straight cuts in oblique views). One stencil bit per fill, eight per ordered batch (`packedFillRender`, the Snapshots fallback), is correct but costs ~10-23 ms at 10k fills (varies between runs); a render command per fill ~54 ms.
 
 The pick pass draws the flat caps (`FillGeometry.caps`); the 2D map view (`MapAnnotations`) has no terrain and draws the caps too.
 
-GPU tests and benchmark: `src/Tests/FillStencilRenderTest.fs`. Playwright: `tests-ui/tests/annotation-fill.spec.ts`. User docs: [docs/AnnotationFill.md](../docs/AnnotationFill.md).
+GPU tests and benchmark: `src/Tests/FillRenderTest.fs`. Playwright: `tests-ui/tests/annotation-fill.spec.ts`. User docs: [docs/AnnotationFill.md](../docs/AnnotationFill.md).
 
 Gates: `ViewerApp.allowAnnotationPicking` decides whether the readback is honoured at all; `ViewerApp.allowVertexEditing` additionally gates the handles. `Interactions.EditAnnotation` is the one mode where annotation picking *and* KdTree surface picking are both live — see [docs/AnnotationVertexEditing.md](../docs/AnnotationVertexEditing.md) for why that ordering hazard needs `VertexGrab.movedSinceGrab`.
 
