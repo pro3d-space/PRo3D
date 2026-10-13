@@ -7,151 +7,215 @@ against the surface depth), which this builds on.
 
 Geological maps in PRo3D the way geologists build them in GIS with the *contacts and points*
 method (QGIS plugin Mappy, PLANMAP/GMAP teaching): the mapper draws **contacts** (lines) and
-places one **label point** per unit; the **units** (polygons with holes) are *derived*. Refining
-a map means drawing another contact across a unit - no polygon editing, every shared boundary
-is traced once, edits to a contact update both units on its sides.
+assigns **units**; the units (polygons with holes) are *derived*. Refining a map means drawing
+another contact across a unit - every shared boundary is traced once, and a changed contact
+updates the units on both its sides.
 
-First target: a **whole-body** map of Dimorphos. Later: Mars regions (same code), contact
-types, live regeneration.
+First target: a **whole-body** map of Dimorphos. The same code serves Mars regions.
+
+**The map is immutable.** Units are never edited directly - not their geometry, not by
+splitting or merging them. All changes go through contacts and unit assignments. (Mappy works
+the same way: its *Recompute* overwrites the polygon layer. Plain QGIS edits polygons directly
+and needs topological editing, snapping and a topology checker to keep shared boundaries
+consistent - exactly the work this model avoids.)
+
+Interaction must be **snappy**: every routine action (assign a unit, finish a contact,
+hover) answers within a frame or two.
 
 ## Workflow
 
-1. Create a *Geological map* (new scene object) and pick its **source group** - an ordinary
-   annotation group. Everything outside it (boulders, measurements) does not take part.
-2. In that group, draw **contacts**: polylines (Sky projection on bodies). They only need to
-   cross each other; overshoots are fine, dangling ends are dropped.
-3. Place **label points**: point annotations with a **geological unit** (`geoUnit`) set.
-4. **Regenerate**: units appear as fills on the terrain, coloured from the map's unit table;
-   problems show in 3D (below).
-5. Refine: draw a contact across a unit, put a label in the new part, regenerate.
-6. **Export** units, contacts and labels for GIS.
+1. **New map** in the *Geological maps* panel: it creates its source group in the annotation
+   tree (marked with a map badge) and becomes the **active** map.
+2. **Draw contacts** with the *Draw contact* tool. Ends snap onto existing contacts; while
+   drawing, the unit about to be split is outlined and the cut previewed; Enter commits and
+   the map updates right away.
+3. **Assign units** with the *Assign unit* tool: pick the active unit in the palette (keys
+   1-9, type to search, or "new unit"), click a unit on the terrain, or drag across several to
+   paint them. Alt+click picks the unit under the cursor.
+4. Work through **problems**: unlabelled units are hatched, open contact ends marked; the
+   panel lists them, `N` flies to the next one.
+5. **Export** to GeoPackage.
+
+Several maps per scene (e.g. two interpretations, units vs. morphology); one is active for
+the tools, the others can be shown or hidden.
 
 ## Data model
 
 | what | where | persisted |
 |---|---|---|
-| contacts | polyline annotations in the source group (unchanged type) | yes, as today |
-| label points | point annotations in the source group, new field `geoUnit : Option<string>` | yes, new key `geoUnit` (`Json.tryRead`, default `None`) |
-| `GeologicalMap` | scene object: `key`, `name`, `sourceGroup : Guid` (group `Node.key`), `unitTable`, `visible`, `fillAlpha` | yes, new scene key |
-| unit table | `HashMap<string, Unit>`; `Unit = { code; name; color; description }` - entries created on first use of a code | yes, inside the map |
-| derived units | faces, rings, volumes, diagnostics | **no** - regenerated on load and on demand; `sourceFingerprint` marks the map out of date |
+| contacts | polyline annotations in the map's source group (ordinary annotations; the contact tool creates them, any polyline in the group counts) | yes, as today |
+| unit assignments | point annotations in the source group with a new field `geoUnit : Option<string>` - created and moved by the *Assign unit* tool, hidden in 3D (label points) | yes, new key `geoUnit` (`Json.tryRead`, default `None`) |
+| `GeologicalMap` | scene object: `key`, `name`, `sourceGroup : Guid` (group `Node.key`), `units`, `visible`, `opacity` | yes, new scene key; the scene holds a list of maps plus `activeMap` |
+| units (the palette) | `IndexList<Unit>`, `Unit = { code; name; color; description }` - created on the fly while mapping, colours suggested from a qualitative palette | yes, inside the map |
+| derived units | faces, rings, volumes, unit ids, diagnostics | **no** - recomputed on load and on every change |
 
 Scene compatibility: new data only under new keys; older releases load the scene and ignore
-the map, contacts and labels stay ordinary annotations.
+the maps; contacts and label points stay ordinary annotations there.
 
-`geoUnit` is a dedicated field (not `text`) - edited in the annotation properties, shown for
-point annotations; the unit dropdown offers the codes of the map's unit table plus "new".
+## Interaction
+
+### Draw contact (tool strip, active while a map is active)
+- Polyline, Sky projection on bodies, clicks on the terrain as with other annotations.
+- **Snapping:** a first/last click within ~10 px (screen space) of an existing contact snaps
+  exactly onto it - the contact's sampled line is projected to screen and the nearest point
+  taken, so the end lies on the contact, not near it. Otherwise the end stays open (and is
+  marked as such).
+- **Split preview:** while drawing, the stroke so far is noded against the map and the unit(s)
+  it would split are outlined, the cut shown - from the same topology code, on the
+  uncommitted stroke.
+- Enter commits; Backspace removes the last point; Esc discards.
+- The contact goes into the active map's group automatically.
+
+### Assign unit (tool strip)
+- **Palette** in the map panel: units with colour swatches; keys 1-9 select, typing filters,
+  "new unit" creates one (code, name, colour suggested). The active unit is shown at the
+  cursor.
+- **Click** a unit on the terrain: it takes the active unit. Under the hood the label point of
+  that unit is created or moved to the click position (one undo step).
+- **Drag-paint:** every unit the cursor passes while the button is held takes the active unit.
+- **Alt+click:** eyedropper - the unit under the cursor becomes active.
+- **Del / right-click:** remove the assignment (label point deleted; unit becomes unlabelled).
+- **Hover:** the unit under the cursor is highlighted, its name shown at the cursor.
+
+### Panel (*Geological maps*, docking tab)
+- Map list: name, visibility, active map, opacity slider.
+- Palette / legend: units with colour, name, area, visibility per unit; rename/recolour.
+- Problems: counts and lists of unlabelled units, conflicting labels, open contact ends;
+  clicking an entry flies there; `N` jumps to the next problem.
+- Export button.
+
+### Display
+- Units: semi-transparent fills (default ~50 %), one opacity per map, terrain shading stays
+  readable; no unit outlines - the contacts are the lines.
+- Unit codes as text at each unit's interior (toggle); label points themselves hidden
+  (a debug toggle shows them).
+- Contacts drawn on top as ordinary polylines.
+
+## Why this can be snappy
+
+- **Assigning a unit changes no geometry.** Faces are fixed by the contacts; an assignment
+  only changes which unit a face belongs to. Fills read their colour from a **unit-id →
+  colour table** (a small buffer/texture); assigning updates one entry. No re-triangulation,
+  no new volumes.
+- **Click → unit without a KdTree ray.** The fill pass writes the face id into the existing
+  annotation pick target; click and hover read it from the pixel under the cursor
+  (microseconds). The click's terrain position (for the label point) comes from the same
+  target's depth. The first click on a surface today waits for its KdTree to load (seconds) -
+  this path never does.
+- **Contacts update incrementally.** A committed contact is noded only against the existing
+  contacts near it (spatial hash); face tracing over the half-edge structure is linear and
+  cheap even for whole-body maps; only the faces whose boundary changed get new volumes.
+  Faces keep their units through the label points, so colours stay put.
+- **Rendering at scale:** all units in one draw (#842: 0.12 ms for 10k fills).
 
 ## Algorithm: faces on the surface from local questions only
 
 No global chart. Every step asks a question that is local to one place on the surface and is
 answered in 3D or in the tangent plane at that place. This works for the whole body, has no
-pole or date-line cases, and does not even need the body to be star-shaped.
+pole or date-line cases, and does not need the body to be star-shaped.
 
 Input: the contacts' **sampled** polylines (the terrain-draped points the outline is drawn
 with, `getPolylinePointsAt`), not just their control points.
 
-1. **Segments.** All contact samples as 3D segments, each tagged with its contact.
-2. **Noding.** Candidate pairs from a spatial hash over segment bounding boxes (O(n) for
-   well-spread data). For a pair: closest points of the two segments; they cross if the
-   distance is below a tolerance (a fraction of the local sampling spacing - draped polylines
-   of two contacts never hit each other exactly) and both parameters lie inside. Split both
-   at the crossing; the node is the midpoint of the closest points. Endpoints within tolerance
-   of another contact snap to it (undershoot), so "touching" works like "crossing".
+1. **Segments.** All contact samples as 3D segments, each tagged with its contact and sample
+   index (provenance, for snapping, diagnostics and incremental updates).
+2. **Noding.** Candidate pairs from a spatial hash over segment bounding boxes. For a pair:
+   closest points of the two segments; they cross if the distance is below a tolerance (a
+   fraction of the local sampling spacing - draped polylines of two contacts never hit each
+   other exactly) and both parameters lie inside. Split both at the crossing; the node is the
+   midpoint of the closest points. Snapped ends (above) are exact by construction.
 3. **Graph.** Nodes and edges into a half-edge structure (DCEL). Iteratively remove
-   degree-1 nodes and their edges: **dangles** (kept for diagnostics).
-4. **Angular order at a node.** For each node, the outgoing edges' first directions,
-   projected into the node's tangent plane, sorted by angle. Tangent plane normal: the
-   surface normal at the node (from the KdTree hit or the adjacent samples; on star-shaped
-   bodies the radial direction is a fine stand-in).
-5. **Face tracing.** Standard: for half-edge `h` ending in node `v`, `next(h)` is the
-   half-edge leaving `v` right after `twin(h)` in the angular order. Following `next` yields
-   the boundary cycles.
-6. **Cycles to faces.** On a closed surface a face can have several boundary cycles when the
-   contact graph is disconnected (a closed contact loop inside a unit = a hole). Group cycles
-   per connected component; place each component into the face of the others that contains
-   it with the label-point test below (a point of the component against the other
-   components). Sanity check per connected graph: V − E + F = 2 (Euler, sphere-like body).
+   degree-1 nodes and their edges: **open ends / dangles** (kept for diagnostics).
+4. **Angular order at a node.** The outgoing edges' first directions, projected into the
+   node's tangent plane, sorted by angle. Tangent plane normal: the surface normal at the node
+   (from the samples / KdTree; on star-shaped bodies the radial direction is a fine stand-in).
+5. **Face tracing.** For half-edge `h` ending in node `v`, `next(h)` is the half-edge leaving
+   `v` right after `twin(h)` in the angular order. Following `next` yields the boundary cycles.
+6. **Cycles to faces.** A face can have several boundary cycles when the contact graph is
+   disconnected (a closed contact loop inside a unit = a hole). Place each connected component
+   into the face of the others that contains it with the label test below. Sanity check per
+   connected graph: V − E + F = 2 (Euler, sphere-like body).
 7. **Labels.** For each label point: nearest contact edge (spatial hash), side of that edge in
-   the tangent plane at the nearest point → the half-edge on that side → its face. A face
-   gets its unit from its label(s).
+   the tangent plane at the nearest point → the half-edge on that side → its face.
+   (Interactive assignment does not need this - it gets the face id from the pick - but
+   loading a scene and moving contacts do.)
 
-Everything here is pure (PRo3D.Base, no rendering, no model), unit-tested on synthetic
-spheres and on recorded Dimorphos contacts.
+Pure code (PRo3D.Base: no rendering, no model), unit-tested on synthetic spheres and on
+recorded Dimorphos contacts.
 
-## Diagnostics (shown in 3D, listed in the map panel)
+## Diagnostics
 
-- **Unlabelled unit** - a face without label point: hatched/flagged fill, count in the panel.
-- **Conflicting labels** - a face with label points of different units: usually a missing
-  contact between them; both points highlighted.
-- **Dangling contact** - an end that does not reach another contact: marker at the end
-  (trimmed away for the units).
-- **Euler check failed** - topology bug or degenerate input; reported, never silently drawn.
+| problem | in 3D | in the panel |
+|---|---|---|
+| unlabelled unit (face without label) | hatched fill | count + list, fly-to |
+| conflicting labels (one face, labels of different units - usually a missing contact) | flashing outline, both label positions marked | list, fly-to |
+| open contact end | red marker at the end (the dangling piece is trimmed for the units) | list, fly-to |
+| topology check failed (Euler) | map not drawn, contacts highlighted | error with the offending component |
 
 ## Rendering
 
-Units are **B2 fills** (#842): closed volumes, all in one draw against the surface depth.
-Two additions:
+Units are **B2 fills** (#842): closed volumes, one draw against the surface depth. Additions:
 
 - **Rings with holes** in `PolygonFill`/`FillVolume`: a face is triangulated from all its
-  boundary cycles; walls already come from the triangulation's boundary edges, so holes close
-  by construction.
-- **Radial shells instead of plane prisms** for map units: cap vertices offset along their
-  own direction from the body centre (inner/outer radius from the face's relief plus reach),
-  walls radial. Works for any face size up to nearly the whole body; normal filled
-  annotations keep their plane prisms.
-- **Triangulating a face** is a per-face question too: small faces in the tangent plane at
-  their centre; a face too large for that (more than a hemisphere) in a projection centred on
-  itself, with the projection's singular point placed in another face.
+  boundary cycles; walls come from the triangulation's boundary edges, so holes close by
+  construction.
+- **Radial shells** for map units: cap vertices offset along their own direction from the body
+  centre (inner/outer radius from the face's relief plus reach), walls radial. Works for any
+  face size up to nearly the whole body; ordinary filled annotations keep plane prisms.
+- **Triangulating a face** per face: small faces in the tangent plane at their centre; a face
+  too large for that (more than a hemisphere) in a projection centred on itself, with the
+  projection's singular point placed in another face.
+- **Unit-id colour table** instead of per-vertex colours, so assignment is a table update.
+- **Face ids into the pick target** (hover, click, paint, eyedropper).
+- **Hatching** for unlabelled units in the fill composite (screen-space stripes by face flag).
+- **Unit code text** at a pole of inaccessibility of each face (computed in its triangulation's
+  chart), as billboards.
 
-Contacts keep drawing as ordinary polylines (on top of the fills); units draw no outlines.
-Legend: unit table with colours, area per unit, visibility per unit.
+## Export (GeoPackage)
 
-Scale: a whole-body map can have thousands of units; the one-draw fills (0.12 ms at 10k)
-are why #842 came first.
-
-## Regeneration
-
-Explicit **Regenerate** button first. The map stores a fingerprint of its source group
-(contacts' samples, labels' positions and units); when it changes the panel shows *out of
-date* and keeps the last result. Noding and face tracing are cheap; re-draping crossing points
-(raycast) is the expensive part - "live" regeneration comes once that is measured.
-
-## Export
-
-GeoPackage (GIS standard, what QGIS/Mappy users use), GeoJSON as the cheap second:
-
-- layers: **units** (polygons with holes, unit code/name/colour), **contacts**, **labels**;
+- One `.gpkg` per map with layers **units** (polygons with holes: code, name, colour, area),
+  **contacts** (lines) and **labels** (points).
 - 2D lon/lat (SPICE body-fixed, as the existing exporters); faces crossing the date line or
-  containing a pole are **split there** - the only place a global chart appears;
-- library: decide in that phase (NetTopologySuite + its GeoPackage IO via Paket, or writing
-  the few tables directly).
+  containing a pole are **split there** - the only place a global chart appears.
+- Library decided in that phase (NetTopologySuite + its GeoPackage IO via Paket, or writing the
+  few SQLite tables directly).
+
+## Not planned
+
+- Editing derived units (geometry, split, merge) - the map is immutable; all changes go through
+  contacts and assignments.
+- Converting a map into ordinary polygon annotations ("bake").
+- Importing a predefined legend - units are created while mapping.
 
 ## Phases
 
-1. **Model + UI skeleton** - `geoUnit` field (properties UI), `GeologicalMap` object, map
-   panel (source group, unit table, regenerate), persistence + compatibility tests.
+1. **Model + panel skeleton** - `geoUnit` field, `GeologicalMap` (list + active map), panel
+   (map list, palette, opacity), persistence and compatibility tests.
 2. **Topology core** (pure, PRo3D.Base) - noding, DCEL, dangles, angular order, face tracing,
-   cycles → faces, label assignment, Euler check. Unit + FsCheck tests on synthetic spheres
-   (random great-circle and small-circle contacts, nested loops, whole-body coverage).
-3. **Rendering** - rings with holes, radial shells, unit fills via DeferredFills, diagnostics
-   in 3D, legend. GPU tests; Playwright on Dimorphos (draw contacts, label, regenerate).
-4. **Export** - GeoPackage/GeoJSON with date-line/pole splitting.
-5. **Later** - contact type/certainty (solid/dashed, exported as attribute), live
-   regeneration, area/statistics per unit, contacts snapping while drawing.
+   cycles → faces, label assignment, Euler check, incremental update for one added/removed
+   contact. Unit + FsCheck tests on synthetic spheres (random great/small-circle contacts,
+   nested loops, whole-body coverage) and on recorded Dimorphos contacts.
+3. **Rendering + assignment** - rings with holes, radial shells, unit-id colour table, face ids
+   in the pick target, Assign-unit tool (click, paint, eyedropper, hover), hatching, unit
+   codes. GPU tests; Playwright on Dimorphos.
+4. **Contact tool** - snapping, split preview, automatic incremental update, problem list with
+   fly-to and `N`.
+5. **Export** - GeoPackage with date-line/pole splitting.
+6. **Later** - contact type/certainty (solid/dashed, exported as an attribute), unit areas and
+   statistics in the legend.
 
-Every phase ends with `docs/GeologicalMap.md` updated (user docs) and `ai/` notes where the
+Every phase ends with `docs/GeologicalMap.md` (user docs) updated and `ai/` notes where the
 architecture changed.
 
 ## Open questions
 
-- **Contact type/certainty** (certain/approximate/inferred): left open; the contact stays an
-  ordinary polyline, a type field can be added later without breaking anything.
-- **Tolerances** for noding and snapping: relative to sampling spacing or absolute metres per
-  body? Decide with real Dimorphos contacts.
+- **Contact type/certainty** (certain/approximate/inferred): later; contacts stay ordinary
+  polylines, a type field can be added without breaking anything.
+- **Noding tolerance**: relative to sampling spacing or absolute metres per body? Decide with
+  real Dimorphos contacts.
 - **Surface normal** at nodes on non-star-shaped bodies (67P-like): KdTree normal vs. averaged
   sample directions.
-- **Several maps per scene**, maps sharing contacts (e.g. a structural and a lithological map)?
-  The model allows several maps; contacts belong to one source group each.
 - **Unit areas**: on the terrain (KdTree) or on the radial shell's cap? Needed for the legend
   and export.
+- **Moving / deleting a contact** that units depend on: the incremental update handles it, but
+  label points may end up in a different face - re-check conflicts after every change.
