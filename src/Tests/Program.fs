@@ -62,6 +62,7 @@ let allTests (parameters : TestUtils.TestParameters) : Test =
         PolygonFillTests.tests()
         FillVolumeTests.tests()
         RegionOpsTests.tests()
+        ContactTopologyTests.tests()
         RegionFixtureTests.tests()
         AnnotationRegionOpsTests.tests()
         AdaptiveNestingTests.tests()

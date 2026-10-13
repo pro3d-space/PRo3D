@@ -58,6 +58,7 @@
     <Compile Include="Annotation\PolygonFill.fs" />
     <Compile Include="Annotation\FillVolume.fs" />
     <Compile Include="Geometry\RegionOps.fs" />
+    <Compile Include="Geometry\ContactTopology.fs" />
     <Compile Include="Geometry\RegionFixture.fs" />
     <Compile Include="FalseColors\FalseColors-Model.fs" />
     <Compile Include="FalseColors\FalseColors-Model.g.fs" />
