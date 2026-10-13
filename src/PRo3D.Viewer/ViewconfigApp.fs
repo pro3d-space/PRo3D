@@ -32,6 +32,8 @@ module ConfigProperties =
 
         | ToggleShowPreviewIntersectionCursor
         | SetPreviewIntersectionCursorWorldSize of Numeric.Action
+        | ToggleFillReachAuto
+        | SetFillReach              of Numeric.Action
         
 
     let update (model : ViewConfigModel) (act : Action) =
@@ -66,6 +68,8 @@ module ConfigProperties =
 
         | ToggleShowPreviewIntersectionCursor -> { model with showPreviewIntersection = not model.showPreviewIntersection }
         | SetPreviewIntersectionCursorWorldSize a ->  { model with previewIntersectionWorldSize = Numeric.update model.previewIntersectionWorldSize a }
+        | ToggleFillReachAuto -> { model with fillReachAuto = not model.fillReachAuto }
+        | SetFillReach a -> { model with fillReach = Numeric.update model.fillReach a }
 
         | Nop -> model
         | _ -> 
@@ -97,7 +101,23 @@ module ConfigProperties =
 
                 let showPreviewIntersection = GuiEx.iconCheckBox model.showPreviewIntersection ToggleShowPreviewIntersectionCursor
                 Html.row "Show Preview Cursor: "       [UI.wrapToolTip DataPosition.Bottom "Shows 3D pointer at surface intersection point" showPreviewIntersection]
-                Html.row "Preview Cursor Size:"        [Numeric.view' [InputBox] model.previewIntersectionWorldSize  |> UI.map SetPreviewIntersectionCursorWorldSize ]   
+                Html.row "Preview Cursor Size:"        [Numeric.view' [InputBox] model.previewIntersectionWorldSize  |> UI.map SetPreviewIntersectionCursorWorldSize ]
+
+                let fillReachTooltip =
+                    "How far above and below its outline a filled annotation colours the terrain. " +
+                    "Auto: half the outline's size, at most 1000 m on Mars, Earth and Moon, 200 m on Phobos, " +
+                    "100 m on Deimos, 50 m on Didymos, 15 m on Dimorphos, 100 m without a body. " +
+                    "Untick to use a fixed reach in metres."
+                let fillReachAuto = GuiEx.iconCheckBox model.fillReachAuto ToggleFillReachAuto
+                let fillReachMetres =
+                    model.fillReachAuto |> AVal.map (fun auto ->
+                        if auto then div [] []
+                        else Numeric.view' [InputBox] model.fillReach |> UI.map SetFillReach)
+                    |> AList.ofAValSingle
+                Html.row "Fill Reach (m):" [
+                    UI.wrapToolTip DataPosition.Bottom fillReachTooltip (div [] [ fillReachAuto; text " auto" ])
+                    Incremental.div AttributeMap.Empty fillReachMetres
+                ]
             ]
         )
 

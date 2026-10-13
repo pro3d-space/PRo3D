@@ -830,8 +830,9 @@ module PackedRendering =
         }
 
 
-    /// A flat cap needs a far larger bias than a surface-hugging line: it only touches the
-    /// terrain at its rim, and sits above or below it everywhere else.
+    /// The pick pass still draws the flat cap (it has no terrain to stencil against), and a flat
+    /// cap needs a far larger bias than a surface-hugging line: it only touches the terrain at
+    /// its rim.
     let private fillDepthOffsetFactor = 5.0
 
     // Aardvark.Rendering exports a Geometry type of its own, and it is opened after
@@ -847,59 +848,74 @@ module PackedRendering =
         // DnS already visualises its plane through showDns; open geometries have no interior
         | _ -> false
 
-    /// Packs the filled interiors of every annotation with showFill into one triangle draw.
-    ///
-    /// Returns raw geometry: the visible pass and the pick pass need different shaders and very
-    /// different render state, so neither is baked in here. Same split as linesNoIndirect /
+    /// Packed fill geometry. Raw: the visible and pick passes need different shaders and very
+    /// different render state, so neither is baked in. Same split as linesNoIndirect /
     /// packedRender.
-    let fills (cbc : AdaptiveColorByCategoryModel) (depthOffset : aval<float>) (ordered : aval<(Guid * AdaptiveAnnotation)[]>) (view : aval<M44d>) =
+    type FillGeometry =
+        {
+            /// Flat caps carrying the object id, for the pick pass.
+            caps    : ISg
+            /// Closed prisms around the caps, for the stencil passes (packedFillRender).
+            volumes : ISg
+        }
+
+    let private identityTrafo = AVal.constant Trafo3d.Identity
+
+    /// Builds the caps and prisms of every visible, filled annotation in `entries`. Position i
+    /// in `entries` is object id i. Each entry's trafo is applied on the CPU, so annotations
+    /// under different trafos still share one draw - which the stencil passes rely on, see
+    /// packedFillRender.
+    let private fillGeometry
+        (cbc         : AdaptiveColorByCategoryModel)
+        (planet      : aval<Planet>)
+        (reach       : aval<FillReach>)
+        (depthOffset : aval<float>)
+        (entries     : aval<(AdaptiveAnnotation * aval<Trafo3d>)[]>)
+        (view        : aval<M44d>) : FillGeometry =
+
         let data =
             AVal.custom (fun t ->
-                // same cached ordering linesNoIndirect indexes, so position i here and object id i
-                // there are the same annotation by construction
-                let annos = ordered.GetValue(t)
-                let vertices = List<V3f>()
-                let colors = List<C4f>()
-                let objIds = List<int>()
-                let mutable pivotTrafo = None
+                let annos = entries.GetValue(t)
+                let reachOf = FillReach.resolve (planet.GetValue t) (reach.GetValue t)
+                let capPositions = List<V3f>()
+                let capColors = List<C4f>()
+                let capIds = List<int>()
+                let volPositions = List<V3f>()
+                let volColors = List<C4f>()
+                let mutable pivot = None
                 // hoisted like linesNoIndirect: Color by Category also recolors the fill
                 let cbcSettings =
                     if cbc.enabled.GetValue t then Some (ColorByCategory.readSettings cbc t) else None
 
                 for i in 0 .. annos.Length - 1 do
-                    let (_, anno) = annos.[i]
+                    let (anno, trafo) = annos.[i]
                     let visible  = anno.visible.GetValue(t)
                     let showFill = anno.showFill.GetValue(t)
                     let geometry = anno.geometry.GetValue(t)
 
                     if visible && showFill && isFillable geometry then
-                        // world-space points shifted by a common pivot purely to keep the float32
-                        // vertex buffer precise at planetary magnitudes; any shared trafo works
-                        let pivot =
-                            match pivotTrafo with
-                            | None ->
-                                let mt = anno.modelTrafo.GetValue(t)
-                                pivotTrafo <- Some mt
-                                mt
-                            | Some mt -> mt
-
                         let points = anno.points.Content.GetValue(t) |> IndexList.toArray
 
-                        let chart =
+                        let plane =
                             // the dip-and-strike plane is what the ellipse ring was built on, so
                             // reusing it makes fill and outline coincide exactly
                             let fromDns =
                                 match anno.dnsResults.GetValue(t) with
-                                | AdaptiveSome dns -> SurfaceChart.tryOfPlane (dns.plane.GetValue(t))
+                                | AdaptiveSome dns ->
+                                    let p = dns.plane.GetValue(t)
+                                    SurfaceChart.tryOfPlane p |> Option.map (fun c -> c, p.Normal)
                                 | _ -> None
                             // otherwise fit, using the same plane calculatePolygonArea reports on
                             fromDns
                             |> Option.orElseWith (fun () ->
-                                SurfaceChart.tryOfPlane (Calculations.calculateVertexPlane points))
+                                let p = Calculations.calculateVertexPlane points
+                                SurfaceChart.tryOfPlane p |> Option.map (fun c -> c, p.Normal))
 
-                        match chart |> Option.bind (fun c -> PolygonFill.tryComputeFill c points) with
+                        // the plane normal is the extrusion axis: right on flat ground and on a
+                        // vertical rock face alike, and free - no per-vertex up vector (SPICE)
+                        match plane |> Option.bind (fun (chart, normal) -> FillVolume.tryCompute reachOf chart normal points) with
                         | None -> ()
-                        | Some mesh ->
+                        | Some volume ->
                             let rgb =
                                 match cbcSettings with
                                 | Some s -> (ColorByCategory.resolve s anno t).ToC4f()
@@ -907,39 +923,132 @@ module PackedRendering =
                             let alpha = anno.fillAlpha.value.GetValue(t)
                             let color = C4f(rgb.R, rgb.G, rgb.B, float32 alpha)
 
-                            for p in mesh.positions do
-                                vertices.Add(pivot.Backward.TransformPos p |> V3f)
-                                colors.Add color
-                                objIds.Add i
+                            let trafo = trafo.GetValue(t)
+                            // world-space points shifted by a common pivot purely to keep the
+                            // float32 vertex buffer precise at planetary magnitudes
+                            let origin =
+                                match pivot with
+                                | Some p -> p
+                                | None ->
+                                    let p = trafo.Forward.TransformPos volume.cap.[0]
+                                    pivot <- Some p
+                                    p
+                            let local (p : V3d) = trafo.Forward.TransformPos p - origin |> V3f
 
-                {| points     = vertices.ToArray()
-                   colors     = colors.ToArray()
-                   objIds     = objIds.ToArray()
-                   modelTrafo = Option.defaultValue Trafo3d.Identity pivotTrafo |})
+                            for p in volume.cap do
+                                capPositions.Add(local p)
+                                capColors.Add color
+                                capIds.Add i
+                            for p in volume.prism do
+                                volPositions.Add(local p)
+                                volColors.Add color
+
+                {| capPositions = capPositions.ToArray()
+                   capColors    = capColors.ToArray()
+                   capIds       = capIds.ToArray()
+                   volPositions = volPositions.ToArray()
+                   volColors    = volColors.ToArray()
+                   modelTrafo   = pivot |> Option.map Trafo3d.Translation |> Option.defaultValue Trafo3d.Identity |})
 
         let mv = (data, view) ||> AVal.map2 (fun d v -> v * d.modelTrafo.Forward)
 
-        Sg.draw IndexedGeometryMode.TriangleList
-        |> Sg.vertexAttribute DefaultSemantic.Positions (data |> AVal.map (fun d -> d.points))
-        |> Sg.vertexAttribute DefaultSemantic.Colors    (data |> AVal.map (fun d -> d.colors))
-        |> Sg.vertexAttribute (Sym.ofString "ObjId")    (data |> AVal.map (fun d -> d.objIds))
-        |> Sg.uniform "MV" mv
-        |> Sg.uniform "DepthOffset"
-            (depthOffset |> AVal.map (fun d -> (d * fillDepthOffsetFactor) / (100.0 - 0.1)))
+        let caps =
+            Sg.draw IndexedGeometryMode.TriangleList
+            |> Sg.vertexAttribute DefaultSemantic.Positions (data |> AVal.map (fun d -> d.capPositions))
+            |> Sg.vertexAttribute DefaultSemantic.Colors    (data |> AVal.map (fun d -> d.capColors))
+            |> Sg.vertexAttribute (Sym.ofString "ObjId")    (data |> AVal.map (fun d -> d.capIds))
+            |> Sg.uniform "MV" mv
+            |> Sg.uniform "DepthOffset"
+                (depthOffset |> AVal.map (fun d -> (d * fillDepthOffsetFactor) / (100.0 - 0.1)))
 
-    /// Visible pass for the packed fills.
-    let packedFillRender fills =
-        fills
-        |> Sg.shader {
-            do! FillShader.fillVertex
-            do! PRo3D.Base.Shader.DepthOffset.depthOffsetFS
-        }
-        |> Sg.blendMode (AVal.constant BlendMode.Blend)
-        // occluded rather than overlay: a ridge in front hides the fill, so it reads as lying on
-        // the surface instead of floating over the scene
-        |> Sg.depthTest (AVal.constant DepthTest.LessOrEqual)
-        // no depth write, so the outline and other fills are not occluded by the cap
-        |> Sg.writeBuffers' (Set.ofList [WriteBuffer.Color DefaultSemantic.Colors])
+        let volumes =
+            Sg.draw IndexedGeometryMode.TriangleList
+            |> Sg.vertexAttribute DefaultSemantic.Positions (data |> AVal.map (fun d -> d.volPositions))
+            |> Sg.vertexAttribute DefaultSemantic.Colors    (data |> AVal.map (fun d -> d.volColors))
+            |> Sg.uniform "MV" mv
+
+        { caps = caps; volumes = volumes }
+
+    /// Packs the filled interiors of every annotation with showFill. Object id i is position i
+    /// in `ordered`, the array linesNoIndirect indexes, so fill and outline picks agree.
+    let fills
+        (cbc : AdaptiveColorByCategoryModel) (planet : aval<Planet>) (reach : aval<FillReach>)
+        (depthOffset : aval<float>) (ordered : aval<(Guid * AdaptiveAnnotation)[]>) (view : aval<M44d>) =
+        let entries = ordered |> AVal.map (Array.map (fun (_, a) -> a, identityTrafo))
+        fillGeometry cbc planet reach depthOffset entries view
+
+    /// As fills, for the legacy branch: each annotation under its own (SPICE) trafo, still in
+    /// one draw. Object ids are not meaningful here - that branch has no pick target.
+    let fillsWithTrafos
+        (cbc : AdaptiveColorByCategoryModel) (planet : aval<Planet>) (reach : aval<FillReach>)
+        (depthOffset : aval<float>) (annos : aset<AdaptiveAnnotation * aval<Trafo3d>>) (view : aval<M44d>) =
+        let entries = annos.Content |> AVal.map HashSet.toArray
+        fillGeometry cbc planet reach depthOffset entries view
+
+    /// The fill passes run ahead of the main pass, so outlines, points and everything else
+    /// annotation-related draw over the fill; the terrain is already in the depth buffer from
+    /// the preceding render command.
+    let fillColorPass   = RenderPass.before "annotation-fill-color" RenderPassOrder.Arbitrary RenderPass.main
+    let fillStencilPass = RenderPass.before "annotation-fill-stencil" RenderPassOrder.Arbitrary fillColorPass
+
+    // z-fail: count the prism faces *behind* the terrain - back faces up, front faces down. A
+    // terrain pixel inside a prism has the back face behind it and the front face in front: +1.
+    // Outside, both or neither are behind: 0. Unlike z-pass this stays right with the camera
+    // inside a prism.
+    let private zFailFront =
+        { StencilMode.None with
+            DepthFail   = StencilOperation.DecrementWrap
+            CompareMask = StencilMask 0xff }
+    let private zFailBack = { zFailFront with DepthFail = StencilOperation.IncrementWrap }
+
+    // colour wherever the count is not zero, and reset it on the way, so every pixel is
+    // coloured once - by whichever prism face reaches it first - and the stencil is clean for
+    // whatever uses it next
+    let private colourWhereMarked =
+        { StencilMode.None with
+            Comparison  = ComparisonFunction.NotEqual
+            Reference   = 0
+            CompareMask = StencilMask 0xff
+            Pass        = StencilOperation.Zero
+            Fail        = StencilOperation.Zero
+            DepthFail   = StencilOperation.Zero }
+
+    /// Visible passes for the packed fills: mark the terrain inside the prisms in the stencil,
+    /// then colour exactly those pixels. Lies on the terrain at every level of detail, with no
+    /// depth bias - the fix for the z-fighting of #841.
+    ///
+    /// All fills must be in this one draw: the colour pass resets the stencil as it goes, so
+    /// with a draw per fill the first colour pass would also paint the pixels of every other
+    /// fill. Overlapping translucent fills therefore show one colour, not both.
+    let packedFillRender (fills : FillGeometry) =
+        let shaded =
+            fills.volumes
+            |> Sg.shader {
+                do! FillShader.fillVertex
+            }
+            // both faces of every prism, and prism faces beyond the far (or before the near)
+            // plane clamped instead of clipped - a clipped face would break the count
+            |> Sg.cullMode (AVal.constant CullMode.None)
+            |> Sg.depthClamp' true
+
+        let stencil =
+            shaded
+            |> Sg.pass fillStencilPass
+            |> Sg.stencilModes' zFailFront zFailBack
+            |> Sg.depthTest (AVal.constant DepthTest.Less)
+            |> Sg.writeBuffers' (Set.ofList [WriteBuffer.Stencil])
+
+        let colour =
+            shaded
+            |> Sg.pass fillColorPass
+            |> Sg.stencilMode' colourWhereMarked
+            // the stencil already says "terrain inside the prism"; testing depth again would
+            // drop pixels whose nearest prism face lies behind the terrain
+            |> Sg.depthTest (AVal.constant DepthTest.None)
+            |> Sg.blendMode (AVal.constant BlendMode.Blend)
+            |> Sg.writeBuffers' (Set.ofList [WriteBuffer.Color DefaultSemantic.Colors; WriteBuffer.Stencil])
+
+        Sg.ofList [ stencil; colour ]
 
     /// Draggable control-point handles for one annotation - the one being edited.
     ///

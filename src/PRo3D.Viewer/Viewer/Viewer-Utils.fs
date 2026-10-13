@@ -1934,6 +1934,9 @@ module ViewerUtils =
                 yield RenderCommand<_>.ClearDepth 1.0
                 yield RenderCommand<_>.Render sg
 
+            // the annotation fills count prism faces in the stencil (#841); start them from zero,
+            // whatever selection outlines left behind
+            yield RenderCommand<_>.ClearStencil 0
             yield RenderCommand<_>.Render depthTested
             yield RenderCommand<_>.ClearDepth 1.0
 

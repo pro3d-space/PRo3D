@@ -124,7 +124,21 @@ Channel meanings, cleared to `(0,0,0,-1)`:
 
 `orderedAnnotations` is the single cached ordering — **every packed draw that writes `ObjId` must take its ids from it**, or a click selects a different annotation than the one under the cursor. It is `HashSet.toArray` inside an `AVal.custom`, so the int id space can permute whenever the annotation set changes: capture the `Guid`, never the int, if you need to hold onto a pick.
 
-Draw order inside the pass is significant — fills, then lines, then vertex handles — so an outline wins over its own fill and a handle wins over the outline through it. Each also gets a progressively larger `DepthOffset` (`fillDepthOffsetFactor`, `handleDepthOffsetFactor`).
+Draw order inside the pass is significant — fills, then lines, then vertex handles — so an outline wins over its own fill and a handle wins over the outline through it. Each also gets a progressively larger `DepthOffset` (`fillDepthOffsetFactor`, `handleDepthOffsetFactor`). The pick pass draws the fill's **flat cap** (`FillGeometry.caps`); only the visible pass uses the stencil prisms below.
+
+### Annotation fills — stencil volumes (#841)
+
+Visible fills are **not** a mesh. A flat cap between the outline points only touches the terrain at its rim, so relief inside the outline cuts through it (z-fighting), and no depth bias or interior sampling fixes that across OPC levels of detail. Instead (`PackedRendering.packedFillRender`):
+
+1. `FillVolume.tryCompute` (`PRo3D.Base`, pure, unit-tested) builds a **closed, outward-oriented prism** per fill: the `PolygonFill` triangulation as top/bottom caps, offset ±h along the outline's **fitted-plane normal** (works on vertical rock faces; no per-vertex `getUpVector`/SPICE), plus a wall on every *boundary edge of the triangulation* — so tessellator-invented vertices and future holes close by construction. h = the ring's spread along the axis + the user's **fill reach** (`FillReach`: Auto = half the outline size capped per body by `FillReach.maxAuto`, or metres; `ViewConfigModel.fillReachAuto` / `fillReach`).
+2. **Stencil pass** (`fillStencilPass`): z-fail, two-sided (front faces decrement, back faces increment on depth fail), culling off, **depth clamp on** (a face clipped by near/far would break the count), no colour/depth writes.
+3. **Colour pass** (`fillColorPass`): stencil ≠ 0, reset to 0 on the way, depth test off, blend.
+
+Both passes are `RenderPass.before RenderPass.main` inside the depth-tested render command, so outlines draw on top, and they test against the terrain depth left by the surface render commands. `ViewerUtils.renderCommands` (and `SnapshotSg`) clear the stencil right before that command.
+
+**All fills must be in one draw** — the colour pass resets what it colours, so a draw per annotation would paint every other fill's pixels in its own colour. The legacy/Snapshots branch therefore uses `fillsWithTrafos` (per-annotation SPICE trafo applied on the CPU) instead of a fill per annotation. Consequence (accepted): overlapping translucent fills show one colour in the overlap. The 2D map view (`MapAnnotations`) has no terrain and keeps drawing the flat caps.
+
+GPU regression test: `src/Tests/FillStencilRenderTest.fs`. User docs: [docs/AnnotationFill.md](../docs/AnnotationFill.md).
 
 Gates: `ViewerApp.allowAnnotationPicking` decides whether the readback is honoured at all; `ViewerApp.allowVertexEditing` additionally gates the handles. `Interactions.EditAnnotation` is the one mode where annotation picking *and* KdTree surface picking are both live — see [docs/AnnotationVertexEditing.md](../docs/AnnotationVertexEditing.md) for why that ordering hazard needs `VertexGrab.movedSinceGrab`.
 

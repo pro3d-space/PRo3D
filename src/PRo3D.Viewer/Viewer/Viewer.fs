@@ -202,6 +202,9 @@ module ViewerApp =
             getDnsPlaneSize     = fun (x:AdaptiveViewConfigModel) -> x.dnsPlaneSize.value
             getOffset           = fun (x:AdaptiveViewConfigModel) -> AVal.constant(0.1)//x.offset.value
             getPickingTolerance = fun (x:AdaptiveViewConfigModel) -> x.pickingTolerance.value
+            getFillReach        = fun (x:AdaptiveViewConfigModel) ->
+                                      (x.fillReachAuto, x.fillReach.value) ||> AVal.map2 (fun auto metres ->
+                                          if auto then FillReach.Auto else FillReach.Metres metres)
         }
 
     let navConf : Navigation.smallConfig<ViewConfigModel, ReferenceSystem> =
@@ -2815,6 +2818,7 @@ module ViewerApp =
                 m.scene.config 
                 mdrawingConfig
                 observer
+                m.scene.referenceSystem.planet
                 view //m.navigation.camera.view 
                 frustum
                 runtime

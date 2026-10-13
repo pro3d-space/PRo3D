@@ -62,7 +62,9 @@ module MapAnnotations =
     let sg (inputs : AnnotationInputs) (view : MapSg.MapView) : ISg =
         let ordered = PackedRendering.orderedAnnotations inputs.annotations
         let lines, _, _ = PackedRendering.linesNoIndirect inputs.colorByCategory noDepthOffset noHover inputs.selected ordered identityView
-        let fills = PackedRendering.fills inputs.colorByCategory noDepthOffset ordered identityView
+        // the flat caps: on a 2D map there is no terrain to drape onto, so the stencil prisms
+        // of the 3D view (and their reach) do not apply
+        let fills = (PackedRendering.fills inputs.colorByCategory (AVal.constant Planet.None) (AVal.constant FillReach.Auto) noDepthOffset ordered identityView).caps
         let points = PackedRendering.pointsGeometry inputs.colorByCategory inputs.selected inputs.annotations noDepthOffset identityView
 
         // one effect per projection kind, switched without rebuilding, like the surfaces

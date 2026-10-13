@@ -118,6 +118,8 @@ module SnapshotSg =
                     if (not calcDepth) then yield RenderCommand.ClearDepth 1.0
                     yield RenderCommand.Render sg
                     
+                // the annotation fills count in the stencil (#841)
+                yield RenderCommand.ClearStencil 0
                 yield RenderCommand.Render depthTested
                 if (not calcDepth) then 
                     yield RenderCommand.ClearDepth 1.0
