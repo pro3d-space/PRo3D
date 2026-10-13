@@ -168,8 +168,13 @@ test("a label point drawn into the map gives its unit the active legend entry", 
         await main.waitForTimeout(800);
 
         const vp = render.viewportSize() ?? { width: 1600, height: 900 };
-        await pick(render, spot.x * vp.width, spot.y * vp.height);
-        await awaitIdle(render, app);
+        // the first pick on a cold start loads the surface's KdTree and PRo3D drops input while
+        // it intersects (drawing.ts, awaitIdle): pick again if no point arrived
+        for (let attempt = 0; attempt < 3; attempt++) {
+            await pick(render, spot.x * vp.width, spot.y * vp.height);
+            await awaitIdle(render, app);
+            if ((await panelText(panel)).includes("6 label points")) break;
+        }
 
         await expect.poll(() => panelText(panel), { timeout: 60_000 }).not.toContain("without a label");
         expect(await panelText(panel)).toContain("5 contacts, 6 label points");
@@ -265,6 +270,80 @@ test("the Assign unit tool: click, Alt+click and drag across units", async ({ br
         console.log(`[geomap] drag: crater ${c0.map(Math.round)} -> ${c1.map(Math.round)}`);
         // orange (red over blue) -> teal (blue/green over red)
         expect(c1[2] - c1[0]).toBeGreaterThan(c0[2] - c0[0] + 30);
+    } finally {
+        await context.close();
+        await app.stop();
+    }
+});
+
+/** First near-black pixel (a contact line) walking from (fx, fy) by (dx, dy) pixels, as a pixel. */
+function findLine(png: Buffer, fx: number, fy: number, dx: number, dy: number) {
+    const p = PNG.sync.read(png);
+    let x = Math.round(fx * p.width);
+    let y = Math.round(fy * p.height);
+    for (let n = 0; n < 2000 && x > 0 && y > 0 && x < p.width && y < p.height; n++, x += dx, y += dy) {
+        const i = (y * p.width + x) * 4;
+        if (p.data[i] + p.data[i + 1] + p.data[i + 2] < 120) return { x, y };
+    }
+    throw new Error(`no contact line from ${fx},${fy}`);
+}
+
+test("a contact drawn to end near other contacts snaps onto them and cuts a unit", async ({ browser }) => {
+    test.skip(!fs.existsSync(fixture.sceneTemplate) || !fs.existsSync(annotations),
+        "set PRO3D_TEST_DATA and run --make-geomap-showcase");
+
+    const scene = mapScene("geomap-snap", 35, 40);
+    const { app, context, render } = await openDrawingViewer(browser, scene, "snap-1-before.png", save);
+    try {
+        const panel = await context.newPage();
+        await panel.setViewportSize({ width: 520, height: 900 });
+        await panel.goto(app.url + "?page=geomaps");
+        await panel.waitForLoadState("domcontentloaded");
+        await expect.poll(() => panelText(panel), { timeout: 60_000 }).toContain("6 units");
+        // the active map's group takes what is drawn next
+        await activateMap(panel);
+
+        const main = await context.newPage();
+        await main.goto(app.url);
+        await main.waitForLoadState("domcontentloaded");
+        await clickTool(render, "Draw annotation");
+        await expect.poll(async () => (await tool(render, "Draw annotation")).active, { timeout: 30_000 }).toBe(true);
+        await selectByOption(main, "Polyline", "Polyline");
+        await main.waitForTimeout(800);
+
+        // from the plains, ending 4 px short of the crater rim and of the equatorial contact
+        const before = await settled(render, "snap-1-before.png", save);
+        const vp = render.viewportSize() ?? { width: 1600, height: 900 };
+        const sx = vp.width / PNG.sync.read(before).width;
+        const rim = findLine(before, 0.24, 0.48, 1, 0);       // walking right onto the crater rim
+        const equator = findLine(before, 0.25, 0.55, 0, 1);   // walking down onto the wavy contact
+        const start = { x: (rim.x - 4) * sx, y: rim.y * sx };
+        const end = { x: equator.x * sx, y: (equator.y - 4) * sx };
+        const mid = { x: (start.x + end.x) / 2 - 20, y: (start.y + end.y) / 2 };
+        for (const p of [start, mid, end]) {
+            await pick(render, p.x, p.y);
+            await awaitIdle(render, app);
+        }
+        await render.keyboard.press("Enter");
+        await awaitIdle(render, app);
+
+        // snapped at both ends: one more unit (the plains split in two, one half unlabelled),
+        // and no open end added
+        await expect.poll(() => panelText(panel), { timeout: 60_000 }).toContain("7 units");
+        const text = await panelText(panel);
+        expect(text).toContain("6 contacts");
+        expect(text).toContain("2 without a label");
+        expect(text).toContain("4 open contact ends");
+        save("snap-panel.png", await panel.screenshot());
+        const after = await settled(render, "snap-2-after.png", save);
+        expect(fs.readFileSync(app.logFile, "utf-8")).toContain("snapped onto a contact");
+
+        // N: the camera goes to the first problem
+        await render.mouse.move(vp.width / 2, vp.height / 2);
+        await render.keyboard.press("n");
+        await render.waitForTimeout(2500);
+        const flown = await settled(render, "snap-3-next-problem.png", save);
+        expect(changedFraction(after, flown)).toBeGreaterThan(0.2);
     } finally {
         await context.close();
         await app.stop();

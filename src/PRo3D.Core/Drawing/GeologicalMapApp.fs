@@ -104,7 +104,10 @@ module GeologicalMapApp =
             if String.IsNullOrEmpty c then m
             else m |> updateMap key (updateUnit unitId (fun u -> { u with code = c }))
         | Action.AssignToSelected
-        | Action.AssignAt _ -> m
+        | Action.AssignAt _
+        | Action.FlyTo _ -> m
+        // the viewer flies and sets the cursor (it needs the camera)
+        | Action.NextProblem -> m
         | Action.PickUnit (key, code) ->
             match m.maps |> IndexList.toArray |> Array.tryFind (fun x -> x.key = key) with
             | Some map ->
@@ -150,6 +153,7 @@ module GeologicalMapApp =
             labels       : int
             /// label positions, for the shell when there are no contacts
             labelSamples : V3d[]
+            labelPoints  : ContactTopology.Label[]
         }
 
     let private findGroup (root : AdaptiveNode) (key : Guid) (t : AdaptiveToken) : Option<AdaptiveNode> =
@@ -184,6 +188,43 @@ module GeologicalMapApp =
                 for s in n.subNodes do collect s
             collect n
             res.ToArray()
+
+    /// The sampled lines of the active map's contacts, while a contact is being drawn into that
+    /// map (its group is the active group and the drawing geometry is a line); otherwise none.
+    /// What a new contact point snaps to (ContactSnap).
+    let snapTargets (groups : GroupsModel) (maps : GeologicalMapsModel) (drawingGeometry : Geometry) : V3d[][] =
+        match GeologicalMapsModel.tryActive maps with
+        | Some map when groups.activeGroup.id = map.sourceGroup && isContact drawingGeometry ->
+            leafIdsOf groups.rootGroup map.sourceGroup |> Array.choose (fun id ->
+                match HashMap.tryFind id groups.flat with
+                | Some (Leaf.Annotations a) when isContact a.geometry ->
+                    let pts = Annotation.retrievePoints a |> Array.ofList
+                    let pts =
+                        if a.geometry = Geometry.Polygon && pts.Length > 2 then Array.append pts [| pts.[0] |]
+                        else pts
+                    if pts.Length >= 2 then Some pts else None
+                | _ -> None)
+        | _ -> [||]
+
+    /// How close to a contact (screen pixels) a new contact point snaps onto it.
+    [<Literal>]
+    let SnapPixels = 10.0
+
+    /// A point picked while drawing: onto the nearest contact of the active map within
+    /// SnapPixels (seen from `eye`, a view of `hfov` radians over `width` pixels), when a
+    /// contact is being drawn into that map; otherwise unchanged.
+    let snap (drawing : DrawingModel) (eye : V3d) (hfov : float) (width : int) (p : V3d) : V3d =
+        match snapTargets drawing.annotations drawing.geologicalMaps drawing.geometry with
+        | [||] -> p
+        | targets ->
+            let radius = ContactSnap.radiusOf SnapPixels hfov width
+            // the snap point must lie near the picked terrain point too, not just look near it
+            let reach = 4.0 * radius * Vec.Distance(p, eye)
+            match ContactSnap.tryPoint eye radius reach targets p with
+            | Some q ->
+                Log.line "[GeologicalMap] snapped onto a contact (%.3f m away)" (Vec.Distance(p, q))
+                q
+            | None -> p
 
     /// The body centre: annotation coordinates are body-fixed, centred on the body.
     let center = V3d.Zero
@@ -263,7 +304,91 @@ module GeologicalMapApp =
                       labelFace = s.labels |> Array.map (fun l -> l.id, 0) |> Map.ofArray }
                 else ContactTopology.label b.network s.labels
             { built = b; topology = topology; contacts = s.contacts.Length; labels = s.labels.Length
-              labelSamples = s.labels |> Array.map (fun l -> l.position) })
+              labelSamples = s.labels |> Array.map (fun l -> l.position)
+              labelPoints  = s.labels })
+
+    /// The same sources from the plain model: for actions computed in update (NextProblem).
+    let sourcesOf (groups : GroupsModel) (map : GeologicalMap) : Sources =
+        let contacts = List<ContactTopology.Contact>()
+        let labels = List<ContactTopology.Label>()
+        for id in leafIdsOf groups.rootGroup map.sourceGroup do
+            match HashMap.tryFind id groups.flat with
+            | Some (Leaf.Annotations a) ->
+                if isContact a.geometry then
+                    let pts = Annotation.retrievePoints a |> Array.ofList
+                    let pts =
+                        if a.geometry = Geometry.Polygon && pts.Length > 2 && pts.[0] <> pts.[pts.Length - 1]
+                        then Array.append pts [| pts.[0] |]
+                        else pts
+                    if pts.Length >= 2 then contacts.Add { id = a.key; points = pts }
+                elif a.geometry = Geometry.Point then
+                    match a.geoUnit, IndexList.tryFirst a.points with
+                    | Some u, Some p -> labels.Add { id = a.key; position = p; unit = u }
+                    | _ -> ()
+            | _ -> ()
+        let tolerance =
+            let mutable acc = 0.0
+            let mutable n = 0
+            for c in contacts do
+                for i in 0 .. c.points.Length - 2 do
+                    acc <- acc + Vec.Distance(c.points.[i], c.points.[i + 1])
+                    n <- n + 1
+            if n = 0 then 0.01 else max 1e-4 (0.3 * acc / float n)
+        { contacts = contacts.ToArray(); labels = labels.ToArray(); tolerance = tolerance }
+
+    [<RequireQualifiedAccess>]
+    type ProblemKind =
+        | Unlabelled
+        | Conflict
+        | OpenEnd
+
+    /// Something in a map that needs attention, and where it is.
+    type Problem = { kind : ProblemKind; position : V3d; text : string }
+
+    /// A point inside (or at least on) a face, to fly to: the mean direction of its first
+    /// boundary at their mean radius.
+    let private facePoint (f : ContactTopology.Face) =
+        match f.cycles |> Array.tryHead with
+        | Some c when c.Length > 0 ->
+            let mutable d = V3d.Zero
+            let mutable r = 0.0
+            for p in c do
+                d <- d + (p - center).Normalized
+                r <- r + (p - center).Length
+            if d.Length > 1e-9 then Some (center + d.Normalized * (r / float c.Length))
+            else Some c.[0]
+        | _ -> None
+
+    /// The problems of a labelled topology, in a fixed order: unlabelled units, conflicts,
+    /// open contact ends.
+    let problems (topology : ContactTopology.Result) (labels : ContactTopology.Label[]) : Problem[] =
+        let labelPos = labels |> Array.map (fun l -> l.id, l.position) |> Map.ofArray
+        [|
+            for f in topology.faces do
+                match f.unit with
+                | ContactTopology.FaceUnit.Unlabelled ->
+                    match facePoint f with
+                    | Some p -> yield { kind = ProblemKind.Unlabelled; position = p; text = sprintf "unlabelled unit (#%d)" f.id }
+                    | None -> ()
+                | _ -> ()
+            for f in topology.faces do
+                match f.unit with
+                | ContactTopology.FaceUnit.Conflict us ->
+                    let p = f.labels |> List.tryPick (fun l -> Map.tryFind l labelPos) |> Option.orElse (facePoint f)
+                    match p with
+                    | Some p -> yield { kind = ProblemKind.Conflict; position = p; text = sprintf "conflicting labels %s (#%d)" (String.concat ", " us) f.id }
+                    | None -> ()
+                | _ -> ()
+            for i in 0 .. topology.openEnds.Length - 1 do
+                yield { kind = ProblemKind.OpenEnd; position = topology.openEnds.[i]; text = sprintf "open contact end %d" (i + 1) }
+        |]
+
+    /// The problems of a map, computed from the plain model (NextProblem; ~the cost of one
+    /// topology build).
+    let problemsOf (groups : GroupsModel) (map : GeologicalMap) : Problem[] =
+        let s = sourcesOf groups map
+        let t = ContactTopology.compute center s.tolerance s.contacts s.labels
+        problems t s.labels
 
     // shared between the 3D views and the panel, so the topology is computed once per change;
     // the table holds each entry as long as its map's adaptive object lives
@@ -443,6 +568,45 @@ module GeologicalMapApp =
                 return V4f(rgb, a)
             }
 
+    module private MarkerShader =
+        open FShade
+
+        let private terrainDepth =
+            sampler2dMS {
+                texture uniform?TerrainDepth
+                filter Filter.MinMagPoint
+            }
+
+        type Vertex =
+            {
+                [<Position>]   pos  : V4f
+                [<PointSize>]  size : float32
+                [<PointCoord>] pc   : V2f
+            }
+
+        /// A round point, hidden where the terrain lies in front of it - read from the
+        /// surfaces' depth, so a marker on the far side of the body does not shine through.
+        let vertex (v : Vertex) =
+            vertex {
+                let mv : M44f = uniform?MV
+                let p = uniform.ProjTrafo * (mv * v.pos)
+                let ndc = p.XYZ / p.W
+                let size = V2f terrainDepth.Size
+                let px = V2i (clamp (V2f.Zero) (size - V2f.II) ((ndc.XY * 0.5f + V2f(0.5f, 0.5f)) * size))
+                let terrain = terrainDepth.Read(px, 0).X
+                let z = ndc.Z * 0.5f + 0.5f
+                let hidden = z > terrain + 0.0002f
+                return { v with pos = (if hidden then V4f(2.0f, 2.0f, 2.0f, 1.0f) else p); size = 12.0f }
+            }
+
+        let fragment (v : Vertex) =
+            fragment {
+                let d = v.pc - V2f(0.5f, 0.5f)
+                if d.Length > 0.5f then discard()
+                let edge = d.Length > 0.35f
+                return (if edge then V4f(1.0f, 1.0f, 1.0f, 1.0f) else V4f(0.9f, 0.1f, 0.1f, 1.0f))
+            }
+
     /// What the Assign unit tool needs from the viewer: whether it is the active tool, and
     /// whether the left button belongs to it right now (ViewerUtils.toolArmed).
     type AssignGate = { active : aval<bool>; armed : aval<bool> }
@@ -483,6 +647,26 @@ module GeologicalMapApp =
                 (fun c -> c.Acquire())
                 (fun c -> c.Release())
                 (fun c t rt -> c.GetValue(t, rt))
+
+        // open contact ends, marked in red; lifted a little off the terrain so the depth test
+        // against it does not swallow them
+        let markers =
+            derived |> AVal.map (fun d ->
+                let ends = d.topology.openEnds
+                let origin = ends |> Array.tryHead |> Option.defaultValue V3d.Zero
+                let lift (p : V3d) = center + (p - center) * 1.003
+                ends |> Array.map (fun p -> V3f(lift p - origin)), Trafo3d.Translation origin)
+        let markerSg : ISg<Action> =
+            Sg.draw IndexedGeometryMode.PointList
+            |> Sg.vertexAttribute DefaultSemantic.Positions (markers |> AVal.map fst)
+            |> Sg.uniform "MV" ((markers, view) ||> AVal.map2 (fun (_, t) v -> v * t.Forward))
+            |> Sg.texture "TerrainDepth" surfaces.depth
+            |> Sg.shader {
+                do! MarkerShader.vertex
+                do! MarkerShader.fragment
+            }
+            |> Sg.depthTest (AVal.constant DepthTest.None)
+            |> Sg.onOff ((map.visible, markers) ||> AVal.map2 (fun v (m, _) -> v && m.Length > 0))
 
         let hovered = cval -1
         let isActive = (maps.active, gate.active) ||> AVal.map2 (fun a on -> on && a = Some map.key)
@@ -592,6 +776,7 @@ module GeologicalMapApp =
         |> Sg.onOff ((map.visible, geometry) ||> AVal.map2 (fun v g -> v && g.positions.Length > 0))
         |> Sg.pickable' pickShape
         |> Sg.withEvents events
+        |> fun units -> Sg.ofList [ units; markerSg ]
 
     /// The maps' units over the terrain, one offscreen pass per visible map. Only in views that
     /// render their surfaces offscreen; the Snapshots path (no surface depth) shows no maps yet.
@@ -628,9 +813,29 @@ module GeologicalMapApp =
             ]
 
         let private problemsView (groups : AdaptiveGroupsModel) (m : AdaptiveGeologicalMap) =
-            let lines = derived groups m |> AVal.map summary
-            Incremental.div (AttributeMap.ofList [clazz "ui list"]) (
-                lines |> AList.ofAVal |> AList.map (fun l -> div [clazz "item"] [text l]))
+            let d = derived groups m
+            let lines = d |> AVal.map summary
+            // at most this many listed; N walks through all of them
+            let shown = 40
+            let list =
+                d |> AVal.map (fun d -> problems d.topology d.labelPoints |> Array.truncate shown |> IndexList.ofArray)
+            div [] [
+                Incremental.div (AttributeMap.ofList [clazz "ui list"]) (
+                    lines |> AList.ofAVal |> AList.map (fun l -> div [clazz "item"] [text l]))
+                Incremental.div (AttributeMap.ofList [style "max-height: 12em; overflow-y: auto; text-align: left; margin-top: 4px"]) (
+                    list |> AList.ofAVal |> AList.map (fun p ->
+                        let icon =
+                            match p.kind with
+                            | ProblemKind.Unlabelled -> "grey square icon"
+                            | ProblemKind.Conflict -> "purple exclamation triangle icon"
+                            | ProblemKind.OpenEnd -> "red circle icon"
+                        div [style "cursor: pointer; white-space: nowrap; padding: 1px 0; color: #ddd"
+                             attribute "title" "fly there (N: next problem)"
+                             onClick (fun _ -> Action.FlyTo p.position)] [
+                            i [clazz icon] []
+                            text p.text
+                        ]))
+            ]
 
         let private unitView (mapKey : Guid) (active : aval<Option<Guid>>) (u : AdaptiveGeoUnit) =
             let isActive = active |> AVal.map (fun a -> a = Some u.id)

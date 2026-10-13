@@ -41,6 +41,10 @@ type GeologicalMapAction =
     | AssignAt        of map : Guid * labels : Guid list * position : V3d
     /// eyedropper: the legend entry with this code becomes the active unit
     | PickUnit        of map : Guid * code : string
+    /// Handled by the viewer: the camera to this point (a problem of the map)
+    | FlyTo           of V3d
+    /// Handled by the viewer: the camera to the active map's next problem
+    | NextProblem
 
 /// One entry of a map's legend.
 [<ModelType>]
@@ -72,6 +76,8 @@ type GeologicalMapsModel = {
     active      : Option<Guid>
     /// the legend entry Assign gives to selected label points
     activeUnit  : Option<Guid>
+    /// which problem NextProblem flew to last; session only, not persisted
+    problemCursor : int
 }
 
 module GeoUnit =
@@ -178,7 +184,7 @@ type GeologicalMap with
 
 module GeologicalMapsModel =
 
-    let initial = { maps = IndexList.empty; active = None; activeUnit = None }
+    let initial = { maps = IndexList.empty; active = None; activeUnit = None; problemCursor = -1 }
 
     let private read0 =
         json {
@@ -188,6 +194,7 @@ module GeologicalMapsModel =
                 maps       = (maps : list<GeologicalMap>) |> IndexList.ofList
                 active     = active |> Option.map (fun (s : string) -> Guid.Parse s)
                 activeUnit = None
+                problemCursor = -1
             }
         }
 

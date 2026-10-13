@@ -36,8 +36,9 @@ through the contacts and the label points, and the units follow.
 2. Open the **Geological Maps** panel (main menu → *Layout* → *Reopen Panel*) and press **New map from group '…'**.
    The map is created over the active group and becomes the **active map**.
 3. Draw contacts into the group with the ordinary annotation tools (polyline, Sky
-   projection on small bodies). A closed region needs closed contacts: let contacts
-   **overshoot** the contact they end on - the overhanging piece is trimmed automatically.
+   projection on small bodies). A point placed within **10 pixels of an existing contact snaps
+   exactly onto it**, so a contact drawn to end on another one meets it. Alternatively let a
+   contact **overshoot** the one it ends on - the overhanging piece is trimmed automatically.
 4. Add units to the legend with **New unit** and give each a code (`Cr`), a name (*Crater
    floor*) and a colour.
 5. Assign units with the **Assign unit** tool (paint brush in the tool strip), below.
@@ -78,6 +79,25 @@ the terrain, so the tool does not wait for a surface's KdTree to load.
 Other ways to label: select point annotations and press **Assign to selected points**; draw a
 **point** into the active map's group while a legend entry is active; or type the code into
 *Geo Unit* in the annotation properties.
+
+## Snapping
+
+While you draw a line (polyline, polygon, line) into the active map's group, every point you
+place within 10 pixels of one of the map's contacts lands exactly on that contact. Only
+contacts near the picked terrain point count, so a contact on the far side of the body never
+takes the click. Snapping is what makes units close: two contacts that merely come close leave a
+gap, and the map shows two open ends there.
+
+![A contact snapped onto the crater rim and the equatorial contact](images/geological-map/snapped.png)
+
+*A new contact from the crater rim to the equatorial contact, both ends placed a few pixels off
+the lines: they snapped, and the plains split into a new, still unlabelled unit.*
+
+## Problems
+
+The panel lists what needs attention - unlabelled units, units with conflicting labels, open
+contact ends. **Click an entry** to fly there; press **N** (with the Draw annotation or Assign
+unit tool) to fly to the next one. Open contact ends are marked in the 3D view with red dots.
 
 ## The panel
 
@@ -137,9 +157,8 @@ maps; contacts and label points stay ordinary annotations there.
 
 These are planned (see `docs/dev/GeologicalMap-plan.md`):
 
-- a *Draw contact* tool with end snapping and a preview of the split;
+- a preview of the split while drawing a contact;
 - unit codes written at each unit's interior (today the code is the label point's text);
-- jumping to problems from the panel;
 - export to GeoPackage.
 
 ## Showcase

@@ -217,6 +217,25 @@ let tests () =
             Expect.isTrue r.eulerOk "V - E + F = 2"
         }
 
+        test "snap: a pick near a contact lands on it" {
+            let line = [| V3d(-10.0, 0.0, 0.0); V3d(10.0, 0.0, 0.0) |]
+            let eye = V3d(0.0, -100.0, 0.0)
+            // 0.01 rad at 100 m: about 1 m
+            match ContactSnap.tryPoint eye 0.01 4.0 [| line |] (V3d(0.5, 0.0, 0.6)) with
+            | Some q ->
+                Expect.isLessThan (abs q.Y + abs q.Z) 1e-9 "on the contact"
+                Expect.floatClose { absolute = 1e-3; relative = 0.0 } q.X 0.5 "beside the pick"
+            | None -> failtest "no snap"
+            Expect.isNone (ContactSnap.tryPoint eye 0.01 4.0 [| line |] (V3d(0.5, 0.0, 2.0))) "beyond the radius"
+        }
+
+        test "snap: a contact on the far side never takes the pick" {
+            // behind the picked point, along the same line of sight
+            let far = [| V3d(-10.0, 80.0, 0.0); V3d(10.0, 80.0, 0.0) |]
+            let eye = V3d(0.0, -100.0, 0.0)
+            Expect.isNone (ContactSnap.tryPoint eye 0.01 4.0 [| far |] (V3d(0.2, 0.0, 0.0))) "too far from the pick in 3D"
+        }
+
         test "a bumpy body has the same topology as the sphere" {
             let normals = [| V3d.OOI; V3d(1.0, 0.2, 0.1); V3d(0.1, 1.0, -0.3) |]
             let r = run [ for n in normals -> circle Bumpy n (Constant.Pi / 2.0) ] []
