@@ -86,6 +86,7 @@ let private partitions (vs : MapShell.FaceVolume[]) (probes : V3d[]) =
     for v in vs do
         Expect.isTrue (isClosed v.volume) "volume closed and consistently oriented"
         Expect.isGreaterThan (signedVolume v.volume) 0.0 "volume outward"
+        Expect.isGreaterThan (winding v.volume (terrain v.interior)) 0.5 "the interior point lies in its face"
     let total = vs |> Array.sumBy (fun v -> signedVolume v.volume)
     Expect.floatClose { absolute = 0.0; relative = 0.03 } total shellVolume "volumes fill the shell"
     for p in probes do

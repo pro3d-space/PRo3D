@@ -1267,7 +1267,10 @@ module DrawingApp =
 
             // geological map units (#843): fills too, drawn against the same surface depth
             let geologicalMaps =
-                GeologicalMapApp.render runtime surfaceDepth planet fillReach assignGate model.annotations model.geologicalMaps viewMatrix
+                GeologicalMapApp.render runtime surfaceDepth planet fillReach assignGate
+                    // the view's own field of view, in degrees (what invariantScale expects)
+                    { camera = view; near = config.nearPlane; hfov = frustum |> AVal.map Frustum.horizontalFieldOfViewInDegrees }
+                    model.annotations model.geologicalMaps viewMatrix
                 |> Sg.map DrawingAction.GeologicalMapMessage
 
             let overlay =

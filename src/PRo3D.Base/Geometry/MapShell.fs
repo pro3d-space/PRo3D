@@ -37,6 +37,12 @@ module MapShell =
             cap    : V3d[]
             /// closed and outward-oriented: outer cap, inner cap, radial walls; triangle list
             volume : V3d[]
+            /// unit direction from the centre to a point well inside the face - as far from its
+            /// boundary as the cap's triangles allow - for writing the unit's code there
+            interior : V3d
+            /// a few points well inside the face, spread over it (`interior` first): a large
+            /// face writes its code at the one facing the camera
+            anchors  : V3d[]
         }
 
     /// Longest cap edge for which the outer cap's chords stay at least half the reach above
@@ -254,9 +260,61 @@ module MapShell =
                 go A mab mca; go mab B C; go mab C mca
             | false, false, false -> ()
 
-    /// Outward cap triangles (unit directions) of a face, or None when it cannot be
-    /// triangulated.
-    let private capDirections (shell : Shell) (cycles : V3d[][]) : Option<V3d[]> =
+    /// Points well inside a face: of the cap's triangle centres, the one farthest from the
+    /// boundary (a pole of inaccessibility, approximately) first, then - for a face large enough
+    /// - up to `maxAnchors - 1` more, each as far from the chosen ones as possible while keeping
+    /// at least a third of the best clearance. Both sets are thinned to bound the cost.
+    let private anchorsOf (cap : V3d[]) (boundary : V3d[][]) : V3d[] =
+        let maxAnchors = 8
+        let triCount = cap.Length / 3
+        let bs = Array.concat boundary
+        let bStride = max 1 (bs.Length / 400)
+        let tStride = max 1 (triCount / 300)
+        let candidates = List<struct(V3d * float)>()
+        let mutable t = 0
+        while t < triCount do
+            let c = (cap.[3 * t] + cap.[3 * t + 1] + cap.[3 * t + 2]).Normalized
+            let mutable d = Double.PositiveInfinity
+            let mutable i = 0
+            while i < bs.Length do
+                let x = Vec.Distance(c, bs.[i])
+                if x < d then d <- x
+                i <- i + bStride
+            candidates.Add(struct(c, d))
+            t <- t + tStride
+        if candidates.Count = 0 then [||]
+        else
+            let mutable best = 0
+            for i in 1 .. candidates.Count - 1 do
+                let struct(_, d) = candidates.[i]
+                let struct(_, bd) = candidates.[best]
+                if d > bd then best <- i
+            let struct(first, clearance) = candidates.[best]
+            let chosen = List<V3d>()
+            chosen.Add first
+            let eligible = candidates |> Seq.filter (fun (struct(_, d)) -> d >= 0.35 * clearance) |> Seq.map (fun (struct(c, _)) -> c) |> Seq.toArray
+            let mutable fin = false
+            while not fin && chosen.Count < maxAnchors do
+                // the eligible point farthest from all chosen ones
+                let mutable far = V3d.Zero
+                let mutable farD = -1.0
+                for c in eligible do
+                    let mutable d = Double.PositiveInfinity
+                    for x in chosen do
+                        let e = Vec.Distance(c, x)
+                        if e < d then d <- e
+                    if d > farD then
+                        farD <- d
+                        far <- c
+                // spread: 1.5 clearances apart, at most ~30 degrees (chord 0.5) - so a large cap
+                // gets anchors all over, not just at its single most inaccessible point
+                if farD < min (1.5 * clearance) 0.5 then fin <- true
+                else chosen.Add far
+            chosen.ToArray()
+
+    /// Outward cap triangles (unit directions) of a face, with its densified boundary, or None
+    /// when it cannot be triangulated.
+    let private capDirections (shell : Shell) (cycles : V3d[][]) : Option<V3d[] * V3d[][]> =
         let cycles = cycles |> Array.map (directions shell) |> Array.filter (fun c -> c.Length >= 3)
         if cycles.Length = 0 then None else
         match pole cycles with
@@ -289,10 +347,10 @@ module MapShell =
                     let c = (t.P2, t.A2)
                     if ccw then subdivide chart shell.maxAngle 0 out a b c
                     else subdivide chart shell.maxAngle 0 out a c b
-                Some (out.ToArray())
+                Some (out.ToArray(), cycles)
 
     /// The closed shell volume over cap triangles given as unit directions (outward).
-    let private shellOver (shell : Shell) (cap : V3d[]) : FaceVolume =
+    let private shellOver (shell : Shell) (cap : V3d[]) (anchors : V3d[]) : FaceVolume =
         let o (d : V3d) = shell.center + d * shell.outer
         let i (d : V3d) = shell.center + d * shell.inner
         let triCount = cap.Length / 3
@@ -314,12 +372,14 @@ module MapShell =
             if not (edges.Contains(struct(b, a))) then
                 res.Add(i a); res.Add(i b); res.Add(o b)
                 res.Add(i a); res.Add(o b); res.Add(o a)
-        { cap = outerCap; volume = res.ToArray() }
+        { cap = outerCap; volume = res.ToArray()
+          interior = anchors |> Array.tryHead |> Option.defaultValue V3d.OOI
+          anchors = anchors }
 
     /// The volume over a map face (ContactTopology.Face.cycles: world points, face on the left
     /// of each cycle seen from outside). None when the face cannot be triangulated.
     let tryFace (shell : Shell) (cycles : V3d[][]) : Option<FaceVolume> =
-        capDirections shell cycles |> Option.map (shellOver shell)
+        capDirections shell cycles |> Option.map (fun (cap, boundary) -> shellOver shell cap (anchorsOf cap boundary))
 
     /// The volume over the whole body: for a map whose contacts close no face yet.
     let wholeBody (shell : Shell) : FaceVolume =
@@ -341,4 +401,4 @@ module MapShell =
                 split (depth + 1) ca bc c
                 split (depth + 1) ab bc ca
         for (a, b, c) in octa do split 0 a b c
-        shellOver shell (out.ToArray())
+        shellOver shell (out.ToArray()) [||]

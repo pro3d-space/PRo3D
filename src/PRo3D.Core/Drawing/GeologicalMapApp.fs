@@ -60,9 +60,9 @@ module GeologicalMapApp =
             else n.subNodes |> IndexList.toSeqIndexed |> Seq.tryPick (fun (i, s) -> go (i :: path) s)
         go [] root
 
-    /// A label point: its unit, with the code written next to it.
+    /// A label point of this unit. Its code is written inside the unit (not on the point).
     let withUnit (code : string) (a : Annotation) =
-        { a with geoUnit = Some code; text = code; showText = true }
+        { a with geoUnit = Some code }
 
     /// A new label point at a terrain position.
     let labelPoint (code : string) (position : V3d) =
@@ -415,9 +415,12 @@ module GeologicalMapApp =
             model     : Trafo3d
             /// where events are picked: the shell's bounds
             bounds    : Box3d
+            /// per face: points well inside it, on the terrain's mean radius there - where its
+            /// unit's code is written (at the one facing the camera most)
+            anchors   : (int * V3d[])[]
         }
 
-    let private emptyGeometry = { positions = [||]; faceIds = [||]; model = Trafo3d.Identity; bounds = Box3d.Invalid }
+    let private emptyGeometry = { positions = [||]; faceIds = [||]; model = Trafo3d.Identity; bounds = Box3d.Invalid; anchors = [||] }
 
     /// The units' volumes. Rebuilt only when the network, the reach or - for a map without
     /// contacts - the labels change; a label change alone returns the previous object.
@@ -440,10 +443,18 @@ module GeologicalMapApp =
                     match MapShell.ofPoints center reachM samples with
                     | None -> emptyGeometry
                     | Some shell ->
-                        let volumes =
+                        let faceVolumes =
                             d.topology.faces |> Array.choose (fun f ->
-                                if f.cycles.Length = 0 then Some (f.id, (MapShell.wholeBody shell).volume)
-                                else MapShell.tryFace shell f.cycles |> Option.map (fun v -> f.id, v.volume))
+                                if f.cycles.Length = 0 then
+                                    let anchor = d.labelSamples |> Array.tryHead |> Option.defaultValue center
+                                    Some (f.id, (MapShell.wholeBody shell).volume, [| anchor |])
+                                else
+                                    MapShell.tryFace shell f.cycles |> Option.map (fun v ->
+                                        // the code sits at the mean radius of the face's boundary
+                                        let pts = Array.concat f.cycles
+                                        let r = if pts.Length = 0 then 0.0 else (pts |> Array.sumBy (fun p -> Vec.Distance(p, center))) / float pts.Length
+                                        f.id, v.volume, v.anchors |> Array.map (fun a -> center + a * r)))
+                        let volumes = faceVolumes |> Array.map (fun (id, v, _) -> id, v)
                         let count = volumes |> Array.sumBy (fun (_, v) -> v.Length)
                         let positions = Array.zeroCreate count
                         let ids = Array.zeroCreate count
@@ -456,7 +467,8 @@ module GeologicalMapApp =
                                 ids.[i] <- float32 id
                                 i <- i + 1
                         { positions = positions; faceIds = ids; model = Trafo3d.Translation origin
-                          bounds = Box3d(shell.center - V3d(shell.outer), shell.center + V3d(shell.outer)) }
+                          bounds = Box3d(shell.center - V3d(shell.outer), shell.center + V3d(shell.outer))
+                          anchors = faceVolumes |> Array.map (fun (id, _, a) -> id, a) }
                 last <- Some (d.built :> obj, planet, reach, shellPoints, faceCount, g)
                 g)
 
@@ -611,6 +623,9 @@ module GeologicalMapApp =
     /// whether the left button belongs to it right now (ViewerUtils.toolArmed).
     type AssignGate = { active : aval<bool>; armed : aval<bool> }
 
+    /// The camera, for the unit codes: billboards of a fixed pixel size.
+    type TextView = { camera : aval<CameraView>; near : aval<float>; hfov : aval<float> }
+
     /// One map: its units' volumes into a face-id target against the surface depth, then laid
     /// over the terrain from the face table. Events (the Assign unit tool) read the face id and
     /// the terrain depth back from the same target - no KdTree, no ray cast.
@@ -618,7 +633,7 @@ module GeologicalMapApp =
         (runtime : IRuntime) (surfaces : OffscreenSurfaces.SurfaceDepth)
         (planet : aval<Planet>) (reach : aval<FillReach>)
         (groups : AdaptiveGroupsModel) (maps : AdaptiveGeologicalMapsModel) (gate : AssignGate)
-        (view : aval<M44d>) (map : AdaptiveGeologicalMap) : ISg<Action> =
+        (textView : TextView) (view : aval<M44d>) (map : AdaptiveGeologicalMap) : ISg<Action> =
 
         let derived = derived groups map
         let geometry = geometry planet reach derived
@@ -667,6 +682,45 @@ module GeologicalMapApp =
             }
             |> Sg.depthTest (AVal.constant DepthTest.None)
             |> Sg.onOff ((map.visible, markers) ||> AVal.map2 (fun v (m, _) -> v && m.Length > 0))
+
+        // each unit's code inside it; hidden while the unit faces away from the camera, which
+        // on a body seen from outside stands in for the terrain occluding it
+        let codes =
+            (derived, geometry) ||> AVal.map2 (fun d g ->
+                let unitOf = d.topology.faces |> Array.map (fun f -> f.id, f.unit) |> Map.ofArray
+                g.anchors |> Array.collect (fun (id, ps) ->
+                    let code =
+                        match Map.tryFind id unitOf with
+                        | Some (ContactTopology.FaceUnit.Unit c) -> Some c
+                        | Some (ContactTopology.FaceUnit.Conflict us) -> Some (String.concat "/" us)
+                        | _ -> None
+                    match code with
+                    | Some c -> ps |> Array.mapi (fun i p -> (p, i, ps, c))
+                    | None -> [||])
+                |> HashSet.ofArray)
+        // how squarely a point faces the camera: 1 straight on, 0 at the limb
+        let facing (eye : V3d) (p : V3d) =
+            let n = (p - center).Normalized
+            let v = eye - p
+            let l = v.Length
+            if l > 0.0 then Vec.Dot(n, v / l) else 0.0
+        let codeSg : ISg<Action> =
+            codes
+            |> ASet.ofAVal
+            |> ASet.map (fun (p : V3d, i : int, siblings : V3d[], code : string) ->
+                // shown when it is its face's anchor facing the camera most, and not at the limb
+                let shown =
+                    textView.camera |> AVal.map (fun c ->
+                        let f = facing c.Location p
+                        f > 0.25 && siblings |> Array.forall (fun s -> facing c.Location s <= f))
+                Sg.text textView.camera textView.near textView.hfov (AVal.constant p) (AVal.constant (Trafo3d.Translation p))
+                    (AVal.constant 0.035) (AVal.constant code) (AVal.constant C4b.White)
+                |> Sg.onOff shown)
+            |> Sg.set
+            // the anchor lies at the face's mean radius, often under its terrain: occlusion is the
+            // facing test above, not the depth buffer
+            |> Sg.depthTest (AVal.constant DepthTest.None)
+            |> Sg.onOff map.visible
 
         let hovered = cval -1
         let isActive = (maps.active, gate.active) ||> AVal.map2 (fun a on -> on && a = Some map.key)
@@ -776,20 +830,20 @@ module GeologicalMapApp =
         |> Sg.onOff ((map.visible, geometry) ||> AVal.map2 (fun v g -> v && g.positions.Length > 0))
         |> Sg.pickable' pickShape
         |> Sg.withEvents events
-        |> fun units -> Sg.ofList [ units; markerSg ]
+        |> fun units -> Sg.ofList [ units; markerSg; codeSg ]
 
     /// The maps' units over the terrain, one offscreen pass per visible map. Only in views that
     /// render their surfaces offscreen; the Snapshots path (no surface depth) shows no maps yet.
     let render
         (runtime : IRuntime) (surfaceDepth : Option<OffscreenSurfaces.SurfaceDepth>)
-        (planet : aval<Planet>) (reach : aval<FillReach>) (gate : AssignGate)
+        (planet : aval<Planet>) (reach : aval<FillReach>) (gate : AssignGate) (textView : TextView)
         (groups : AdaptiveGroupsModel) (maps : AdaptiveGeologicalMapsModel) (view : aval<M44d>) : ISg<Action> =
         match surfaceDepth with
         | None -> Sg.empty
         | Some s ->
             maps.maps
             |> AList.toASet
-            |> ASet.map (mapSg runtime s planet reach groups maps gate view)
+            |> ASet.map (mapSg runtime s planet reach groups maps gate textView view)
             |> Sg.set
 
     // -----------------------------------------------------------------------------------------

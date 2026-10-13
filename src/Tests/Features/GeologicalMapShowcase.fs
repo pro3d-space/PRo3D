@@ -98,7 +98,6 @@ let private labelPoint (p : V3d) (unitCode : string) =
     { a with
         points     = IndexList.single p
         modelTrafo = Trafo3d.Translation p
-        text       = unitCode
         geoUnit    = Some unitCode }
 
 /// The legend: code, name, colour.

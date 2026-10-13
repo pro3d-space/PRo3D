@@ -136,6 +136,10 @@ above and below the contacts the colouring reaches.
 *The southern side: a meridian contact splits the south into two units; a small closed contact
 is a boulder field inside one of them (a unit with a hole).*
 
+Each unit's **code** is written inside it, at a fixed size on screen. A large unit has several
+places for it, spread over its area, and shows the code at the one facing the camera most; codes
+of units facing away are hidden. Units without a label have no code (they are hatched).
+
 Unlike outlines, the units are only drawn in views that render their surfaces offscreen (main
 and instrument view); [Snapshots](../ai/AUTOMATION.md) do not show them yet.
 
@@ -158,7 +162,6 @@ maps; contacts and label points stay ordinary annotations there.
 These are planned (see `docs/dev/GeologicalMap-plan.md`):
 
 - a preview of the split while drawing a contact;
-- unit codes written at each unit's interior (today the code is the label point's text);
 - export to GeoPackage.
 
 ## Showcase
