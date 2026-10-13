@@ -1,7 +1,29 @@
 # Geological map — plan (#843)
 
-Status: plan, 2026-10-13. Branch `features/843_geological-map`, stacked on #841/#842 (fills
+Status: 2026-10-13. Branch `features/843_geological-map`, stacked on #841/#842 (fills
 against the surface depth), which this builds on.
+
+| step | state |
+|---|---|
+| topology core (phase 2) | done: `ContactTopology` |
+| step 1 - see a map (phase 1 skeleton + phase 3 rendering) | done: model, persistence, panel, shell volumes (`MapShell`), one-draw rendering, assign via active unit / selected points, showcase (`--make-geomap-showcase`, `tests-ui/tests/geological-map.spec.ts`) |
+| step 2 - Assign-unit tool (colour table, face ids in the pick target, click/paint/eyedropper, hatching, unit codes) | open |
+| step 3 - Draw-contact tool (phase 4, incl. incremental updates) | open |
+| step 4 - GeoPackage export (phase 5) | open |
+
+Learned on real data (Dimorphos showcase):
+
+- **Noding must be radial.** Two contacts draped on rough terrain cross on the surface, but
+  their chords pass each other at different heights - tens of centimetres, above any sensible
+  3D tolerance. Crossings are now found seen from the body centre (`radialCrossing`); the 3D
+  tolerance only joins near misses (ends stopping just short).
+- **Locating on a sparse map** searched empty grid cells one by one (300 ms for 1700 samples);
+  the grid now walks its occupied cells when a query box exceeds them (30 ms).
+- **Group keys are renewed on every annotation load**, so maps remap their `sourceGroup` there.
+- Faces are triangulated in a stereographic chart with the pole placed outside the face (as
+  far from its boundary as candidate directions allow), so bands around the body and faces
+  larger than a hemisphere need no special case. Volumes are radial shells between an inner and
+  an outer radius from the contacts' radii plus the fill reach.
 
 ## Goal
 

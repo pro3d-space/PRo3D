@@ -153,6 +153,34 @@ Actions cover assigning bodies/frames to surfaces, observing (positioning at a t
 
 ---
 
+## Geological Maps
+
+Units derived from contacts and label points (#843, the Mappy method). User docs:
+[docs/GeologicalMap.md](../docs/GeologicalMap.md); design and phases:
+[docs/dev/GeologicalMap-plan.md](../docs/dev/GeologicalMap-plan.md).
+
+| File | Role |
+|---|---|
+| `src/PRo3D.Base/Geometry/ContactTopology.fs` | pure: contacts + labels -> faces (with holes), open ends, conflicts, Euler check. Noding is radial (crossings seen from the body centre), so draped contacts at different heights still cross |
+| `src/PRo3D.Base/Geometry/MapShell.fs` | pure: closed shell volume per face (stereographic chart with the pole outside the face, subdivided caps, radial walls) |
+| `src/PRo3D.Core/GeologicalMap-Model.fs` | `GeologicalMapsModel` (maps, active map, active unit), `GeologicalMap` (source group, legend, opacity), `GeoUnit`, `GeologicalMapAction` |
+| `src/PRo3D.Core/Drawing/GeologicalMapApp.fs` | update, the derived topology per map (`derived`, cached per adaptive map), rendering as one DeferredFills draw, the panel (`?page=geomaps`) |
+
+- **Nothing derived is persisted.** `GeologicalMapsModel` lives on `DrawingModel` and is saved
+  in the `.pro3d.ann` file (`Annotations.geologicalMaps`); label points carry `Annotation.geoUnit`
+  (a `GeoUnit.code`). Both are new keys read with `Json.tryRead`.
+- **Group keys are renewed on every annotation load** (`GroupsApp.repairGroupNodesGuid`).
+  Anything referring to a group by `Node.key` must be remapped there -
+  `DrawingUtilities.IO.loadAnnotationse` does it for maps and the active group
+  (`repairGroupNodesGuidMapped`).
+- The drawing app handles the two actions that touch annotations (`AssignToSelected`,
+  `SetUnitCode`), and makes the active map's group the active annotation group
+  (`SetActive`/`NewMap`). A point finished into that group with a legend unit active gets the
+  unit (`finishAndAppend`).
+- Rendering needs a surface depth (main and instrument view); Snapshots show no maps yet.
+
+---
+
 ## Outcrop Traces
 
 `OutcropTraceModel` / `OutcropTraceApp` (`src/PRo3D.Core/`). Marks where a modelled bedding

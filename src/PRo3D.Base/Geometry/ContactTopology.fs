@@ -10,7 +10,8 @@ open Aardvark.Base
 /// units. Every step is a question local to one place on the surface, answered in 3D or in the
 /// tangent plane there, so a map may cover the whole body: no chart, no poles, no date line.
 ///
-///   1. noding      - where two contact segments come within `tolerance`, both are split there
+///   1. noding      - where two contact segments cross seen from the centre, or come within
+///                    `tolerance` of each other, both are split there
 ///   2. nodes       - split points and samples within `tolerance` of each other become one node
 ///   3. graph       - consecutive nodes along each contact are edges; dangling pieces (an end
 ///                    that reaches no other contact) are trimmed and reported as open ends
@@ -102,12 +103,21 @@ module ContactTopology =
         member x.Query(box : Box3d, f : int -> unit) =
             let lo = key box.Min
             let hi = key box.Max
-            for i in lo.X .. hi.X do
-                for j in lo.Y .. hi.Y do
-                    for k in lo.Z .. hi.Z do
-                        match cells.TryGetValue(V3l(i, j, k)) with
-                        | true, l -> for id in l do f id
-                        | _ -> ()
+            let span = float (hi.X - lo.X + 1L) * float (hi.Y - lo.Y + 1L) * float (hi.Z - lo.Z + 1L)
+            if span > float cells.Count then
+                // a box larger than the occupied space (a far search on a sparse map): walk
+                // the occupied cells instead of the box's mostly empty ones
+                for kv in cells do
+                    let c = kv.Key
+                    if c.X >= lo.X && c.X <= hi.X && c.Y >= lo.Y && c.Y <= hi.Y && c.Z >= lo.Z && c.Z <= hi.Z then
+                        for id in kv.Value do f id
+            else
+                for i in lo.X .. hi.X do
+                    for j in lo.Y .. hi.Y do
+                        for k in lo.Z .. hi.Z do
+                            match cells.TryGetValue(V3l(i, j, k)) with
+                            | true, l -> for id in l do f id
+                            | _ -> ()
 
         member x.IsEmpty = cells.Count = 0
 
@@ -155,6 +165,36 @@ module ContactTopology =
                     t <- 1.0
                     s <- clamp 0.0 1.0 ((b - c) / a)
                 s, t
+
+    /// Where segments p1-q1 and p2-q2 cross seen from `center`: parameters s, t of the points
+    /// on the same ray from the centre. Draped contacts cross on the terrain, but their chords
+    /// pass each other at different heights - the radial view sees the crossing regardless.
+    let private radialCrossing (center : V3d) (p1 : V3d) (q1 : V3d) (p2 : V3d) (q2 : V3d) : Option<float * float> =
+        let a1, b1, a2, b2 = p1 - center, q1 - center, p2 - center, q2 - center
+        // the plane through the centre and each segment; a segment meets the other's plane
+        // at a parameter linear in its position
+        let n1 = Vec.Cross(a1, b1)
+        let n2 = Vec.Cross(a2, b2)
+        let d1 = Vec.Dot(b1 - a1, n2)
+        let d2 = Vec.Dot(b2 - a2, n1)
+        // a transversal crossing only: segments on (nearly) one plane through the centre -
+        // consecutive pieces of a great circle - have a parameter that is rounding noise
+        let transversal (d : float) (seg : V3d) (n : V3d) = abs d > 1e-6 * seg.Length * n.Length
+        if not (transversal d1 (b1 - a1) n2 && transversal d2 (b2 - a2) n1) then None
+        else
+            let s = -Vec.Dot(a1, n2) / d1
+            let t = -Vec.Dot(a2, n1) / d2
+            // a crossing through a sample lands on both segments that share it, each with a
+            // parameter a rounding error outside [0, 1]
+            let eps = 1e-9
+            if s < -eps || s > 1.0 + eps || t < -eps || t > 1.0 + eps then None
+            else
+                let s = clamp 0.0 1.0 s
+                let t = clamp 0.0 1.0 t
+                // the planes meet in a line through the centre: same side, not antipodal
+                let x1 = a1 + (b1 - a1) * s
+                let x2 = a2 + (b2 - a2) * t
+                if Vec.Dot(x1, x2) > 0.0 then Some (s, t) else None
 
     /// Parameter of the point of segment a-b closest to p.
     let private closestOnSegment (a : V3d) (b : V3d) (p : V3d) =
@@ -211,13 +251,23 @@ module ContactTopology =
             for s in 0 .. segCount - 1 do acc <- acc + Vec.Distance(vertPos.[segA.[s]], vertPos.[segB.[s]])
             acc / float segCount
         let segGrid = Grid(max (meanLength * 2.0) (tolerance * 4.0))
+        // enlarged by the segment's own length too: two draped contacts crossing over rough
+        // terrain pass each other at different heights, up to the relief between samples
         let segBox s =
-            Box3d([| vertPos.[segA.[s]]; vertPos.[segB.[s]] |]).EnlargedBy(tolerance)
+            let a, b = vertPos.[segA.[s]], vertPos.[segB.[s]]
+            Box3d([| a; b |]).EnlargedBy(tolerance + Vec.Distance(a, b))
         for s in 0 .. segCount - 1 do segGrid.Add(s, segBox s)
 
         // split points per segment: (parameter, vertex)
         let splits = Array.init segCount (fun _ -> List<struct(float * int)>())
         let seen = HashSet<struct(int * int)>()
+        // a crossing at a segment's end joins that sample rather than splitting the segment
+        // there - a split would leave the sample behind as a one-edge stub
+        let joins = List<struct(int * int)>()
+        let attach (seg : int) (param : float) (vi : int) =
+            if param <= 1e-9 then joins.Add(struct(vi, segA.[seg]))
+            elif param >= 1.0 - 1e-9 then joins.Add(struct(vi, segB.[seg]))
+            else splits.[seg].Add(struct(param, vi))
         for s in 0 .. segCount - 1 do
             segGrid.Query(segBox s, fun o ->
                 if o > s && seen.Add(struct(s, o)) then
@@ -227,18 +277,23 @@ module ContactTopology =
                     if not sharesVertex then
                         let p1, q1 = vertPos.[segA.[s]], vertPos.[segB.[s]]
                         let p2, q2 = vertPos.[segA.[o]], vertPos.[segB.[o]]
-                        let u, v = closestSegmentSegment p1 q1 p2 q2
+                        let radial = radialCrossing center p1 q1 p2 q2
+                        let u, v =
+                            match radial with
+                            | Some uv -> uv
+                            | None -> closestSegmentSegment p1 q1 p2 q2
                         let c1 = p1 + (q1 - p1) * u
                         let c2 = p2 + (q2 - p2) * v
-                        if Vec.Distance(c1, c2) <= tolerance then
+                        if Option.isSome radial || Vec.Distance(c1, c2) <= tolerance then
                             let vi = vertPos.Count
                             vertPos.Add((c1 + c2) * 0.5)
-                            splits.[s].Add(struct(u, vi))
-                            splits.[o].Add(struct(v, vi)))
+                            attach s u vi
+                            attach o v vi)
 
         // ---- 3. nodes: everything within tolerance is one node -----------------------------
         let vertCount = vertPos.Count
         let union = Union(vertCount)
+        for struct(a, b) in joins do union.Union(a, b)
         let pointGrid = Grid(max tolerance 1e-9)
         for i in 0 .. vertCount - 1 do
             let p = vertPos.[i]

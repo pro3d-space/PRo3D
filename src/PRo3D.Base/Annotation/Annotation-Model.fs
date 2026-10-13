@@ -663,6 +663,10 @@ type Annotation = {
     showFill   : bool
     fillColor  : ColorInput
     fillAlpha  : NumericInput
+
+    /// The geological unit a label point assigns to the map unit it lies in (#843,
+    /// docs/GeologicalMap.md): a GeoUnit.code. None for every other annotation.
+    geoUnit    : Option<string>
 }
 with
     static member current = 5
@@ -755,6 +759,7 @@ with
                 showFill             = false
                 fillColor            = color
                 fillAlpha            = Annotation.initialFillAlpha
+                geoUnit              = None
             }
         }
 
@@ -822,6 +827,7 @@ with
                 showFill             = false
                 fillColor            = color
                 fillAlpha            = Annotation.initialFillAlpha
+                geoUnit              = None
             }
         }
 
@@ -889,6 +895,7 @@ with
                 showFill             = false
                 fillColor            = color
                 fillAlpha            = Annotation.initialFillAlpha
+                geoUnit              = None
             }
         }
 
@@ -959,6 +966,7 @@ with
                 showFill             = false
                 fillColor            = color
                 fillAlpha            = Annotation.initialFillAlpha
+                geoUnit              = None
             }
         }
 
@@ -1030,6 +1038,7 @@ with
                 showFill             = false
                 fillColor            = color
                 fillAlpha            = Annotation.initialFillAlpha
+                geoUnit              = None
             }
         }
 
@@ -1085,6 +1094,8 @@ with
             let! showFill  = Json.tryRead "showFill"
             let! fillColor = Json.tryRead "fillColor"
             let! fillAlpha = Json.tryRead "fillAlpha"
+            // optional, no version bump (#843)
+            let! geoUnit   = Json.tryRead "geoUnit"
 
             return {
                 version          = Annotation.current
@@ -1123,6 +1134,7 @@ with
                 fillAlpha            =
                     { Annotation.initialFillAlpha with
                         value = fillAlpha |> Option.defaultValue Annotation.initialFillAlpha.value }
+                geoUnit              = geoUnit
             }
         }
 
@@ -1196,6 +1208,9 @@ with
             do! Json.write "showFill"  x.showFill
             do! Json.write "fillColor" (x.fillColor.c.ToString())
             do! Json.write "fillAlpha" x.fillAlpha.value
+            match x.geoUnit with
+            | Some u -> do! Json.write "geoUnit" u
+            | None -> ()
         }
 
 module Annotation =
@@ -1282,6 +1297,7 @@ module Annotation =
             showFill             = false
             fillColor            = color
             fillAlpha            = Annotation.initialFillAlpha
+            geoUnit              = None
         }
 
     let initial =

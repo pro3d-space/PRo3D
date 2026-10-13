@@ -2187,6 +2187,12 @@ module Gui =
                 require (viewerDependencies) (body bodyAttributes [ScaleBars.scaleBarsUI m |> UI.map ViewerMessage])
             | Some "traverse" -> 
                 require (viewerDependencies) (body bodyAttributes [Traverse.traverseUI m |> UI.map ViewerMessage])
+            | Some "geomaps" ->
+                require (viewerDependencies) (
+                    body bodyAttributes [
+                        GeologicalMapApp.UI.view m.drawing.annotations m.drawing.geologicalMaps
+                        |> UI.map (DrawingAction.GeologicalMapMessage >> ViewerAction.DrawingMessage >> ViewerMessage)
+                    ])
             | Some "geologicSurf" -> 
                 require (viewerDependencies) (body bodyAttributes [GeologicSurfaces.geologicSurfacesUI m |> UI.map ViewerMessage])
             | Some "sequencedBookmarks" -> 

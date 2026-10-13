@@ -206,6 +206,17 @@ let tests () =
             Expect.equal conflicted.Length 1 "the northern face holds both and is flagged"
         }
 
+        test "contacts crossing at different heights still cross" {
+            // draped on rough terrain, two contacts' chords pass each other with the relief
+            // between samples in between - here 0.5 m, far above the tolerance
+            let low = circle Sphere V3d.OOI (Constant.Pi / 2.0)
+            let high = circle Sphere V3d.IOO (Constant.Pi / 2.0) |> Array.map (fun p -> p * ((radius + 0.5) / radius))
+            let r = run [ low; high ] []
+            Expect.equal r.faces.Length 4 "two great circles: four faces"
+            Expect.equal r.openEnds.Length 0 "no open ends"
+            Expect.isTrue r.eulerOk "V - E + F = 2"
+        }
+
         test "a bumpy body has the same topology as the sphere" {
             let normals = [| V3d.OOI; V3d(1.0, 0.2, 0.1); V3d(0.1, 1.0, -0.3) |]
             let r = run [ for n in normals -> circle Bumpy n (Constant.Pi / 2.0) ] []

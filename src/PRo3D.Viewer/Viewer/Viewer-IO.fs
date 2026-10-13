@@ -129,6 +129,7 @@ module ViewerIO =
                         annotations     = annotations.annotations
                         dnsColorLegend  = annotations.dnsColorLegend
                         colorByCategory = annotations.colorByCategory
+                        geologicalMaps  = annotations.geologicalMaps
                 }
          }  
 
