@@ -203,6 +203,54 @@ module Gui =
                 }
         }
 
+    /// the single-selected surface, if any
+    let private selectedSurface (m : AdaptiveModel) : aval<Option<AdaptiveSurface>> =
+        let surfaces = m.scene.surfacesModel.surfaces
+        adaptive {
+            let! selected = surfaces.singleSelectLeaf
+            match selected with
+            | None -> return None
+            | Some id ->
+                let! leaf = AMap.tryFind id surfaces.flat
+                match leaf with
+                | Some (AdaptiveSurfaces surface) -> return Some surface
+                | _ -> return None
+        }
+
+    let private colorMapLegendTile (m : AdaptiveModel) =
+        let selected = selectedSurface m
+        let close show =
+            SurfaceActions (SurfaceAppAction.SurfacePropertiesMessage (SurfaceProperties.SetColorMapLegend show))
+        {
+            header =
+                adaptive {
+                    let! selected = selected
+                    match selected with
+                    | None -> return None
+                    | Some surface ->
+                        let! tf = surface.transferFunction
+                        match tf.tf with
+                        | ColorMaps.TF.Ramp _ when tf.showColorMapLegend ->
+                            let! name = surface.name
+                            return Some (sprintf "Color Map — %s" name, close false)
+                        | _ -> return None
+                }
+            width  = rampLegendWidth
+            body   =
+                alist {
+                    let! selected = selected
+                    match selected with
+                    | Some surface ->
+                        let! tf = surface.transferFunction
+                        match tf.tf with
+                        | ColorMaps.TF.Ramp (lo, hi, name) ->
+                            yield! FalseColorLegendApp.Draw.createColorMapLegendBasics "ColorMapLegend"
+                                    (AVal.constant tf.showColorMapLegend) (AVal.constant name) (AVal.constant lo) (AVal.constant hi)
+                        | _ -> ()
+                    | None -> ()
+                }
+        }
+
     let private projectedImageLegendTile (m : AdaptiveModel) =
         let selected = PRo3D.GIS.ProjectedImagesListAppHelper.getSelectedImage m.scene.gisApp.projectedImageList
         {
@@ -342,6 +390,7 @@ module Gui =
         let dns        = dnsLegendTile m
         let cbc        = colorByCategoryLegendTile m
         let scalar     = scalarLegendTile m
+        let colorMap   = colorMapLegendTile m
         let projected  = projectedImageLegendTile m
         let comparison = comparisonLegendTile m
 
@@ -350,6 +399,7 @@ module Gui =
             | ColorLegendKind.DipAndStrike      -> dns
             | ColorLegendKind.ColorByCategory   -> cbc
             | ColorLegendKind.SurfaceScalar     -> scalar
+            | ColorLegendKind.SurfaceColorMap   -> colorMap
             | ColorLegendKind.ProjectedImage    -> projected
             | ColorLegendKind.SurfaceComparison -> comparison
 

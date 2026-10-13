@@ -14,11 +14,16 @@ module ColorMaps =
             lazy
                 let stream = typeof<Marker>.Assembly.GetManifestResourceStream(sprintf "PRo3D.Base.resources.%s" name)
                 PixTexture2d(PixImageMipMap(PixImage.Load(stream)), false)
-        Map.ofList [ 
+        Map.ofList [
             "plasma",   loadTexture "plasma.png"
             "oranges",  loadTexture "oranges.png"
             "spectral", loadTexture "spectral.png"
         ]
+
+    /// Opens a fresh stream of one of the LUT images above, for building a legend
+    /// gradient independently of the stream already consumed by `colorMaps`' lazy texture.
+    let getLegendStream (name : string) : System.IO.Stream =
+        typeof<Marker>.Assembly.GetManifestResourceStream(sprintf "PRo3D.Base.resources.%s.png" name)
 
     type TF = 
         | Ramp of min : float * max : float * name : string

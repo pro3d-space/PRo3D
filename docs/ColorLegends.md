@@ -12,6 +12,7 @@ legend straight from the view and rearrange the tiles.
 | Dip & Strike | `Dip angle [°]` | *show legend* in the Dip&Strike ColorLegend panel | *Dip&Strike ColorLegend* panel → *show legend* |
 | [Color by Category](ColorByCategory.md) | attribute and unit, or the surface layer name | Color by Category enabled, *show legend* ticked, attribute numeric or cyclic | *Color by Category* panel → *show legend* |
 | Surface scalar | `<scalar layer> — <surface>` | a single surface is selected, it has a selected scalar layer, and that layer's *show legend* is ticked | *Scalars ColorLegend* panel of the surface → *show legend* |
+| Surface color map | `Color Map — <surface>` | a single surface is selected, its Transfer Function is *Ramp*, and *show legend* is ticked | surface's *Properties* panel, Color Map section → *show legend* |
 | Projected image | `<image file> · <channel>` | a projected image is selected and its legend toggle is on | projected image's edit panel → *Show color legend* |
 | [Surface comparison](SurfaceComparison.md) | `Distance [m] — <area>` | a comparison area with statistics is selected | Surface Comparison → paint brush icon in the area's row |
 
@@ -37,7 +38,7 @@ only; selecting another surface whose legend is on shows that one.
   them. Tiles to its right slide left; their order does not change.
 - The order is saved with the scene (`config.colorLegendOrder`). Scenes saved before it
   existed load with the default order: Dip & Strike, Color by Category, Surface scalar,
-  Projected image, Surface comparison.
+  Surface color map, Projected image, Surface comparison.
 - If the row gets wider than the view, the dock scrolls horizontally instead of wrapping
   to a second row (that would halve the ramps' height). Scroll it with Shift + mouse wheel
   over a tile header.
@@ -60,11 +61,19 @@ buttons take mouse input.
   visible ones in `colorLegendOrder` and puts swap buttons between them.
 - Close messages set the visibility explicitly rather than toggling it, so a double click
   cannot show the legend again: `FalseColorLegendApp.SetUseFalseColors`,
+  `SurfaceProperties.SetColorMapLegend` (surface color map),
   `ImageMessage.SetFalseColorLegend` (projected images) and
   `AreaSelectionAction.SetLegendVisible` (comparison areas). A comparison area's hidden
   legend stays hidden when its statistics are recomputed.
+- The surface color map legend has no `FalseColorsModel` of its own — its range and LUT
+  name live only on `Surface.transferFunction.tf` (`ColorMaps.TF.Ramp(min,max,name)`, set
+  via the *Min*/*Max*/*Color Map* controls), so there is nothing to keep in sync. Its
+  gradient is drawn by `FalseColorLegendApp.Draw.createColorMapLegendBasics`, which shares
+  the named-image rendering path of `createFalseColorLegendBasics` via the private
+  `legendBody` helper.
 - Each ramp's SVG gradient needs a document-unique id: `DnsLegend`,
-  `ColorByCategoryLegend`, `ScalarLegend`, `ProjectedLegend`, `ComparisonLegend`.
+  `ColorByCategoryLegend`, `ScalarLegend`, `ColorMapLegend`, `ProjectedLegend`,
+  `ComparisonLegend`.
 - Styles: `.pro3d-legend-*` in
   [`semui-overrides.css`](../src/PRo3D.Viewer/resources/semui-overrides.css).
 - Tests: [`ColorLegendDockTest.fs`](../src/Tests/ColorLegendDockTest.fs).

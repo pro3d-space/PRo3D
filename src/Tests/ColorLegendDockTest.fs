@@ -29,6 +29,7 @@ module Tests =
                     ColorLegendKind.DipAndStrike
                     ColorLegendKind.ProjectedImage
                     ColorLegendKind.SurfaceScalar
+                    ColorLegendKind.SurfaceColorMap
                     ColorLegendKind.ColorByCategory
                     ColorLegendKind.SurfaceComparison
                 ] "only the swapped legends move"
@@ -50,6 +51,7 @@ module Tests =
                     ColorLegendKind.SurfaceScalar
                     ColorLegendKind.DipAndStrike
                     ColorLegendKind.ColorByCategory
+                    ColorLegendKind.SurfaceColorMap
                     ColorLegendKind.ProjectedImage
                     ColorLegendKind.SurfaceComparison
                 ] "stored order kept, the rest appended in default order"

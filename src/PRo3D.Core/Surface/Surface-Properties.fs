@@ -40,6 +40,8 @@ module SurfaceProperties =
         | SetTFMin of float
         | SetTFMax of float
         | SetColorMappingName of Option<string>
+        | ToggleColorMapLegend
+        | SetColorMapLegend of bool
         | SetTextureCombiner of TextureCombiner
         | SetBlendFactor of float
         | CountourAppMessage of ContourLineApp.Action
@@ -114,9 +116,13 @@ module SurfaceProperties =
             { model with transferFunction = { model.transferFunction with tf = ColorMaps.TF.trySetMax max model.transferFunction.tf; } }
         | SetColorMappingName None -> 
             model
-        | SetColorMappingName (Some name) -> 
+        | SetColorMappingName (Some name) ->
             { model with transferFunction = { model.transferFunction with tf = ColorMaps.TF.trySetName name model.transferFunction.tf }  }
-        | SetTextureCombiner c -> 
+        | ToggleColorMapLegend ->
+            { model with transferFunction = { model.transferFunction with showColorMapLegend = not model.transferFunction.showColorMapLegend } }
+        | SetColorMapLegend show ->
+            { model with transferFunction = { model.transferFunction with showColorMapLegend = show } }
+        | SetTextureCombiner c ->
             { model with transferFunction = { model.transferFunction with textureCombiner = c } }
         | SetBlendFactor f -> 
             { model with transferFunction = { model.transferFunction with blendFactor = f }}
@@ -251,6 +257,9 @@ module SurfaceProperties =
 
                     yield Html.row "Color Map" [
                         yield UI.dropDown'' (ColorMaps.colorMaps |> Map.toSeq |> Seq.map fst |> AList.ofSeq) (toColorMapName tf.tf |> AVal.constant) (fun x -> SetColorMappingName x) (fun s -> s)
+                    ]
+                    yield Html.row "show legend:" [
+                        GuiEx.iconCheckBox (tf.showColorMapLegend |> AVal.constant) ToggleColorMapLegend
                     ]
                 | _ -> ()
 

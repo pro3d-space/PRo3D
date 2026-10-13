@@ -72,6 +72,7 @@ type ColorLegendKind =
     | DipAndStrike
     | ColorByCategory
     | SurfaceScalar
+    | SurfaceColorMap
     | ProjectedImage
     | SurfaceComparison
 
@@ -83,6 +84,7 @@ module ColorLegendKind =
         ColorLegendKind.DipAndStrike
         ColorLegendKind.ColorByCategory
         ColorLegendKind.SurfaceScalar
+        ColorLegendKind.SurfaceColorMap
         ColorLegendKind.ProjectedImage
         ColorLegendKind.SurfaceComparison
     ]
@@ -92,6 +94,7 @@ module ColorLegendKind =
         | ColorLegendKind.DipAndStrike      -> "DipAndStrike"
         | ColorLegendKind.ColorByCategory   -> "ColorByCategory"
         | ColorLegendKind.SurfaceScalar     -> "SurfaceScalar"
+        | ColorLegendKind.SurfaceColorMap   -> "SurfaceColorMap"
         | ColorLegendKind.ProjectedImage    -> "ProjectedImage"
         | ColorLegendKind.SurfaceComparison -> "SurfaceComparison"
 
