@@ -18,16 +18,17 @@ Outlines, points and labels are always drawn on top of the fill.
 A fill colours terrain up to a certain distance above and below its outline - the **fill
 reach**, in *Viewer configuration → Fill Reach (m)*:
 
-- **auto** (default): half the outline's size, at most
-  | body | maximum |
-  |---|---|
-  | Mars, Earth, Moon | 1000 m |
-  | Phobos | 200 m |
-  | Deimos | 100 m |
-  | Didymos | 50 m |
-  | Dimorphos | 15 m |
-  | no body (local frames) | 100 m |
+- **auto** (default): half the outline's size, at most the body's maximum below.
 - untick **auto** to set a fixed reach in metres.
+
+| body | maximum auto reach |
+|---|---|
+| Mars, Earth, Moon | 1000 m |
+| Phobos | 200 m |
+| Deimos | 100 m |
+| Didymos | 50 m |
+| Dimorphos | 15 m |
+| no body (local frames) | 100 m |
 
 The outline's own height differences are always included on top, so an outline drawn across a
 slope or on a vertical rock face is filled completely whatever the reach.

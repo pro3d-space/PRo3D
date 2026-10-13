@@ -1138,8 +1138,8 @@ module DrawingApp =
                 PackedRendering.points model.colorByCategory (model.annotations.selectedLeaves |> ASet.map (fun l -> l.id)) (annoSet |> ASet.map ((fun (g, (s,t)) -> g,s))) config.offset viewMatrix
                 |> Sg.noEvents
 
-            // the fill runs in its own passes ahead of the main pass (PackedRendering.fillStencilPass /
-            // fillColorPass), so outlines draw on top of it regardless of list order.
+            // the fills run in their own passes ahead of the main pass (PackedRendering.packedFillRender),
+            // so outlines draw on top of them regardless of list order.
             //
             // NOTE: the spice trafo (t) is dropped here exactly as linesNoIndirect drops it, so
             // fill and outline stay aligned. The legacy branch below applies it to both for the
