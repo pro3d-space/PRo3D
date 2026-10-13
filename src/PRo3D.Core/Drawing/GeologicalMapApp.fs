@@ -953,7 +953,7 @@ module GeologicalMapApp =
             let list =
                 d |> AVal.map (fun d -> problems d.topology d.labelPoints |> Array.truncate shown |> IndexList.ofArray)
             div [] [
-                Incremental.div (AttributeMap.ofList [clazz "ui list"]) (
+                Incremental.div (AttributeMap.ofList [clazz "ui inverted list"]) (
                     lines |> AList.ofAVal |> AList.map (fun l -> div [clazz "item"] [text l]))
                 Incremental.div (AttributeMap.ofList [style "max-height: 12em; overflow-y: auto; text-align: left; margin-top: 4px"]) (
                     list |> AList.ofAVal |> AList.map (fun p ->
@@ -1001,7 +1001,7 @@ module GeologicalMapApp =
                     match findGroup groups.rootGroup (m.sourceGroup.GetValue t) t with
                     | Some n -> n.name.GetValue t
                     | None -> "(group missing)")
-            div [clazz "ui segment"; style "padding: 6px; margin: 4px 0"] [
+            div [clazz "ui inverted segment"; style "padding: 6px; margin: 4px 0"] [
                 Html.table [
                     Html.row "Map:" [
                         Incremental.i
@@ -1019,15 +1019,15 @@ module GeologicalMapApp =
                     Html.row "Opacity:" [Numeric.view' [Slider; InputBox] m.opacity |> UI.map (fun a -> Action.SetOpacity(m.key, a))]
                     Html.row "Status:" [problemsView groups m]
                 ]
-                h5 [clazz "ui header"; style "margin: 6px 0"] [text "Legend"]
+                h5 [clazz "ui inverted header"; style "margin: 6px 0"] [text "Legend"]
                 table [clazz "ui compact unstackable inverted table"] [
                     Incremental.tbody AttributeMap.empty (m.units |> AList.map (unitView m.key model.activeUnit))
                 ]
                 div [] [
-                    button [clazz "ui tiny button"; onClick (fun _ -> Action.AddUnit m.key)] [text "New unit"]
-                    button [clazz "ui tiny button"; onClick (fun _ -> Action.AssignToSelected)] [text "Assign to selected points"]
+                    button [clazz "ui tiny inverted button"; onClick (fun _ -> Action.AddUnit m.key)] [text "New unit"]
+                    button [clazz "ui tiny inverted button"; onClick (fun _ -> Action.AssignToSelected)] [text "Assign to selected points"]
                     |> UI.wrapToolTip DataPosition.Bottom "Gives the active unit to the selected point annotations"
-                    button [clazz "ui tiny red basic button"; onClick (fun _ -> Action.RemoveMap m.key)] [text "Remove map"]
+                    button [clazz "ui tiny inverted red basic button"; onClick (fun _ -> Action.RemoveMap m.key)] [text "Remove map"]
                     |> UI.wrapToolTip DataPosition.Bottom "Removes the map only; its contacts and label points stay"
                 ]
             ]
@@ -1041,7 +1041,7 @@ module GeologicalMapApp =
                         alist {
                             let! g = activeGroup
                             yield
-                                button [clazz "ui small button"; onClick (fun _ -> Action.NewMap(g.id, g.name))] [
+                                button [clazz "ui small inverted button"; onClick (fun _ -> Action.NewMap(g.id, g.name))] [
                                     text (sprintf "New map from group '%s'" g.name)
                                 ]
                                 |> UI.wrapToolTip DataPosition.Bottom
