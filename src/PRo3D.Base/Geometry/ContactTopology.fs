@@ -91,15 +91,23 @@ module ContactTopology =
     // -----------------------------------------------------------------------------------------
 
     /// Uniform grid of axis-aligned boxes, for candidate pairs and nearest queries.
+    ///
+    /// A box covering more than MaxCells cells (a long, undraped segment: a polygon's closing
+    /// chord, a contact across a hole in the surface) is not written into each of them - that
+    /// is cubic in its length and has exhausted memory - but kept aside and tested by every query.
     type private Grid(cell : float) =
         let cells = Dictionary<V3l, List<int>>()
+        let big = List<struct(int * Box3d)>()
         let key (p : V3d) = V3l(int64 (floor (p.X / cell)), int64 (floor (p.Y / cell)), int64 (floor (p.Z / cell)))
+        static let MaxCells = 512.0
 
         member x.Cell = cell
 
         member x.Add(id : int, box : Box3d) =
             let lo = key box.Min
             let hi = key box.Max
+            let span = float (hi.X - lo.X + 1L) * float (hi.Y - lo.Y + 1L) * float (hi.Z - lo.Z + 1L)
+            if span > MaxCells then big.Add(struct(id, box)) else
             for i in lo.X .. hi.X do
                 for j in lo.Y .. hi.Y do
                     for k in lo.Z .. hi.Z do
@@ -113,6 +121,8 @@ module ContactTopology =
 
         /// Every id registered in a cell overlapping `box` (may repeat).
         member x.Query(box : Box3d, f : int -> unit) =
+            for struct(id, b) in big do
+                if b.Intersects box then f id
             let lo = key box.Min
             let hi = key box.Max
             let span = float (hi.X - lo.X + 1L) * float (hi.Y - lo.Y + 1L) * float (hi.Z - lo.Z + 1L)
@@ -131,7 +141,7 @@ module ContactTopology =
                             | true, l -> for id in l do f id
                             | _ -> ()
 
-        member x.IsEmpty = cells.Count = 0
+        member x.IsEmpty = cells.Count = 0 && big.Count = 0
 
     /// Union-find over 0 .. n-1.
     type private Union(n : int) =
@@ -234,7 +244,10 @@ module ContactTopology =
     ///
     /// `center` is the body centre (for the tangent planes and for locating points);
     /// `tolerance` the distance below which two contacts count as touching - a fraction of the
-    /// sampling spacing: draped polylines of two contacts never hit each other exactly.
+    /// sampling spacing: draped polylines of two contacts never hit each other exactly. It is an
+    /// upper bound: between two contacts at most 0.3 of the finer one's spacing applies, and
+    /// samples of one contact are never merged (bar exact duplicates), so a finely sampled
+    /// contact is not collapsed by the spacing of coarser ones.
     let build (center : V3d) (tolerance : float) (contacts : Contact[]) : Network =
 
         // ---- 1. segments -----------------------------------------------------------------
@@ -253,6 +266,25 @@ module ContactTopology =
                     segB.Add(first + i + 1)
                     segContact.Add ci
         let segCount = segA.Count
+
+        // each sample's contact; split points (added below) belong to none (-1)
+        let vertContact = List<int>(vertPos.Count)
+        for ci in 0 .. contacts.Length - 1 do
+            for _ in contacts.[ci].points do vertContact.Add ci
+        // mean sample spacing per contact
+        let spacing =
+            let sum = Array.zeroCreate contacts.Length
+            let count = Array.zeroCreate contacts.Length
+            for s in 0 .. segCount - 1 do
+                let c = segContact.[s]
+                sum.[c] <- sum.[c] + Vec.Distance(vertPos.[segA.[s]], vertPos.[segB.[s]])
+                count.[c] <- count.[c] + 1
+            Array.init contacts.Length (fun c -> if count.[c] = 0 then Double.PositiveInfinity else sum.[c] / float count.[c])
+        let spacingOf (c : int) = if c < 0 then Double.PositiveInfinity else spacing.[c]
+        /// touching distance between samples of contacts a and b
+        let pairTolerance (a : int) (b : int) =
+            if a >= 0 && a = b then 0.01 * spacingOf a
+            else min tolerance (0.3 * min (spacingOf a) (spacingOf b))
 
         let empty = { faces = [||]; openEnds = [||]; eulerOk = true; faceAt = fun _ -> None }
         if segCount = 0 then empty else
@@ -296,9 +328,10 @@ module ContactTopology =
                             | None -> closestSegmentSegment p1 q1 p2 q2
                         let c1 = p1 + (q1 - p1) * u
                         let c2 = p2 + (q2 - p2) * v
-                        if Option.isSome radial || Vec.Distance(c1, c2) <= tolerance then
+                        if Option.isSome radial || Vec.Distance(c1, c2) <= pairTolerance segContact.[s] segContact.[o] then
                             let vi = vertPos.Count
                             vertPos.Add((c1 + c2) * 0.5)
+                            vertContact.Add -1
                             attach s u vi
                             attach o v vi)
 
@@ -311,7 +344,7 @@ module ContactTopology =
             let p = vertPos.[i]
             let box = Box3d(p, p).EnlargedBy(tolerance)
             pointGrid.Query(box, fun j ->
-                if Vec.Distance(vertPos.[j], p) <= tolerance then union.Union(i, j))
+                if Vec.Distance(vertPos.[j], p) <= pairTolerance vertContact.[i] vertContact.[j] then union.Union(i, j))
             pointGrid.Add(i, Box3d(p, p))
 
         let nodeOf = Array.zeroCreate vertCount
@@ -497,9 +530,9 @@ module ContactTopology =
             let len = Vec.Distance(a, b)
             let nearEnd = bestT * len < 1e-9 || (1.0 - bestT) * len < 1e-9
             if not nearEnd then
-                // interior of an edge: which side of a -> b, in the tangent plane there
-                let p = a + (b - a) * bestT
-                let side = Vec.Dot(Vec.Cross(b - a, q - p), p.Normalized)
+                // interior of an edge: which side of the great circle through a and b - valid at
+                // any distance, unlike a tangent-plane test (probes of other networks can be far)
+                let side = Vec.Dot(Vec.Cross(a, b), q)
                 Some (if side >= 0.0 then 2 * best else 2 * best + 1)
             else
                 // at a node: the sector between two consecutive edges, counter-clockwise

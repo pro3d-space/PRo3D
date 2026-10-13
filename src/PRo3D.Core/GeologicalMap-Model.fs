@@ -80,6 +80,36 @@ type GeologicalMapsModel = {
     problemCursor : int
 }
 
+/// Reading maps never fails the annotation file they ride in: an entry this release cannot
+/// read - a newer release's version, a malformed id or colour - is skipped, not an error that
+/// takes all annotations down (scene compatibility, docs/GeologicalMap.md).
+module internal JsonTolerant =
+
+    /// The entries of the array under `key` that deserialize; the others are skipped.
+    let inline readSome (key : string) : Json<list<'a>> =
+        fun json ->
+            let items =
+                match json with
+                | Json.Object o ->
+                    match Map.tryFind key o with
+                    | Some (Json.Array js) ->
+                        js |> List.choose (fun j ->
+                            match Json.tryDeserialize j with
+                            | Choice1Of2 x -> Some x
+                            | Choice2Of2 _ -> None)
+                    | _ -> []
+                | _ -> []
+            Value items, json
+
+    let guid (s : string) : Json<Guid> =
+        match Guid.TryParse s with
+        | true, g -> Json.init g
+        | _ -> Json.error (sprintf "not a guid: %s" s)
+
+    let color (s : string) : Json<C4b> =
+        try Json.init (C4b.Parse s)
+        with _ -> Json.error (sprintf "not a colour: %s" s)
+
 module GeoUnit =
 
     /// A qualitative palette (ColorBrewer Set3/Paired-like), cycled for new units.
@@ -97,7 +127,9 @@ module GeoUnit =
             let! code  = Json.read "code"
             let! name  = Json.read "name"
             let! color = Json.read "color"
-            return { id = Guid.Parse(id : string); code = code; name = name; color = { c = C4b.Parse(color : string) } }
+            let! id    = JsonTolerant.guid id
+            let! color = JsonTolerant.color color
+            return { id = id; code = code; name = name; color = { c = color } }
         }
 
     let toJson (x : GeoUnit) =
@@ -146,13 +178,15 @@ module GeologicalMap =
             let! key         = Json.read "key"
             let! name        = Json.read "name"
             let! sourceGroup = Json.read "sourceGroup"
-            let! units       = Json.read "units"
+            let! units       = JsonTolerant.readSome "units"
             let! visible     = Json.read "visible"
             let! opacity     = Json.readFloat "opacity"
+            let! key         = JsonTolerant.guid key
+            let! sourceGroup = JsonTolerant.guid sourceGroup
             return {
-                key         = Guid.Parse(key : string)
+                key         = key
                 name        = name
-                sourceGroup = Guid.Parse(sourceGroup : string)
+                sourceGroup = sourceGroup
                 units       = (units : list<GeoUnit>) |> IndexList.ofList
                 visible     = visible
                 opacity     = { initialOpacity with value = if Double.IsFinite opacity then clamp 0.0 1.0 opacity else initialOpacity.value }
@@ -188,11 +222,15 @@ module GeologicalMapsModel =
 
     let private read0 =
         json {
-            let! maps   = Json.read "maps"
+            let! maps   = JsonTolerant.readSome "maps"
             let! active = Json.tryRead "active"
             return {
                 maps       = (maps : list<GeologicalMap>) |> IndexList.ofList
-                active     = active |> Option.map (fun (s : string) -> Guid.Parse s)
+                active     =
+                    active |> Option.bind (fun (s : string) ->
+                        match Guid.TryParse s with
+                        | true, g -> Some g
+                        | _ -> None)
                 activeUnit = None
                 problemCursor = -1
             }
@@ -212,7 +250,8 @@ module GeologicalMapsModel =
             let! v = Json.read "version"
             match v with
             | 0 -> return! read0
-            | _ -> return! v |> sprintf "don't know version %d of GeologicalMaps" |> Json.error
+            // a newer release's maps: none here, the annotations themselves still load
+            | _ -> return initial
         }
 
     let tryActive (m : GeologicalMapsModel) =

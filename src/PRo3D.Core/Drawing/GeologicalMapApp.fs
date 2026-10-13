@@ -41,6 +41,10 @@ module GeologicalMapApp =
         let rec go i = let c = sprintf "U%d" i in if used.Contains c then go (i + 1) else c
         go (map.units.Count + 1)
 
+    /// Whether some unit of the map already has this code.
+    let codeInUse (map : GeologicalMap) (code : string) =
+        map.units |> IndexList.toArray |> Array.exists (fun u -> u.code = code)
+
     let tryFindUnit (m : GeologicalMapsModel) (unitId : Guid) =
         m.maps |> IndexList.toArray |> Array.tryPick (fun map ->
             map.units |> IndexList.toArray |> Array.tryFind (fun u -> u.id = unitId) |> Option.map (fun u -> map, u))
@@ -101,7 +105,11 @@ module GeologicalMapApp =
             { m with activeUnit = if m.activeUnit = Some unitId then None else Some unitId }
         | Action.SetUnitCode (key, unitId, c) ->
             let c = c.Trim()
-            if String.IsNullOrEmpty c then m
+            let taken =
+                m.maps |> IndexList.toArray |> Array.exists (fun map ->
+                    map.key = key && map.units |> IndexList.toArray |> Array.exists (fun u -> u.id <> unitId && u.code = c))
+            // a code is a unit's identity on its label points: two units with one code would merge
+            if String.IsNullOrEmpty c || taken then m
             else m |> updateMap key (updateUnit unitId (fun u -> { u with code = c }))
         | Action.AssignToSelected
         | Action.AssignAt _
@@ -804,6 +812,9 @@ module GeologicalMapApp =
 
         /// The face id and terrain point under the cursor, from the face-id target.
         let read (evt : SceneEvent) : Option<int * V3d> =
+            // the target is only acquired (by the composite) while the map is shown; reading it
+            // otherwise would compile a render task nothing ever releases
+            if not (map.visible.GetValue()) then None else
             try
                 let tex = accumulation.GetValue(AdaptiveToken.Top, RenderToken.Empty)
                 let size = tex.Size.XY
@@ -838,6 +849,10 @@ module GeologicalMapApp =
             | Some f -> Seq.singleton (Action.AssignAt(map.key, f.labels, p))
             | None -> Seq.empty
 
+        let stopPainting () =
+            painting <- false
+            painted <- -1
+
         let pickUnit (id : int) =
             let d = derived.GetValue()
             match d.topology.faces |> Array.tryFind (fun f -> f.id = id) |> Option.map (fun f -> f.unit) with
@@ -865,26 +880,30 @@ module GeologicalMapApp =
                         true, Seq.empty
                     else
                         match read hit.event with
-                        | Some (id, _) when hit.event.evtAlt -> true, Seq.delay (fun () -> pickUnit id)
+                        // Alt+click, or a click with no legend unit active: the eyedropper
+                        | Some (id, _) when hit.event.evtAlt || (maps.activeUnit.GetValue()).IsNone ->
+                            true, Seq.delay (fun () -> pickUnit id)
                         | Some (id, p) ->
                             painting <- true
                             painted <- id
                             true, Seq.delay (fun () -> assignAt id p)
                         | None -> true, Seq.empty
                 SceneEventKind.Up, fun (_ : SceneHit) ->
-                    painting <- false
-                    painted <- -1
+                    stopPainting ()
                     true, Seq.empty
+                // Move events carry no button state (aardvark.media), so a stroke ends on Up - also
+                // the global one below, for a button released off the map - or on leaving the map
                 SceneEventKind.Leave, fun (_ : SceneHit) ->
                     setHovered -1
+                    stopPainting ()
                     true, Seq.empty
             ]
 
         // only the active map, only while its tool is selected - otherwise the shell's box would
         // sit in front of the terrain and take every click from the other tools
         let pickShape =
-            (isActive, geometry) ||> AVal.map2 (fun on g ->
-                if on && g.bounds.IsValid then PickShape.Box g.bounds else PickShape.Box Box3d.Invalid)
+            (isActive, map.visible, geometry) |||> AVal.map3 (fun on visible g ->
+                if on && visible && g.bounds.IsValid then PickShape.Box g.bounds else PickShape.Box Box3d.Invalid)
 
         let shownHover = (isActive, hovered :> aval<_>) ||> AVal.map2 (fun on h -> if on then h else -1)
 
@@ -907,6 +926,7 @@ module GeologicalMapApp =
         |> Sg.onOff ((map.visible, geometry) ||> AVal.map2 (fun v g -> v && g.positions.Length > 0))
         |> Sg.pickable' pickShape
         |> Sg.withEvents events
+        |> Sg.withGlobalEvents [ SceneEventKind.Up, fun _ -> stopPainting (); Seq.empty ]
         |> fun units -> Sg.ofList [ units; markerSg; codeSg; strokeSg ]
 
     /// The maps' units over the terrain, one offscreen pass per visible map. Only in views that

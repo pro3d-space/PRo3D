@@ -164,6 +164,55 @@ let tests () =
             partitions vs [| V3d.OOI; V3d(0.3, 0.2, 1.0); -V3d.OOI; V3d(1.0, 0.0, 0.1); V3d(-1.0, 0.0, 0.3) |]
         }
 
+        test "long contact edges: neighbouring volumes still share their walls" {
+            // a contact of four 90-degree pieces along the equator, and a meridian: the long
+            // pieces are densified identically from both sides and never split again, so the
+            // probes right next to them land in exactly one volume
+            let square = [| for i in 0 .. 4 -> let a = Constant.PiTimesTwo * float (i % 4) / 4.0 in V3d(cos a, sin a, 0.0) * radius |]
+            let r = topology [ square; circle V3d.OIO (Constant.Pi / 2.0) ]
+            let vs = volumes r
+            Expect.equal vs.Length 4 "four faces"
+            let near (lonDeg : float) (latDeg : float) =
+                let lon = lonDeg * Constant.RadiansPerDegree
+                let lat = latDeg * Constant.RadiansPerDegree
+                V3d(cos lat * cos lon, cos lat * sin lon, sin lat)
+            partitions vs [| near 45.0 0.5; near 45.0 -0.5; near 135.0 0.3; near 200.0 -0.3; V3d.OOI; -V3d.OOI |]
+        }
+
+        test "a small non-convex map at Mars scale: every face is drawn" {
+            // a C-shaped unit a few km across on a 3390 km body: the face around it (the rest of
+            // the planet) needs a projection pole inside the C - no mean or Fibonacci direction
+            // falls into it
+            let R = 3.39e6
+            let at (y : float) (z : float) = (V3d(R, y, z)).Normalized * R
+            let corners = [| 0.0, 0.0; 4000.0, 0.0; 4000.0, 4000.0; 0.0, 4000.0; 0.0, 3000.0; 3000.0, 3000.0; 3000.0, 1000.0; 0.0, 1000.0 |]
+            let ring =
+                [| for i in 0 .. corners.Length - 1 do
+                     let (y0, z0) = corners.[i]
+                     let (y1, z1) = corners.[(i + 1) % corners.Length]
+                     let n = max 1 (int (Vec.Distance(V2d(y0, z0), V2d(y1, z1)) / 20.0))
+                     for k in 0 .. n - 1 do
+                         let t = float k / float n
+                         yield at (y0 + (y1 - y0) * t) (z0 + (z1 - z0) * t)
+                   yield at 0.0 0.0 |]
+            let cs = [| { id = Guid.NewGuid(); points = ring } |]
+            let r = compute V3d.Zero 6.0 cs [||]
+            Expect.equal r.faces.Length 2 "inside and outside the C"
+            let marsShell = (MapShell.ofPoints V3d.Zero 1000.0 ring) |> Option.defaultWith (fun () -> failwith "no shell")
+            let vs =
+                r.faces |> Array.map (fun f ->
+                    match MapShell.tryFace marsShell f.cycles with
+                    | Some v -> v
+                    | None -> failwithf "face %d not drawn" f.id)
+            for v in vs do
+                Expect.isTrue (isClosed v.volume) "closed"
+            let inside (p : V3d) =
+                vs |> Array.filter (fun v -> winding v.volume p > 0.5) |> Array.length
+            Expect.equal (inside (at 500.0 500.0)) 1 "in the C's lower arm"
+            Expect.equal (inside (at 1500.0 2000.0)) 1 "in the notch"
+            Expect.equal (inside (V3d(-R, 0.0, 0.0))) 1 "on the far side"
+        }
+
         testPropertyWithConfig { FsCheckConfig.defaultConfig with maxTest = 25 }
             "great circles: the face volumes partition the shell" <| fun () ->
             Prop.forAll (Arb.fromGen arrangementGen) (fun (normals, probes) ->

@@ -56,7 +56,7 @@ with the tool's click gesture (Ctrl+click, or a plain click in
 |---|---|
 | **click** a unit | it takes the active unit |
 | **drag** across units | every unit the cursor passes takes the active unit |
-| **Alt+click** a unit | eyedropper: its unit becomes the active legend entry |
+| **Alt+click** a unit | eyedropper: its unit becomes the active legend entry (a click with no legend entry active does the same) |
 | hover | the unit under the cursor is highlighted |
 
 Under the hood a unit's unit is its label point: clicking a unit without one places a label point
@@ -131,7 +131,8 @@ Per map:
     do not bound anything; an overshoot you drew on purpose shows up here too;
   - *topology check failed* - the contacts could not be turned into units consistently.
 - **Legend** - colour, code, name, the active unit, remove. Renaming a code renames it on the
-  map's label points too, so units keep their colour.
+  map's label points too, so units keep their colour; a code another unit already has is refused.
+  Legend edits are not undo steps.
 - **Remove map** removes the map only; its contacts and label points stay as annotations.
 
 A scene can have several maps (two interpretations of the same area, units vs. morphology);
@@ -155,7 +156,7 @@ places for it, spread over its area, and shows the code at the one facing the ca
 of units facing away are hidden. Units without a label have no code (they are hatched).
 
 Unlike outlines, the units are only drawn in views that render their surfaces offscreen (main
-and instrument view); [Snapshots](../ai/AUTOMATION.md) do not show them yet.
+and instrument view); [Snapshots](../ai/AUTOMATION.md) and the [map projection view](MapProjectionView.md) do not show them yet.
 
 ## Where it is stored
 
@@ -176,6 +177,10 @@ maps; contacts and label points stay ordinary annotations there.
 These are planned (see `docs/dev/GeologicalMap-plan.md`):
 
 - export to GeoPackage.
+
+## How it works
+
+Algorithms, acceleration structures and precision: [dev/GeologicalMap-architecture.md](dev/GeologicalMap-architecture.md).
 
 ## Showcase
 

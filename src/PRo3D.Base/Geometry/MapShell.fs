@@ -98,9 +98,12 @@ module MapShell =
         if n <= 1 then Array.empty
         else
             let s, e = if lexLess a b then a, b else b, a
+            // along the great circle (slerp): equal pieces, none longer than maxAngle - a
+            // normalised straight-line blend makes the middle pieces longer than the outer ones
+            let w = angle s e
             let pts = Array.init (n - 1) (fun i ->
                 let t = float (i + 1) / float n
-                (s * (1.0 - t) + e * t).Normalized)
+                (s * sin ((1.0 - t) * w) + e * sin (t * w)).Normalized)
             if lexLess a b then pts else Array.rev pts
 
     /// A cycle as unit directions, densified to maxAngle, without consecutive duplicates.
@@ -154,8 +157,9 @@ module MapShell =
             let a = cy.[bestI]
             let b = cy.[(bestI + 1) % n]
             if bestT > 1e-9 && bestT < 1.0 - 1e-9 then
-                let p = a + (b - a) * bestT
-                Vec.Dot(Vec.Cross(b - a, q - p), p) < 0.0
+                // the side of the edge's great circle: valid at any distance (a tangent-plane test
+                // at the nearest point degenerates far away - e.g. at the antipode, a pole candidate)
+                Vec.Dot(Vec.Cross(a, b), q) < 0.0
             else
                 // at a vertex v of the path u -> v -> w: the face is the sector swept
                 // counter-clockwise from w to u
@@ -196,6 +200,22 @@ module MapShell =
             add -m
             add m
         candidates.AddRange fibonacciCandidates
+        // just across the face's own edges, at a few distances: these lie outside even when the
+        // face is everything but a thin or non-convex strip that no other candidate hits
+        for c in cycles do
+            let stride = max 1 (c.Length / 32)
+            let mutable i = 0
+            while i < c.Length do
+                let a = c.[i]
+                let b = c.[(i + 1) % c.Length]
+                let m = ((a + b) * 0.5).Normalized
+                let d = b - a
+                let len = d.Length
+                if len > 1e-12 then
+                    // the face is on the left of a -> b seen from outside; this points right
+                    let right = Vec.Cross(d / len, m).Normalized
+                    for k in [| 1.0; 4.0; 16.0 |] do add (m + right * (k * len))
+                i <- i + stride
         // clearance: the angular distance to the nearest boundary vertex (chord length, same order)
         let clearance (q : V3d) =
             let mutable m = Double.PositiveInfinity
@@ -228,10 +248,19 @@ module MapShell =
     /// Splits triangles (chart point, direction) until every edge spans at most maxAngle.
     /// Midpoints are taken in the chart and depend only on the edge's ends, so triangles
     /// sharing an edge split it identically and the mesh stays conforming.
-    let rec private subdivide (chart : Chart) (maxAngle : float) (depth : int) (out : List<V3d>)
+    let rec private subdivide (chart : Chart) (maxAngle : float) (boundary : HashSet<struct(V3d * V3d)>) (depth : int) (out : List<V3d>)
                               (pa : V2d, a : V3d) (pb : V2d, b : V3d) (pc : V2d, c : V3d) =
-        let long (x : V3d) (y : V3d) = depth < 16 && angle x y > maxAngle
-        let ab, bc, ca = long a b, long b c, long c a
+        // a boundary edge is never split: the neighbouring face, triangulated in its own chart,
+        // would split it elsewhere and the two faces' walls would no longer coincide (boundary
+        // edges are already densified to maxAngle, identically from both sides - `between`)
+        // An edge is long when its ends are far apart - or when the chart bends it far away: near
+        // the projection pole a chart edge between two close points can sweep over most of the
+        // body, and only its chart midpoint shows that
+        let long (px : V2d, x : V3d) (py : V2d, y : V3d) =
+            depth < 16 && not (boundary.Contains(struct(x, y))) &&
+            (angle x y > maxAngle ||
+             angle (chart.ToSphere((px + py) * 0.5)).Normalized (x + y).Normalized > 0.25 * maxAngle)
+        let ab, bc, ca = long (pa, a) (pb, b), long (pb, b) (pc, c), long (pc, c) (pa, a)
         if not (ab || bc || ca) then
             out.Add a; out.Add b; out.Add c
         else
@@ -241,7 +270,7 @@ module MapShell =
             let A = (pa, a)
             let B = (pb, b)
             let C = (pc, c)
-            let go = subdivide chart maxAngle (depth + 1) out
+            let go = subdivide chart maxAngle boundary (depth + 1) out
             match ab, bc, ca with
             | true, true, true ->
                 let mab, mbc, mca = mid A B, mid B C, mid C A
@@ -340,13 +369,20 @@ module MapShell =
                     let e2 = t.P2 - t.P0
                     area <- area + (e1.X * e2.Y - e1.Y * e2.X)
                 let ccw = area >= 0.0
+                let boundary = HashSet<struct(V3d * V3d)>()
+                for c in cycles do
+                    for i in 0 .. c.Length - 1 do
+                        let a = c.[i]
+                        let b = c.[(i + 1) % c.Length]
+                        boundary.Add(struct(a, b)) |> ignore
+                        boundary.Add(struct(b, a)) |> ignore
                 let out = List<V3d>()
                 for t in ts do
                     let a = (t.P0, t.A0)
                     let b = (t.P1, t.A1)
                     let c = (t.P2, t.A2)
-                    if ccw then subdivide chart shell.maxAngle 0 out a b c
-                    else subdivide chart shell.maxAngle 0 out a c b
+                    if ccw then subdivide chart shell.maxAngle boundary 0 out a b c
+                    else subdivide chart shell.maxAngle boundary 0 out a c b
                 Some (out.ToArray(), cycles)
 
     /// The closed shell volume over cap triangles given as unit directions (outward).
@@ -376,14 +412,9 @@ module MapShell =
           interior = anchors |> Array.tryHead |> Option.defaultValue V3d.OOI
           anchors = anchors }
 
-    /// The volume over a map face (ContactTopology.Face.cycles: world points, face on the left
-    /// of each cycle seen from outside). None when the face cannot be triangulated.
-    let tryFace (shell : Shell) (cycles : V3d[][]) : Option<FaceVolume> =
-        capDirections shell cycles |> Option.map (fun (cap, boundary) -> shellOver shell cap (anchorsOf cap boundary))
-
-    /// The volume over the whole body: for a map whose contacts close no face yet.
-    let wholeBody (shell : Shell) : FaceVolume =
-        // octahedron, split until fine enough
+    /// The whole sphere as outward cap triangles (unit directions): an octahedron, split until
+    /// no edge spans more than maxAngle.
+    let private wholeCap (shell : Shell) : V3d[] =
         let x, y, z = V3d.IOO, V3d.OIO, V3d.OOI
         let octa =
             [| x, y, z; y, -x, z; -x, -y, z; -y, x, z
@@ -401,4 +432,53 @@ module MapShell =
                 split (depth + 1) ca bc c
                 split (depth + 1) ab bc ca
         for (a, b, c) in octa do split 0 a b c
-        shellOver shell (out.ToArray()) [||]
+        out.ToArray()
+
+    /// Six times the volume of the cone from the centre over cap triangles (unit directions):
+    /// positive for an outward cap, negative for one that came out inside-out.
+    let private signedCap (cap : V3d[]) =
+        let mutable s = 0.0
+        for t in 0 .. cap.Length / 3 - 1 do
+            s <- s + Vec.Dot(cap.[3 * t], Vec.Cross(cap.[3 * t + 1], cap.[3 * t + 2]))
+        s
+
+    /// The volume over a map face (ContactTopology.Face.cycles: world points, face on the left
+    /// of each cycle seen from outside). None when the face cannot be triangulated.
+    ///
+    /// A face that is nearly the whole body - everything but a small region, its complement -
+    /// cannot be triangulated in a chart: the pole has to lie in the small complement, so the rest
+    /// of the body is squeezed around the chart's origin, inside triangles whose corners and edges
+    /// all lie at the complement (no edge test can see that, and the triangulation comes out
+    /// inside-out). Such a face is the whole shell plus its complement's volume turned inside out:
+    /// counted (+1/-1, DeferredFills) the two cancel over the complement, so terrain there is
+    /// outside the face and everywhere else inside.
+    let tryFace (shell : Shell) (cycles : V3d[][]) : Option<FaceVolume> =
+        match capDirections shell cycles with
+        | Some (cap, boundary) when signedCap cap > 0.0 ->
+            Some (shellOver shell cap (anchorsOf cap boundary))
+        | _ ->
+            let reversed = cycles |> Array.map Array.rev
+            match capDirections shell reversed with
+            | Some (complementCap, complementBoundary) when signedCap complementCap > 0.0 ->
+                let whole = wholeCap shell
+                // anchors: points of the whole sphere that lie in the face, not in its complement
+                let faceBoundary = complementBoundary |> Array.map Array.rev
+                let inFace =
+                    [| for t in 0 .. whole.Length / 3 - 1 do
+                         let c = (whole.[3 * t] + whole.[3 * t + 1] + whole.[3 * t + 2]).Normalized
+                         if not (isOutside faceBoundary c) then
+                             yield whole.[3 * t]; yield whole.[3 * t + 1]; yield whole.[3 * t + 2] |]
+                let anchors = anchorsOf inFace faceBoundary
+                let all = shellOver shell whole anchors
+                let complement = shellOver shell complementCap [||]
+                let inverted = Array.zeroCreate complement.volume.Length
+                for t in 0 .. complement.volume.Length / 3 - 1 do
+                    inverted.[3 * t] <- complement.volume.[3 * t]
+                    inverted.[3 * t + 1] <- complement.volume.[3 * t + 2]
+                    inverted.[3 * t + 2] <- complement.volume.[3 * t + 1]
+                Some { all with volume = Array.append all.volume inverted }
+            | _ -> None
+
+    /// The volume over the whole body: for a map whose contacts close no face yet.
+    let wholeBody (shell : Shell) : FaceVolume =
+        shellOver shell (wholeCap shell) [||]

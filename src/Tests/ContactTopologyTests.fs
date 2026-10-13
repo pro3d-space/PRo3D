@@ -236,6 +236,33 @@ let tests () =
             Expect.isNone (ContactSnap.tryPoint eye 0.01 4.0 [| far |] (V3d(0.2, 0.0, 0.0))) "too far from the pick in 3D"
         }
 
+        test "a finely sampled contact survives a tolerance set by coarse ones" {
+            // 13 m and 0.34 m spacing; 1 m tolerance, as 0.3 x a coarse-dominated mean would give.
+            // Merging samples within the tolerance used to chain the fine circle into one node
+            let coarse =
+                let n, u, v = basis V3d.OOI
+                Array.init 37 (fun i -> let a = Constant.PiTimesTwo * float (i % 36) / 36.0 in (u * cos a + v * sin a) * radius)
+            let fine =
+                let n, u, v = basis V3d.IOO
+                Array.init 1441 (fun i -> let a = Constant.PiTimesTwo * float (i % 1440) / 1440.0 in (u * cos a + v * sin a) * radius)
+            let r = compute V3d.Zero 1.0 [| contact coarse; contact fine |] [||]
+            Expect.equal r.faces.Length 4 "two crossing circles: four faces"
+            Expect.equal r.openEnds.Length 0 "no open ends"
+            Expect.isTrue r.eulerOk "V - E + F = 2"
+        }
+
+        test "long undraped chords next to dense contacts stay fast and correct" {
+            // a contact of four 109 m chords (a polygon's closing chord, a contact across a hole)
+            // used to be written into every grid cell its box covers - cubic in its length
+            let square = [| for i in 0 .. 4 -> let a = Constant.PiTimesTwo * float (i % 4) / 4.0 in V3d(cos a, sin a, 0.0) * radius |]
+            let meridian = circle Sphere V3d.OIO (Constant.Pi / 2.0)
+            let sw = Diagnostics.Stopwatch.StartNew()
+            let r = compute V3d.Zero tolerance [| contact square; contact meridian |] [||]
+            Expect.isLessThan sw.Elapsed.TotalSeconds 5.0 "fast"
+            Expect.equal r.faces.Length 4 "square ring and meridian: four faces"
+            Expect.equal r.openEnds.Length 0 "no open ends"
+        }
+
         test "a bumpy body has the same topology as the sphere" {
             let normals = [| V3d.OOI; V3d(1.0, 0.2, 0.1); V3d(0.1, 1.0, -0.3) |]
             let r = run [ for n in normals -> circle Bumpy n (Constant.Pi / 2.0) ] []

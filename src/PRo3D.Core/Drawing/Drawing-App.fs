@@ -834,8 +834,11 @@ module DrawingApp =
                 | GeologicalMapAction.SetUnitCode (mapKey, unitId, code) ->
                     let code = code.Trim()
                     match GeologicalMapApp.tryFindUnit model.geologicalMaps unitId with
-                    | Some (map, u) when map.key = mapKey && code <> "" && code <> u.code ->
-                        // the map's label points follow the rename, so their units stay put
+                    | Some (map, u) when map.key = mapKey && code <> "" && code <> u.code
+                                         && not (GeologicalMapApp.codeInUse map code) ->
+                        // the map's label points follow the rename, so their units stay put. Not an
+                        // undo step: the legend is not on the undo stack, and undoing only the label
+                        // points would leave them with a code the legend no longer has
                         let before = model.annotations
                         let leaves = GeologicalMapApp.leafIdsOf before.rootGroup map.sourceGroup
                         let flat =
@@ -845,9 +848,10 @@ module DrawingApp =
                                     let text = if a.text = u.code then code else a.text
                                     HashMap.add id (Leaf.Annotations { a with geoUnit = Some code; text = text }) flat
                                 | _ -> flat) before.flat
-                        let after = { before with flat = flat }
-                        { model with annotations = after; geologicalMaps = maps }
-                        |> pushUndo (SnapshotDelta(before, after))
+                        { model with annotations = { before with flat = flat }; geologicalMaps = maps }
+                    | Some (map, _) when GeologicalMapApp.codeInUse map code ->
+                        Log.warn "[GeologicalMap] code '%s' is already used by another unit of '%s'" code map.name
+                        model
                     | _ -> { model with geologicalMaps = maps }
                 | GeologicalMapAction.AssignAt (mapKey, labels, position) ->
                     let unit =

@@ -97,6 +97,49 @@ let tests () =
             | _ -> failtest "label point lost"
         }
 
+        test "maps a newer release wrote, or malformed ones, are skipped - the annotations still load" {
+            let file, point, map = withMap ()
+            let edit (f : Map<string, Json> -> Map<string, Json>) =
+                match file |> serialize |> Json.parse with
+                | Json.Object o -> Json.Object (f o)
+                | j -> j
+            let withMaps (maps : Json) =
+                edit (fun o ->
+                    match Map.tryFind "geologicalMaps" o with
+                    | Some (Json.Object g) -> Map.add "geologicalMaps" (Json.Object (Map.add "maps" maps g)) o
+                    | _ -> o)
+            let good =
+                match file.geologicalMaps.maps |> IndexList.toList with
+                | [ m ] -> Json.serialize m
+                | _ -> failwith "one map expected"
+            let newer =
+                match good with
+                | Json.Object m -> Json.Object (Map.add "version" (Json.Number 9M) m)
+                | j -> j
+            let malformed =
+                match good with
+                | Json.Object m -> Json.Object (Map.add "key" (Json.String "not a guid") m)
+                | j -> j
+            let restored : Annotations = withMaps (Json.Array [ newer; good; malformed ]) |> Json.format |> Json.parse |> Json.deserialize
+            Expect.equal (restored.geologicalMaps.maps |> IndexList.toList |> List.map (fun m -> m.key)) [ map.key ] "only the readable map"
+            Expect.isTrue (HashMap.containsKey point.key restored.annotations.flat) "annotations loaded"
+
+            let whole =
+                edit (fun o ->
+                    Map.add "geologicalMaps" (Json.Object (Map.ofList [ "version", Json.Number 7M; "maps", Json.Array [] ])) o)
+            let restored : Annotations = whole |> Json.format |> Json.parse |> Json.deserialize
+            Expect.equal restored.geologicalMaps.maps.Count 0 "a newer maps format: no maps"
+            Expect.isTrue (HashMap.containsKey point.key restored.annotations.flat) "annotations still loaded"
+        }
+
+        test "a unit code already used in the map is refused" {
+            let file, _, map = withMap ()
+            let np = map.units |> IndexList.toArray |> Array.tryFind (fun u -> u.code = "Np") |> Option.defaultWith (fun () -> failwith "no Np")
+            let renamed = GeologicalMapApp.update file.geologicalMaps (GeologicalMapAction.SetUnitCode(map.key, np.id, "Cr"))
+            let codes = renamed.maps |> IndexList.toArray |> Array.collect (fun m -> m.units |> IndexList.toArray |> Array.map (fun u -> u.code))
+            Expect.equal codes [| "Cr"; "Np" |] "unchanged"
+        }
+
         test "the map follows its group through the group-key renewal on load" {
             let file, point, _ = withMap ()
             let loaded = file |> serialize |> DrawingUtilities.IO.loadAnnotationsFromJson

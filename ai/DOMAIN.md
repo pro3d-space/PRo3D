@@ -155,7 +155,8 @@ Actions cover assigning bodies/frames to surfaces, observing (positioning at a t
 
 ## Geological Maps
 
-Units derived from contacts and label points (#843, the Mappy method). User docs:
+Units derived from contacts and label points (#843, the Mappy method). How it works (pipeline,
+acceleration structures, precision): [docs/dev/GeologicalMap-architecture.md](../docs/dev/GeologicalMap-architecture.md). User docs:
 [docs/GeologicalMap.md](../docs/GeologicalMap.md); design and phases:
 [docs/dev/GeologicalMap-plan.md](../docs/dev/GeologicalMap-plan.md).
 
