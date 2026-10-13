@@ -74,6 +74,18 @@ module ContactTopology =
             labelFace : Map<Guid, int>
         }
 
+    /// The faces of a set of contacts, before any labels: what `build` makes and `label`
+    /// reuses, so assigning units never recomputes the faces.
+    type Network =
+        {
+            /// faces without labels (labels = [], unit = Unlabelled)
+            faces    : Face[]
+            openEnds : V3d[]
+            eulerOk  : bool
+            /// the face containing a surface point (located on the radial projection)
+            faceAt   : V3d -> Option<int>
+        }
+
     // -----------------------------------------------------------------------------------------
     // spatial hashing
     // -----------------------------------------------------------------------------------------
@@ -218,12 +230,12 @@ module ContactTopology =
     // the computation
     // -----------------------------------------------------------------------------------------
 
-    /// Faces of the contacts, with the units of the labels in them.
+    /// Faces of the contacts.
     ///
-    /// `center` is the body centre (for the tangent planes and for locating labels);
+    /// `center` is the body centre (for the tangent planes and for locating points);
     /// `tolerance` the distance below which two contacts count as touching - a fraction of the
     /// sampling spacing: draped polylines of two contacts never hit each other exactly.
-    let compute (center : V3d) (tolerance : float) (contacts : Contact[]) (labels : Label[]) : Result =
+    let build (center : V3d) (tolerance : float) (contacts : Contact[]) : Network =
 
         // ---- 1. segments -----------------------------------------------------------------
         // vertices: every contact sample; segments between consecutive samples
@@ -242,7 +254,7 @@ module ContactTopology =
                     segContact.Add ci
         let segCount = segA.Count
 
-        let empty = { faces = [||]; openEnds = [||]; eulerOk = true; labelFace = Map.empty }
+        let empty = { faces = [||]; openEnds = [||]; eulerOk = true; faceAt = fun _ -> None }
         if segCount = 0 then empty else
 
         // ---- 2. noding ---------------------------------------------------------------------
@@ -542,31 +554,46 @@ module ContactTopology =
                 faceCycles.Add l
         let faceOf (cycle : int) = faceOfCycle.[faceUnion.Find cycle]
 
-        // ---- 10. labels -------------------------------------------------------------------
-        let faceLabels = Array.init faceCycles.Count (fun _ -> List<Label>())
-        let mutable labelFace = Map.empty
-        for l in labels do
-            match locate (fun _ -> true) (unit l.position) with
-            | Some h ->
-                let f = faceOf cycleOf.[h]
-                faceLabels.[f].Add l
-                labelFace <- Map.add l.id f labelFace
-            | None -> ()
-
         let faces =
             Array.init faceCycles.Count (fun f ->
                 let cs = faceCycles.[f].ToArray()
-                let units = faceLabels.[f] |> Seq.map (fun l -> l.unit) |> Seq.distinct |> Seq.toList
                 {
                     id      = f
                     cycles  = cs |> Array.map (fun c -> cycles.[c] |> Array.map (fun h -> nodes.[heFrom h]))
                     sources = cs |> Array.map (fun c -> cycles.[c] |> Array.map (fun h -> contacts.[edgeContact.[h / 2]].id))
-                    labels  = faceLabels.[f] |> Seq.map (fun l -> l.id) |> Seq.toList
-                    unit    =
+                    labels  = []
+                    unit    = FaceUnit.Unlabelled
+                })
+
+        let faceAt (p : V3d) =
+            if faceCycles.Count = 0 then None
+            else locate (fun _ -> true) (unit p) |> Option.map (fun h -> faceOf cycleOf.[h])
+
+        { faces = faces; openEnds = openEnds.ToArray(); eulerOk = eulerOk; faceAt = faceAt }
+
+    /// The units of a network's faces from label points.
+    let label (network : Network) (labels : Label[]) : Result =
+        let faceLabels = Array.init network.faces.Length (fun _ -> List<Label>())
+        let mutable labelFace = Map.empty
+        for l in labels do
+            match network.faceAt l.position with
+            | Some f when f >= 0 && f < faceLabels.Length ->
+                faceLabels.[f].Add l
+                labelFace <- Map.add l.id f labelFace
+            | _ -> ()
+        let faces =
+            network.faces |> Array.map (fun face ->
+                let ls = faceLabels.[face.id]
+                let units = ls |> Seq.map (fun l -> l.unit) |> Seq.distinct |> Seq.toList
+                { face with
+                    labels = ls |> Seq.map (fun l -> l.id) |> Seq.toList
+                    unit   =
                         match units with
                         | []  -> FaceUnit.Unlabelled
                         | [u] -> FaceUnit.Unit u
-                        | us  -> FaceUnit.Conflict us
-                })
+                        | us  -> FaceUnit.Conflict us })
+        { faces = faces; openEnds = network.openEnds; eulerOk = network.eulerOk; labelFace = labelFace }
 
-        { faces = faces; openEnds = openEnds.ToArray(); eulerOk = eulerOk; labelFace = labelFace }
+    /// Faces of the contacts, with the units of the labels in them: build, then label.
+    let compute (center : V3d) (tolerance : float) (contacts : Contact[]) (labels : Label[]) : Result =
+        label (build center tolerance contacts) labels

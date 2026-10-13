@@ -185,6 +185,92 @@ test("a label point drawn into the map gives its unit the active legend entry", 
     }
 });
 
+/** The legend row whose code is `code` shows it as the active unit. */
+async function isActiveUnit(panel: Page, code: string) {
+    return panel.evaluate((c) => {
+        const row = Array.from(document.querySelectorAll("tr")).find((tr) =>
+            Array.from(tr.querySelectorAll("input")).some((i) => (i as HTMLInputElement).value === c)
+        );
+        return !!row?.querySelector("td:nth-child(4) i.check");
+    }, code);
+}
+
+/** A tool gesture with Ctrl held (the classic scheme), optionally Alt too, dragging from a to b. */
+async function gesture(render: Page, a: { x: number; y: number }, b = a, alt = false) {
+    await render.bringToFront();
+    await render.mouse.move(a.x, a.y);
+    await render.waitForTimeout(400);
+    await render.keyboard.down("Control");
+    if (alt) await render.keyboard.down("Alt");
+    await render.waitForTimeout(200);
+    await render.mouse.down();
+    for (let i = 1; i <= 10; i++) {
+        await render.mouse.move(a.x + ((b.x - a.x) * i) / 10, a.y + ((b.y - a.y) * i) / 10);
+        await render.waitForTimeout(60);
+    }
+    await render.mouse.up();
+    await render.waitForTimeout(200);
+    if (alt) await render.keyboard.up("Alt");
+    await render.keyboard.up("Control");
+}
+
+test("the Assign unit tool: click, Alt+click and drag across units", async ({ browser }) => {
+    test.skip(!fs.existsSync(fixture.sceneTemplate) || !fs.existsSync(annotations),
+        "set PRO3D_TEST_DATA and run --make-geomap-showcase");
+
+    const scene = mapScene("geomap-tool", 35, 40);
+    const { app, context, render } = await openDrawingViewer(browser, scene, "tool-1-before.png", save);
+    try {
+        const panel = await context.newPage();
+        await panel.setViewportSize({ width: 520, height: 900 });
+        await panel.goto(app.url + "?page=geomaps");
+        await panel.waitForLoadState("domcontentloaded");
+        await expect.poll(() => panelText(panel), { timeout: 60_000 }).toContain("1 without a label");
+        await activateMap(panel);
+        await clickUnitIcon(panel, "Cr", 4);
+
+        const title = "Assign unit - click or drag across units of the active geological map";
+        await clickTool(render, title);
+        await expect.poll(async () => (await tool(render, title)).active, { timeout: 30_000 }).toBe(true);
+
+        const vp = render.viewportSize() ?? { width: 1600, height: 900 };
+        const at = (fx: number, fy: number) => ({ x: fx * vp.width, y: fy * vp.height });
+        const unlabelled = { x: 0.45, y: 0.74 };
+        const probe = { x: 0.40, y: 0.73 };
+        const crater = { x: 0.47, y: 0.42 };
+        const plains = { x: 0.27, y: 0.42 };
+
+        const before = await settled(render, "tool-1-before.png", save);
+
+        // click: the unlabelled unit gets Cr - a label point is placed where it was clicked
+        await gesture(render, at(unlabelled.x, unlabelled.y));
+        await expect.poll(() => panelText(panel), { timeout: 60_000 }).not.toContain("without a label");
+        expect(await panelText(panel)).toContain("6 label points");
+        const assigned = await settled(render, "tool-2-assigned.png", save);
+        const g = meanColor(before, probe.x, probe.y);
+        const o = meanColor(assigned, probe.x, probe.y);
+        console.log(`[geomap] click: ${g.map(Math.round)} -> ${o.map(Math.round)}`);
+        expect(o[0] - o[2]).toBeGreaterThan(g[0] - g[2] + 30);
+
+        // Alt+click: the northern plains' unit becomes the active one
+        await gesture(render, at(plains.x, plains.y), at(plains.x, plains.y), true);
+        await expect.poll(() => isActiveUnit(panel, "Np"), { timeout: 30_000 }).toBe(true);
+
+        // drag from the plains into the crater: the crater takes Np
+        const c0 = meanColor(assigned, crater.x, crater.y);
+        await gesture(render, at(plains.x, plains.y), at(crater.x, crater.y));
+        await render.waitForTimeout(1500);
+        const painted = await settled(render, "tool-3-painted.png", save);
+        const c1 = meanColor(painted, crater.x, crater.y);
+        console.log(`[geomap] drag: crater ${c0.map(Math.round)} -> ${c1.map(Math.round)}`);
+        // orange (red over blue) -> teal (blue/green over red)
+        expect(c1[2] - c1[0]).toBeGreaterThan(c0[2] - c0[0] + 30);
+    } finally {
+        await context.close();
+        await app.stop();
+    }
+});
+
 for (const view of [
     { name: "north", lat: 35, lon: 40 },
     { name: "south", lat: -45, lon: 200 },

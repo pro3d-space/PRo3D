@@ -819,7 +819,7 @@ module DrawingApp =
                             selected |> HashSet.fold (fun flat id ->
                                 match HashMap.tryFind id flat with
                                 | Some (Leaf.Annotations a) when a.geometry = Geometry.Point ->
-                                    HashMap.add id (Leaf.Annotations { a with geoUnit = Some u.code }) flat
+                                    HashMap.add id (Leaf.Annotations (GeologicalMapApp.withUnit u.code a)) flat
                                 | _ -> flat) before.flat
                         if flat = before.flat then
                             Log.warn "[GeologicalMap] assign: no point annotation selected"
@@ -842,12 +842,49 @@ module DrawingApp =
                             leaves |> Array.fold (fun flat id ->
                                 match HashMap.tryFind id flat with
                                 | Some (Leaf.Annotations a) when a.geoUnit = Some u.code ->
-                                    HashMap.add id (Leaf.Annotations { a with geoUnit = Some code }) flat
+                                    let text = if a.text = u.code then code else a.text
+                                    HashMap.add id (Leaf.Annotations { a with geoUnit = Some code; text = text }) flat
                                 | _ -> flat) before.flat
                         let after = { before with flat = flat }
                         { model with annotations = after; geologicalMaps = maps }
                         |> pushUndo (SnapshotDelta(before, after))
                     | _ -> { model with geologicalMaps = maps }
+                | GeologicalMapAction.AssignAt (mapKey, labels, position) ->
+                    let unit =
+                        model.geologicalMaps.activeUnit
+                        |> Option.bind (GeologicalMapApp.tryFindUnit model.geologicalMaps)
+                        |> Option.filter (fun (map, _) -> map.key = mapKey)
+                    match unit with
+                    | Some (map, u) ->
+                        let before = model.annotations
+                        let after =
+                            match labels with
+                            | [] ->
+                                // a unit without a label point gets one where it was clicked
+                                match GeologicalMapApp.tryGroupPath before.rootGroup map.sourceGroup with
+                                | Some (path, _) ->
+                                    let point = GeologicalMapApp.labelPoint u.code position
+                                    GroupsApp.addLeaves path (IndexList.single (Leaf.Annotations point)) before
+                                | None ->
+                                    Log.warn "[GeologicalMap] the map's group is gone"
+                                    before
+                            | ls ->
+                                let flat =
+                                    ls |> List.fold (fun flat id ->
+                                        match HashMap.tryFind id flat with
+                                        | Some (Leaf.Annotations a) when a.geoUnit <> Some u.code ->
+                                            HashMap.add id (Leaf.Annotations (GeologicalMapApp.withUnit u.code a)) flat
+                                        | _ -> flat) before.flat
+                                { before with flat = flat }
+                        // painting over a unit that already has it changes nothing
+                        if obj.ReferenceEquals(after.flat, before.flat) then
+                            { model with geologicalMaps = maps }
+                        else
+                            { model with annotations = after; geologicalMaps = maps }
+                            |> pushUndo (SnapshotDelta(before, after))
+                    | None ->
+                        Log.warn "[GeologicalMap] assign: no active unit in this map"
+                        { model with geologicalMaps = maps }
                 | GeologicalMapAction.SetActive _
                 | GeologicalMapAction.NewMap _ ->
                     // the active map's group becomes the active annotation group, so what is
@@ -1058,6 +1095,8 @@ module DrawingApp =
         /// true only in Interactions.EditAnnotation - gates the control point handles, which are
         /// both drawn and pickable only while the user is actually editing.
         (vertexEditingAllowed : aval<bool>)
+        /// the Assign unit tool of the geological maps (#843)
+        (assignGate       : GeologicalMapApp.AssignGate)
         (model            : AdaptiveDrawingModel)
         : ISg<DrawingAction> * ISg<DrawingAction> =
         // order is irrelevant for rendering. change list to set,
@@ -1228,7 +1267,8 @@ module DrawingApp =
 
             // geological map units (#843): fills too, drawn against the same surface depth
             let geologicalMaps =
-                GeologicalMapApp.render runtime surfaceDepth planet fillReach model.annotations model.geologicalMaps viewMatrix
+                GeologicalMapApp.render runtime surfaceDepth planet fillReach assignGate model.annotations model.geologicalMaps viewMatrix
+                |> Sg.map DrawingAction.GeologicalMapMessage
 
             let overlay =
                 Sg.ofList [

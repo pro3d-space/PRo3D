@@ -2826,6 +2826,8 @@ module ViewerApp =
                 (m.viewPortSizes |> AMap.tryFind id |> AVal.map (Option.defaultValue V2i.II))
                 (allowAnnotationPicking m)
                 (allowVertexEditing m)
+                { active = m.interaction |> AVal.map (fun i -> i = Interactions.AssignUnit)
+                  armed  = ViewerUtils.toolArmed m }
                 m.drawing
          
         let annotationSg =

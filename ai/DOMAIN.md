@@ -178,6 +178,18 @@ Units derived from contacts and label points (#843, the Mappy method). User docs
   (`SetActive`/`NewMap`). A point finished into that group with a legend unit active gets the
   unit (`finishAndAppend`).
 - Rendering needs a surface depth (main and instrument view); Snapshots show no maps yet.
+- **Pipeline** (`GeologicalMapApp`): `sources` (contacts + labels of the group) ->
+  `build` (`ContactTopology.build`, memoised on the contacts: label edits return the same
+  network object) -> `derive` (`ContactTopology.label`, cheap) -> `geometry` (shell volumes +
+  per-vertex face id, memoised on the network reference) and `faceTable` (per-face colour and
+  opacity, negative alpha = hatched). Assigning a unit only changes the face table.
+- **Per map one offscreen pass** into an RGBA32F target: R = sum of w*(faceId+1), G = sum of
+  w*terrain depth, B = sum of w (coverage) over volume faces behind the terrain - every volume
+  not containing the terrain point cancels to 0, so R/B and G/B are the face id and terrain
+  depth under each pixel. The composite colours from the face table; the **Assign unit** tool
+  (`Interactions.AssignUnit`, gated by `AssignGate`) downloads the pixel under the cursor and
+  unprojects the depth for a new label point - no KdTree. The tool's pickable box exists only
+  while the tool is selected, or it would take every click from the other tools.
 
 ---
 

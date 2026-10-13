@@ -6,9 +6,11 @@ open System.Runtime.CompilerServices
 
 open Aardvark.Base
 open Aardvark.Rendering
+// Aardvark.SceneGraph before Aardvark.UI: Sg.* then means aardvark.media's message-carrying
+// ISg<'msg> functions, falling back to Aardvark.SceneGraph's only for what those lack
+open Aardvark.SceneGraph
 open Aardvark.UI
 open Aardvark.UI.Primitives
-open Aardvark.SceneGraph
 open FSharp.Data.Adaptive
 
 open PRo3D.Base
@@ -58,6 +60,15 @@ module GeologicalMapApp =
             else n.subNodes |> IndexList.toSeqIndexed |> Seq.tryPick (fun (i, s) -> go (i :: path) s)
         go [] root
 
+    /// A label point: its unit, with the code written next to it.
+    let withUnit (code : string) (a : Annotation) =
+        { a with geoUnit = Some code; text = code; showText = true }
+
+    /// A new label point at a terrain position.
+    let labelPoint (code : string) (position : V3d) =
+        let a = Annotation.make Projection.Linear None Geometry.Point None { c = C4b.White } Annotation.Initial.thickness ""
+        { a with points = IndexList.single position; modelTrafo = Trafo3d.Translation position } |> withUnit code
+
     let update (m : GeologicalMapsModel) (action : Action) : GeologicalMapsModel =
         match action with
         | Action.NewMap (group, name) ->
@@ -92,7 +103,15 @@ module GeologicalMapApp =
             let c = c.Trim()
             if String.IsNullOrEmpty c then m
             else m |> updateMap key (updateUnit unitId (fun u -> { u with code = c }))
-        | Action.AssignToSelected -> m
+        | Action.AssignToSelected
+        | Action.AssignAt _ -> m
+        | Action.PickUnit (key, code) ->
+            match m.maps |> IndexList.toArray |> Array.tryFind (fun x -> x.key = key) with
+            | Some map ->
+                match map.units |> IndexList.toArray |> Array.tryFind (fun u -> u.code = code) with
+                | Some u -> { m with activeUnit = Some u.id }
+                | None -> m
+            | None -> m
 
     // -----------------------------------------------------------------------------------------
     // the group's annotations -> topology
@@ -104,20 +123,34 @@ module GeologicalMapApp =
         | Geometry.Polyline | Geometry.Polygon | Geometry.Line -> true
         | _ -> false
 
-    type Derived =
+    /// What a map is computed from: the contacts and label points of its group.
+    type Sources =
         {
-            topology   : ContactTopology.Result
-            /// every contact sample and label position: the terrain the shell must enclose
-            samples    : V3d[]
-            /// the label points' codes, distinct
-            labelUnits : string list
-            contacts : int
-            labels   : int
+            contacts  : ContactTopology.Contact[]
+            labels    : ContactTopology.Label[]
+            /// draped polylines of two contacts never meet exactly: a fraction of the spacing
+            tolerance : float
         }
 
-    let private emptyDerived =
-        { topology = { faces = [||]; openEnds = [||]; eulerOk = true; labelFace = Map.empty }
-          samples = [||]; labelUnits = []; contacts = 0; labels = 0 }
+    /// The faces of the contacts, before labels.
+    type Built =
+        {
+            network  : ContactTopology.Network
+            /// every contact sample: the terrain the shell must enclose
+            samples  : V3d[]
+        }
+
+    type Derived =
+        {
+            built        : Built
+            /// the faces with their units. With no closed face yet but labels, a single face
+            /// without boundary - the whole body
+            topology     : ContactTopology.Result
+            contacts     : int
+            labels       : int
+            /// label positions, for the shell when there are no contacts
+            labelSamples : V3d[]
+        }
 
     let private findGroup (root : AdaptiveNode) (key : Guid) (t : AdaptiveToken) : Option<AdaptiveNode> =
         let rec find (n : AdaptiveNode) =
@@ -155,9 +188,7 @@ module GeologicalMapApp =
     /// The body centre: annotation coordinates are body-fixed, centred on the body.
     let center = V3d.Zero
 
-    /// Contacts and labels of the group, then the topology. A pure function of the group's
-    /// annotations; reruns when any of them changes.
-    let private derive (groups : AdaptiveGroupsModel) (map : AdaptiveGeologicalMap) : aval<Derived> =
+    let private sources (groups : AdaptiveGroupsModel) (map : AdaptiveGeologicalMap) : aval<Sources> =
         AVal.custom (fun t ->
             let key = map.sourceGroup.GetValue t
             let ids = leavesOf groups.rootGroup key t
@@ -184,14 +215,6 @@ module GeologicalMapApp =
                             | None -> ()
                         | None -> ()
                 | _ -> ()
-
-            if contacts.Count = 0 && labels.Count = 0 then emptyDerived
-            else
-            let samples =
-                Array.append
-                    (contacts |> Seq.collect (fun c -> c.points) |> Seq.toArray)
-                    (labels |> Seq.map (fun l -> l.position) |> Seq.toArray)
-            // draped polylines of two contacts never meet exactly: a fraction of the sample spacing
             let tolerance =
                 let mutable acc = 0.0
                 let mutable n = 0
@@ -200,17 +223,49 @@ module GeologicalMapApp =
                         acc <- acc + Vec.Distance(c.points.[i], c.points.[i + 1])
                         n <- n + 1
                 if n = 0 then 0.01 else max 1e-4 (0.3 * acc / float n)
-            let sw = Diagnostics.Stopwatch.StartNew()
-            let topology = ContactTopology.compute center tolerance (contacts.ToArray()) (labels.ToArray())
-            Log.line "[GeologicalMap] %d contacts, %d labels: %d units, %d open ends in %.1f ms"
-                contacts.Count labels.Count topology.faces.Length topology.openEnds.Length sw.Elapsed.TotalMilliseconds
-            { topology   = topology
-              samples    = samples
-              labelUnits = labels |> Seq.map (fun l -> l.unit) |> Seq.distinct |> Seq.toList
-              contacts   = contacts.Count
-              labels     = labels.Count })
+            { contacts = contacts.ToArray(); labels = labels.ToArray(); tolerance = tolerance })
 
-    // shared between the 3D view and the panel, so the topology is computed once per change;
+    /// The network, recomputed only when the contacts change. Every annotation change in the
+    /// scene re-evaluates this node (it reads the whole annotation map); unchanged contacts
+    /// return the previous network, the same object, which is what lets everything after it
+    /// (volumes, vertex buffers) skip work when only labels change.
+    let private build (sources : aval<Sources>) : aval<Built> =
+        let mutable last : Option<ContactTopology.Contact[] * float * Built> = None
+        AVal.custom (fun t ->
+            let s = sources.GetValue t
+            match last with
+            | Some (c, tol, b) when tol = s.tolerance && c = s.contacts -> b
+            | _ ->
+                let sw = Diagnostics.Stopwatch.StartNew()
+                let network = ContactTopology.build center s.tolerance s.contacts
+                Log.line "[GeologicalMap] %d contacts: %d faces, %d open ends in %.1f ms"
+                    s.contacts.Length network.faces.Length network.openEnds.Length sw.Elapsed.TotalMilliseconds
+                let b = { network = network; samples = s.contacts |> Array.collect (fun c -> c.points) }
+                last <- Some (s.contacts, s.tolerance, b)
+                b)
+
+    let private derive (groups : AdaptiveGroupsModel) (map : AdaptiveGeologicalMap) : aval<Derived> =
+        let sources = sources groups map
+        let built = build sources
+        (sources, built) ||> AVal.map2 (fun s b ->
+            let topology : ContactTopology.Result =
+                if b.network.faces.Length = 0 && s.labels.Length > 0 then
+                    // no closed face yet: the labels colour the whole body
+                    let units = s.labels |> Array.map (fun l -> l.unit) |> Array.distinct |> List.ofArray
+                    let whole : ContactTopology.Face =
+                        { id = 0; cycles = [||]; sources = [||]
+                          labels = s.labels |> Array.map (fun l -> l.id) |> List.ofArray
+                          unit =
+                            match units with
+                            | [u] -> ContactTopology.FaceUnit.Unit u
+                            | us  -> ContactTopology.FaceUnit.Conflict us }
+                    { faces = [| whole |]; openEnds = b.network.openEnds; eulerOk = b.network.eulerOk
+                      labelFace = s.labels |> Array.map (fun l -> l.id, 0) |> Map.ofArray }
+                else ContactTopology.label b.network s.labels
+            { built = b; topology = topology; contacts = s.contacts.Length; labels = s.labels.Length
+              labelSamples = s.labels |> Array.map (fun l -> l.position) })
+
+    // shared between the 3D views and the panel, so the topology is computed once per change;
     // the table holds each entry as long as its map's adaptive object lives
     let private derivedCache = ConditionalWeakTable<AdaptiveGeologicalMap, aval<Derived>>()
 
@@ -227,109 +282,330 @@ module GeologicalMapApp =
     // rendering
     // -----------------------------------------------------------------------------------------
 
-    /// One face's volume and what colours it.
-    type private FaceMesh = { unit : ContactTopology.FaceUnit; volume : V3d[] }
+    /// The volumes of all faces in one buffer, with each vertex's face id.
+    type private MapGeometry =
+        {
+            positions : V3f[]
+            faceIds   : float32[]
+            model     : Trafo3d
+            /// where events are picked: the shell's bounds
+            bounds    : Box3d
+        }
 
-    /// The volumes of a map's units. Depends on the topology and the reach only.
-    let private meshes (planet : aval<Planet>) (reach : aval<FillReach>) (derived : aval<Derived>) : aval<FaceMesh[]> =
+    let private emptyGeometry = { positions = [||]; faceIds = [||]; model = Trafo3d.Identity; bounds = Box3d.Invalid }
+
+    /// The units' volumes. Rebuilt only when the network, the reach or - for a map without
+    /// contacts - the labels change; a label change alone returns the previous object.
+    let private geometry (planet : aval<Planet>) (reach : aval<FillReach>) (derived : aval<Derived>) : aval<MapGeometry> =
+        let mutable last : Option<obj * Planet * FillReach * V3d[] * int * MapGeometry> = None
         AVal.custom (fun t ->
             let d = derived.GetValue t
             let planet = planet.GetValue t
             let reach = reach.GetValue t
-            let size = if d.samples.Length = 0 then 0.0 else Box3d(d.samples).Size.Length
-            let reach = FillReach.resolve planet reach size
-            match MapShell.ofPoints center reach d.samples with
-            | None -> [||]
-            | Some shell ->
-                if d.topology.faces.Length = 0 then
-                    // no closed unit yet: the labels colour the whole body
-                    let unit =
-                        match d.labelUnits with
-                        | []  -> None
-                        | [u] -> Some (ContactTopology.FaceUnit.Unit u)
-                        | us  -> Some (ContactTopology.FaceUnit.Conflict us)
-                    match unit with
-                    | None -> [||]
-                    | Some u -> [| { unit = u; volume = (MapShell.wholeBody shell).volume } |]
-                else
-                    d.topology.faces |> Array.choose (fun f ->
-                        MapShell.tryFace shell f.cycles
-                        |> Option.map (fun v -> { unit = f.unit; volume = v.volume })))
+            // the shell encloses the contacts; with none, the label points
+            let shellPoints = if d.built.samples.Length > 0 then [||] else d.labelSamples
+            let faceCount = d.topology.faces.Length
+            match last with
+            | Some (b, p, r, sp, n, g) when obj.ReferenceEquals(b, d.built) && p = planet && r = reach && sp = shellPoints && n = faceCount -> g
+            | _ ->
+                let samples = if d.built.samples.Length > 0 then d.built.samples else d.labelSamples
+                let size = if samples.Length = 0 then 0.0 else Box3d(samples).Size.Length
+                let reachM = FillReach.resolve planet reach size
+                let g =
+                    match MapShell.ofPoints center reachM samples with
+                    | None -> emptyGeometry
+                    | Some shell ->
+                        let volumes =
+                            d.topology.faces |> Array.choose (fun f ->
+                                if f.cycles.Length = 0 then Some (f.id, (MapShell.wholeBody shell).volume)
+                                else MapShell.tryFace shell f.cycles |> Option.map (fun v -> f.id, v.volume))
+                        let count = volumes |> Array.sumBy (fun (_, v) -> v.Length)
+                        let positions = Array.zeroCreate count
+                        let ids = Array.zeroCreate count
+                        // world points shifted by a pivot purely to keep the float32 buffer precise
+                        let origin = volumes |> Array.tryPick (fun (_, v) -> Array.tryHead v) |> Option.defaultValue V3d.Zero
+                        let mutable i = 0
+                        for (id, v) in volumes do
+                            for p in v do
+                                positions.[i] <- V3f(p - origin)
+                                ids.[i] <- float32 id
+                                i <- i + 1
+                        { positions = positions; faceIds = ids; model = Trafo3d.Translation origin
+                          bounds = Box3d(shell.center - V3d(shell.outer), shell.center + V3d(shell.outer)) }
+                last <- Some (d.built :> obj, planet, reach, shellPoints, faceCount, g)
+                g)
 
-    let private unlabelled = C4f(0.55f, 0.55f, 0.55f, 1.0f)
-    let private conflict   = C4f(1.0f, 0.0f, 1.0f, 1.0f)
+    /// Width of the face table texture.
+    [<Literal>]
+    let private TableWidth = 1024
 
-    /// All visible maps' units as one fill geometry (PackedRendering.DeferredFills).
-    let private fillGeometry
+    let private unlabelledColor = C4f(0.55f, 0.55f, 0.55f, 1.0f)
+    let private conflictColor   = C4f(1.0f, 0.0f, 1.0f, 1.0f)
+
+    /// Per face: colour, and opacity in alpha - negative for a unit drawn hatched (no label).
+    /// The only thing that changes when a unit is assigned.
+    let private faceTable (map : AdaptiveGeologicalMap) (derived : aval<Derived>) : aval<ITexture> =
+        AVal.custom (fun t ->
+            let d = derived.GetValue t
+            let opacity = map.opacity.value.GetValue t |> float32
+            let palette = Dictionary<string, C4f>()
+            for u in map.units.Content.GetValue t do
+                palette.[u.code.GetValue t] <- (u.color.c.GetValue t).ToC4f()
+            let n = max 1 d.topology.faces.Length
+            let height = (n + TableWidth - 1) / TableWidth
+            let img = PixImage<float32>(Col.Format.RGBA, V2i(TableWidth, height))
+            let mutable m = img.GetMatrix<C4f>()
+            for f in d.topology.faces do
+                let c =
+                    match f.unit with
+                    | ContactTopology.FaceUnit.Unit code ->
+                        match palette.TryGetValue code with
+                        | true, c -> C4f(c.R, c.G, c.B, opacity)
+                        // a code without a legend entry: grey, but not hatched - it has a label
+                        | _ -> C4f(unlabelledColor.R, unlabelledColor.G, unlabelledColor.B, opacity)
+                    | ContactTopology.FaceUnit.Unlabelled -> C4f(unlabelledColor.R, unlabelledColor.G, unlabelledColor.B, -opacity)
+                    | ContactTopology.FaceUnit.Conflict _ -> C4f(conflictColor.R, conflictColor.G, conflictColor.B, opacity)
+                m.[int64 (f.id % TableWidth), int64 (f.id / TableWidth)] <- c
+            PixTexture2d(PixImageMipMap [| img :> PixImage |], false) :> ITexture)
+
+    module private Shader =
+        open FShade
+
+        let private terrainDepth =
+            sampler2dMS {
+                texture uniform?TerrainDepth
+                filter Filter.MinMagPoint
+            }
+
+        let private ids =
+            sampler2d {
+                texture uniform?MapIds
+                filter Filter.MinMagPoint
+            }
+
+        let private table =
+            sampler2d {
+                texture uniform?FaceTable
+                filter Filter.MinMagPoint
+            }
+
+        type Vertex =
+            {
+                [<Position>]           pos   : V4f
+                [<Semantic("FaceId")>] fid   : float32
+                [<FragCoord>]          fc    : V4f
+                [<FrontFacing>]        front : bool
+            }
+
+        let vertex (v : Vertex) =
+            vertex {
+                let mv : M44f = uniform?MV
+                return { v with pos = uniform.ProjTrafo * (mv * v.pos) }
+            }
+
+        /// As DeferredFills.accumulate, but summing face id, terrain depth and coverage: a
+        /// closed volume's faces behind the terrain cancel unless the terrain lies inside it,
+        /// so each sum is +-(value of the one face containing the terrain), or 0.
+        let accumulate (v : Vertex) =
+            fragment {
+                let terrain = terrainDepth.Read(V2i v.fc.XY, 0).X
+                if terrain >= 1.0f then discard()
+                let z = clamp 0.0f 1.0f v.fc.Z
+                if z <= terrain then discard()
+                let w = if v.front then -1.0f else 1.0f
+                return V4f(w * (v.fid + 1.0f), w * terrain, w, 0.0f)
+            }
+
+        type CompositeVertex =
+            {
+                [<Position>]  pos : V4f
+                [<FragCoord>] fc  : V4f
+                [<Color>]     c   : V4f
+            }
+
+        let composite (v : CompositeVertex) =
+            fragment {
+                let vp : V2i = uniform?ViewportSize
+                let s = ids.Read(V2i (v.fc.XY * V2f ids.Size / V2f vp), 0)
+                let cover = abs s.Z
+                if cover < 0.5f then discard()
+                let id = int (abs s.X / cover + 0.5f) - 1
+                let tw : int = uniform?TableWidth
+                let c = table.Read(V2i(id % tw, id / tw), 0)
+                let hovered : int = uniform?HoveredFace
+                let a = abs c.W
+                // unlabelled: screen-space stripes
+                let stripe = c.W < 0.0f && ((int (v.fc.X + v.fc.Y) / 6) % 2 = 0)
+                let rgb = if stripe then c.XYZ * 0.35f else c.XYZ
+                let lit = id = hovered
+                let rgb = if lit then rgb * 0.6f + V3f(0.4f, 0.4f, 0.4f) else rgb
+                let a = if lit then min 1.0f (a + 0.25f) else a
+                return V4f(rgb, a)
+            }
+
+    /// What the Assign unit tool needs from the viewer: whether it is the active tool, and
+    /// whether the left button belongs to it right now (ViewerUtils.toolArmed).
+    type AssignGate = { active : aval<bool>; armed : aval<bool> }
+
+    /// One map: its units' volumes into a face-id target against the surface depth, then laid
+    /// over the terrain from the face table. Events (the Assign unit tool) read the face id and
+    /// the terrain depth back from the same target - no KdTree, no ray cast.
+    let private mapSg
+        (runtime : IRuntime) (surfaces : OffscreenSurfaces.SurfaceDepth)
         (planet : aval<Planet>) (reach : aval<FillReach>)
-        (groups : AdaptiveGroupsModel) (maps : AdaptiveGeologicalMapsModel) (view : aval<M44d>)
-        : PackedRendering.FillGeometry =
+        (groups : AdaptiveGroupsModel) (maps : AdaptiveGeologicalMapsModel) (gate : AssignGate)
+        (view : aval<M44d>) (map : AdaptiveGeologicalMap) : ISg<Action> =
 
-        let perMap =
-            maps.maps |> AList.map (fun m -> m, meshes planet reach (derived groups m))
+        let derived = derived groups map
+        let geometry = geometry planet reach derived
+        let mv = (geometry, view) ||> AVal.map2 (fun g v -> v * g.model.Forward)
 
-        let data =
-            AVal.custom (fun t ->
-                let positions = List<V3f>()
-                let colors = List<C4f>()
-                let mutable pivot = None
-                for (m, meshes) in perMap.Content.GetValue t do
-                    if m.visible.GetValue t then
-                        let opacity = m.opacity.value.GetValue t |> float32
-                        let palette = Dictionary<string, C4f>()
-                        for u in m.units.Content.GetValue t do
-                            palette.[u.code.GetValue t] <- (u.color.c.GetValue t).ToC4f()
-                        for f in meshes.GetValue t do
-                            let rgb, a =
-                                match f.unit with
-                                | ContactTopology.FaceUnit.Unit code ->
-                                    match palette.TryGetValue code with
-                                    // a code without a legend entry: shown, but greyed
-                                    | true, c -> c, opacity
-                                    | _ -> unlabelled, opacity
-                                | ContactTopology.FaceUnit.Unlabelled -> unlabelled, opacity * 0.5f
-                                | ContactTopology.FaceUnit.Conflict _ -> conflict, opacity
-                            let color = C4f(rgb.R, rgb.G, rgb.B, a)
-                            if f.volume.Length > 0 then
-                                let origin =
-                                    match pivot with
-                                    | Some p -> p
-                                    | None -> pivot <- Some f.volume.[0]; f.volume.[0]
-                                for p in f.volume do
-                                    positions.Add(V3f(p - origin))
-                                    colors.Add color
-                {| positions = positions.ToArray()
-                   colors    = colors.ToArray()
-                   model     = pivot |> Option.map Trafo3d.Translation |> Option.defaultValue Trafo3d.Identity |})
-
-        let mv = (data, view) ||> AVal.map2 (fun d v -> v * d.model.Forward)
-        let positions = data |> AVal.map (fun d -> d.positions)
-        let colors = data |> AVal.map (fun d -> d.colors)
-        {
-            caps        = Sg.empty
-            withVolumes = fun sg ->
-                sg
-                |> Sg.vertexAttribute DefaultSemantic.Positions positions
-                |> Sg.vertexAttribute DefaultSemantic.Colors colors
+        let accumulation =
+            let signature () = runtime.CreateFramebufferSignature [ DefaultSemantic.Colors, TextureFormat.Rgba32f ]
+            let sg : ISg<unit> =
+                Sg.draw IndexedGeometryMode.TriangleList
+                |> Sg.vertexAttribute DefaultSemantic.Positions (geometry |> AVal.map (fun g -> g.positions))
+                |> Sg.vertexAttribute (Sym.ofString "FaceId") (geometry |> AVal.map (fun g -> g.faceIds))
                 |> Sg.uniform "MV" mv
-            ranges      =
-                data |> AVal.map (fun d ->
-                    if d.positions.Length = 0 then [||]
-                    else [| DrawCallInfo(FaceVertexCount = d.positions.Length, InstanceCount = 1) |])
-        }
+                |> Sg.shader {
+                    do! Shader.vertex
+                    do! Shader.accumulate
+                }
+                |> Sg.texture "TerrainDepth" surfaces.depth
+                |> Sg.cullMode (AVal.constant CullMode.None)
+                |> Sg.depthClamp' true
+                |> Sg.depthTest (AVal.constant DepthTest.None)
+                |> Sg.blendMode (AVal.constant (BlendMode.simple BlendFactor.One BlendFactor.One))
+                |> Sg.viewTrafo surfaces.viewTrafo
+                |> Sg.projTrafo surfaces.projTrafo
+            OffscreenSurfaces.renderTargets runtime signature (sg :> Aardvark.SceneGraph.ISg)
+                (RenderTask.renderToColorWithClear surfaces.size (clear { color C4f.Zero }))
+                (fun c -> c.Acquire())
+                (fun c -> c.Release())
+                (fun c t rt -> c.GetValue(t, rt))
 
-    /// The maps' units over the terrain. Only in views that render their surfaces offscreen;
-    /// the Snapshots path (no surface depth) shows no maps yet.
+        let hovered = cval -1
+        let isActive = (maps.active, gate.active) ||> AVal.map2 (fun a on -> on && a = Some map.key)
+
+        /// The face id and terrain point under the cursor, from the face-id target.
+        let read (evt : SceneEvent) : Option<int * V3d> =
+            try
+                let tex = accumulation.GetValue(AdaptiveToken.Top, RenderToken.Empty)
+                let size = tex.Size.XY
+                let vp = V2i(max 1 evt.evtViewport.X, max 1 evt.evtViewport.Y)
+                let px =
+                    V2i(clamp 0 (size.X - 1) (evt.evtPixel.X * size.X / vp.X),
+                        clamp 0 (size.Y - 1) (evt.evtPixel.Y * size.Y / vp.Y))
+                let img = runtime.Download(tex, 0, 0, Box2i.FromMinAndSize(px, V2i.II)) |> unbox<PixImage<float32>>
+                let s = img.GetMatrix<C4f>().[0, 0]
+                let cover = abs s.B
+                if cover < 0.5f then None
+                else
+                    let id = int (abs s.R / cover + 0.5f) - 1
+                    let depth = float (abs s.G / cover)
+                    let ndc =
+                        V3d(2.0 * (float evt.evtPixel.X + 0.5) / float vp.X - 1.0,
+                            1.0 - 2.0 * (float evt.evtPixel.Y + 0.5) / float vp.Y,
+                            2.0 * depth - 1.0)
+                    let viewProj = evt.evtView * evt.evtProj
+                    Some (id, viewProj.Backward.TransformPosProj ndc)
+            with e ->
+                Log.warn "[GeologicalMap] reading the face under the cursor failed: %s" e.Message
+                None
+
+        // drag-paint: the face last given the unit during this stroke
+        let mutable painting = false
+        let mutable painted = -1
+
+        let assignAt (id : int) (p : V3d) =
+            let d = derived.GetValue()
+            match d.topology.faces |> Array.tryFind (fun f -> f.id = id) with
+            | Some f -> Seq.singleton (Action.AssignAt(map.key, f.labels, p))
+            | None -> Seq.empty
+
+        let pickUnit (id : int) =
+            let d = derived.GetValue()
+            match d.topology.faces |> Array.tryFind (fun f -> f.id = id) |> Option.map (fun f -> f.unit) with
+            | Some (ContactTopology.FaceUnit.Unit code) -> Seq.singleton (Action.PickUnit(map.key, code))
+            | _ -> Seq.empty
+
+        let setHovered (id : int) =
+            if hovered.Value <> id then transact (fun () -> hovered.Value <- id)
+
+        let events =
+            [
+                SceneEventKind.Move, fun (hit : SceneHit) ->
+                    match read hit.event with
+                    | Some (id, p) ->
+                        setHovered id
+                        if painting && id <> painted && gate.armed.GetValue() then
+                            painted <- id
+                            true, Seq.delay (fun () -> assignAt id p)
+                        else true, Seq.empty
+                    | None ->
+                        setHovered -1
+                        true, Seq.empty
+                SceneEventKind.Down, fun (hit : SceneHit) ->
+                    if hit.event.evtButtons <> Aardvark.Application.MouseButtons.Left || not (gate.armed.GetValue()) then
+                        true, Seq.empty
+                    else
+                        match read hit.event with
+                        | Some (id, _) when hit.event.evtAlt -> true, Seq.delay (fun () -> pickUnit id)
+                        | Some (id, p) ->
+                            painting <- true
+                            painted <- id
+                            true, Seq.delay (fun () -> assignAt id p)
+                        | None -> true, Seq.empty
+                SceneEventKind.Up, fun (_ : SceneHit) ->
+                    painting <- false
+                    painted <- -1
+                    true, Seq.empty
+                SceneEventKind.Leave, fun (_ : SceneHit) ->
+                    setHovered -1
+                    true, Seq.empty
+            ]
+
+        // only the active map, only while its tool is selected - otherwise the shell's box would
+        // sit in front of the terrain and take every click from the other tools
+        let pickShape =
+            (isActive, geometry) ||> AVal.map2 (fun on g ->
+                if on && g.bounds.IsValid then PickShape.Box g.bounds else PickShape.Box Box3d.Invalid)
+
+        let shownHover = (isActive, hovered :> aval<_>) ||> AVal.map2 (fun on h -> if on then h else -1)
+
+        Sg.fullScreenQuad
+        |> Sg.noEvents
+        |> Sg.texture "MapIds" accumulation
+        |> Sg.texture "FaceTable" (faceTable map derived)
+        |> Sg.uniform "TableWidth" (AVal.constant TableWidth)
+        |> Sg.uniform "HoveredFace" shownHover
+        |> Sg.shader {
+            do! DefaultSurfaces.trafo
+            do! Shader.composite
+        }
+        |> Sg.viewTrafo' Trafo3d.Identity
+        |> Sg.projTrafo' Trafo3d.Identity
+        |> Sg.depthTest (AVal.constant DepthTest.None)
+        |> Sg.blendMode (AVal.constant BlendMode.Blend)
+        |> Sg.writeBuffers' (Set.ofList [WriteBuffer.Color DefaultSemantic.Colors])
+        |> Sg.pass PackedRendering.fillPass
+        |> Sg.onOff ((map.visible, geometry) ||> AVal.map2 (fun v g -> v && g.positions.Length > 0))
+        |> Sg.pickable' pickShape
+        |> Sg.withEvents events
+
+    /// The maps' units over the terrain, one offscreen pass per visible map. Only in views that
+    /// render their surfaces offscreen; the Snapshots path (no surface depth) shows no maps yet.
     let render
         (runtime : IRuntime) (surfaceDepth : Option<OffscreenSurfaces.SurfaceDepth>)
-        (planet : aval<Planet>) (reach : aval<FillReach>)
-        (groups : AdaptiveGroupsModel) (maps : AdaptiveGeologicalMapsModel) (view : aval<M44d>) : ISg<'msg> =
+        (planet : aval<Planet>) (reach : aval<FillReach>) (gate : AssignGate)
+        (groups : AdaptiveGroupsModel) (maps : AdaptiveGeologicalMapsModel) (view : aval<M44d>) : ISg<Action> =
         match surfaceDepth with
         | None -> Sg.empty
         | Some s ->
-            fillGeometry planet reach groups maps view
-            |> PackedRendering.DeferredFills.renderOn runtime s
-        |> Sg.noEvents
+            maps.maps
+            |> AList.toASet
+            |> ASet.map (mapSg runtime s planet reach groups maps gate view)
+            |> Sg.set
 
     // -----------------------------------------------------------------------------------------
     // panel

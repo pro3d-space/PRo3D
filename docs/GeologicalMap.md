@@ -40,18 +40,44 @@ through the contacts and the label points, and the units follow.
    **overshoot** the contact they end on - the overhanging piece is trimmed automatically.
 4. Add units to the legend with **New unit** and give each a code (`Cr`), a name (*Crater
    floor*) and a colour.
-5. Label the units: make a legend entry **active** (the circle in its row), then draw a
-   **point** annotation in a unit - while its map is active, a new point in the map's group
-   takes the active unit. Alternatively select point annotations and press **Assign to selected
-   points**, or type the code into *Geo Unit* in the annotation properties.
-
-![Before](images/geological-map/assign-before.png) ![After](images/geological-map/assign-after.png)
-
-*A label point with the active unit `Cr` placed in the grey, unlabelled unit: the unit takes the
-crater colour.*
+5. Assign units with the **Assign unit** tool (paint brush in the tool strip), below.
 
 Making a map active also makes its group the active annotation group, so whatever you draw next
 lands in the map.
+
+## Assigning units
+
+Make a legend entry **active** (the circle in its row), select the **Assign unit** tool, then,
+with the tool's click gesture (Ctrl+click, or a plain click in
+[Direct Tool Mode](DirectToolMode.md)):
+
+| gesture | does |
+|---|---|
+| **click** a unit | it takes the active unit |
+| **drag** across units | every unit the cursor passes takes the active unit |
+| **Alt+click** a unit | eyedropper: its unit becomes the active legend entry |
+| hover | the unit under the cursor is highlighted |
+
+Under the hood a unit's unit is its label point: clicking a unit without one places a label point
+where you clicked; clicking one that has label points changes their unit. Every assignment is one
+undo step.
+
+![Before](images/geological-map/assign-before.png) ![After](images/geological-map/assign-after.png)
+
+*The hatched unit has no label yet; one click with `Cr` active gives it the crater unit.*
+
+![After dragging from the plains into the crater](images/geological-map/painted.png)
+
+*Alt+click on the plains picked their unit, a drag from the plains into the crater gave the
+crater the same unit (highlighted: under the cursor).*
+
+Assigning is fast whatever the map's size: the units' outlines do not change, only one colour
+table, and what is under the cursor is read from the rendered image - no ray is cast against
+the terrain, so the tool does not wait for a surface's KdTree to load.
+
+Other ways to label: select point annotations and press **Assign to selected points**; draw a
+**point** into the active map's group while a legend entry is active; or type the code into
+*Geo Unit* in the annotation properties.
 
 ## The panel
 
@@ -64,7 +90,7 @@ Per map:
 - **Visible**, **Opacity** - the units are drawn semi-transparent (default 50 %), so the
   terrain stays readable underneath.
 - **Status** - what the map currently consists of, and what needs attention:
-  - *without a label* - units with no label point: drawn grey;
+  - *without a label* - units with no label point: drawn grey and hatched;
   - *conflicting labels* - a unit holding label points of different units, usually a missing
     contact between them: drawn magenta;
   - *open contact ends* - ends of contacts that reach no other contact. Their dangling pieces
@@ -111,9 +137,8 @@ maps; contacts and label points stay ordinary annotations there.
 
 These are planned (see `docs/dev/GeologicalMap-plan.md`):
 
-- an *Assign unit* tool: click or drag across units to assign, without placing points by hand;
 - a *Draw contact* tool with end snapping and a preview of the split;
-- hatching for unlabelled units, unit codes written on the terrain;
+- unit codes written at each unit's interior (today the code is the label point's text);
 - jumping to problems from the panel;
 - export to GeoPackage.
 

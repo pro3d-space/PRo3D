@@ -36,6 +36,11 @@ type GeologicalMapAction =
     | SetUnitCode     of map : Guid * unit : Guid * string
     /// Handled by the drawing app: the active unit onto the selected label points.
     | AssignToSelected
+    /// Handled by the drawing app (the Assign unit tool): the active unit to the unit under
+    /// the cursor - onto its label points, or a new label point at `position` if it has none.
+    | AssignAt        of map : Guid * labels : Guid list * position : V3d
+    /// eyedropper: the legend entry with this code becomes the active unit
+    | PickUnit        of map : Guid * code : string
 
 /// One entry of a map's legend.
 [<ModelType>]

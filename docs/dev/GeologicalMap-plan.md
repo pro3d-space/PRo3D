@@ -7,7 +7,7 @@ against the surface depth), which this builds on.
 |---|---|
 | topology core (phase 2) | done: `ContactTopology` |
 | step 1 - see a map (phase 1 skeleton + phase 3 rendering) | done: model, persistence, panel, shell volumes (`MapShell`), one-draw rendering, assign via active unit / selected points, showcase (`--make-geomap-showcase`, `tests-ui/tests/geological-map.spec.ts`) |
-| step 2 - Assign-unit tool (colour table, face ids in the pick target, click/paint/eyedropper, hatching, unit codes) | open |
+| step 2 - Assign-unit tool | done: face table, face id + terrain depth in a per-map target (instead of the annotation pick target), click / drag-paint / Alt+click eyedropper / hover, hatching; topology split into `build` and `label`. Unit codes only as label-point text; at the unit interior still open |
 | step 3 - Draw-contact tool (phase 4, incl. incremental updates) | open |
 | step 4 - GeoPackage export (phase 5) | open |
 
