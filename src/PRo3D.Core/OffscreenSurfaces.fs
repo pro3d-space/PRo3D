@@ -59,15 +59,17 @@ module OffscreenSurfaces =
             }
 
         /// Per sample (reading gl_SampleID makes the fragment stage run per sample), so the
-        /// copy is exact: same colour, same depth, edges keep their antialiasing. Samples the
-        /// surfaces did not cover are left to the view's own clear.
+        /// copy is exact: same colour, same depth, edges keep their antialiasing.
+        ///
+        /// Everything is copied, depth 1 included: the depth is cleared before every surface
+        /// priority group, so it only holds the last group - surfaces of earlier groups have
+        /// colour but depth 1 there, exactly as when they were drawn into the view directly.
+        /// Discarding depth-1 samples would drop them.
         let blit (v : BlitVertex) =
             fragment {
                 let vp : V2i = uniform?ViewportSize
                 let p = V2i (v.fc.XY * V2f depth.Size / V2f vp)
-                let d = depth.Read(p, v.sid).X
-                if d >= 1.0f then discard()
-                return { c = color.Read(p, v.sid); d = d }
+                return { c = color.Read(p, v.sid); d = depth.Read(p, v.sid).X }
             }
 
     /// `sg` rendered offscreen, its task compiled only while the result is acquired and
@@ -77,33 +79,40 @@ module OffscreenSurfaces =
     /// exactly as long as a client shows it. Compiled eagerly in the view function instead,
     /// the task - and all the surfaces' GPU data in it - outlived every page that used it.
     ///
+    /// `signature` creates the framebuffer signature (with the task, disposed with it);
     /// `outputs` makes the render-to-texture resources of the compiled task; `acquire`,
     /// `release` and `get` handle them as a whole.
+    ///
+    /// Compute creates the task if it does not exist yet. Every consumer goes through a
+    /// render task's resource manager, which acquires first; a bare GetValue without Acquire
+    /// would compile a task nothing ever disposes.
     let renderTargets
         (runtime   : IRuntime)
-        (signature : IFramebufferSignature)
+        (signature : unit -> IFramebufferSignature)
         (sg        : ISg)
         (outputs   : IRenderTask -> 'o)
         (acquire   : 'o -> unit)
         (release   : 'o -> unit)
         (get       : 'o -> AdaptiveToken -> RenderToken -> 'a) : IAdaptiveResource<'a> =
-        let current : ref<Option<IRenderTask * 'o>> = ref None
+        let current : ref<Option<IFramebufferSignature * IRenderTask * 'o>> = ref None
         let ensure () =
             match current.Value with
-            | Some (_, o) -> o
+            | Some (_, _, o) -> o
             | None ->
-                let task = runtime.CompileRender(signature, sg)
+                let s = signature ()
+                let task = runtime.CompileRender(s, sg)
                 let o = outputs task
                 acquire o
-                current.Value <- Some (task, o)
+                current.Value <- Some (s, task, o)
                 o
         { new AdaptiveResource<'a>() with
             override x.Create() = ensure () |> ignore
             override x.Destroy() =
                 match current.Value with
-                | Some (task, o) ->
+                | Some (s, task, o) ->
                     release o
                     task.Dispose()
+                    s.Dispose()
                 | None -> ()
                 current.Value <- None
             override x.Compute(token, renderToken) =
@@ -123,13 +132,15 @@ module OffscreenSurfaces =
     /// `background`, the target's own clear colour, so translucent surfaces blend as before.
     /// `sg` brings its own view and projection.
     let render (runtime : IRuntime) (samples : int) (background : C4f) (size : aval<V2i>) (sg : ISg) =
-        let signature =
+        let signature () =
             runtime.CreateFramebufferSignature(
                 [
                     DefaultSemantic.Colors,       TextureFormat.Rgba8
                     DefaultSemantic.DepthStencil, TextureFormat.Depth24Stencil8
                 ],
                 samples)
+        // never an empty target: a view reports its size only after its first resize event
+        let size = size |> AVal.map (fun s -> V2i(max 1 s.X, max 1 s.Y))
         let targets =
             renderTargets runtime signature sg
                 (RenderTask.renderToColorAndDepthWithClear size (clear { color background; depth 1.0; stencil 0 }))

@@ -252,6 +252,37 @@ let tests () =
                 Expect.isLessThan (float wrongB) (0.005 * float tintedB) "the far fill keeps its own colour")
         }
 
+        test "surfaces of an earlier priority group survive the offscreen copy" {
+            withGL (fun runtime signature ->
+                // the viewer clears depth before each priority group, so outside the last
+                // group's surfaces the offscreen depth is 1 - the terrain (group 0) must still be
+                // copied there, not discarded as "no surface" (review of #841)
+                let camera = CameraView.lookAt (V3d(0.0, 0.0, 30.0)) (V3d(0.0, 0.0, 0.0)) V3d.OIO
+                let viewTrafo = AVal.constant (CameraView.viewTrafo camera)
+                let projTrafo = AVal.constant (Frustum.projTrafo (frustumFor 200.0))
+                let patch =
+                    let p = [| V3f(-2.0f, -2.0f, 4.0f); V3f(2.0f, -2.0f, 4.0f); V3f(2.0f, 2.0f, 4.0f); V3f(-2.0f, -2.0f, 4.0f); V3f(2.0f, 2.0f, 4.0f); V3f(-2.0f, 2.0f, 4.0f) |]
+                    Sg.draw IndexedGeometryMode.TriangleList
+                    |> Sg.vertexAttribute DefaultSemantic.Positions (AVal.constant p)
+                    |> Sg.vertexAttribute DefaultSemantic.Colors (AVal.constant (Array.create p.Length C4b.Blue))
+                    |> Sg.shader {
+                        do! DefaultSurfaces.trafo
+                        do! DefaultSurfaces.vertexColor
+                    }
+                let groups =
+                    OffscreenSurfaces.inPriorityGroups viewTrafo projTrafo (AList.ofList [ terrain; patch ])
+                let color, depth = OffscreenSurfaces.render runtime signature.Samples C4f.Black (AVal.constant size) groups
+                use target = new Target(runtime, signature, [ OffscreenSurfaces.blit color depth ])
+                target.Frame()
+                let image = target.Image()
+                // terrain only: a point well outside the patch, on the centre row
+                let ndc = (CameraView.viewTrafo camera * Frustum.projTrafo (frustumFor 200.0)).Forward.TransformPosProj (V3d(8.0, 0.0, 0.0))
+                let x = int (round ((ndc.X * 0.5 + 0.5) * float size.X))
+                Expect.isGreaterThan (green image x (size.Y / 2)) 100uy
+                    "terrain of group 0 outside the group-1 patch must be copied (it has depth 1 after the last clear)"
+                Expect.isLessThan (green image (size.X / 2) (size.Y / 2)) 40uy "the group-1 patch is drawn at the centre")
+        }
+
         test "fills overlapping on the terrain blend" {
             withGL (fun runtime signature ->
                 let camera = CameraView.lookAt (V3d(0.0, 0.0, 30.0)) (V3d(0.0, 0.0, 0.0)) V3d.OIO

@@ -128,7 +128,7 @@ Draw order inside the pass is significant — fills, then lines, then vertex han
 
 ### Surfaces offscreen (#841)
 
-The main and instrument views render their surfaces **offscreen** (`OffscreenSurfaces`, `ViewerUtils.offscreenView`): the priority groups go into a multisampled colour + depth target of the control's size and sample count (depth cleared before each group, as before), and a per-sample fullscreen blit copies **colour and depth** back into the render control. Everything after it (depth-tested annotations, traverses, overlay) depth-tests against the surfaces exactly as before — but the surfaces' depth now also exists as a texture (`OffscreenSurfaces.SurfaceDepth`).
+The main and instrument views render their surfaces **offscreen** (`OffscreenSurfaces`, `ViewerUtils.offscreenView`): the priority groups go into a multisampled colour + depth target of the size the page reports and the viewer's sample count (`dataSamples`), and a per-sample fullscreen blit copies **colour and depth** back into the render control — everything, depth 1 included. The depth is cleared before each group, as before, so it only holds the last group; earlier groups keep their colour at depth 1 exactly as when drawn into the view directly (and fills cannot land on them, also as before). Everything after it (depth-tested annotations, traverses, overlay) depth-tests against the surfaces exactly as before — but the surfaces' depth now also exists as a texture (`OffscreenSurfaces.SurfaceDepth`).
 
 - **Picking** stays on scene events: the grouped surface scene graphs are added to the control a second time through `OffscreenSurfaces.pickOnly` — a typed applicator whose `RenderObjects` rule returns nothing, so their `Sg.pickable'`/`withEvents` still fire.
 - The offscreen projection is `RenderControlConfig.standard.adjustAspect size frustum` — what the render control applies itself; the blit and the fill composite map `gl_FragCoord` through `ViewportSize`, so a target of another size stays aligned.
@@ -136,7 +136,11 @@ The main and instrument views render their surfaces **offscreen** (`OffscreenSur
 - **Size:** the main view uses the size the page reports (`OnResize`); the instrument view falls back to its CSS size (half the instrument resolution) until it reports one — without that it rendered at 1×1 and stayed black.
 
 **Known limitations:**
-- A server-side screenshot (`/rendering/screenshot`) at another size gets surface textures of the control's size, scaled (aligned, not sharper).
+- A server-side screenshot (`/rendering/screenshot`) at another size gets surface textures of the control's size, scaled; at another **aspect ratio** surfaces and fills no longer line up with annotations and overlays (the offscreen projection follows the page's reported size, the screenshot's frustum its own). A different `samples=` than `dataSamples` reads samples the textures do not have. Fix: per-client offscreen targets (`Scene.custom`, `RenderClientValues`).
+- Two clients of the same page id share one reported size; the last resize wins.
+- Translucent surfaces blend offscreen over the fixed `#222222` background, not over a screenshot's `background=`.
+- The fill accumulation is single-sampled (depth sample 0); the composite writes one value per pixel, so fill edges at terrain silhouettes are not antialiased.
+- The stencil fallback (Snapshots) rebuilds its batches whenever the batch count changes.
 - Snapshots (`SnapshotSg`) render surfaces directly and use the stencil fill fallback.
 - Instrument view: verified by screenshot (headless probe, `fillProblem` scene) that surfaces show after the size fallback; fills there not checked separately.
 - GPU memory grows while the camera moves — on develop as much as here (OPC LoD caching), pre-existing.

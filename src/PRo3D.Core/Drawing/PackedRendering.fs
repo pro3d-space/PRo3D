@@ -1215,7 +1215,7 @@ module PackedRendering =
             (viewTrafo    : aval<Trafo3d>)
             (projTrafo    : aval<Trafo3d>) : aval<ITexture> =
 
-            let signature = runtime.CreateFramebufferSignature [ DefaultSemantic.Colors, TextureFormat.Rgba32f ]
+            let signature () = runtime.CreateFramebufferSignature [ DefaultSemantic.Colors, TextureFormat.Rgba32f ]
 
             let sg =
                 Sg.draw IndexedGeometryMode.TriangleList
@@ -1256,10 +1256,13 @@ module PackedRendering =
             |> Sg.writeBuffers' (Set.ofList [WriteBuffer.Color DefaultSemantic.Colors])
             |> Sg.pass fillPass
 
-        /// accumulationTexture and composite together: the visible fills of `fills`.
-        let render runtime fills terrainDepth size viewTrafo projTrafo =
+        /// accumulationTexture and composite together: the visible fills of `fills`. Off while
+        /// there is no fill - the composite is what pulls the accumulation, so neither the
+        /// full-screen RGBA32F pass nor the composite runs then.
+        let render runtime (fills : FillGeometry) terrainDepth size viewTrafo projTrafo =
             accumulationTexture runtime fills terrainDepth size viewTrafo projTrafo
             |> composite
+            |> Sg.onOff (fills.ranges |> AVal.map (fun r -> r.Length > 0))
 
         /// render, against a view's offscreen surfaces.
         let renderOn runtime (surfaces : OffscreenSurfaces.SurfaceDepth) fills =

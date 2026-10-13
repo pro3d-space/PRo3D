@@ -1945,6 +1945,8 @@ module ViewerUtils =
         (m              : AdaptiveModel) : OffscreenView =
 
         let grouped = createGroupedSgs runtime sgGrouped view allowFootprint allowDepthview m
+        // never an empty target: a view reports its size only after its first resize event
+        let size = size |> AVal.map (fun (s : V2i) -> V2i(max 1 s.X, max 1 s.Y))
         let viewTrafo = view |> AVal.map CameraView.viewTrafo
         let projTrafo =
             (frustum, size) ||> AVal.map2 (fun f s ->

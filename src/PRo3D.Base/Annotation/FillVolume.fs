@@ -4,18 +4,21 @@ open System.Collections.Generic
 open Aardvark.Base
 open PRo3D.Base
 
-/// Closed prisms for drawing annotation fills onto the terrain with z-fail stencil volumes.
-///
-/// A flat fill mesh only touches the terrain at its rim: relief inside the outline cuts through
-/// it, which is the z-fighting of #841, and no depth bias hides metres of relief. Instead the
-/// renderer marks the terrain pixels *inside* a closed volume around the outline in the stencil
-/// buffer and colours exactly those. Here is that volume: the PolygonFill triangulation as top
-/// and bottom caps, offset along the extrusion axis, plus a wall on every boundary edge.
-///
-/// The volume must be closed and consistently oriented (outward), or the stencil count leaks.
-/// Walls are taken from the boundary edges of the triangulation rather than from the input ring,
-/// so vertices the tessellator invents at self-intersections - and holes, once rings carry
-/// them - are closed off by construction.
+// Closed prisms for drawing annotation fills onto the terrain (#841).
+//
+// A flat fill mesh only touches the terrain at its rim: relief inside the outline cuts through
+// it, which is the z-fighting of #841, and no depth bias hides metres of relief. Instead the
+// renderer decides per terrain pixel whether it lies *inside* a closed volume around the
+// outline - by counting the volume's faces behind the terrain, in colour against the surface
+// depth (PackedRendering.DeferredFills) or, in the Snapshots fallback, in the stencil. Here is
+// that volume: the PolygonFill triangulation as top and bottom caps, offset along the
+// extrusion axis, plus a wall on every boundary edge.
+//
+// The volume must be closed and consistently oriented (outward), or the count is wrong.
+// Walls are taken from the boundary edges of the triangulation rather than from the input ring,
+// so vertices the tessellator invents at self-intersections - and holes, once rings carry
+// them - are closed off by construction.
+
 /// How far above and below its outline a fill may colour terrain - the user-facing control.
 ///
 /// Too short and terrain inside the outline that rises above (or dips below) every rim point

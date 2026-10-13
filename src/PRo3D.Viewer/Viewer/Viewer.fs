@@ -2962,7 +2962,7 @@ module ViewerApp =
             ||> AVal.map2 (fun reported (hor, vert) ->
                 match reported with
                 | Some s when s.X > 1 && s.Y > 1 -> s
-                | _ -> V2i(int (hor / 2u), int (vert / 2u)))
+                | _ -> V2i(max 1 (int (hor / 2u)), max 1 (int (vert / 2u))))
         let offscreen =
             ViewerUtils.offscreenView runtime dataSamples m.scene.surfacesModel.sgGrouped
                 m.scene.viewPlans.instrumentCam frustum size false true m

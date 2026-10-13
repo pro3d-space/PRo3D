@@ -104,10 +104,13 @@ module ConfigProperties =
                 Html.row "Preview Cursor Size:"        [Numeric.view' [InputBox] model.previewIntersectionWorldSize  |> UI.map SetPreviewIntersectionCursorWorldSize ]
 
                 let fillReachTooltip =
-                    "How far above and below its outline a filled annotation colours the terrain. " +
-                    "Auto: half the outline's size, at most 1000 m on Mars, Earth and Moon, 200 m on Phobos, " +
-                    "100 m on Deimos, 50 m on Didymos, 15 m on Dimorphos, 100 m without a body. " +
-                    "Untick to use a fixed reach in metres."
+                    // the caps from FillReach.maxAuto itself, so text and behaviour cannot drift
+                    let caps =
+                        [ Planet.Mars; Planet.Earth; Planet.Moon; Planet.Phobos; Planet.Deimos; Planet.Didymos; Planet.Dimorphos ]
+                        |> List.map (fun p -> sprintf "%.0f m on %A" (FillReach.maxAuto p) p)
+                        |> String.concat ", "
+                    sprintf "How far above and below its outline a filled annotation colours the terrain. Auto: half the outline's size, at most %s, %.0f m without a body. Untick to use a fixed reach in metres."
+                        caps (FillReach.maxAuto Planet.None)
                 let fillReachAuto = GuiEx.iconCheckBox model.fillReachAuto ToggleFillReachAuto
                 let fillReachMetres =
                     model.fillReachAuto |> AVal.map (fun auto ->
