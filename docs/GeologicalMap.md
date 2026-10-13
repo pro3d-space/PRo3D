@@ -93,6 +93,20 @@ gap, and the map shows two open ends there.
 *A new contact from the crater rim to the equatorial contact, both ends placed a few pixels off
 the lines: they snapped, and the plains split into a new, still unlabelled unit.*
 
+### Split preview
+
+While you draw a contact into the active map, the preview shows what it will do before you
+finish it:
+
+- the cut so far, in yellow, on top of the terrain;
+- the unit(s) it runs through, lit up - the unit it is about to split;
+- its ends: **green** where an end sits on a contact (the cut closes there), **orange** where it
+  is still open (finishing it like that leaves an open end).
+
+![Split preview while drawing](images/geological-map/preview.png)
+
+The preview follows the points you placed, not the cursor between clicks.
+
 ## Problems
 
 The panel lists what needs attention - unlabelled units, units with conflicting labels, open
@@ -161,7 +175,6 @@ maps; contacts and label points stay ordinary annotations there.
 
 These are planned (see `docs/dev/GeologicalMap-plan.md`):
 
-- a preview of the split while drawing a contact;
 - export to GeoPackage.
 
 ## Showcase

@@ -138,9 +138,13 @@ module GeologicalMapApp =
     /// The faces of the contacts, before labels.
     type Built =
         {
-            network  : ContactTopology.Network
+            network   : ContactTopology.Network
             /// every contact sample: the terrain the shell must enclose
-            samples  : V3d[]
+            samples   : V3d[]
+            /// the contacts' sampled lines
+            lines     : V3d[][]
+            /// closer than this, two contacts touch (ContactTopology.build)
+            tolerance : float
         }
 
     type Derived =
@@ -281,7 +285,8 @@ module GeologicalMapApp =
                 let network = ContactTopology.build center s.tolerance s.contacts
                 Log.line "[GeologicalMap] %d contacts: %d faces, %d open ends in %.1f ms"
                     s.contacts.Length network.faces.Length network.openEnds.Length sw.Elapsed.TotalMilliseconds
-                let b = { network = network; samples = s.contacts |> Array.collect (fun c -> c.points) }
+                let b = { network = network; samples = s.contacts |> Array.collect (fun c -> c.points)
+                          lines = s.contacts |> Array.map (fun c -> c.points); tolerance = s.tolerance }
                 last <- Some (s.contacts, s.tolerance, b)
                 b)
 
@@ -481,9 +486,12 @@ module GeologicalMapApp =
 
     /// Per face: colour, and opacity in alpha - negative for a unit drawn hatched (no label).
     /// The only thing that changes when a unit is assigned.
-    let private faceTable (map : AdaptiveGeologicalMap) (derived : aval<Derived>) : aval<ITexture> =
+    /// `preview`: faces a contact being drawn passes through - brightened, so the unit about to
+    /// be split stands out.
+    let private faceTable (map : AdaptiveGeologicalMap) (derived : aval<Derived>) (preview : aval<Set<int>>) : aval<ITexture> =
         AVal.custom (fun t ->
             let d = derived.GetValue t
+            let preview = preview.GetValue t
             let opacity = map.opacity.value.GetValue t |> float32
             let palette = Dictionary<string, C4f>()
             for u in map.units.Content.GetValue t do
@@ -502,6 +510,11 @@ module GeologicalMapApp =
                         | _ -> C4f(unlabelledColor.R, unlabelledColor.G, unlabelledColor.B, opacity)
                     | ContactTopology.FaceUnit.Unlabelled -> C4f(unlabelledColor.R, unlabelledColor.G, unlabelledColor.B, -opacity)
                     | ContactTopology.FaceUnit.Conflict _ -> C4f(conflictColor.R, conflictColor.G, conflictColor.B, opacity)
+                let c =
+                    if Set.contains f.id preview then
+                        let a = max 0.6f (abs c.A)
+                        C4f(0.5f * c.R + 0.5f, 0.5f * c.G + 0.5f, 0.5f * c.B + 0.35f, (if c.A < 0.0f then -a else a))
+                    else c
                 m.[int64 (f.id % TableWidth), int64 (f.id / TableWidth)] <- c
             PixTexture2d(PixImageMipMap [| img :> PixImage |], false) :> ITexture)
 
@@ -592,6 +605,7 @@ module GeologicalMapApp =
         type Vertex =
             {
                 [<Position>]   pos  : V4f
+                [<Color>]      c    : V4f
                 [<PointSize>]  size : float32
                 [<PointCoord>] pc   : V2f
             }
@@ -616,7 +630,7 @@ module GeologicalMapApp =
                 let d = v.pc - V2f(0.5f, 0.5f)
                 if d.Length > 0.5f then discard()
                 let edge = d.Length > 0.35f
-                return (if edge then V4f(1.0f, 1.0f, 1.0f, 1.0f) else V4f(0.9f, 0.1f, 0.1f, 1.0f))
+                return (if edge then V4f(1.0f, 1.0f, 1.0f, 1.0f) else v.c)
             }
 
     /// What the Assign unit tool needs from the viewer: whether it is the active tool, and
@@ -633,7 +647,7 @@ module GeologicalMapApp =
         (runtime : IRuntime) (surfaces : OffscreenSurfaces.SurfaceDepth)
         (planet : aval<Planet>) (reach : aval<FillReach>)
         (groups : AdaptiveGroupsModel) (maps : AdaptiveGeologicalMapsModel) (gate : AssignGate)
-        (textView : TextView) (view : aval<M44d>) (map : AdaptiveGeologicalMap) : ISg<Action> =
+        (textView : TextView) (stroke : aval<V3d[]>) (view : aval<M44d>) (map : AdaptiveGeologicalMap) : ISg<Action> =
 
         let derived = derived groups map
         let geometry = geometry planet reach derived
@@ -663,25 +677,88 @@ module GeologicalMapApp =
                 (fun c -> c.Release())
                 (fun c t rt -> c.GetValue(t, rt))
 
-        // open contact ends, marked in red; lifted a little off the terrain so the depth test
-        // against it does not swallow them
+        // a contact being drawn into this map: its points, while this is the active map and its
+        // group the active one; otherwise none
+        let stroke =
+            (stroke, maps.active, groups.activeGroup) |||> AVal.map3 (fun s active group ->
+                if active = Some map.key then Some (s, group.id) else None)
+            |> AVal.bind (function
+                | Some (s, group) -> map.sourceGroup |> AVal.map (fun g -> if g = group then s else [||])
+                | None -> AVal.constant [||])
+
+        // whether a point touches a contact, as the topology will see it
+        let attached (b : Built) (p : V3d) =
+            b.lines |> Array.exists (fun l ->
+                let mutable hit = false
+                for i in 0 .. l.Length - 2 do
+                    let a = l.[i]
+                    let d = l.[i + 1] - a
+                    let l2 = Vec.Dot(d, d)
+                    let t = if l2 <= 1e-24 then 0.0 else clamp 0.0 1.0 (Vec.Dot(p - a, d) / l2)
+                    if Vec.Distance(a + d * t, p) <= b.tolerance then hit <- true
+                hit)
+
+        // split preview: the faces the stroke passes through, from the network as it is - no
+        // rebuild per click. A point on a contact belongs to either side, so those are skipped
+        let preview =
+            (derived, stroke) ||> AVal.map2 (fun d s ->
+                if s.Length = 0 then Set.empty
+                else
+                    let samples =
+                        if s.Length = 1 then s
+                        else Array.init ((s.Length - 1) * 8 + 1) (fun i ->
+                            let k = min (s.Length - 2) (i / 8)
+                            let t = float (i - 8 * k) / 8.0
+                            s.[k] + (s.[k + 1] - s.[k]) * t)
+                    samples
+                    |> Array.filter (fun p -> not (attached d.built p))
+                    |> Array.choose d.built.network.faceAt
+                    |> Set.ofArray)
+
+        // red: open contact ends. While drawing: the stroke's ends, green where they sit on a
+        // contact (the cut closes there), orange where they are still open. Lifted a little off
+        // the terrain so the depth test against it does not swallow them
+        let red = V4f(0.9f, 0.1f, 0.1f, 1.0f)
+        let green = V4f(0.1f, 0.85f, 0.2f, 1.0f)
+        let orange = V4f(1.0f, 0.6f, 0.0f, 1.0f)
         let markers =
-            derived |> AVal.map (fun d ->
-                let ends = d.topology.openEnds
-                let origin = ends |> Array.tryHead |> Option.defaultValue V3d.Zero
+            (derived, stroke) ||> AVal.map2 (fun d s ->
+                let strokeEnds =
+                    match s with
+                    | [||] -> [||]
+                    | [| p |] -> [| p, (if attached d.built p then green else orange) |]
+                    | _ ->
+                        let a = s.[0]
+                        let b = s.[s.Length - 1]
+                        [| a, (if attached d.built a then green else orange)
+                           b, (if attached d.built b then green else orange) |]
+                let all = Array.append (d.topology.openEnds |> Array.map (fun p -> p, red)) strokeEnds
+                let origin = all |> Array.tryHead |> Option.map fst |> Option.defaultValue V3d.Zero
                 let lift (p : V3d) = center + (p - center) * 1.003
-                ends |> Array.map (fun p -> V3f(lift p - origin)), Trafo3d.Translation origin)
+                all |> Array.map (fun (p, _) -> V3f(lift p - origin)),
+                all |> Array.map snd,
+                Trafo3d.Translation origin)
         let markerSg : ISg<Action> =
             Sg.draw IndexedGeometryMode.PointList
-            |> Sg.vertexAttribute DefaultSemantic.Positions (markers |> AVal.map fst)
-            |> Sg.uniform "MV" ((markers, view) ||> AVal.map2 (fun (_, t) v -> v * t.Forward))
+            |> Sg.vertexAttribute DefaultSemantic.Positions (markers |> AVal.map (fun (p, _, _) -> p))
+            |> Sg.vertexAttribute DefaultSemantic.Colors (markers |> AVal.map (fun (_, c, _) -> c))
+            |> Sg.uniform "MV" ((markers, view) ||> AVal.map2 (fun (_, _, t) v -> v * t.Forward))
             |> Sg.texture "TerrainDepth" surfaces.depth
             |> Sg.shader {
                 do! MarkerShader.vertex
                 do! MarkerShader.fragment
             }
             |> Sg.depthTest (AVal.constant DepthTest.None)
-            |> Sg.onOff ((map.visible, markers) ||> AVal.map2 (fun v (m, _) -> v && m.Length > 0))
+            |> Sg.onOff ((map.visible, markers) ||> AVal.map2 (fun v (m, _, _) -> v && m.Length > 0))
+
+        // the cut being drawn, on top of everything: its straight pieces between the clicked
+        // points run under the terrain, where the ordinary working-annotation line is hidden
+        let strokeSg : ISg<Action> =
+            stroke
+            |> AVal.map (fun s ->
+                if s.Length < 2 then Sg.empty
+                else PRo3D.Core.Drawing.Sg.lines (C4b(255, 220, 60)) 3.0 s |> Sg.depthTest (AVal.constant DepthTest.None))
+            |> Sg.dynamic
 
         // each unit's code inside it; hidden while the unit faces away from the camera, which
         // on a body seen from outside stands in for the terrain occluding it
@@ -814,7 +891,7 @@ module GeologicalMapApp =
         Sg.fullScreenQuad
         |> Sg.noEvents
         |> Sg.texture "MapIds" accumulation
-        |> Sg.texture "FaceTable" (faceTable map derived)
+        |> Sg.texture "FaceTable" (faceTable map derived preview)
         |> Sg.uniform "TableWidth" (AVal.constant TableWidth)
         |> Sg.uniform "HoveredFace" shownHover
         |> Sg.shader {
@@ -830,20 +907,22 @@ module GeologicalMapApp =
         |> Sg.onOff ((map.visible, geometry) ||> AVal.map2 (fun v g -> v && g.positions.Length > 0))
         |> Sg.pickable' pickShape
         |> Sg.withEvents events
-        |> fun units -> Sg.ofList [ units; markerSg; codeSg ]
+        |> fun units -> Sg.ofList [ units; markerSg; codeSg; strokeSg ]
 
     /// The maps' units over the terrain, one offscreen pass per visible map. Only in views that
     /// render their surfaces offscreen; the Snapshots path (no surface depth) shows no maps yet.
     let render
         (runtime : IRuntime) (surfaceDepth : Option<OffscreenSurfaces.SurfaceDepth>)
         (planet : aval<Planet>) (reach : aval<FillReach>) (gate : AssignGate) (textView : TextView)
+        /// the points of the contact being drawn (empty when no line is being drawn)
+        (stroke : aval<V3d[]>)
         (groups : AdaptiveGroupsModel) (maps : AdaptiveGeologicalMapsModel) (view : aval<M44d>) : ISg<Action> =
         match surfaceDepth with
         | None -> Sg.empty
         | Some s ->
             maps.maps
             |> AList.toASet
-            |> ASet.map (mapSg runtime s planet reach groups maps gate textView view)
+            |> ASet.map (mapSg runtime s planet reach groups maps gate textView stroke view)
             |> Sg.set
 
     // -----------------------------------------------------------------------------------------

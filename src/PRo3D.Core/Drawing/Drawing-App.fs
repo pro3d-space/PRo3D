@@ -1270,6 +1270,12 @@ module DrawingApp =
                 GeologicalMapApp.render runtime surfaceDepth planet fillReach assignGate
                     // the view's own field of view, in degrees (what invariantScale expects)
                     { camera = view; near = config.nearPlane; hfov = frustum |> AVal.map Frustum.horizontalFieldOfViewInDegrees }
+                    // the line being drawn, for the split preview
+                    (model.working |> AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption |> AVal.bind (function
+                        | Some (a : AdaptiveAnnotation) ->
+                            (a.geometry, a.points.Content) ||> AVal.map2 (fun g ps ->
+                                if GeologicalMapApp.isContact g then IndexList.toArray ps else [||])
+                        | None -> AVal.constant [||]))
                     model.annotations model.geologicalMaps viewMatrix
                 |> Sg.map DrawingAction.GeologicalMapMessage
 

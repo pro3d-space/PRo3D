@@ -324,6 +324,15 @@ test("a contact drawn to end near other contacts snaps onto them and cuts a unit
             await pick(render, p.x, p.y);
             await awaitIdle(render, app);
         }
+
+        // split preview, before the contact is finished: the plains it runs through light up
+        const plains = { x: 0.62, y: 0.20 };
+        const drawing = await settled(render, "snap-1b-drawing.png", save);
+        const p0 = meanColor(before, plains.x, plains.y);
+        const p1 = meanColor(drawing, plains.x, plains.y);
+        console.log(`[geomap] preview: plains ${p0.map(Math.round)} -> ${p1.map(Math.round)}`);
+        expect(p1[0] + p1[1] + p1[2]).toBeGreaterThan(p0[0] + p0[1] + p0[2] + 40);
+
         await render.keyboard.press("Enter");
         await awaitIdle(render, app);
 
