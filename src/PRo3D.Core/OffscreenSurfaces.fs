@@ -15,8 +15,20 @@ open FSharp.Data.Adaptive
 ///
 /// The targets follow the size they are given; the viewer hands in the render control's size.
 /// A server-side screenshot renders the same scene at another resolution and so currently
-/// gets surface textures of the control's size, scaled.
+/// gets surface textures of the control's size, scaled - the copy maps through ViewportSize,
+/// so it stays aligned, just not sharper.
 module OffscreenSurfaces =
+
+    /// The surfaces' depth as seen by one view, with what produced it: anything comparing
+    /// against it has to render with the same trafos.
+    type SurfaceDepth =
+        {
+            /// multisampled depth texture
+            depth     : aval<ITexture>
+            size      : aval<V2i>
+            viewTrafo : aval<Trafo3d>
+            projTrafo : aval<Trafo3d>
+        }
 
     module Shader =
         open FShade
@@ -51,16 +63,18 @@ module OffscreenSurfaces =
         /// surfaces did not cover are left to the view's own clear.
         let blit (v : BlitVertex) =
             fragment {
-                let p = V2i v.fc.XY
+                let vp : V2i = uniform?ViewportSize
+                let p = V2i (v.fc.XY * V2f depth.Size / V2f vp)
                 let d = depth.Read(p, v.sid).X
                 if d >= 1.0f then discard()
                 return { c = color.Read(p, v.sid); d = d }
             }
 
     /// Colour and depth of the surfaces in `sg`, rendered at `size` with `samples` samples -
-    /// the sample count of the target they are copied into (the copy is per sample).
+    /// the sample count of the target they are copied into (the copy is per sample) - over
+    /// `background`, the target's own clear colour, so translucent surfaces blend as before.
     /// `sg` brings its own view and projection.
-    let render (runtime : IRuntime) (samples : int) (size : aval<V2i>) (sg : ISg) =
+    let render (runtime : IRuntime) (samples : int) (background : C4f) (size : aval<V2i>) (sg : ISg) =
         let signature =
             runtime.CreateFramebufferSignature(
                 [
@@ -70,8 +84,21 @@ module OffscreenSurfaces =
                 samples)
         let color, depth =
             runtime.CompileRender(signature, sg)
-            |> RenderTask.renderToColorAndDepthWithClear size (clear { color C4f.Zero; depth 1.0; stencil 0 })
+            |> RenderTask.renderToColorAndDepthWithClear size (clear { color background; depth 1.0; stencil 0 })
         AdaptiveResource.cast<ITexture> color, AdaptiveResource.cast<ITexture> depth
+
+    /// `groups` drawn one after the other, the depth cleared before each - the viewer's surface
+    /// priority groups - under the given trafos.
+    let inPriorityGroups (viewTrafo : aval<Trafo3d>) (projTrafo : aval<Trafo3d>) (groups : alist<ISg>) : ISg =
+        RenderCommand.Ordered(
+            alist {
+                for sg in groups do
+                    yield RenderCommand.Clear(clear { depth 1.0 })
+                    yield RenderCommand.Render sg
+            })
+        |> Sg.execute
+        |> Sg.viewTrafo viewTrafo
+        |> Sg.projTrafo projTrafo
 
     /// Fullscreen copy of `color` and `depth` into the current target, writing depth.
     let blit (color : aval<ITexture>) (depth : aval<ITexture>) : ISg =
@@ -87,3 +114,17 @@ module OffscreenSurfaces =
         // Always, not None: with the test disabled GL writes no depth either
         |> Sg.depthTest (AVal.constant DepthTest.Always)
         |> Sg.blendMode (AVal.constant BlendMode.None)
+
+    /// A scene graph that keeps its scene events (picking) but renders nothing - for the
+    /// surfaces, whose pixels now come from the offscreen copy while clicks on them must still
+    /// reach their handlers.
+    type PickOnlyApplicator<'msg>(child : Aardvark.UI.ISg<'msg>) =
+        inherit Aardvark.UI.Sg.AbstractApplicator<'msg>(child)
+
+    [<Rule>]
+    type PickOnlySem() =
+        member x.RenderObjects(a : PickOnlyApplicator<'msg>, scope : Ag.Scope) : aset<IRenderObject> =
+            ASet.empty
+
+    let pickOnly (sg : Aardvark.UI.ISg<'msg>) : Aardvark.UI.ISg<'msg> =
+        PickOnlyApplicator<'msg>(sg) :> Aardvark.UI.ISg<'msg>

@@ -1916,26 +1916,66 @@ module ViewerUtils =
             )
         curtainSgOpt |> Sg.dynamic
 
-    let renderCommands
-        (sgGrouped      :alist<amap<Guid,AdaptiveSgSurface>>) 
-        (overlayed      : ISg<ViewerAction>)
-        (depthTested    : ISg<ViewerAction>)
+    /// The surfaces of one view, rendered offscreen (#841, OffscreenSurfaces): their textures,
+    /// and the grouped scene graphs themselves, which the view keeps as pick-only so that
+    /// clicks on a surface still reach its handlers.
+    type OffscreenView =
+        {
+            grouped  : alist<ISg<ViewerAction>>
+            color    : aval<ITexture>
+            surfaces : OffscreenSurfaces.SurfaceDepth
+        }
+
+    /// The render controls' clear colour (renderControlAttributes: background-color #222222).
+    /// Translucent surfaces blend over it offscreen exactly as they did in the control.
+    let private viewBackground = C4f(34.0f / 255.0f, 34.0f / 255.0f, 34.0f / 255.0f, 1.0f)
+
+    /// Renders the surfaces of a view offscreen, in priority groups exactly as the view did
+    /// (depth cleared before each group), at `size` with `samples` samples - the render
+    /// control's. The projection is the one the render control derives from `frustum`.
+    let offscreenView
+        (runtime        : IRuntime)
+        (samples        : int)
+        (sgGrouped      : alist<amap<Guid,AdaptiveSgSurface>>)
         (view           : aval<CameraView>)
-        (allowFootprint : bool) 
-        (allowDepthview : bool) 
-        (runtime        : IRuntime) 
-        (m              : AdaptiveModel)  =
+        (frustum        : aval<Frustum>)
+        (size           : aval<V2i>)
+        (allowFootprint : bool)
+        (allowDepthview : bool)
+        (m              : AdaptiveModel) : OffscreenView =
 
         let grouped = createGroupedSgs runtime sgGrouped view allowFootprint allowDepthview m
+        let viewTrafo = view |> AVal.map CameraView.viewTrafo
+        let projTrafo =
+            (frustum, size) ||> AVal.map2 (fun f s ->
+                Frustum.projTrafo (RenderControlConfig.standard.adjustAspect s f))
+
+        let surfaces =
+            grouped
+            |> AList.map (fun sg -> sg :> Aardvark.SceneGraph.ISg)
+            |> OffscreenSurfaces.inPriorityGroups viewTrafo projTrafo
+
+        let color, depth = OffscreenSurfaces.render runtime samples viewBackground size surfaces
+        {
+            grouped  = grouped
+            color    = color
+            surfaces = { depth = depth; size = size; viewTrafo = viewTrafo; projTrafo = projTrafo }
+        }
+
+    let renderCommands
+        (offscreen      : OffscreenView)
+        (overlayed      : ISg<ViewerAction>)
+        (depthTested    : ISg<ViewerAction>) =
 
         alist {
-            for sg in grouped do
-                yield RenderCommand<_>.ClearDepth 1.0
-                yield RenderCommand<_>.ClearDepth 1.0
-                yield RenderCommand<_>.Render sg
+            // the surfaces: colour and depth copied in from offscreen, then their scene graphs
+            // once more, pick-only, for their scene events
+            yield RenderCommand<_>.Render (OffscreenSurfaces.blit offscreen.color offscreen.surfaces.depth |> Sg.noEvents)
+            for sg in offscreen.grouped do
+                yield RenderCommand<_>.Render (OffscreenSurfaces.pickOnly sg)
 
-            // the annotation fills count prism faces in the stencil (#841); start them from zero,
-            // whatever selection outlines left behind
+            // the stencil fill renderer (fallback, see DrawingApp.view) counts in the stencil;
+            // start it from zero, whatever selection outlines left behind
             yield RenderCommand<_>.ClearStencil 0
             yield RenderCommand<_>.Render depthTested
             yield RenderCommand<_>.ClearDepth 1.0

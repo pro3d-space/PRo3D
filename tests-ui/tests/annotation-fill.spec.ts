@@ -67,7 +67,7 @@ test("a filled polygon tints the terrain inside its outline, bulge included", as
     try {
         const main = await context.newPage();
         await main.goto(app.url);
-        await main.waitForLoadState("networkidle");
+        await main.waitForLoadState("domcontentloaded");
 
         await clickTool(render, "Draw annotation");
         await expect.poll(async () => (await tool(render, "Draw annotation")).active, { timeout: 30_000 }).toBe(true);

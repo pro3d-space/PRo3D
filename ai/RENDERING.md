@@ -124,21 +124,31 @@ Channel meanings, cleared to `(0,0,0,-1)`:
 
 `orderedAnnotations` is the single cached ordering — **every packed draw that writes `ObjId` must take its ids from it**, or a click selects a different annotation than the one under the cursor. It is `HashSet.toArray` inside an `AVal.custom`, so the int id space can permute whenever the annotation set changes: capture the `Guid`, never the int, if you need to hold onto a pick.
 
-Draw order inside the pass is significant — fills, then lines, then vertex handles — so an outline wins over its own fill and a handle wins over the outline through it. Each also gets a progressively larger `DepthOffset` (`fillDepthOffsetFactor`, `handleDepthOffsetFactor`). The pick pass draws the fill's **flat cap** (`FillGeometry.caps`); only the visible pass uses the stencil prisms below.
+Draw order inside the pass is significant — fills, then lines, then vertex handles — so an outline wins over its own fill and a handle wins over the outline through it. Each also gets a progressively larger `DepthOffset` (`fillDepthOffsetFactor`, `handleDepthOffsetFactor`). The pick pass draws the fill's **flat cap** (`FillGeometry.caps`); only the visible pass uses the prisms below.
 
-### Annotation fills — stencil volumes (#841)
+### Surfaces offscreen (#841)
 
-Visible fills are **not** a mesh. A flat cap between the outline points only touches the terrain at its rim, so relief inside the outline cuts through it (z-fighting), and no depth bias or interior sampling fixes that across OPC levels of detail. Instead (`PackedRendering.packedFillRender`):
+The main and instrument views render their surfaces **offscreen** (`OffscreenSurfaces`, `ViewerUtils.offscreenView`): the priority groups go into a multisampled colour + depth target of the control's size and sample count (depth cleared before each group, as before), and a per-sample fullscreen blit copies **colour and depth** back into the render control. Everything after it (depth-tested annotations, traverses, overlay) depth-tests against the surfaces exactly as before — but the surfaces' depth now also exists as a texture (`OffscreenSurfaces.SurfaceDepth`).
 
-1. `FillVolume.tryCompute` (`PRo3D.Base`, pure, unit-tested) builds a **closed, outward-oriented prism** per fill: the `PolygonFill` triangulation as top/bottom caps, offset ±h along the outline's **fitted-plane normal** (works on vertical rock faces; no per-vertex `getUpVector`/SPICE), plus a wall on every *boundary edge of the triangulation* — so tessellator-invented vertices and future holes close by construction. h = the ring's spread along the axis + the user's **fill reach** (`FillReach`: Auto = half the outline size capped per body by `FillReach.maxAuto`, or metres; `ViewConfigModel.fillReachAuto` / `fillReach`).
-2. **Stencil pass** (`fillStencilPass`): z-fail, two-sided (front faces decrement, back faces increment on depth fail), culling off, **depth clamp on** (a face clipped by near/far would break the count), no colour/depth writes.
-3. **Colour pass** (`fillColorPass`): stencil ≠ 0, reset to 0 on the way, depth test off, blend.
+- **Picking** stays on scene events: the grouped surface scene graphs are added to the control a second time through `OffscreenSurfaces.pickOnly` — a typed applicator whose `RenderObjects` rule returns nothing, so their `Sg.pickable'`/`withEvents` still fire.
+- The offscreen projection is `RenderControlConfig.standard.adjustAspect size frustum` — what the render control applies itself; the blit and the fill composite map `gl_FragCoord` through `ViewportSize`, so a target of another size stays aligned.
+- **Known gap:** a server-side screenshot (`/rendering/screenshot`, other size) still gets surface textures of the control's size, scaled. Snapshots (`SnapshotSg`) keep rendering surfaces directly.
 
-Both passes are `RenderPass.before RenderPass.main` inside the depth-tested render command, so outlines draw on top, and they test against the terrain depth left by the surface render commands. `ViewerUtils.renderCommands` (and `SnapshotSg`) clear the stencil right before that command.
+### Annotation fills — against the surface depth (#841)
 
-**All fills must be in one draw** — the colour pass resets what it colours, so a draw per annotation would paint every other fill's pixels in its own colour. The legacy/Snapshots branch therefore uses `fillsWithTrafos` (per-annotation SPICE trafo applied on the CPU) instead of a fill per annotation. Consequence (accepted): overlapping translucent fills show one colour in the overlap. The 2D map view (`MapAnnotations`) has no terrain and keeps drawing the flat caps.
+Visible fills are **not** a mesh. A flat cap between the outline points only touches the terrain at its rim, so relief inside the outline cuts through it (z-fighting). Instead:
 
-GPU regression test: `src/Tests/FillStencilRenderTest.fs`. User docs: [docs/AnnotationFill.md](../docs/AnnotationFill.md).
+1. `FillVolume.tryCompute` (`PRo3D.Base`, pure, unit-tested) builds a **closed prism** per fill: the `PolygonFill` triangulation as top/bottom caps, offset ±h along the outline's **fitted-plane normal** (works on vertical rock faces; no per-vertex `getUpVector`/SPICE), plus a wall on every *boundary edge of the triangulation* — so tessellator-invented vertices and holes close by construction. h = the ring's spread along the axis + the user's **fill reach** (`FillReach`: Auto = half the outline size capped per body by `FillReach.maxAuto`, or metres; `ViewConfigModel.fillReachAuto` / `fillReach`).
+2. `PackedRendering.DeferredFills`: **all prisms in one draw** into an RGBA32F accumulation target. A face fragment *behind* the surface depth adds its fill's premultiplied colour, +1 for back faces, −1 for front faces — the z-fail count per fill, in colour, order-independent. Inside a prism the sum is ±1×colour, outside 0; prisms in front of the terrain contribute nothing. Depth clamp keeps faces beyond near/far; the shader clamps `gl_FragCoord.z` itself and skips pixels without surface.
+3. A fullscreen composite (in `fillPass`, before `main`, so outlines draw on top) turns the sums into straight-alpha colour; `abs` makes it independent of the winding convention.
+
+Cost: 10240 fills ≈ 0.15 ms/frame with a moving camera (RTX 500 Ada), offscreen + blit ≈ 0.04 ms. Translucent fills overlapping *on the terrain* blend as a weighted average with alpha min(1, Σα).
+
+**Why not the stencil** (kept as fallback where no surface depth exists — Snapshots): a shared stencil mark cannot say *which* prism contains the terrain, so the colour pass painted a pixel from whichever prism face reached it first — a near prism's wall took a far fill's terrain (straight cuts in oblique views). One stencil bit per fill, eight per ordered batch (`packedFillRender`), is correct but costs ~23 ms at 10k fills. Render passes per fill are worse still (passes are heavyweight).
+
+The pick pass draws the flat caps (`FillGeometry.caps`); the 2D map view (`MapAnnotations`) has no terrain and draws the caps too.
+
+GPU tests and benchmark: `src/Tests/FillStencilRenderTest.fs`. Playwright: `tests-ui/tests/annotation-fill.spec.ts`. User docs: [docs/AnnotationFill.md](../docs/AnnotationFill.md).
 
 Gates: `ViewerApp.allowAnnotationPicking` decides whether the readback is honoured at all; `ViewerApp.allowVertexEditing` additionally gates the handles. `Interactions.EditAnnotation` is the one mode where annotation picking *and* KdTree surface picking are both live — see [docs/AnnotationVertexEditing.md](../docs/AnnotationVertexEditing.md) for why that ordering hazard needs `VertexGrab.movedSinceGrab`.
 

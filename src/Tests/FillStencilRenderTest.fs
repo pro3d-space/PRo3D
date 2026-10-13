@@ -82,7 +82,7 @@ let private fillGeometry (viewTrafo : aval<Trafo3d>) (reach : FillReach) (annos 
 /// their depth), then the fills against the surfaces' depth texture.
 let private deferredScene runtime (signature : IFramebufferSignature) (viewTrafo : aval<Trafo3d>) (projTrafo : aval<Trafo3d>) (fills : Option<PackedRendering.FillGeometry>) =
     let withCamera sg = sg |> Sg.viewTrafo viewTrafo |> Sg.projTrafo projTrafo
-    let color, depth = OffscreenSurfaces.render runtime signature.Samples (AVal.constant size) (withCamera terrain)
+    let color, depth = OffscreenSurfaces.render runtime signature.Samples C4f.Black (AVal.constant size) (withCamera terrain)
     [
         OffscreenSurfaces.blit color depth
         match fills with

@@ -982,6 +982,9 @@ module DrawingApp =
         (observerSystem : aval<Option<ObserverSystem>>)
         /// the scene body: bounds the automatic fill reach (FillReach.maxAuto)
         (planet           : aval<Planet>)
+        /// the surfaces' depth as a texture, when the view renders them offscreen (OffscreenSurfaces):
+        /// fills are then drawn against it in one draw. None: the stencil renderer.
+        (surfaceDepth     : Option<OffscreenSurfaces.SurfaceDepth>)
         (view             : aval<CameraView>)
         (frustum          : aval<Frustum>)
         (runtime          : IRuntime)
@@ -1145,7 +1148,11 @@ module DrawingApp =
             // fill and outline stay aligned. The legacy branch below applies it to both for the
             // same reason. See pro3d-space/PRo3D#672.
             let packedFills =
-                PackedRendering.packedFillRender fillGeometry
+                // against the surfaces' depth texture when the view renders them offscreen (one
+                // draw for any number of fills); otherwise the stencil renderer
+                match surfaceDepth with
+                | Some s -> PackedRendering.DeferredFills.renderOn runtime s fillGeometry
+                | None   -> PackedRendering.packedFillRender fillGeometry
                 |> Sg.noEvents
 
             // after the lines, so a handle is never hidden by the outline running through it -
@@ -1202,7 +1209,10 @@ module DrawingApp =
                 PackedRendering.fillsWithTrafos
                     model.colorByCategory planet (msmallConfig.getFillReach mbigConfig) config.offset
                     (annoSet |> ASet.map snd) viewMatrix
-                |> PackedRendering.packedFillRender
+                |> (fun g ->
+                    match surfaceDepth with
+                    | Some s -> PackedRendering.DeferredFills.renderOn runtime s g
+                    | None   -> PackedRendering.packedFillRender g)
                 |> Sg.noEvents
 
             let overlay =

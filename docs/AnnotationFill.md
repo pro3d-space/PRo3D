@@ -43,10 +43,24 @@ When to change it:
 The direction of the reach is perpendicular to the outline (its best-fit plane): "up" for an
 outline on the ground, "out of the face" for an outline drawn on a rock wall.
 
+## Outlines drawn with Linear projection
+
+A *Linear* outline is a set of straight lines between the points you clicked: it runs above
+valleys and through bumps instead of along the ground. The fill lies on the ground, so seen
+from the side its edge and the straight outline drift apart - most where the terrain inside
+the outline is high or rough. Seen from above they coincide. Outlines drawn with *Sky* or
+*Viewpoint* projection follow the terrain and match the fill closely.
+
+## Performance
+
+All fills are drawn together, so many of them are cheap: ten thousand filled polygons cost a
+fraction of a millisecond per frame.
+
 ## Limits
 
-- Where two translucent fills overlap, the overlap shows one of the two colours, not a blend of
-  both.
+- Where two translucent fills overlap on the terrain, the overlap shows a mix of both colours
+  (an average weighted by their opacities), not one laid over the other.
 - In the 2D map view fills are drawn flat; there is no terrain to drape onto.
+- Snapshots (PRo3D.Snapshots) use a slower fill renderer that gives the same picture.
 
-Implementation notes for developers: [ai/RENDERING.md](../ai/RENDERING.md#annotation-fills--stencil-volumes-841).
+Implementation notes for developers: [ai/RENDERING.md](../ai/RENDERING.md#annotation-fills--against-the-surface-depth-841).

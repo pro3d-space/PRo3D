@@ -1189,7 +1189,9 @@ module PackedRendering =
             /// one sign.
             let composite (v : CompositeVertex) =
                 fragment {
-                    let s = accumulation.Read(V2i v.fc.XY, 0)
+                    // the accumulation has the size of the surface textures, the target may not
+                    let vp : V2i = uniform?ViewportSize
+                    let s = accumulation.Read(V2i (v.fc.XY * V2f accumulation.Size / V2f vp), 0)
                     let a = abs s.W
                     if a < 0.0001f then discard()
                     let alpha = min a 1.0f
@@ -1252,6 +1254,10 @@ module PackedRendering =
         let render runtime fills terrainDepth size viewTrafo projTrafo =
             accumulationTexture runtime fills terrainDepth size viewTrafo projTrafo
             |> composite
+
+        /// render, against a view's offscreen surfaces.
+        let renderOn runtime (surfaces : OffscreenSurfaces.SurfaceDepth) fills =
+            render runtime fills surfaces.depth surfaces.size surfaces.viewTrafo surfaces.projTrafo
 
     /// Draggable control-point handles for one annotation - the one being edited.
     ///

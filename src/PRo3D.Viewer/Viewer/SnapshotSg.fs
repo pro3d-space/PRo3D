@@ -137,7 +137,7 @@ module SnapshotSg =
         let overlayed = ViewerApp.createOverlaySg m
 
         let depthTested = 
-            ViewerApp.getDepthTested frustum m.navigation.camera.view observer id runtime m //annotations + scaleBars
+            ViewerApp.getDepthTested frustum m.navigation.camera.view observer None id runtime m //annotations + scaleBars
 
         let camera = AVal.map2 (fun v f -> Camera.create v f) m.navigation.camera.view m.frustum 
         let sg = createSceneGraph m.scene.surfacesModel.sgGrouped 

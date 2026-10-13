@@ -2812,13 +2812,14 @@ module ViewerApp =
         |> Sg.dynamic
 
     // depthTested that occur in instrumentview + main renderview
-    let getDepthTested (frustum: aval<Frustum>) (view :aval<CameraView>) (observer : aval<ObserverSystem option>) (id : string) (runtime : IRuntime) (m: AdaptiveModel) =
+    let getDepthTested (frustum: aval<Frustum>) (view :aval<CameraView>) (observer : aval<ObserverSystem option>) (surfaceDepth : Option<OffscreenSurfaces.SurfaceDepth>) (id : string) (runtime : IRuntime) (m: AdaptiveModel) =
         let annotations, discs = 
             DrawingApp.view 
                 m.scene.config 
                 mdrawingConfig
                 observer
                 m.scene.referenceSystem.planet
+                surfaceDepth
                 view //m.navigation.camera.view 
                 frustum
                 runtime
@@ -2951,11 +2952,16 @@ module ViewerApp =
         let icam = AVal.map2 Camera.create (m.scene.viewPlans.instrumentCam) m.scene.viewPlans.instrumentFrustum
 
         let ioverlayed = getOverlayed m m.scene.viewPlans.instrumentCam frustum
-       
-        let depthTested = getDepthTested frustum m.scene.viewPlans.instrumentCam observer id runtime m
+
+        let size = m.viewPortSizes |> AMap.tryFind id |> AVal.map (Option.defaultValue V2i.II)
+        let offscreen =
+            ViewerUtils.offscreenView runtime dataSamples m.scene.surfacesModel.sgGrouped
+                m.scene.viewPlans.instrumentCam frustum size false true m
+
+        let depthTested = getDepthTested frustum m.scene.viewPlans.instrumentCam observer (Some offscreen.surfaces) id runtime m
 
         // instrument view control
-        let icmds = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped ioverlayed depthTested m.scene.viewPlans.instrumentCam false true runtime m // m.scene.surfacesModel.sgGrouped overlayed discs m
+        let icmds = ViewerUtils.renderCommands offscreen ioverlayed depthTested
                         |> Aardvark.UI.RenderCommand.Ordered
                         |> Sg.execute
                         |> Sg.map ViewerMessage
@@ -3024,19 +3030,19 @@ module ViewerApp =
 
         let overlayed = createOverlaySg m
 
-        let depthTested = 
-            getDepthTested frustum m.navigation.camera.view observer id runtime m //annotations + scaleBars
+        // the surfaces, offscreen at the control's size: their depth texture is what the
+        // annotation fills are drawn against (#841)
+        let size = m.viewPortSizes |> AMap.tryFind id |> AVal.map (Option.defaultValue V2i.II)
+        let offscreen =
+            ViewerUtils.offscreenView runtime dataSamples m.scene.surfacesModel.sgGrouped
+                m.navigation.camera.view frustum size true false m
+
+        let depthTested =
+            getDepthTested frustum m.navigation.camera.view observer (Some offscreen.surfaces) id runtime m //annotations + scaleBars
 
         //render OPCs in priority groups
-        let cmds  = 
-            ViewerUtils.renderCommands 
-                m.scene.surfacesModel.sgGrouped 
-                overlayed depthTested 
-                m.navigation.camera.view 
-                true 
-                false 
-                runtime 
-                m
+        let cmds  =
+            ViewerUtils.renderCommands offscreen overlayed depthTested
             |> Aardvark.UI.RenderCommand.Ordered
             |> Sg.execute
             |> Sg.map ViewerMessage
