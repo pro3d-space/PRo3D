@@ -1230,9 +1230,13 @@ module PackedRendering =
                 |> Sg.viewTrafo viewTrafo
                 |> Sg.projTrafo projTrafo
 
-            runtime.CompileRender(signature, sg)
-            |> RenderTask.renderToColorWithClear size (clear { color C4f.Zero })
-            |> AdaptiveResource.cast<ITexture>
+            // compiled only while a view shows it (OffscreenSurfaces.renderTargets)
+            OffscreenSurfaces.renderTargets runtime signature sg
+                (RenderTask.renderToColorWithClear size (clear { color C4f.Zero }))
+                (fun c -> c.Acquire())
+                (fun c -> c.Release())
+                (fun c t rt -> c.GetValue(t, rt) :> ITexture)
+            :> aval<ITexture>
 
         /// The fills laid over the terrain: a fullscreen pass in the fill pass, so outlines
         /// and everything else annotation-related draw over it.

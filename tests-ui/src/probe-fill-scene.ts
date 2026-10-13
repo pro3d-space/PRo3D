@@ -15,6 +15,8 @@ import { launchPro3d, surfaceShadersReady } from "./pro3d";
         await surfaceShadersReady(page);
         await page.waitForTimeout(20_000); // OPC LoD streaming
         await page.screenshot({ path: out });
+        const hold = Number(process.argv[4] ?? "0");
+        if (hold > 0) { console.log(`holding ${hold}s, pid ${app.pid ?? "?"}`); await page.waitForTimeout(hold * 1000); }
         console.log(`saved ${out}`);
     } finally {
         await browser.close();

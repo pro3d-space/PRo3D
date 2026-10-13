@@ -70,6 +70,54 @@ module OffscreenSurfaces =
                 return { c = color.Read(p, v.sid); d = d }
             }
 
+    /// `sg` rendered offscreen, its task compiled only while the result is acquired and
+    /// disposed when it is released. The render control acquires its scene's resources per
+    /// client and releases them when the client goes (aardvark.media compiles and disposes
+    /// the scene task per client), so an offscreen pass built in the view function lives
+    /// exactly as long as a client shows it. Compiled eagerly in the view function instead,
+    /// the task - and all the surfaces' GPU data in it - outlived every page that used it.
+    ///
+    /// `outputs` makes the render-to-texture resources of the compiled task; `acquire`,
+    /// `release` and `get` handle them as a whole.
+    let renderTargets
+        (runtime   : IRuntime)
+        (signature : IFramebufferSignature)
+        (sg        : ISg)
+        (outputs   : IRenderTask -> 'o)
+        (acquire   : 'o -> unit)
+        (release   : 'o -> unit)
+        (get       : 'o -> AdaptiveToken -> RenderToken -> 'a) : IAdaptiveResource<'a> =
+        let current : ref<Option<IRenderTask * 'o>> = ref None
+        let ensure () =
+            match current.Value with
+            | Some (_, o) -> o
+            | None ->
+                let task = runtime.CompileRender(signature, sg)
+                let o = outputs task
+                acquire o
+                current.Value <- Some (task, o)
+                o
+        { new AdaptiveResource<'a>() with
+            override x.Create() = ensure () |> ignore
+            override x.Destroy() =
+                match current.Value with
+                | Some (task, o) ->
+                    release o
+                    task.Dispose()
+                | None -> ()
+                current.Value <- None
+            override x.Compute(token, renderToken) =
+                get (ensure ()) token renderToken
+        } :> IAdaptiveResource<'a>
+
+    /// A part of `parent`, holding `parent` for as long as it is held itself.
+    let project (f : 'a -> 'b) (parent : IAdaptiveResource<'a>) : IAdaptiveResource<'b> =
+        { new AdaptiveResource<'b>() with
+            override x.Create() = parent.Acquire()
+            override x.Destroy() = parent.Release()
+            override x.Compute(token, renderToken) = f (parent.GetValue(token, renderToken))
+        } :> IAdaptiveResource<'b>
+
     /// Colour and depth of the surfaces in `sg`, rendered at `size` with `samples` samples -
     /// the sample count of the target they are copied into (the copy is per sample) - over
     /// `background`, the target's own clear colour, so translucent surfaces blend as before.
@@ -82,10 +130,15 @@ module OffscreenSurfaces =
                     DefaultSemantic.DepthStencil, TextureFormat.Depth24Stencil8
                 ],
                 samples)
-        let color, depth =
-            runtime.CompileRender(signature, sg)
-            |> RenderTask.renderToColorAndDepthWithClear size (clear { color background; depth 1.0; stencil 0 })
-        AdaptiveResource.cast<ITexture> color, AdaptiveResource.cast<ITexture> depth
+        let targets =
+            renderTargets runtime signature sg
+                (RenderTask.renderToColorAndDepthWithClear size (clear { color background; depth 1.0; stencil 0 }))
+                (fun (c, d) -> c.Acquire(); d.Acquire())
+                (fun (c, d) -> c.Release(); d.Release())
+                (fun (c, d) t rt -> struct(c.GetValue(t, rt) :> ITexture, d.GetValue(t, rt) :> ITexture))
+        let color = targets |> project (fun (struct(c, _)) -> c)
+        let depth = targets |> project (fun (struct(_, d)) -> d)
+        color :> aval<ITexture>, depth :> aval<ITexture>
 
     /// `groups` drawn one after the other, the depth cleared before each - the viewer's surface
     /// priority groups - under the given trafos.
