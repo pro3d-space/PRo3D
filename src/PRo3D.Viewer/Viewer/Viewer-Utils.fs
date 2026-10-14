@@ -1555,7 +1555,8 @@ module ViewerUtils =
         let previewPickingEnabled =
             (m.scene.config.showPreviewIntersection, m.interaction)
             ||> AVal.map2 (fun showIt interaction ->
-                showIt || interaction = Interactions.EditAnnotation)
+                // drawing: the snapping feedback of geological maps follows the cursor (#843)
+                showIt || interaction = Interactions.EditAnnotation || interaction = Interactions.DrawAnnotation)
 
         let vpVisible = isViewPlanVisible m
         let selected = m.scene.surfacesModel.surfaces.singleSelectLeaf

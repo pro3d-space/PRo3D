@@ -12,6 +12,7 @@ open Expecto
 
 open PRo3D.Base
 open PRo3D.Base.Annotation
+open PRo3D.Base.Geometry
 open PRo3D.Core
 open PRo3D.Core.Drawing
 
@@ -138,6 +139,24 @@ let tests () =
             let renamed = GeologicalMapApp.update file.geologicalMaps (GeologicalMapAction.SetUnitCode(map.key, np.id, "Cr"))
             let codes = renamed.maps |> IndexList.toArray |> Array.collect (fun m -> m.units |> IndexList.toArray |> Array.map (fun u -> u.code))
             Expect.equal codes [| "Cr"; "Np" |] "unchanged"
+        }
+
+        test "an ellipse in the map's group is a closed contact" {
+            let file, _, map = withMap ()
+            let ring = Array.init 36 (fun i -> let a = Constant.PiTimesTwo * float i / 36.0 in V3d(77.0, 10.0 * cos a, 10.0 * sin a))
+            let e = Annotation.make Projection.Sky None Geometry.Ellipse None { c = C4b.Red } Annotation.Initial.thickness ""
+            let e = { e with points = IndexList.ofArray ring }
+            let groups =
+                match GeologicalMapApp.tryGroupPath file.annotations.rootGroup map.sourceGroup with
+                | Some (path, _) -> GroupsApp.addLeaves path (IndexList.single (Leaf.Annotations e)) file.annotations
+                | None -> failwith "group missing"
+            let s = GeologicalMapApp.sourcesOf groups map
+            match s.contacts |> Array.tryFind (fun c -> c.id = e.key) with
+            | Some c ->
+                Expect.equal c.points.Length 37 "closed: the first point repeated"
+                let r = ContactTopology.compute V3d.Zero s.tolerance s.contacts s.labels
+                Expect.equal r.faces.Length 2 "inside and outside the ellipse"
+            | None -> failtest "the ellipse is not a contact"
         }
 
         test "the map follows its group through the group-key renewal on load" {

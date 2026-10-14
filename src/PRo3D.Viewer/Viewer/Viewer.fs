@@ -2875,6 +2875,8 @@ module ViewerApp =
                 (allowVertexEditing m)
                 { active = m.interaction |> AVal.map (fun i -> i = Interactions.AssignUnit)
                   armed  = ViewerUtils.toolArmed m }
+                { drawingLine = m.interaction |> AVal.map (fun i -> i = Interactions.DrawAnnotation)
+                  cursor      = m.surfaceIntersection |> AVal.map (Option.map (fun s -> s.hitPoint)) }
                 m.drawing
          
         let annotationSg =

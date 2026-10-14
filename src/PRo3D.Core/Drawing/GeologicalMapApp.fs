@@ -128,8 +128,23 @@ module GeologicalMapApp =
     // the group's annotations -> topology
     // -----------------------------------------------------------------------------------------
 
-    /// Annotations that count as contacts. Any line in the map's group does.
+    /// Annotations that count as contacts: any line in the map's group - polylines, lines, and
+    /// the closed ones, polygons and ellipses (a crater rim drawn as an ellipse).
     let isContact (g : Geometry) =
+        match g with
+        | Geometry.Polyline | Geometry.Polygon | Geometry.Line
+        | Geometry.Ellipse | Geometry.AxisEllipse | Geometry.Axis4PEllipse -> true
+        | _ -> false
+
+    /// Contacts whose ring closes on itself; their points may not repeat the first at the end.
+    let isClosedContact (g : Geometry) =
+        match g with
+        | Geometry.Polygon | Geometry.Ellipse | Geometry.AxisEllipse | Geometry.Axis4PEllipse -> true
+        | _ -> false
+
+    /// Drawing tools whose clicked points lie on the contact - the ones that snap. An ellipse is
+    /// drawn from its centre and axes, so its clicks are not points of its outline.
+    let isLineTool (g : Geometry) =
         match g with
         | Geometry.Polyline | Geometry.Polygon | Geometry.Line -> true
         | _ -> false
@@ -206,13 +221,13 @@ module GeologicalMapApp =
     /// What a new contact point snaps to (ContactSnap).
     let snapTargets (groups : GroupsModel) (maps : GeologicalMapsModel) (drawingGeometry : Geometry) : V3d[][] =
         match GeologicalMapsModel.tryActive maps with
-        | Some map when groups.activeGroup.id = map.sourceGroup && isContact drawingGeometry ->
+        | Some map when groups.activeGroup.id = map.sourceGroup && isLineTool drawingGeometry ->
             leafIdsOf groups.rootGroup map.sourceGroup |> Array.choose (fun id ->
                 match HashMap.tryFind id groups.flat with
                 | Some (Leaf.Annotations a) when isContact a.geometry ->
                     let pts = Annotation.retrievePoints a |> Array.ofList
                     let pts =
-                        if a.geometry = Geometry.Polygon && pts.Length > 2 then Array.append pts [| pts.[0] |]
+                        if isClosedContact a.geometry && pts.Length > 2 && pts.[0] <> pts.[pts.Length - 1] then Array.append pts [| pts.[0] |]
                         else pts
                     if pts.Length >= 2 then Some pts else None
                 | _ -> None)
@@ -256,7 +271,7 @@ module GeologicalMapApp =
                         let pts = Sg.getPolylinePointsAt a t
                         // a closed polygon contact: the topology wants the closing point
                         let pts =
-                            if g = Geometry.Polygon && pts.Length > 2 && pts.[0] <> pts.[pts.Length - 1]
+                            if isClosedContact g && pts.Length > 2 && pts.[0] <> pts.[pts.Length - 1]
                             then Array.append pts [| pts.[0] |]
                             else pts
                         if pts.Length >= 2 then contacts.Add { id = a.key; points = pts }
@@ -330,7 +345,7 @@ module GeologicalMapApp =
                 if isContact a.geometry then
                     let pts = Annotation.retrievePoints a |> Array.ofList
                     let pts =
-                        if a.geometry = Geometry.Polygon && pts.Length > 2 && pts.[0] <> pts.[pts.Length - 1]
+                        if isClosedContact a.geometry && pts.Length > 2 && pts.[0] <> pts.[pts.Length - 1]
                         then Array.append pts [| pts.[0] |]
                         else pts
                     if pts.Length >= 2 then contacts.Add { id = a.key; points = pts }
@@ -645,8 +660,12 @@ module GeologicalMapApp =
     /// whether the left button belongs to it right now (ViewerUtils.toolArmed).
     type AssignGate = { active : aval<bool>; armed : aval<bool> }
 
+    /// The drawing tool, for snapping feedback while a contact is drawn: whether it is on with a
+    /// line geometry, and the surface point under the cursor (the viewer's preview pick).
+    type DrawState = { drawingLine : aval<bool>; cursor : aval<Option<V3d>> }
+
     /// The camera, for the unit codes: billboards of a fixed pixel size.
-    type TextView = { camera : aval<CameraView>; near : aval<float>; hfov : aval<float> }
+    type TextView = { camera : aval<CameraView>; near : aval<float>; hfov : aval<float>; viewport : aval<V2i> }
 
     /// One map: its units' volumes into a face-id target against the surface depth, then laid
     /// over the terrain from the face table. Events (the Assign unit tool) read the face id and
@@ -654,7 +673,7 @@ module GeologicalMapApp =
     let private mapSg
         (runtime : IRuntime) (surfaces : OffscreenSurfaces.SurfaceDepth)
         (planet : aval<Planet>) (reach : aval<FillReach>)
-        (groups : AdaptiveGroupsModel) (maps : AdaptiveGeologicalMapsModel) (gate : AssignGate)
+        (groups : AdaptiveGroupsModel) (maps : AdaptiveGeologicalMapsModel) (gate : AssignGate) (tools : DrawState)
         (textView : TextView) (stroke : aval<V3d[]>) (view : aval<M44d>) (map : AdaptiveGeologicalMap) : ISg<Action> =
 
         let derived = derived groups map
@@ -685,14 +704,40 @@ module GeologicalMapApp =
                 (fun c -> c.Release())
                 (fun c t rt -> c.GetValue(t, rt))
 
-        // a contact being drawn into this map: its points, while this is the active map and its
-        // group the active one; otherwise none
-        let stroke =
-            (stroke, maps.active, groups.activeGroup) |||> AVal.map3 (fun s active group ->
-                if active = Some map.key then Some (s, group.id) else None)
-            |> AVal.bind (function
-                | Some (s, group) -> map.sourceGroup |> AVal.map (fun g -> if g = group then s else [||])
-                | None -> AVal.constant [||])
+        // drawing a contact into this map: this is the active map, its group the active one, the
+        // draw tool is on with a line geometry
+        let drawingHere =
+            (maps.active, groups.activeGroup, map.sourceGroup) |||> AVal.map3 (fun active group source ->
+                active = Some map.key && group.id = source)
+            |> AVal.map2 (&&) tools.drawingLine
+
+        // the placed points of the contact being drawn
+        let placed = (drawingHere, stroke) ||> AVal.map2 (fun here s -> if here then s else [||])
+
+        // where a click would land now: the surface point under the cursor, snapped onto a
+        // contact exactly as the click will be (GeologicalMapApp.snap); and whether it snaps
+        let cursor =
+            AVal.custom (fun t ->
+                if not (drawingHere.GetValue t) then None
+                else
+                    match tools.cursor.GetValue t with
+                    | None -> None
+                    | Some p ->
+                        let d = derived.GetValue t
+                        let eye = textView.camera.GetValue(t).Location
+                        let hfov = (textView.hfov.GetValue t) * Constant.RadiansPerDegree
+                        let width = (textView.viewport.GetValue t).X
+                        let radius = ContactSnap.radiusOf SnapPixels hfov width
+                        match ContactSnap.tryPoint eye radius (4.0 * radius * Vec.Distance(p, eye)) d.built.lines p with
+                        | Some q -> Some (q, true)
+                        | None -> Some (p, false))
+
+        // the stroke as it will be if clicked now: the placed points and the cursor's
+        let live =
+            (placed, cursor) ||> AVal.map2 (fun s c ->
+                match c with
+                | Some (p, _) when s.Length > 0 -> Array.append s [| p |]
+                | _ -> s)
 
         // whether a point touches a contact, as the topology will see it
         let attached (b : Built) (p : V3d) =
@@ -706,41 +751,54 @@ module GeologicalMapApp =
                     if Vec.Distance(a + d * t, p) <= b.tolerance then hit <- true
                 hit)
 
-        // split preview: the faces the stroke passes through, from the network as it is - no
-        // rebuild per click. A point on a contact belongs to either side, so those are skipped
+        // which of the live stroke's two ends sit on a contact
+        let ends =
+            (derived, live) ||> AVal.map2 (fun d s ->
+                match s with
+                | [||] -> [||]
+                | [| p |] -> [| p, attached d.built p |]
+                | _ -> [| s.[0], attached d.built s.[0]; s.[s.Length - 1], attached d.built s.[s.Length - 1] |])
+
+        // split preview: the faces the live stroke passes through, from the network as it is - no
+        // rebuild per click. Its ends on a contact belong to either side, so those are skipped
         let preview =
-            (derived, stroke) ||> AVal.map2 (fun d s ->
-                if s.Length = 0 then Set.empty
+            (derived, live) ||> AVal.map2 (fun d s ->
+                if s.Length < 2 then Set.empty
                 else
-                    let samples =
-                        if s.Length = 1 then s
-                        else Array.init ((s.Length - 1) * 8 + 1) (fun i ->
-                            let k = min (s.Length - 2) (i / 8)
-                            let t = float (i - 8 * k) / 8.0
-                            s.[k] + (s.[k + 1] - s.[k]) * t)
-                    samples
-                    |> Array.filter (fun p -> not (attached d.built p))
-                    |> Array.choose d.built.network.faceAt
+                    let n = (s.Length - 1) * 8
+                    // the stroke's points on a contact (its ends, a point placed on one): skipped
+                    let onContact = s |> Array.map (attached d.built)
+                    Array.init (n + 1) (fun i ->
+                        let k = min (s.Length - 2) (i / 8)
+                        let t = float (i - 8 * k) / 8.0
+                        i, s.[k] + (s.[k + 1] - s.[k]) * t)
+                    |> Array.choose (fun (i, p) ->
+                        if i % 8 = 0 && onContact.[i / 8] then None
+                        // the segment to the cursor runs along a contact when both its ends are on
+                        // one (the cursor near the last point): its samples belong to either side
+                        elif i > n - 8 && attached d.built p then None
+                        else d.built.network.faceAt p)
                     |> Set.ofArray)
 
-        // red: open contact ends. While drawing: the stroke's ends, green where they sit on a
-        // contact (the cut closes there), orange where they are still open. Lifted a little off
+        // red: open contact ends. While drawing: the stroke's ends - green where they sit on a
+        // contact (the cut closes there; for the cursor: a click here snaps), orange where they
+        // are open. An open end the stroke joins shows as joined, not red. Lifted a little off
         // the terrain so the depth test against it does not swallow them
         let red = V4f(0.9f, 0.1f, 0.1f, 1.0f)
         let green = V4f(0.1f, 0.85f, 0.2f, 1.0f)
         let orange = V4f(1.0f, 0.6f, 0.0f, 1.0f)
         let markers =
-            (derived, stroke) ||> AVal.map2 (fun d s ->
-                let strokeEnds =
-                    match s with
-                    | [||] -> [||]
-                    | [| p |] -> [| p, (if attached d.built p then green else orange) |]
-                    | _ ->
-                        let a = s.[0]
-                        let b = s.[s.Length - 1]
-                        [| a, (if attached d.built a then green else orange)
-                           b, (if attached d.built b then green else orange) |]
-                let all = Array.append (d.topology.openEnds |> Array.map (fun p -> p, red)) strokeEnds
+            (derived, ends, cursor) |||> AVal.map3 (fun d ends c ->
+                let strokeEnds = ends |> Array.map (fun (p, a) -> p, (if a then green else orange))
+                // before the first point: only where the click would snap to
+                let cursorMark =
+                    match c with
+                    | Some (p, true) when ends.Length = 0 -> [| p, green |]
+                    | _ -> [||]
+                let joined (p : V3d) =
+                    ends |> Array.exists (fun (q, a) -> a && Vec.Distance(p, q) <= max d.built.tolerance 1e-3)
+                let opens = d.topology.openEnds |> Array.filter (not << joined) |> Array.map (fun p -> p, red)
+                let all = Array.concat [ opens; strokeEnds; cursorMark ]
                 let origin = all |> Array.tryHead |> Option.map fst |> Option.defaultValue V3d.Zero
                 let lift (p : V3d) = center + (p - center) * 1.003
                 all |> Array.map (fun (p, _) -> V3f(lift p - origin)),
@@ -762,7 +820,7 @@ module GeologicalMapApp =
         // the cut being drawn, on top of everything: its straight pieces between the clicked
         // points run under the terrain, where the ordinary working-annotation line is hidden
         let strokeSg : ISg<Action> =
-            stroke
+            live
             |> AVal.map (fun s ->
                 if s.Length < 2 then Sg.empty
                 else PRo3D.Core.Drawing.Sg.lines (C4b(255, 220, 60)) 3.0 s |> Sg.depthTest (AVal.constant DepthTest.None))
@@ -933,7 +991,7 @@ module GeologicalMapApp =
     /// render their surfaces offscreen; the Snapshots path (no surface depth) shows no maps yet.
     let render
         (runtime : IRuntime) (surfaceDepth : Option<OffscreenSurfaces.SurfaceDepth>)
-        (planet : aval<Planet>) (reach : aval<FillReach>) (gate : AssignGate) (textView : TextView)
+        (planet : aval<Planet>) (reach : aval<FillReach>) (gate : AssignGate) (tools : DrawState) (textView : TextView)
         /// the points of the contact being drawn (empty when no line is being drawn)
         (stroke : aval<V3d[]>)
         (groups : AdaptiveGroupsModel) (maps : AdaptiveGeologicalMapsModel) (view : aval<M44d>) : ISg<Action> =
@@ -942,7 +1000,7 @@ module GeologicalMapApp =
         | Some s ->
             maps.maps
             |> AList.toASet
-            |> ASet.map (mapSg runtime s planet reach groups maps gate textView stroke view)
+            |> ASet.map (mapSg runtime s planet reach groups maps gate tools textView stroke view)
             |> Sg.set
 
     // -----------------------------------------------------------------------------------------

@@ -276,6 +276,18 @@ test("the Assign unit tool: click, Alt+click and drag across units", async ({ br
     }
 });
 
+/** Count of strongly green pixels (the snap / attached marker) within `r` pixels of (x, y). */
+function greenNear(png: Buffer, x: number, y: number, r: number) {
+    const p = PNG.sync.read(png);
+    let n = 0;
+    for (let yy = Math.max(0, y - r); yy < Math.min(p.height, y + r); yy++)
+        for (let xx = Math.max(0, x - r); xx < Math.min(p.width, x + r); xx++) {
+            const i = (yy * p.width + xx) * 4;
+            if (p.data[i + 1] > 170 && p.data[i] < 90 && p.data[i + 2] < 120) n++;
+        }
+    return n;
+}
+
 /** First near-black pixel (a contact line) walking from (fx, fy) by (dx, dy) pixels, as a pixel. */
 function findLine(png: Buffer, fx: number, fy: number, dx: number, dy: number) {
     const p = PNG.sync.read(png);
@@ -320,6 +332,24 @@ test("a contact drawn to end near other contacts snaps onto them and cuts a unit
         const start = { x: (rim.x - 4) * sx, y: rim.y * sx };
         const end = { x: equator.x * sx, y: (equator.y - 4) * sx };
         const mid = { x: (start.x + end.x) / 2 - 20, y: (start.y + end.y) / 2 };
+
+        // before clicking: hovering near the rim shows where the click would snap to (green).
+        // The cursor's surface point is picked while the tool is armed: Ctrl held (classic scheme)
+        await render.bringToFront();
+        await render.mouse.move(start.x, start.y);
+        await render.waitForTimeout(400);
+        await render.keyboard.down("Control");
+        // the first preview pick loads the surface's KdTree (seconds); keep the cursor alive
+        let hover = await render.screenshot();
+        for (let i = 0; i < 20; i++) {
+            await render.mouse.move(start.x + (i % 2), start.y);
+            await render.waitForTimeout(500);
+            hover = await render.screenshot();
+            if (greenNear(hover, rim.x, rim.y, 14) > 8) break;
+        }
+        await render.keyboard.up("Control");
+        save("snap-0-hover.png", hover);
+        expect(greenNear(hover, rim.x, rim.y, 14), "a green snap marker at the rim under the cursor").toBeGreaterThan(8);
         for (const p of [start, mid, end]) {
             await pick(render, p.x, p.y);
             await awaitIdle(render, app);

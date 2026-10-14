@@ -1101,6 +1101,8 @@ module DrawingApp =
         (vertexEditingAllowed : aval<bool>)
         /// the Assign unit tool of the geological maps (#843)
         (assignGate       : GeologicalMapApp.AssignGate)
+        /// the draw tool and the cursor's surface point, for snapping feedback (#843)
+        (drawState        : GeologicalMapApp.DrawState)
         (model            : AdaptiveDrawingModel)
         : ISg<DrawingAction> * ISg<DrawingAction> =
         // order is irrelevant for rendering. change list to set,
@@ -1272,13 +1274,14 @@ module DrawingApp =
             // geological map units (#843): fills too, drawn against the same surface depth
             let geologicalMaps =
                 GeologicalMapApp.render runtime surfaceDepth planet fillReach assignGate
+                    { drawState with drawingLine = (drawState.drawingLine, model.geometry) ||> AVal.map2 (fun on g -> on && GeologicalMapApp.isLineTool g) }
                     // the view's own field of view, in degrees (what invariantScale expects)
-                    { camera = view; near = config.nearPlane; hfov = frustum |> AVal.map Frustum.horizontalFieldOfViewInDegrees }
+                    { camera = view; near = config.nearPlane; hfov = frustum |> AVal.map Frustum.horizontalFieldOfViewInDegrees; viewport = viewport }
                     // the line being drawn, for the split preview
                     (model.working |> AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption |> AVal.bind (function
                         | Some (a : AdaptiveAnnotation) ->
                             (a.geometry, a.points.Content) ||> AVal.map2 (fun g ps ->
-                                if GeologicalMapApp.isContact g then IndexList.toArray ps else [||])
+                                if GeologicalMapApp.isLineTool g then IndexList.toArray ps else [||])
                         | None -> AVal.constant [||]))
                     model.annotations model.geologicalMaps viewMatrix
                 |> Sg.map DrawingAction.GeologicalMapMessage
