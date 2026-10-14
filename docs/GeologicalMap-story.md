@@ -1,4 +1,4 @@
-# A geological map of Dimorphos in ten steps
+# A geological map of Dimorphos, step by step
 
 You draw the **contacts** and say **which unit** lies where. PRo3D builds the units from that,
 draped on the full relief of the body. Reference: [GeologicalMap.md](GeologicalMap.md).
@@ -70,13 +70,42 @@ Enter. The lowland is split in two; the new part is hatched - it needs a unit.
 
 **New unit** `Ej` *Ejecta blanket*, one click into the new part.
 
-### 10. Checking the map
+### 10. A crater inside the lowland
 
-![An open contact end, marked red](images/geological-map/story/10-open-end.png)
+![An ellipse inside the lowland: a unit inside a unit](images/geological-map/story/10-crater.png)
+
+A crater rim, drawn as an **ellipse** (three clicks: the two ends of its long axis, then its
+width). An ellipse is a closed contact: the crater floor is a new unit *inside* the lowland, which
+is now a ring around it.
+
+![Crater floor assigned](images/geological-map/story/11-crater-assigned.png)
+
+**New unit** `Cr` *Crater floor*, one click into the crater.
+
+### 11. Tying the crater to the outline
+
+![The second connecting line: both ends attached](images/geological-map/story/12-connect-preview.png)
+
+A line from the lowland's eastern edge to the crater rim ties the crater to the outline - it
+separates nothing yet (still one lowland unit, no open end). A second line, from the northern
+edge to the crater, is drawn: both ends green.
+
+![The ring around the crater cut in two](images/geological-map/story/13-ring-cut.png)
+
+The two lines and the crater rim now enclose the north-eastern part of the lowland: a new unit,
+hatched.
+
+![Terrace assigned](images/geological-map/story/14-terrace.png)
+
+`Tr` *Terrace*, one click.
+
+### 12. Checking the map
+
+![An open contact end, marked red](images/geological-map/story/15-open-end.png)
 
 A contact that ends in nothing separates nothing: its ends are marked **red**...
 
-![The problem list](images/geological-map/story/11-problems.png)
+![The problem list](images/geological-map/story/16-problems.png)
 
 ...and listed in the panel. Click an entry to fly there, or press **N** for the next one. Close
 the contact, or delete it.

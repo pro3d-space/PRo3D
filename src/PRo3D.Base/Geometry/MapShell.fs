@@ -311,6 +311,24 @@ module MapShell =
                 i <- i + bStride
             candidates.Add(struct(c, d))
             t <- t + tStride
+        // the face's area-weighted centre: where a compact face's code belongs. Its triangles may
+        // all fan out from the rim (an ellipse), with every triangle centre near the edge
+        let centre =
+            let mutable s = V3d.Zero
+            for t in 0 .. triCount - 1 do
+                let a = cap.[3 * t]
+                let b = cap.[3 * t + 1]
+                let c = cap.[3 * t + 2]
+                s <- s + (a + b + c) * Vec.Cross(b - a, c - a).Length
+            s
+        if centre.Length > 1e-12 then
+            let c = centre.Normalized
+            if not (isOutside boundary c) then
+                let mutable d = Double.PositiveInfinity
+                for x in bs do
+                    let e = Vec.Distance(c, x)
+                    if e < d then d <- e
+                candidates.Add(struct(c, d))
         if candidates.Count = 0 then [||]
         else
             let mutable best = 0

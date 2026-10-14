@@ -48,6 +48,15 @@ function emptyGroupAnnotations(target: string) {
     fs.writeFileSync(target, JSON.stringify(a, null, 2));
 }
 
+/** Selects a geometry in the toolbar and waits until the viewer shows it selected. */
+async function geometry(main: Page, name: string) {
+    await selectByOption(main, name, name);
+    await expect.poll(() => main.evaluate((n) => Array.from(document.querySelectorAll("select")).some((s) =>
+        Array.from(s.options).some((o) => (o.textContent ?? "").trim() === n) &&
+        (s.options[s.selectedIndex]?.textContent ?? "").trim() === n), name), { timeout: 30_000 }).toBe(true);
+    await main.waitForTimeout(800);
+}
+
 async function panelText(panel: Page) {
     return panel.evaluate(() => document.body.innerText);
 }
@@ -160,8 +169,7 @@ test("story: a geological map of Dimorphos from scratch", async ({ browser }) =>
         // 3. a first contact: the outline of a lowland, closed
         await clickTool(render, "Draw annotation");
         await expect.poll(async () => (await tool(render, "Draw annotation")).active, { timeout: 30_000 }).toBe(true);
-        await selectByOption(main, "Polygon", "Polygon");
-        await main.waitForTimeout(800);
+        await geometry(main, "Polygon");
         const loop = [at(0.33, 0.36), at(0.50, 0.27), at(0.66, 0.36), at(0.66, 0.60), at(0.50, 0.70), at(0.33, 0.60)];
         for (const p of loop) {
             await pick(render, p.x, p.y);
@@ -194,8 +202,7 @@ test("story: a geological map of Dimorphos from scratch", async ({ browser }) =>
 
         // 6. refining: a contact across the lowland, ending on its outline - snapped
         await clickTool(render, "Draw annotation");
-        await selectByOption(main, "Polyline", "Polyline");
-        await main.waitForTimeout(800);
+        await geometry(main, "Polyline");
         // the middles of the lowland outline's upper-left and lower-left edges, a few pixels outside
         const start = at(0.415, 0.315 - 0.007);
         const end = at(0.415, 0.65 + 0.007);
@@ -228,7 +235,64 @@ test("story: a geological map of Dimorphos from scratch", async ({ browser }) =>
         await expect.poll(() => panelText(panel), { timeout: 30_000 }).not.toContain("without a label");
         await shot("09-third-unit.png");
 
-        // 8. a contact that ends in nothing: an open end, listed as a problem
+        // 8. a crater inside the lowland: an ellipse is a closed contact - a unit inside a unit
+        await clickTool(render, "Draw annotation");
+        await geometry(main, "AxisEllipse");
+        for (const p of [at(0.515, 0.48), at(0.615, 0.48), at(0.565, 0.545)]) {
+            await pick(render, p.x, p.y);
+            await awaitIdle(render, app);
+        }
+        // an ellipse finishes itself on the third point
+        await expect.poll(() => panelText(panel), { timeout: 120_000 }).toContain("4 units");
+        await shot("10-crater.png");
+        await clickButton(panel, "New unit");
+        await setUnitText(panel, 3, 0, "Cr");
+        await setUnitText(panel, 3, 1, "Crater floor");
+        await clickTool(render, brush);
+        await activeUnitIcon(panel, "Cr");
+        await gesture(render, at(0.565, 0.48));
+        await expect.poll(() => panelText(panel), { timeout: 30_000 }).not.toContain("without a label");
+        await shot("11-crater-assigned.png");
+
+        // 9. connecting the crater to the lowland's outline: the first line ties it on, the second
+        //    one cuts the ring around it in two
+        await clickTool(render, "Draw annotation");
+        await geometry(main, "Polyline");
+        // east edge of the lowland (vertical, x 0.66) to the crater's east end
+        for (const p of [at(0.6625, 0.48), at(0.6175, 0.48)]) {
+            await pick(render, p.x, p.y);
+            await awaitIdle(render, app);
+        }
+        await render.keyboard.press("Enter");
+        await awaitIdle(render, app);
+        await expect.poll(() => panelText(panel), { timeout: 60_000 }).toContain("4 contacts");
+        expect(await panelText(panel), "tied on: no new unit, no open end").toContain("4 units");
+        // the upper edge of the lowland (0.50,0.27)-(0.66,0.36) to the crater's top
+        const top = at(0.58, 0.315 - 0.007);
+        const rim = at(0.565, 0.415);
+        await hover(render, rim);
+        await render.keyboard.up("Control");
+        await pick(render, top.x, top.y);
+        await awaitIdle(render, app);
+        await hover(render, rim);
+        save("12-connect-preview.png", await render.screenshot());
+        await render.keyboard.up("Control");
+        await pick(render, rim.x, rim.y);
+        await awaitIdle(render, app);
+        await render.keyboard.press("Enter");
+        await awaitIdle(render, app);
+        await expect.poll(() => panelText(panel), { timeout: 60_000 }).toContain("5 units");
+        await shot("13-ring-cut.png");
+        await clickButton(panel, "New unit");
+        await setUnitText(panel, 4, 0, "Tr");
+        await setUnitText(panel, 4, 1, "Terrace");
+        await clickTool(render, brush);
+        await activeUnitIcon(panel, "Tr");
+        await gesture(render, at(0.63, 0.40));
+        await expect.poll(() => panelText(panel), { timeout: 30_000 }).not.toContain("without a label");
+        await shot("14-terrace.png");
+
+        // 10. a contact that ends in nothing: an open end, listed as a problem
         await clickTool(render, "Draw annotation");
         await main.waitForTimeout(500);
         for (const p of [at(0.74, 0.30), at(0.77, 0.42)]) {
@@ -238,8 +302,8 @@ test("story: a geological map of Dimorphos from scratch", async ({ browser }) =>
         await render.keyboard.press("Enter");
         await awaitIdle(render, app);
         await expect.poll(() => panelText(panel), { timeout: 60_000 }).toContain("2 open contact ends");
-        await shot("10-open-end.png");
-        save("11-problems.png", await panel.screenshot());
+        await shot("15-open-end.png");
+        save("16-problems.png", await panel.screenshot());
     } finally {
         await context.close();
         await app.stop();
