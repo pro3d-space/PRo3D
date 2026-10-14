@@ -255,6 +255,12 @@ module DrawingApp =
             | Some a -> 
                 //let json = a |> JsonTypes.ofAnnotation |> Aardvark.UI.Pickler.jsonToString                 
                 //bc.Add json
+                // a point drawn into the active geological map's group, with a legend unit
+                // active, is that unit's label point (#843)
+                let a =
+                    match a.geometry, GeologicalMapApp.activeUnitFor model.annotations.activeGroup.id model.geologicalMaps with
+                    | Geometry.Point, Some u -> { a with geoUnit = Some u.code }
+                    | _ -> a
                 model.annotations |> GroupsApp.addLeafToActiveGroup (Leaf.Annotations a) true
             | None -> 
                 model.annotations
@@ -796,6 +802,106 @@ module DrawingApp =
                     model.annotations.flat |> Leaf.toAnnotations |> HashMap.toList |> List.map snd
                 { model with
                     colorByCategory = ColorByCategory.update annotations model.colorByCategory msg }
+            | GeologicalMapMessage msg ->
+                let maps = GeologicalMapApp.update model.geologicalMaps msg
+                match msg with
+                | GeologicalMapAction.AssignToSelected ->
+                    match model.geologicalMaps.activeUnit |> Option.bind (GeologicalMapApp.tryFindUnit model.geologicalMaps) with
+                    | Some (_, u) ->
+                        let before = model.annotations
+                        let selected =
+                            let ids = model.annotations.selectedLeaves |> HashSet.map (fun s -> s.id)
+                            match model.annotations.singleSelectLeaf with
+                            | Some id -> HashSet.add id ids
+                            | None -> ids
+                        // label points only: a unit on a contact would mean nothing
+                        let flat =
+                            selected |> HashSet.fold (fun flat id ->
+                                match HashMap.tryFind id flat with
+                                | Some (Leaf.Annotations a) when a.geometry = Geometry.Point ->
+                                    HashMap.add id (Leaf.Annotations (GeologicalMapApp.withUnit u.code a)) flat
+                                | _ -> flat) before.flat
+                        if flat = before.flat then
+                            Log.warn "[GeologicalMap] assign: no point annotation selected"
+                            { model with geologicalMaps = maps }
+                        else
+                            let after = { before with flat = flat }
+                            { model with annotations = after; geologicalMaps = maps }
+                            |> pushUndo (SnapshotDelta(before, after))
+                    | None ->
+                        Log.warn "[GeologicalMap] assign: no active unit"
+                        { model with geologicalMaps = maps }
+                | GeologicalMapAction.SetUnitCode (mapKey, unitId, code) ->
+                    let code = code.Trim()
+                    match GeologicalMapApp.tryFindUnit model.geologicalMaps unitId with
+                    | Some (map, u) when map.key = mapKey && code <> "" && code <> u.code
+                                         && not (GeologicalMapApp.codeInUse map code) ->
+                        // the map's label points follow the rename, so their units stay put. Not an
+                        // undo step: the legend is not on the undo stack, and undoing only the label
+                        // points would leave them with a code the legend no longer has
+                        let before = model.annotations
+                        let leaves = GeologicalMapApp.leafIdsOf before.rootGroup map.sourceGroup
+                        let flat =
+                            leaves |> Array.fold (fun flat id ->
+                                match HashMap.tryFind id flat with
+                                | Some (Leaf.Annotations a) when a.geoUnit = Some u.code ->
+                                    let text = if a.text = u.code then code else a.text
+                                    HashMap.add id (Leaf.Annotations { a with geoUnit = Some code; text = text }) flat
+                                | _ -> flat) before.flat
+                        { model with annotations = { before with flat = flat }; geologicalMaps = maps }
+                    | Some (map, _) when GeologicalMapApp.codeInUse map code ->
+                        Log.warn "[GeologicalMap] code '%s' is already used by another unit of '%s'" code map.name
+                        model
+                    | _ -> { model with geologicalMaps = maps }
+                | GeologicalMapAction.AssignAt (mapKey, labels, position) ->
+                    let unit =
+                        model.geologicalMaps.activeUnit
+                        |> Option.bind (GeologicalMapApp.tryFindUnit model.geologicalMaps)
+                        |> Option.filter (fun (map, _) -> map.key = mapKey)
+                    match unit with
+                    | Some (map, u) ->
+                        let before = model.annotations
+                        let after =
+                            match labels with
+                            | [] ->
+                                // a unit without a label point gets one where it was clicked
+                                match GeologicalMapApp.tryGroupPath before.rootGroup map.sourceGroup with
+                                | Some (path, _) ->
+                                    let point = GeologicalMapApp.labelPoint u.code position
+                                    GroupsApp.addLeaves path (IndexList.single (Leaf.Annotations point)) before
+                                | None ->
+                                    Log.warn "[GeologicalMap] the map's group is gone"
+                                    before
+                            | ls ->
+                                let flat =
+                                    ls |> List.fold (fun flat id ->
+                                        match HashMap.tryFind id flat with
+                                        | Some (Leaf.Annotations a) when a.geoUnit <> Some u.code ->
+                                            HashMap.add id (Leaf.Annotations (GeologicalMapApp.withUnit u.code a)) flat
+                                        | _ -> flat) before.flat
+                                { before with flat = flat }
+                        // painting over a unit that already has it changes nothing
+                        if obj.ReferenceEquals(after.flat, before.flat) then
+                            { model with geologicalMaps = maps }
+                        else
+                            { model with annotations = after; geologicalMaps = maps }
+                            |> pushUndo (SnapshotDelta(before, after))
+                    | None ->
+                        Log.warn "[GeologicalMap] assign: no active unit in this map"
+                        { model with geologicalMaps = maps }
+                | GeologicalMapAction.SetActive _
+                | GeologicalMapAction.NewMap _ ->
+                    // the active map's group becomes the active annotation group, so what is
+                    // drawn next - contacts, label points - lands in the map
+                    let groupKey = GeologicalMapsModel.tryActive maps |> Option.map (fun m -> m.sourceGroup)
+                    let annotations =
+                        match groupKey |> Option.bind (GeologicalMapApp.tryGroupPath model.annotations.rootGroup) with
+                        | Some (path, node) ->
+                            GroupsApp.update model.annotations (GroupsAppAction.SetActiveGroup(node.key, path, node.name))
+                        | None -> model.annotations
+                    { model with geologicalMaps = maps; annotations = annotations }
+                | _ ->
+                    { model with geologicalMaps = maps }
             | FlyToAnnotation msg ->               
                 model        
 
@@ -993,6 +1099,10 @@ module DrawingApp =
         /// true only in Interactions.EditAnnotation - gates the control point handles, which are
         /// both drawn and pickable only while the user is actually editing.
         (vertexEditingAllowed : aval<bool>)
+        /// the Assign unit tool of the geological maps (#843)
+        (assignGate       : GeologicalMapApp.AssignGate)
+        /// the draw tool and the cursor's surface point, for snapping feedback (#843)
+        (drawState        : GeologicalMapApp.DrawState)
         (model            : AdaptiveDrawingModel)
         : ISg<DrawingAction> * ISg<DrawingAction> =
         // order is irrelevant for rendering. change list to set,
@@ -1161,11 +1271,26 @@ module DrawingApp =
                 PackedRendering.packedVertexHandleRender hoveredVertex grabbedVertex viewport handleGeometry
                 |> Sg.noEvents
 
+            // geological map units (#843): fills too, drawn against the same surface depth
+            let geologicalMaps =
+                GeologicalMapApp.render runtime surfaceDepth planet fillReach assignGate
+                    { drawState with drawingLine = (drawState.drawingLine, model.geometry) ||> AVal.map2 (fun on g -> on && GeologicalMapApp.isLineTool g) }
+                    // the view's own field of view, in degrees (what invariantScale expects)
+                    { camera = view; near = config.nearPlane; hfov = frustum |> AVal.map Frustum.horizontalFieldOfViewInDegrees; viewport = viewport }
+                    // the line being drawn, for the split preview
+                    (model.working |> AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption |> AVal.bind (function
+                        | Some (a : AdaptiveAnnotation) ->
+                            (a.geometry, a.points.Content) ||> AVal.map2 (fun g ps ->
+                                if GeologicalMapApp.isLineTool g then IndexList.toArray ps else [||])
+                        | None -> AVal.constant [||]))
+                    model.annotations model.geologicalMaps viewMatrix
+                |> Sg.map DrawingAction.GeologicalMapMessage
+
             let overlay =
                 Sg.ofList [
                     // brush model.hoverPosition;
                     annotations
-                    Sg.ofSeq [packedFills; packedLines; packedPoints; packedVertexHandles]
+                    Sg.ofSeq [geologicalMaps; packedFills; packedLines; packedPoints; packedVertexHandles]
                     Sg.drawWorkingAnnotation config.offset (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption model.working) // TODO v5: why need fully qualified
                     Sg.drawWorkingAnnotation config.offset (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption model.cutStroke)
                 ]

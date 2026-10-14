@@ -62,6 +62,9 @@ let allTests (parameters : TestUtils.TestParameters) : Test =
         PolygonFillTests.tests()
         FillVolumeTests.tests()
         RegionOpsTests.tests()
+        ContactTopologyTests.tests()
+        MapShellTests.tests()
+        GeologicalMapPersistenceTests.tests()
         RegionFixtureTests.tests()
         AnnotationRegionOpsTests.tests()
         AdaptiveNestingTests.tests()
@@ -304,6 +307,20 @@ let main args =
         | Some _ -> printfn "[bench-map] GL runtime created on the main thread"
         | None -> printfn "[bench-map] WARNING: no GL runtime"
         exit (PRo3D.Tests.MapProjectionBenchmark.run ())
+
+    // the geological map showcase (#843): Dimorphos, needs PRO3D_TEST_DATA and a GL context
+    match args |> Array.tryFindIndex ((=) "--make-geomap-showcase") with
+    | Some i ->
+        let outDir =
+            match args |> Array.tryItem (i + 1) with
+            | Some d when not (d.StartsWith "--") -> d
+            | _ ->
+                match TestUtils.Roots.testData None with
+                | Some root -> System.IO.Path.Combine(root, "cases", "geologicalMap")
+                | None -> failwith "set PRO3D_TEST_DATA or pass an output directory"
+        PRo3D.Tests.GeologicalMapShowcase.build outDir |> ignore
+        exit 0
+    | None -> ()
 
     match args |> Array.tryFindIndex ((=) "--make-footprint-scene") with
     | Some i ->
