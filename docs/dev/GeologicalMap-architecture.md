@@ -1,6 +1,6 @@
 # Geological maps - how it works
 
-Developer notes for #843. User docs: [../GeologicalMap.md](../GeologicalMap.md). Plan and status:
+Developer notes for #843 (handover and open work: [GeologicalMap-handover.md](GeologicalMap-handover.md)). User docs: [../GeologicalMap.md](../GeologicalMap.md). Plan and status:
 [GeologicalMap-plan.md](GeologicalMap-plan.md). Fills against the surface depth, which this builds
 on: [../AnnotationFill.md](../AnnotationFill.md), `ai/RENDERING.md` (#842).
 
@@ -68,7 +68,17 @@ finely sampled contact into a single node.
 
 **Snapping** (`ContactSnap`) removes the need for the tolerance where it matters most: a point
 placed within 10 px of a contact while drawing lands exactly on its chord, and the radial/near-miss
-test then nodes it at distance 0.
+test then nodes it at distance 0. The radius is an angle (pixels × field of view per pixel), and
+the snap point must also lie near the picked terrain point in 3D, so a contact on the far side
+never takes the click. The same snap runs on the viewer's preview pick (the surface point under
+the cursor, `Model.surfaceIntersection`) for the green marker before clicking and for the split
+preview. Its markers are not depth-tested: snap points lie on contact chords, which often run
+under the terrain.
+
+**Contacts** are polylines, lines, polygons and ellipses of the map's group
+(`GeologicalMapApp.isContact`); polygons and ellipses are closed by repeating their first point
+(`isClosedContact`). Only line tools snap (`isLineTool`): an ellipse's clicks are its axes, not
+points of its outline.
 
 ### Faces from a half-edge graph
 
@@ -182,5 +192,4 @@ edits and assignments from rebuilding geometry.
 - Body-wide Mars maps: one float32 pivot per map (~0.5 m).
 - A contact passing a node twice (pinched cycle), and two contacts joining the same two nodes
   directly (a lens dropped by edge de-duplication), are not handled specially.
-- The split preview follows placed points, not the cursor between clicks.
 - Maps are not drawn in Snapshots or the map projection view; GeoPackage export is deferred.

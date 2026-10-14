@@ -178,7 +178,13 @@ acceleration structures, precision): [docs/dev/GeologicalMap-architecture.md](..
   `SetUnitCode`), and makes the active map's group the active annotation group
   (`SetActive`/`NewMap`). A point finished into that group with a legend unit active gets the
   unit (`finishAndAppend`).
-- Rendering needs a surface depth (main and instrument view); Snapshots show no maps yet.
+- Rendering needs a surface depth (main and instrument view); Snapshots and the map projection
+  view show no maps yet.
+- The viewer hands the map renderer two records: `AssignGate` (Assign unit tool active / armed)
+  and `DrawState` (draw tool on with a line geometry, and the preview-pick cursor point).
+  Preview picking therefore also runs during `DrawAnnotation` (`Viewer-Utils.fs`).
+- Click-time snapping: `GeologicalMapApp.snap`, called from `matchPickingInteraction`
+  (`DrawAnnotation`) before `AddPointAdv`.
 - **Pipeline** (`GeologicalMapApp`): `sources` (contacts + labels of the group) ->
   `build` (`ContactTopology.build`, memoised on the contacts: label edits return the same
   network object) -> `derive` (`ContactTopology.label`, cheap) -> `geometry` (shell volumes +

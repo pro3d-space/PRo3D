@@ -24,7 +24,7 @@ A walk-through with pictures (a made-up example), from an empty group to a check
 | | what it is | how you make it |
 |---|---|---|
 | **map** | a set of units over one annotation group | *Geological Maps* panel → *New map from group* |
-| **contact** | a line between units | any **polyline**, **polygon** or **line** annotation in the map's group |
+| **contact** | a line between units | any **polyline**, **polygon**, **line** or **ellipse** annotation in the map's group (polygons and ellipses are closed contacts) |
 | **label point** | names the unit it lies in | a **point** annotation in the map's group with a *Geo Unit* |
 | **unit** | an area bounded by contacts | derived - never edited directly |
 | **legend** | the units' codes, names and colours | the map's legend in the panel |
@@ -50,7 +50,7 @@ lands in the map.
 
 ## Assigning units
 
-Make a legend entry **active** (the circle in its row), select the **Assign unit** tool, then,
+Make a legend entry **active** (the circle in its row; **New unit** activates the new one), select the **Assign unit** tool, then,
 with the tool's click gesture (Ctrl+click, or a plain click in
 [Direct Tool Mode](DirectToolMode.md)):
 
@@ -85,9 +85,11 @@ Other ways to label: select point annotations and press **Assign to selected poi
 ## Snapping
 
 While you draw a line (polyline, polygon, line) into the active map's group, every point you
-place within 10 pixels of one of the map's contacts lands exactly on that contact. Only
-contacts near the picked terrain point count, so a contact on the far side of the body never
-takes the click. Snapping is what makes units close: two contacts that merely come close leave a
+place within 10 pixels of one of the map's contacts lands exactly on that contact. Before you
+click, a **green marker** under the cursor shows where the click will land (with the tool armed:
+Ctrl held, or always in Direct Tool Mode). Only contacts near the picked terrain point count, so a
+contact on the far side of the body never takes the click. Ellipses do not snap: they are drawn
+from their axes, not from points on their outline. Snapping is what makes units close: two contacts that merely come close leave a
 gap, and the map shows two open ends there.
 
 ![A contact snapped onto the crater rim and the equatorial contact](images/geological-map/snapped.png)
@@ -100,14 +102,16 @@ the lines: they snapped, and the plains split into a new, still unlabelled unit.
 While you draw a contact into the active map, the preview shows what it will do before you
 finish it:
 
-- the cut so far, in yellow, on top of the terrain;
+- the cut so far, in yellow - straight pieces between the clicked points and on to the cursor,
+  drawn on top of everything (the finished contact is draped on the terrain and may run slightly
+  differently);
 - the unit(s) it runs through, lit up - the unit it is about to split;
 - its ends: **green** where an end sits on a contact (the cut closes there), **orange** where it
-  is still open (finishing it like that leaves an open end).
+  is still open (finishing it like that leaves an open end). An open end of another contact that
+  the stroke joins stops being shown red.
 
 ![Split preview while drawing](images/geological-map/preview.png)
 
-The preview follows the points you placed, not the cursor between clicks.
 
 ## Problems
 
