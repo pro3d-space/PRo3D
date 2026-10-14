@@ -1,0 +1,159 @@
+{
+  "generated": "2026-09-22T16:26:00Z",
+  "generator": "scripts/make-eclipse-figure.py",
+  "what": "mean DN over the body, same camera and same fixed gain, rendered with no occluder / the reference radii / the primary's shape model",
+  "target": "C:\\Users\\haral\\Desktop\\pro3d\\PRo3D.Resources.TestData\\HERA\\Dimorphos_dsk\\g_00243mm_spc_obj_dimo_0000n00000_v004.obj.gz",
+  "occluder": "C:\\Users\\haral\\Desktop\\pro3d\\spice2\\kernels\\dsk\\g_01165mm_spc_obj_didy_0000n00000_v003.obj",
+  "epochs": [
+    {
+      "time": "2027-02-25T10:20:00Z",
+      "none": 138.65,
+      "radii": 138.65,
+      "mesh": 138.65
+    },
+    {
+      "time": "2027-02-25T10:25:00Z",
+      "none": 139.22,
+      "radii": 139.22,
+      "mesh": 139.22
+    },
+    {
+      "time": "2027-02-25T10:30:00Z",
+      "none": 139.75,
+      "radii": 139.75,
+      "mesh": 139.75
+    },
+    {
+      "time": "2027-02-25T10:35:00Z",
+      "none": 140.31,
+      "radii": 140.31,
+      "mesh": 140.17
+    },
+    {
+      "time": "2027-02-25T10:40:00Z",
+      "none": 140.82,
+      "radii": 136.34,
+      "mesh": 120.92
+    },
+    {
+      "time": "2027-02-25T10:45:00Z",
+      "none": 141.28,
+      "radii": 104.37,
+      "mesh": 81.46
+    },
+    {
+      "time": "2027-02-25T10:50:00Z",
+      "none": 141.66,
+      "radii": 56.84,
+      "mesh": 25.4
+    },
+    {
+      "time": "2027-02-25T10:55:00Z",
+      "none": 142.03,
+      "radii": 8.53,
+      "mesh": 3.0
+    },
+    {
+      "time": "2027-02-25T11:00:00Z",
+      "none": 142.35,
+      "radii": 3.0,
+      "mesh": 3.0
+    },
+    {
+      "time": "2027-02-25T11:05:00Z",
+      "none": 142.58,
+      "radii": 3.0,
+      "mesh": 3.0
+    },
+    {
+      "time": "2027-02-25T11:10:00Z",
+      "none": 142.72,
+      "radii": 3.0,
+      "mesh": 3.0
+    },
+    {
+      "time": "2027-02-25T11:15:00Z",
+      "none": 142.76,
+      "radii": 3.0,
+      "mesh": 3.0
+    },
+    {
+      "time": "2027-02-25T11:20:00Z",
+      "none": 142.72,
+      "radii": 3.0,
+      "mesh": 3.0
+    },
+    {
+      "time": "2027-02-25T11:25:00Z",
+      "none": 142.55,
+      "radii": 3.0,
+      "mesh": 3.0
+    },
+    {
+      "time": "2027-02-25T11:30:00Z",
+      "none": 142.38,
+      "radii": 3.0,
+      "mesh": 3.0
+    },
+    {
+      "time": "2027-02-25T11:35:00Z",
+      "none": 142.24,
+      "radii": 3.0,
+      "mesh": 3.0
+    },
+    {
+      "time": "2027-02-25T11:40:00Z",
+      "none": 141.93,
+      "radii": 3.0,
+      "mesh": 3.0
+    },
+    {
+      "time": "2027-02-25T11:45:00Z",
+      "none": 141.55,
+      "radii": 3.0,
+      "mesh": 3.0
+    },
+    {
+      "time": "2027-02-25T11:50:00Z",
+      "none": 141.22,
+      "radii": 9.21,
+      "mesh": 4.23
+    },
+    {
+      "time": "2027-02-25T11:55:00Z",
+      "none": 140.83,
+      "radii": 45.04,
+      "mesh": 18.61
+    },
+    {
+      "time": "2027-02-25T12:00:00Z",
+      "none": 140.41,
+      "radii": 97.03,
+      "mesh": 64.89
+    },
+    {
+      "time": "2027-02-25T12:05:00Z",
+      "none": 139.79,
+      "radii": 138.6,
+      "mesh": 131.92
+    },
+    {
+      "time": "2027-02-25T12:10:00Z",
+      "none": 139.23,
+      "radii": 139.23,
+      "mesh": 139.23
+    },
+    {
+      "time": "2027-02-25T12:15:00Z",
+      "none": 138.49,
+      "radii": 138.49,
+      "mesh": 138.49
+    },
+    {
+      "time": "2027-02-25T12:20:00Z",
+      "none": 137.7,
+      "radii": 137.7,
+      "mesh": 137.7
+    }
+  ]
+}

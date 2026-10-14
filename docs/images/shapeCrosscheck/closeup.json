@@ -1,0 +1,20 @@
+[
+ {
+  "tag": "close-lit",
+  "utc": "2027-04-15T09:30:00",
+  "rangeKm": 3.911,
+  "phaseDeg": 47.48
+ },
+ {
+  "tag": "close-lit2",
+  "utc": "2027-03-25T13:50:00",
+  "rangeKm": 3.926,
+  "phaseDeg": 48.19
+ },
+ {
+  "tag": "close-flat",
+  "utc": "2027-04-22T13:00:00",
+  "rangeKm": 3.88,
+  "phaseDeg": 2.72
+ }
+]

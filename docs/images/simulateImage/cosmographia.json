@@ -1,0 +1,104 @@
+{
+  "epoch": "2027-01-29T17:45:00Z",
+  "alignmentShiftPx": {
+    "dx": -8,
+    "dy": 14
+  },
+  "ours": {
+    "file": "ours_519.png",
+    "size": [
+      519,
+      519
+    ],
+    "bodies": [
+      {
+        "areaPx": 11944,
+        "litPx": 11487,
+        "shadowPx": 457,
+        "centroid": [
+          273.06,
+          243.85
+        ],
+        "radiusPx": 61.66
+      },
+      {
+        "areaPx": 509,
+        "litPx": 509,
+        "shadowPx": 0,
+        "centroid": [
+          278.22,
+          113.82
+        ],
+        "radiusPx": 12.73
+      }
+    ]
+  },
+  "theirs": {
+    "file": "cosmographia_519.png",
+    "size": [
+      519,
+      519
+    ],
+    "bodies": [
+      {
+        "areaPx": 12336,
+        "litPx": 12119,
+        "shadowPx": 217,
+        "centroid": [
+          264.8,
+          257.66
+        ],
+        "radiusPx": 62.66
+      },
+      {
+        "areaPx": 527,
+        "litPx": 526,
+        "shadowPx": 1,
+        "centroid": [
+          269.48,
+          126.98
+        ],
+        "radiusPx": 12.95
+      }
+    ]
+  },
+  "comparison": [
+    {
+      "body": "primary",
+      "silhouetteIoU": 0.6997,
+      "silhouetteIoUAligned": 0.9665,
+      "areaPx": [
+        11944,
+        12336
+      ],
+      "areaRatio": 0.9682,
+      "centroidOffsetPx": 16.09,
+      "shadowPx": [
+        457,
+        217
+      ]
+    },
+    {
+      "body": "secondary",
+      "silhouetteIoU": 0.146,
+      "silhouetteIoUAligned": 0.9044,
+      "areaPx": [
+        509,
+        527
+      ],
+      "areaRatio": 0.9658,
+      "centroidOffsetPx": 15.8,
+      "shadowPx": [
+        0,
+        1
+      ]
+    },
+    {
+      "body": "separation",
+      "px": [
+        130.13,
+        130.76
+      ]
+    }
+  ]
+}

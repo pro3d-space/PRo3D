@@ -1,4 +1,4 @@
-module PRo3D.Tool.SunAnglesVerb
+﻿module PRo3D.Tool.SunAnglesVerb
 
 open System
 open System.IO
@@ -18,6 +18,24 @@ open PRo3D.Core
 open PRo3D.Core.InstrumentMetadata
 open PRo3D.ImageMapping
 open PRo3D.InstrumentVisualization   // VisualizationProperties
+
+/// The one load runner this process uses.
+///
+/// PRo3D creates exactly one and publishes it through `Surface.Sg.hackRunner`: the viewer
+/// (PRo3D.Viewer/Program.fs), the snapshot tool and the test harness all do this at
+/// startup, and Surface.Sg / SunShadowMap read it back. The verbs used to call
+/// CreateLoadRunner ad hoc instead, once per pass, which is both wasteful and a deadlock:
+/// the call marshals onto the GLFW instance's thread, so whenever that thread is itself
+/// waiting for the caller the two wait for each other forever. In the test suite that is
+/// exactly the case -- the main thread owns the GLFW instance and is inside Expecto
+/// waiting for the very test that asks for a runner, so `sun-angles` hung indefinitely.
+let loadRunner (runtime : IRuntime) =
+    match PRo3D.Core.Surface.Sg.hackRunner with
+    | Some runner -> runner
+    | None ->
+        let runner = runtime.CreateLoadRunner 1
+        PRo3D.Core.Surface.Sg.hackRunner <- Some runner
+        runner
 
 /// Offscreen rendering into a float32 colour target.
 ///
@@ -273,7 +291,7 @@ let processImage (runtime : IRuntime) (o : SunAnglesOptions)
 
     let target = FloatTarget.create runtime size
     try
-        let runner = runtime.CreateLoadRunner 1
+        let runner = loadRunner runtime
         let cfg =
             { OpcSg.defaultConfig target.signature runner DefaultMetrics.mars2 body with
                 // Blocking loads: with async loading the readback captures whatever subset

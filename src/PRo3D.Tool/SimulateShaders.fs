@@ -1,4 +1,4 @@
-module PRo3D.Tool.SimulateShaders
+﻿module PRo3D.Tool.SimulateShaders
 
 open Aardvark.Base
 open Aardvark.Rendering
@@ -25,10 +25,18 @@ type UniformScope with
     /// Divide the baked illumination out of the texture (true) or ignore the texture and
     /// use AlbedoConst (false).
     member x.DeshadeEnabled : bool = uniform?DeshadeEnabled
+    /// Use the texture as albedo WITHOUT dividing its baked illumination out. Ignored
+    /// when DeshadeEnabled. This is the naive thing to do, on purpose -- it is the frame
+    /// a reconstruction is compared against to find out whether de-lighting was necessary.
+    member x.TextureAlbedo : bool = uniform?TextureAlbedo
     /// Fitted direction of the illumination baked into the texture, body-fixed frame.
     member x.BakedSunDirection : V3f = uniform?BakedSunDirection
     /// Maps the de-shaded texture value (texture / cos incidence) to normal reflectance.
     member x.DeshadeScale : float32 = uniform?DeshadeScale
+    /// Maps the RAW texture value to normal reflectance, with no such division. Set so the
+    /// mean lit texel comes out at AlbedoConst, because the overall level of the
+    /// un-de-shaded variant is a radiometric calibration, not part of what it demonstrates.
+    member x.RawTextureScale : float32 = uniform?RawTextureScale
     /// Texture values at or below this are treated as shadowed/nodata in the source
     /// mosaic; the de-shade division is meaningless there.
     member x.DeshadeShadowFloor : float32 = uniform?DeshadeShadowFloor
@@ -47,6 +55,18 @@ type UniformScope with
     /// it out -- an approximation with a confidence weight and a constant-albedo
     /// fallback, none of which belongs in an image meant as a registration reference.
     member x.TextureOnly : bool = uniform?TextureOnly
+    /// Cast the shadow of a second body -- the primary of a binary -- onto this one.
+    member x.EclipseEnabled : bool = uniform?EclipseEnabled
+    /// This body's fixed frame -> the occluder's own sun-camera clip space.
+    member x.EclipseShadowViewProj : M44f = uniform?EclipseShadowViewProj
+    /// PCF radius in texture units, sized to the penumbra: the Sun is not a point, so the
+    /// umbra boundary is a gradient rather than an edge, and at this separation it is a
+    /// few metres across a 177 m body.
+    member x.EclipseShadowRadius : float32 = uniform?EclipseShadowRadius
+    /// Depth bias for the occluder lookup, in normalized depth. Larger than the target's
+    /// own: this map spans the gap to the occluder as well as the occluder itself, so a
+    /// unit of normalized depth is worth far more metres here.
+    member x.EclipseShadowBias : float32 = uniform?EclipseShadowBias
 
 type SimVertex =
     {
@@ -56,6 +76,8 @@ type SimVertex =
         [<Semantic("BodyLocalPos")>] localPos : V4f
         /// Fragment position in sun-camera clip space, stashed before stableTrafo.
         [<Semantic("SunShadowNdc")>] shadowPos : V4f
+        /// The same, in the OCCLUDER's sun-camera clip space (the eclipse map).
+        [<Semantic("EclipseShadowNdc")>] eclipsePos : V4f
     }
 
 /// The OPC patch's own diffuse texture (for Dimorphos_DRACO1: the DRACO mosaic).
@@ -77,12 +99,28 @@ let private sunShadowSampler =
         comparison ComparisonFunction.LessOrEqual
     }
 
-/// Stash the fragment's sun-camera clip position while [<Position>] still holds the
-/// patch-local coordinate, i.e. this must precede stableTrafo -- same rule as
+/// The OCCLUDER's depth map -- the other body of a binary, seen from the sun. Separate
+/// from the target's own map because it is fitted to a different body at a different
+/// scale; see EclipseShadow.
+let private eclipseShadowSampler =
+    sampler2dShadow {
+        texture uniform?EclipseShadowMap
+        filter Filter.MinMagLinear
+        addressU WrapMode.Border
+        addressV WrapMode.Border
+        borderColor C4f.White
+        comparison ComparisonFunction.LessOrEqual
+    }
+
+/// Stash the fragment's position in both sun-camera clip spaces while [<Position>] still
+/// holds the patch-local coordinate, i.e. this must precede stableTrafo -- same rule as
 /// stableImageProjectionTrafo, and for the same reason.
-let stashSunShadowPos (v : SimVertex) =
+let stashShadowPositions (v : SimVertex) =
     vertex {
-        return { v with shadowPos = uniform.SunShadowViewProj * (uniform.ModelTrafo * v.pos) }
+        let world = uniform.ModelTrafo * v.pos
+        return { v with
+                    shadowPos = uniform.SunShadowViewProj * world
+                    eclipsePos = uniform.EclipseShadowViewProj * world }
     }
 
 // --- value noise ------------------------------------------------------------------
@@ -209,7 +247,34 @@ let simulatedImage (v : SimVertex) =
                 let ratio = texVal / max 0.15f muBake * uniform.DeshadeScale / uniform.AlbedoConst
                 let deshaded =
                     uniform.AlbedoConst * clamp 0.5f 2.0f (sqrt (max 0.0f ratio))
-                uniform.AlbedoConst + w * (deshaded - uniform.AlbedoConst)
+                // Low confidence used to fall back to the flat AlbedoConst, which threw the
+                // texture away entirely -- on this body that erased the surface over ~half
+                // the disk wherever the BAKED illumination was grazing. Fall back to the
+                // texture instead, normalised through the same scale at a fixed mid
+                // incidence: it keeps the detail and merely leaves the residual baked
+                // shading in, which is the smaller error of the two.
+                let plainRatio = texVal / 0.5f * uniform.DeshadeScale / uniform.AlbedoConst
+                let plain =
+                    uniform.AlbedoConst * clamp 0.5f 2.0f (sqrt (max 0.0f plainRatio))
+                plain + w * (deshaded - plain)
+            elif uniform.TextureAlbedo then
+                // The texture as albedo with NO division: its baked illumination stays in
+                // and this frame's sun lights it a second time. Deliberately the naive
+                // rendering -- whether de-lighting is necessary is an empirical question
+                // about a given reconstruction, and it cannot be asked without the frame
+                // that skips the step.
+                //
+                // Straight through RawTextureScale, with none of the sqrt compression or
+                // [0.5x, 2x] clamping the branch above needs: those guard an ill-conditioned
+                // DIVISION, and there is no division here. What is kept is the overall
+                // level -- the mean lit texel maps to AlbedoConst -- so this frame and the
+                // de-lit one differ in the SPATIAL PATTERN of albedo, which is the thing
+                // under test, and not in exposure. Borrowing the de-shaded scale instead
+                // came out ~1.8x too bright and clipped 55-75 % of the body.
+                //
+                // The wide clamp only keeps a nodata texel from producing a non-finite
+                // albedo; on real data it does not bind.
+                clamp 0.0f (4.0f * uniform.AlbedoConst) (texVal * uniform.RawTextureScale)
             else
                 uniform.AlbedoConst
 
@@ -229,9 +294,29 @@ let simulatedImage (v : SimVertex) =
             if uniform.SunShadowEnabled then
                 let p = v.shadowPos.XYZ / v.shadowPos.W
                 let tc = V3f(0.5f, 0.5f, 0.5f) + V3f(0.5f, 0.5f, 0.5f) * p
-                if tc.X < 0.0f || tc.X > 1.0f || tc.Y < 0.0f || tc.Y > 1.0f then 1.0f
+                // Outside the map counts as lit -- in DEPTH as well as in X and Y. The
+                // ortho frustum is fitted to the target's own bounds, so a fragment past
+                // its far plane is a fragment the map holds no information about, and
+                // reading one as shadowed is not conservative, it is wrong: with
+                // --occluder-in-scene the primary sits a kilometre beyond that plane and
+                // acquired a dark bite exactly the shape of the target's shadow-map
+                // footprint. The cost of this guard is that the target cannot cast onto
+                // the occluder, which is a documented limitation rather than an artefact.
+                if tc.X < 0.0f || tc.X > 1.0f || tc.Y < 0.0f || tc.Y > 1.0f
+                   || tc.Z < 0.0f || tc.Z > 1.0f then 1.0f
                 else
                     let r = 1.5f / float32 (Vec.MaxElement sunShadowSampler.Size)
+                    // A CONSTANT bias, deliberately, although the viewer's
+                    // terrainSunShadow slope-scales its own. Slope-scaling was tried here
+                    // and measured no better against a ray-cast of the same mesh: it moves
+                    // where the optimum sits (base 0.0005 instead of 0.006) without
+                    // improving it at either end. The reason it buys nothing is that this
+                    // map is FINER than the geometry it renders -- 4096^2 over ~270 m is
+                    // 6.6 cm a texel against 0.24 m facets -- so the depth error is not
+                    // the sampling footprint that slope-scaling models.
+                    //
+                    // What the bias IS worth is large: see --shadow-bias and
+                    // scripts/check-lighting.py, which sweeps it.
                     let z = tc.Z - uniform.SunShadowBias
                     (sunShadowSampler.Sample(tc.XY + V2f(-r, -r), z)
                      + sunShadowSampler.Sample(tc.XY + V2f(r, -r), z)
@@ -240,7 +325,41 @@ let simulatedImage (v : SimVertex) =
             else
                 1.0f
 
-        let lit = albedo * disk * shadow
+        // Eclipse by the other body of the binary. The scene holds only the target, so
+        // nothing in it can cast this shadow -- and Dimorphos sits inside Didymos' umbra
+        // for ~12 % of the close-orbit phase, which was rendered as full daylight.
+        //
+        // The occluder has a depth map of its own (EclipseShadow), fitted to the occluder
+        // rather than to the pair, so the target keeps its 5 cm self-shadow map while this
+        // one resolves the primary at 0.3 m. Same lookup as above; what differs is the
+        // kernel, whose radius is the penumbra -- the Sun is not a point, and across a
+        // kilometre of separation its angular radius smears the umbra edge over metres.
+        let eclipse =
+            if uniform.EclipseEnabled then
+                let p = v.eclipsePos.XYZ / v.eclipsePos.W
+                let tc = V3f(0.5f, 0.5f, 0.5f) + V3f(0.5f, 0.5f, 0.5f) * p
+                // Outside the occluder's footprint there is nothing to be shadowed by.
+                // tc.Z < 0 is the case that matters: the fragment is NEARER the sun than
+                // anything in the map, which is what every fragment of the occluder's own
+                // sunward face is, and what the target is whenever it leads the primary.
+                if tc.X < -1.0f || tc.X > 2.0f || tc.Y < -1.0f || tc.Y > 2.0f
+                   || tc.Z < 0.0f || tc.Z > 1.0f then 1.0f
+                else
+                    let r = max (0.5f / float32 (Vec.MaxElement eclipseShadowSampler.Size))
+                                uniform.EclipseShadowRadius
+                    let z = tc.Z - uniform.EclipseShadowBias
+                    // 3x3 rather than the 2x2 above: this kernel spans the penumbra, so
+                    // its taps are the gradient rather than an anti-aliasing of an edge.
+                    let mutable sum = 0.0f
+                    for j in -1 .. 1 do
+                        for i in -1 .. 1 do
+                            sum <- sum + eclipseShadowSampler.Sample(
+                                        tc.XY + V2f(float32 i * r, float32 j * r), z)
+                    sum / 9.0f
+            else
+                1.0f
+
+        let lit = albedo * disk * shadow * eclipse
         let iOverF = uniform.AmbientFloor * albedo + (1.0f - uniform.AmbientFloor) * lit
         return V4f(iOverF, iOverF, iOverF, 1.0f)
     }

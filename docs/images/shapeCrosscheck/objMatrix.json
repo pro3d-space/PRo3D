@@ -1,0 +1,50 @@
+{
+  "generated": "2026-09-22T14:03:35Z",
+  "generator": "scripts/make-shape-crosscheck-figures.py",
+  "kernel": "C:\\Users\\haral\\Desktop\\pro3d\\spice2\\kernels\\mk\\hera_plan.tm",
+  "opc": "C:\\Users\\haral\\Desktop\\pro3d\\PRo3D.Resources.TestData\\HERA\\Dimorphos_opc\\Dimorphos",
+  "obj": "C:\\Users\\haral\\Desktop\\pro3d\\PRo3D.Resources.TestData\\HERA\\Dimorphos_dsk\\g_00243mm_spc_obj_dimo_0000n00000_v004.obj.gz",
+  "what": "silhouette IoU of each PRo3D render against a spiceypy ray-cast of the kernels' DSK; 'Raw' is the same without centroid alignment",
+  "epochs": [
+    {
+      "utc": "2027-02-25T07:45:00Z",
+      "opcVsDskSilhouette": 0.972,
+      "objVsDskSilhouette": 1.0,
+      "opcVsDskRaw": 0.9673,
+      "objVsDskRaw": 1.0,
+      "dskPixels": 88429,
+      "opcPixels": 90150,
+      "objPixels": 88429
+    },
+    {
+      "utc": "2027-02-25T09:00:00Z",
+      "opcVsDskSilhouette": 0.9825,
+      "objVsDskSilhouette": 1.0,
+      "opcVsDskRaw": 0.9778,
+      "objVsDskRaw": 1.0,
+      "dskPixels": 77824,
+      "opcPixels": 76975,
+      "objPixels": 77823
+    },
+    {
+      "utc": "2027-02-25T10:30:00Z",
+      "opcVsDskSilhouette": 0.9771,
+      "objVsDskSilhouette": 1.0,
+      "opcVsDskRaw": 0.97,
+      "objVsDskRaw": 1.0,
+      "dskPixels": 57105,
+      "opcPixels": 57037,
+      "objPixels": 57105
+    },
+    {
+      "utc": "2027-02-25T14:45:00Z",
+      "opcVsDskSilhouette": 0.9768,
+      "objVsDskSilhouette": 0.9999,
+      "opcVsDskRaw": 0.9737,
+      "objVsDskRaw": 1.0,
+      "dskPixels": 55599,
+      "opcPixels": 56074,
+      "objPixels": 55597
+    }
+  ]
+}

@@ -35,7 +35,9 @@
     <Compile Include="MbiSidecar.fs" />
     <Compile Include="Unproject.fs" />
     <Compile Include="SimulateShaders.fs" />
+    <Compile Include="ObjShape.fs" />
     <Compile Include="SimulateImage.fs" />
+    <Compile Include="SimulateSeries.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>

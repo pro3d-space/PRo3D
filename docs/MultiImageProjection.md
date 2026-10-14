@@ -145,6 +145,11 @@ got all three of the above wrong at once.
 Worked through with pictures, both modes side by side:
 [ProjectionValidation.md](ProjectionValidation.md).
 
+For a whole stack rather than a single frame,
+[`scripts/make-image-time-series.py`](../scripts/make-image-time-series.py) renders a
+series over one rotation and hands you a folder sized for the stack — see
+[ImageTimeSeries.md](ImageTimeSeries.md).
+
 ## Known limitation: surface transformations do not reach the projection
 
 The projector is computed in the OPC's own coordinates, taken as the body-fixed

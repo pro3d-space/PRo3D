@@ -1,0 +1,17 @@
+{
+  "epoch": "2027-04-25T03:30:00Z",
+  "panels": {
+    "pair_0330_obj.png": {
+      "flag": "--occluder-obj",
+      "litPixels": 370836,
+      "meanDN": 138.75,
+      "stdDN": 12.16
+    },
+    "pair_0330.png": {
+      "flag": "--occluder-opc --occluder-texture-albedo",
+      "litPixels": 370826,
+      "meanDN": 153.03,
+      "stdDN": 27.78
+    }
+  }
+}

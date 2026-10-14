@@ -1,4 +1,4 @@
-namespace PRo3D.Tool
+﻿namespace PRo3D.Tool
 
 open CommandLine
 
@@ -86,11 +86,20 @@ type SunAnglesOptions =
 ///
 /// Defaults for the string options are applied in code rather than through the attribute,
 /// because an unsupplied string field arrives as null. Numeric defaults use the attribute.
-[<Verb("simulate-image", HelpText = "Render a simulated instrument image of a body: OPC geometry, Lommel-Seeliger sun lighting, procedural micro-structure, cast shadows, optional de-shaded texture albedo.")>]
+[<Verb("simulate-image", HelpText = "Render a simulated instrument image of a body: OPC or OBJ geometry, Lommel-Seeliger sun lighting, procedural micro-structure, cast shadows, optional de-shaded texture albedo.")>]
 type SimulateImageOptions =
     {
-        [<Option("opc", HelpText = "OPC directory of the body", Required = true)>]
+        [<Option("opc", HelpText = "OPC directory of the body. Exactly one of --opc and --obj.")>]
         opc : string
+
+        [<Option("obj", HelpText = "Shape model as a Wavefront OBJ instead of --opc; `.obj.gz` is read directly. Use this to render from the shape model the SPICE kernels ship (kernels/dsk/*.obj): at 5 km an AFC pixel covers 0.48 m while the Dimorphos OPC's posts are 1.96 m apart, so OPC frames are shape-limited rather than sensor-limited. Exactly one of --opc and --obj.")>]
+        obj : string
+
+        [<Option("obj-scale", Default = 1000.0, HelpText = "Metres per --obj file unit (default 1000, i.e. the file is in kilometres -- which is what the SPICE DSK shape models are). The body's extent in metres is logged, so a wrong scale is visible immediately.")>]
+        objScale : float
+
+        [<Option("obj-texture", HelpText = "Image to drape on --obj, using the mesh's own texture coordinates. Required by --deshade / --texture-albedo / --texture-only, which are refused without it. NOTE the `.png` beside each `.bds` in the kernel set is a preview render, not a map.")>]
+        objTexture : string
 
         [<Option("time", HelpText = "Observation time, ISO-8601 UTC (e.g. 2027-03-15T12:00:00Z). Required unless --mbi supplies the observation.")>]
         time : string
@@ -164,14 +173,195 @@ type SimulateImageOptions =
         [<Option("texture-only", HelpText = "Render the OPC's own texture as this camera sees it: no lighting, and no de-shading fit. Unlike --deshade, which fits a light direction, clamps the result and falls back to a constant albedo where it has no confidence. Use --texture-layer to choose which layer.")>]
         textureOnly : bool
 
+        [<Option("texture-albedo", HelpText = "Light the texture WITHOUT dividing its baked illumination out: the mosaic's own lighting stays in and this epoch's sun lights it a second time. Ignored with --deshade. The naive rendering, on purpose -- it is what a reconstruction is compared against to find out whether de-lighting was necessary at all.")>]
+        textureAlbedo : bool
+
         [<Option("project", HelpText = "Project this image onto the body instead of shading it, through PRo3D's projection shader, and render the result. With no --mbi the camera is that image's own, so the output must reproduce the input image -- which is what makes the projection checkable rather than merely plausible.")>]
         project : string
 
         [<Option("project-shader", HelpText = "Which projection shader --project goes through: 'single' (default, stableImageProjection -- what sun-angles and the testbeds use) or 'stack' (stableImageProjectionStack, a one-layer stack -- what the viewer renders). Rendering the same image both ways isolates the stack path.")>]
         projectShader : string
 
-        [<Option("shadow-bias", Default = 0.002, HelpText = "Shadow-map depth bias in normalized depth (default 0.002); raise against acne, lower against peter-panning")>]
+        [<Option("shadow-bias", Default = 0.006, HelpText = "Shadow-map depth bias in normalized depth (default 0.006). Raise against acne, lower against peter-panning. The default was swept against a SPICE ray-cast of the same mesh (scripts/check-lighting.py): 0.002 wrongly darkened 2.6-6 % of the sun-facing body, mostly as isolated pixels, and 0.02 left a fifth of the real shadow lit.")>]
         shadowBias : float
+
+
+        [<Option("occluder-body", HelpText = "The other body of a binary, cast as a shadow onto the target -- 'DIDYMOS' when rendering Dimorphos. The scene holds only the target, so without this an eclipsed epoch renders as full daylight; Dimorphos is inside Didymos' umbra for ~12 %% of the close-orbit phase. Empty (default) disables it.")>]
+        occluderBody : string
+
+        [<Option("occluder-frame", HelpText = "Body-fixed frame of --occluder-body (default: <body>_FIXED)")>]
+        occluderFrame : string
+
+        [<Option("occluder-opc", HelpText = "Shape model of --occluder-body as an OPC directory, instead of --occluder-obj. Worth the extra cost for one reason: an OPC can carry a texture and the shape-model OBJs have no texture coordinates, so with --occluder-in-scene this is the difference between a grey primary and one with a surface. See --occluder-texture-albedo.")>]
+        occluderOpc : string
+
+        [<Option("occluder-obj", HelpText = "Shape model of --occluder-body as a Wavefront OBJ (`.obj.gz` works), so the eclipse is cast by the primary's real shape. Without it the occluder is a tessellation of the body's reference radii, which puts ingress and egress within seconds but cannot give the shadow's edge the right shape.")>]
+        occluderObj : string
+
+        [<Option("occluder-obj-scale", Default = 1000.0, HelpText = "Metres per --occluder-obj file unit (default 1000, i.e. kilometres)")>]
+        occluderObjScale : float
+
+        [<Option("shadow-map", Default = 4096, HelpText = "Edge length of the sun-side depth maps, in texels (default 4096). The target's map is fitted to the target's own bounds, so 4096 over a 180 m body is 6.6 cm a texel -- already finer than the 0.24 m facets of the kernels' shape model and thirty times finer than an OPC post, which is why raising it has no measurable effect. Costs 2 x (n^2 x 8) bytes of VRAM across the two maps: 268 MB at 4096, 1.1 GB at 8192, 4.3 GB at 16384.")>]
+        shadowMap : int
+
+        [<Option("occluder-texture-layer", HelpText = "Texture layer of --occluder-opc to draw, by name, e.g. 'DRACO_2'. Empty draws the patch default, which is not necessarily the layer a scene shows -- the same trap as --texture-layer for the target.")>]
+        occluderTextureLayer : string
+
+        [<Option("occluder-deshade", HelpText = "De-light --occluder-body the way --deshade de-lights the target: fit the illumination baked into its own texture and divide it out, using its OWN fit. Wins over --occluder-texture-albedo. Worth it when the primary carries a real mosaic of itself; it falls back to the constant albedo, with a warning, when the fit cannot be made.")>]
+        occluderDeshade : bool
+
+        [<Option("occluder-deshade-layer", HelpText = "Per-vertex layer the occluder's fit reads (default: --occluder-texture-layer, then 'DRACO').")>]
+        occluderDeshadeLayer : string
+
+        [<Option("occluder-texture-albedo", HelpText = "Draw --occluder-body with its own texture as albedo (needs --occluder-opc and --occluder-in-scene). Only the level is taken from the texture -- its mean texel maps to --albedo, so the primary is exposed like the target rather than several times brighter. Nothing is de-shaded: the textured Didymos OPC carries a global lunar mosaic, whose brightness follows that shape's normals at r = 0.22, so there is no baked light direction in it to divide out.")>]
+        occluderTextureAlbedo : bool
+
+        [<Option("occluder-in-scene", HelpText = "Draw --occluder-body in the image too, not only as a shadow caster. Both bodies are then lit by one sun with one photometry, which is what makes a conjunction renderable: at 2027-04-25T03:00 Didymos is 2.6 deg from Dimorphos and 7.1 deg across, wider than AFC-1's whole field. Off by default, because it changes every frame of an existing eclipse series.")>]
+        occluderInScene : bool
+        [<Option("pointing", HelpText = "Where the camera orientation comes from: 'ck' (default) uses the spacecraft's measured/planned attitude and FAILS if the kernels have none at this epoch; 'lookat' aims the boresight at the body centre with an up-vector roll convention. 'ck' can legitimately produce no image -- if the instrument was pointed elsewhere, the body is not in the frame, and that is the answer, not a fault.")>]
+        pointing : string
+    }
+
+/// Options for the `simulate-series` verb.
+///
+/// Many epochs, many variants, one process. The per-frame options are deliberately the
+/// same names as `simulate-image`'s, because they end up in the same shading uniforms --
+/// what this verb adds is the epoch list, the variant presets and the output layout.
+///
+/// There is no `--force` and no resume: a run renders every frame it was asked for and
+/// rewrites the variant folders. Resuming is what let a folder end up holding frames from
+/// two different builds, 90 degrees apart, with nothing in the data saying so -- and with
+/// the whole series rendering in one process, the thing resuming saved is no longer worth
+/// the class of bug it costs.
+[<Verb("simulate-series", HelpText = "Render a whole series of simulated instrument images in one process: many epochs x many shading variants, sharing one shape-model load, one de-shading fit and one scene graph.")>]
+type SimulateSeriesOptions =
+    {
+        [<Option("opc", HelpText = "OPC directory of the body. Exactly one of --opc and --obj.")>]
+        opc : string
+
+        [<Option("obj", HelpText = "Shape model as a Wavefront OBJ instead of --opc; `.obj.gz` is read directly. Use this to render from the shape model the SPICE kernels ship (kernels/dsk/*.obj): at 5 km an AFC pixel covers 0.48 m while the Dimorphos OPC's posts are 1.96 m apart, so OPC frames are shape-limited rather than sensor-limited. Exactly one of --opc and --obj.")>]
+        obj : string
+
+        [<Option("obj-scale", Default = 1000.0, HelpText = "Metres per --obj file unit (default 1000, i.e. the file is in kilometres -- which is what the SPICE DSK shape models are). The body's extent in metres is logged, so a wrong scale is visible immediately.")>]
+        objScale : float
+
+        [<Option("obj-texture", HelpText = "Image to drape on --obj, using the mesh's own texture coordinates. Required by --deshade / --texture-albedo / --texture-only, which are refused without it. NOTE the `.png` beside each `.bds` in the kernel set is a preview render, not a map.")>]
+        objTexture : string
+
+        [<Option("times-file", HelpText = "File of observation times, one ISO-8601 UTC epoch per line; blank lines and lines starting with '#' are ignored", Required = true)>]
+        timesFile : string
+
+        [<Option("out", HelpText = "Output directory; each variant gets a subdirectory of frames and sidecars", Required = true)>]
+        out : string
+
+        [<Option("variants", Default = "delit,baked,micro,smooth", HelpText = "Which shading variants to render, comma-separated: 'delit' (texture with its baked illumination divided out, + micro-structure -- the realistic one), 'delitplain' (the same WITHOUT the micro-structure, for consumers who cannot have shading-only detail reconstructed as relief), 'baked' (the same texture WITHOUT that division, so the mosaic's own lighting stays in and this epoch's sun lights it again -- the naive rendering, for testing whether de-lighting is necessary at all), 'micro' (constant albedo + micro-structure), 'smooth' (constant albedo, no micro-structure). All share one camera and one exposure, so any pair differs in exactly one thing.")>]
+        variants : string
+
+        [<Option("stem-prefix", HelpText = "Filename prefix for the frames (default: derived from the instrument, e.g. HERA_AFC-1 -> AFC1). Frames are <prefix>_<VARIANT>_<yyyyMMdd_HHmmss>.png")>]
+        stemPrefix : string
+
+        [<Option("instrument", HelpText = "SPICE instrument frame whose frustum to render with (default HERA_AFC-1)")>]
+        instrument : string
+
+        [<Option("observer", HelpText = "Spacecraft carrying the instrument (default HERA)")>]
+        observer : string
+
+        [<Option("body", HelpText = "SPICE body name of the OPC (default DIMORPHOS)")>]
+        body : string
+
+        [<Option("frame", HelpText = "Body-fixed reference frame (default DIMORPHOS_FIXED)")>]
+        frame : string
+
+        [<Option("kernel", HelpText = "Explicit SPICE metakernel; default: <kernel-root>/mk/hera_plan.tm")>]
+        kernel : string
+
+        [<Option("kernel-root", HelpText = "SPICE kernel tree, defaulting to $PRO3D_SPICE_KERNELS")>]
+        kernelRoot : string
+
+        [<Option("pointing", HelpText = "Where the camera orientation comes from: 'ck' (default) uses the spacecraft's attitude and fails where the kernels have none; 'lookat' aims at the body centre. With 'ck' an epoch outside an observation window renders nothing, and that is an answer, not a fault.")>]
+        pointing : string
+
+        [<Option("distance", Default = 0.0, HelpText = "Camera distance in metres; 0 (default) uses the spacecraft's real distance at each epoch")>]
+        distance : float
+
+        [<Option("width", HelpText = "Output width; 0 (default) uses the instrument's native width")>]
+        width : int
+
+        [<Option("height", HelpText = "Output height; 0 (default) uses the instrument's native height")>]
+        height : int
+
+        [<Option("albedo", Default = 0.16, HelpText = "Normal reflectance of the surface (default 0.16, the measured Dimorphos value)")>]
+        albedo : float
+
+        [<Option("deshade-layer", HelpText = "Texture layer the 'delit' variant de-shades and draws; also selects --texture-layer, so one name drives both the fit and the divisor")>]
+        deshadeLayer : string
+
+        [<Option("texture-layer", HelpText = "Texture layer to draw, by name or index. Defaults to --deshade-layer when that is given.")>]
+        textureLayer : string
+
+        [<Option("micro-scale", Default = 0.5, HelpText = "Feature size of the procedural micro-structure in metres (default 0.5)")>]
+        microScale : float
+
+        [<Option("micro-amplitude", Default = 0.3, HelpText = "Normal perturbation strength for the 'delit' and 'micro' variants; 'smooth' is always 0")>]
+        microAmplitude : float
+
+        [<Option("ambient", Default = 0.02, HelpText = "Ambient floor so the night side is distinguishable from space (default 0.02)")>]
+        ambient : float
+
+        [<Option("gain", Default = 0.0, HelpText = "Linear I/F -> DN gain. Give one: across a series a per-frame auto-exposure (0) removes the very thing the series shows, the body getting brighter and darker as the illumination changes.")>]
+        gain : float
+
+        [<Option("no-shadows", HelpText = "Skip the sun shadow map; shading then comes from the local sun angle alone")>]
+        noShadows : bool
+
+        [<Option("no-lighting", HelpText = "Render a flat disk instead of a shaded body: the frame is then the silhouette. For comparing geometry against a renderer that does not light its output, where shading is only a source of disagreement.")>]
+        noLighting : bool
+
+        [<Option("shadow-bias", Default = 0.006, HelpText = "Shadow-map depth bias in normalized depth (default 0.006); swept against a SPICE ray-cast, see scripts/check-lighting.py")>]
+        shadowBias : float
+
+        [<Option("max-reprojection-error", Default = 0.1, HelpText = "How far, in pixels, the camera reconstructed from a frame's own sidecar may sit from the camera that rendered it before the frame counts as failed (default 0.1). This is checked for EVERY frame: a sidecar that does not reproduce its own render makes the frame unusable for projection, and finding that out later costs the whole series.")>]
+        maxReprojectionError : float
+
+
+        [<Option("occluder-body", HelpText = "The other body of a binary, cast as a shadow onto the target -- 'DIDYMOS' when rendering Dimorphos. The scene holds only the target, so without this an eclipsed epoch renders as full daylight; Dimorphos is inside Didymos' umbra for ~12 %% of the close-orbit phase. Empty (default) disables it.")>]
+        occluderBody : string
+
+        [<Option("occluder-frame", HelpText = "Body-fixed frame of --occluder-body (default: <body>_FIXED)")>]
+        occluderFrame : string
+
+        [<Option("occluder-opc", HelpText = "Shape model of --occluder-body as an OPC directory, instead of --occluder-obj. Worth the extra cost for one reason: an OPC can carry a texture and the shape-model OBJs have no texture coordinates, so with --occluder-in-scene this is the difference between a grey primary and one with a surface. See --occluder-texture-albedo.")>]
+        occluderOpc : string
+
+        [<Option("occluder-obj", HelpText = "Shape model of --occluder-body as a Wavefront OBJ (`.obj.gz` works), so the eclipse is cast by the primary's real shape. Without it the occluder is a tessellation of the body's reference radii, which puts ingress and egress within seconds but cannot give the shadow's edge the right shape.")>]
+        occluderObj : string
+
+        [<Option("occluder-obj-scale", Default = 1000.0, HelpText = "Metres per --occluder-obj file unit (default 1000, i.e. kilometres)")>]
+        occluderObjScale : float
+
+        [<Option("shadow-map", Default = 4096, HelpText = "Edge length of the sun-side depth maps, in texels (default 4096). The target's map is fitted to the target's own bounds, so 4096 over a 180 m body is 6.6 cm a texel -- already finer than the 0.24 m facets of the kernels' shape model and thirty times finer than an OPC post, which is why raising it has no measurable effect. Costs 2 x (n^2 x 8) bytes of VRAM across the two maps: 268 MB at 4096, 1.1 GB at 8192, 4.3 GB at 16384.")>]
+        shadowMap : int
+
+        [<Option("occluder-texture-layer", HelpText = "Texture layer of --occluder-opc to draw, by name, e.g. 'DRACO_2'. Empty draws the patch default, which is not necessarily the layer a scene shows -- the same trap as --texture-layer for the target.")>]
+        occluderTextureLayer : string
+
+        [<Option("occluder-deshade", HelpText = "De-light --occluder-body the way --deshade de-lights the target: fit the illumination baked into its own texture and divide it out, using its OWN fit. Wins over --occluder-texture-albedo. Worth it when the primary carries a real mosaic of itself; it falls back to the constant albedo, with a warning, when the fit cannot be made.")>]
+        occluderDeshade : bool
+
+        [<Option("occluder-deshade-layer", HelpText = "Per-vertex layer the occluder's fit reads (default: --occluder-texture-layer, then 'DRACO').")>]
+        occluderDeshadeLayer : string
+
+        [<Option("occluder-texture-albedo", HelpText = "Draw --occluder-body with its own texture as albedo (needs --occluder-opc and --occluder-in-scene). Only the level is taken from the texture -- its mean texel maps to --albedo, so the primary is exposed like the target rather than several times brighter. Nothing is de-shaded: the textured Didymos OPC carries a global lunar mosaic, whose brightness follows that shape's normals at r = 0.22, so there is no baked light direction in it to divide out.")>]
+        occluderTextureAlbedo : bool
+
+        [<Option("occluder-in-scene", HelpText = "Draw --occluder-body in the image too, not only as a shadow caster. Both bodies are then lit by one sun with one photometry, which is what makes a conjunction renderable: at 2027-04-25T03:00 Didymos is 2.6 deg from Dimorphos and 7.1 deg across, wider than AFC-1's whole field. Off by default, because it changes every frame of an existing eclipse series.")>]
+        occluderInScene : bool
+
+        [<Option("day-folders", HelpText = "Split each variant folder by UTC date (<variant>/yyyy-MM-dd/). An 85-day set is thousands of files, and one flat directory is neither navigable nor what the reference deliveries look like. The filename stamp is unchanged, so a frame is still findable by epoch alone.")>]
+        dayFolders : bool
+
+        [<Option("keep-going", HelpText = "Render the remaining epochs after a failure instead of stopping. The run still exits non-zero and names every frame that failed.")>]
+        keepGoing : bool
     }
 
 /// Options for the `unproject` verb.

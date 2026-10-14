@@ -20,9 +20,12 @@ Two frame kinds, because no single one serves every check:
 
     AFC1_<layer>_*   the texture as the camera sees it, unlit. Carries the surface
                      detail that registration and orientation checks need.
-    AFC1_SIM_*       lit render -- Lommel-Seeliger, micro-structure, cast shadows,
+    AFC1_LIT_*       lit render -- Lommel-Seeliger, micro-structure, cast shadows,
                      constant albedo. Fills the disk, so its outline is the body's
                      outline and the silhouette check means something.
+
+Both kinds are simulated, so neither is called SIM: the names say what differs, which is
+the lighting.
 
 --texture-layer is not cosmetic. The tool otherwise draws the patch's DEFAULT layer,
 which is not necessarily the one a PRo3D scene displays, and on Dimorphos the two DRACO
@@ -30,16 +33,19 @@ layers are different DART passes over different hemispheres: pick the wrong one 
 frame is nearly black, which any correlation will happily score well. Run with
 --list-layers to see what an OPC declares.
 
-See docs/ProjectionValidation.md for what the resulting data is used to prove.
+See docs/ProjectionValidation.md for what the resulting data is used to prove. For a
+*series* of lit frames over a whole rotation rather than these four, see
+scripts/make-image-time-series.py and docs/ImageTimeSeries.md; both drive the same tool
+through the shared helpers in pro3d_sim.py.
 """
 
 import argparse
-import json
 import os
-import subprocess
 import sys
 
-import numpy as np
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from pro3d_sim import (check_sidecars, list_layers, run_tool, texture_index,
+                       tool_error, write_scene)
 
 # HARD-CODED DEFAULTS, not discovered values. The script does not ask the kernels what
 # they cover: doing that properly needs spiceypy (see src/Tests/spice_coverage_tests.py)
@@ -60,117 +66,6 @@ import numpy as np
 # the new epoch produced is sensible.
 DEFAULT_EPOCHS = ["14:00:00", "17:00:00", "20:00:00", "23:00:00"]
 DEFAULT_DATE = "2027-03-21"
-
-
-def run_tool(repo, args, quiet=False):
-    exe = os.path.join(repo, "bin", "Release", "net9.0", "PRo3D.Tool.exe")
-    cmd = ([exe] if os.path.exists(exe)
-           else ["dotnet", "run", "--project",
-                 os.path.join(repo, "src", "PRo3D.Tool", "PRo3D.Tool.fsproj"), "--"])
-    p = subprocess.run(cmd + args, capture_output=True, text=True)
-    if not quiet:
-        for line in (p.stdout or "").splitlines():
-            if any(k in line for k in ("[out]", "[mbi]", "[texture]", "ERROR", "round trip")):
-                print("   " + line.strip())
-    return p
-
-
-def quat_to_matrix(w, x, y, z):
-    n = np.sqrt(w * w + x * x + y * y + z * z)
-    w, x, y, z = w / n, x / n, y / n, z / n
-    return np.array([
-        [1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)],
-        [2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)],
-        [2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)],
-    ])
-
-
-def header(path):
-    h = {}
-    for blk in json.load(open(path))["fits_hdu_headers"]:
-        for k, v in blk.items():
-            h.setdefault(k, v["value"])
-    return h
-
-
-def check_sidecars(folder):
-    """Aᵀ·TRG_POS must point down the boresight, i.e. close to (0, 0, +1).
-
-    The check a real delivery can fail -- the HERA COP set conjugates the quaternion,
-    puts the camera position in TRG_POS and centres it on the wrong body. The projector
-    follows a wrong sidecar faithfully, so this is worth confirming on data that is
-    supposed to be beyond doubt.
-    """
-    bad = 0
-    for f in sorted(os.listdir(folder)):
-        if not f.endswith(".mbi.json"):
-            continue
-        h = header(os.path.join(folder, f))
-        trg = np.array([h["TRG_POSX"], h["TRG_POSY"], h["TRG_POSZ"]])
-        A = quat_to_matrix(h["SC_QUAT0"], h["SC_QUAT1"], h["SC_QUAT2"], h["SC_QUAT3"])
-        v = A.T @ trg
-        v = v / np.linalg.norm(v)
-        ok = v[2] > 0.999
-        bad += 0 if ok else 1
-        print("   %-38s range %7.1f m   A^T*TRG_POS = (%+.5f %+.5f %+.5f) %s"
-              % (f[:-9], np.linalg.norm(trg) * 1000, v[0], v[1], v[2], "" if ok else "  <-- FAILS"))
-    return bad
-
-
-def write_scene(template, out, opc, texture_label, texture_index, mbi, epoch_iso, kernel_root=None):
-    """A scene with everything projection needs already set.
-
-    From an empty PRo3D none of this is in place, and until it is, fly-to and projection
-    do nothing: an observed body, a surface bound to a SPICE body, and an epoch inside the
-    loaded kernels' coverage (PRo3D's default is 2025-03-10, where HERA has no ephemeris
-    for Dimorphos). Focal 122.563 mm is AFC-1's 5.5307 deg, which also makes fly-to land
-    exactly at the instrument: the standoff frames the footprint in the VIEWER's field of
-    view, so when the two match, standoff = range. Near plane 10 because at ~8 km a 0.1
-    near plane cannot separate the near and far surfaces of a 177 m body.
-    """
-    d = json.load(open(template, encoding="utf-8-sig"))
-    s = d["surfaceModel"]["surfaces"]["flat"][0]["Surfaces"]
-    name = s["opcNames"][0]
-    s["importPath"] = opc
-    s["opcPaths"] = [os.path.join(opc, name)]
-    opcx = [f for f in os.listdir(opc) if f.endswith(".opcx")]
-    if opcx:
-        s["opcxPath"] = os.path.join(opc, opcx[0])
-    s["selectedTexture"] = {"index": texture_index, "label": texture_label, "version": 0}
-
-    h = header(mbi)
-    pos = -np.array([h["TRG_POSX"], h["TRG_POSY"], h["TRG_POSZ"]]) * 1000.0
-    fwd = -pos / np.linalg.norm(pos)
-    sky = np.array([0.0, 0.0, 1.0])
-    right = np.cross(fwd, sky); right /= np.linalg.norm(right)
-    up = np.cross(right, fwd); up /= np.linalg.norm(up)
-    fmt = lambda a: "[%s]" % ", ".join(repr(float(x)) for x in a)
-    d["cameraView"]["view"] = [fmt(sky), fmt(pos), fmt(fwd), fmt(up), fmt(right)]
-
-    d["gisApp"]["defaultObservationInfo"]["time"] = epoch_iso
-    # the template names its meta-kernel by an absolute path; keep the file name, take
-    # the tree the frames were rendered with
-    if kernel_root and d["gisApp"].get("spiceKernel"):
-        root = kernel_root if os.path.isdir(os.path.join(kernel_root, "mk")) else os.path.join(kernel_root, "kernels")
-        d["gisApp"]["spiceKernel"] = os.path.join(root, "mk", d["gisApp"]["spiceKernel"].replace("\\", "/").split("/")[-1])
-    # entities the loaded kernels cannot place cost a failing SPICE call per frame, and
-    # SPICE calls serialise on a global lock -- a handful is enough to stall the UI
-    keep = {"Dimorphos", "Didymos", "HERA"}
-    d["gisApp"]["entities"] = [e for e in d["gisApp"]["entities"]
-                               if e["spiceName"]["EntitySpiceName"] in keep]
-
-    focal = 122.563
-    t = 11.84 / (2.0 * focal)
-    d["config"]["frustumModel"]["focal"] = focal
-    f = d["config"]["frustumModel"]["frustum"]
-    aspect = f["top"] / f["right"]
-    n = 0.1
-    f["right"], f["left"] = n * t, -n * t
-    f["top"], f["bottom"] = n * t * aspect, -n * t * aspect
-    d["config"]["nearPlane"]["value"] = 10.0
-
-    d["scenePath"] = out
-    json.dump(d, open(out, "w", encoding="utf-8"), indent=2)
 
 
 def main():
@@ -211,11 +106,7 @@ def main():
         common += ["--kernel-root", a.kernel_root]
 
     if a.list_layers:
-        # an unmatched name makes the tool print what the OPC declares
-        p = run_tool(repo, ["simulate-image"] + common +
-                     ["--time", "%sT%sZ" % (date, epochs[0]), "--texture-only",
-                      "--texture-layer", "__list__", "--out", os.devnull], quiet=True)
-        print((p.stdout or "") + (p.stderr or ""))
+        print(list_layers(repo, common, "%sT%sZ" % (date, epochs[0])))
         return 0
 
     os.makedirs(a.out, exist_ok=True)
@@ -237,35 +128,22 @@ def main():
         print(" %s  lit" % iso)
         p2 = run_tool(repo, ["simulate-image"] + common +
                       ["--time", iso, "--gain", a.gain, "--write-mbi", "--out",
-                       os.path.join(a.out, "AFC1_SIM_%s.png" % stamp)])
+                       os.path.join(a.out, "AFC1_LIT_%s.png" % stamp)])
         # A failed render leaves no files behind, and the sidecar check below only looks
         # at what IS there -- so without this a half-empty data set reports "all sidecars
         # pass". The usual cause is an epoch where the body is not in the instrument's
         # field of view, or one outside the kernels' coverage; the tool says which.
         for kind, pr in (("unlit", p1), ("lit", p2)):
             if pr.returncode != 0:
-                why = [l.strip() for l in ((pr.stdout or "") + (pr.stderr or "")).splitlines()
-                       if "ERROR" in l]
-                failed.append((iso, kind, why[-1] if why else "exit %d" % pr.returncode))
+                failed.append((iso, kind, tool_error(pr)))
 
     print("\nsidecar check -- A^T*TRG_POS must be close to (0, 0, +1):")
-    bad = check_sidecars(a.out)
+    bad, _ = check_sidecars(a.out)
 
     # the scene's camera comes from a frame's sidecar, so there is nothing to write it
     # from when the renders failed -- report those below instead of a FileNotFoundError
     if a.scene_template and os.path.exists(a.scene_template) and not failed:
-        # index is resolved by the tool from the .opcx; the viewer needs it too, and the
-        # two orderings have differed between OPC exports, so read it rather than assume
-        p = run_tool(repo, ["simulate-image"] + common +
-                     ["--time", "%sT%sZ" % (date, epochs[0]), "--texture-only",
-                      "--texture-layer", "__list__", "--out", os.devnull], quiet=True)
-        idx = None
-        for line in ((p.stdout or "") + (p.stderr or "")).splitlines():
-            if "This OPC declares" in line:
-                for part in line.split("declares:")[1].split(","):
-                    i, _, lbl = part.strip().partition("=")
-                    if lbl.strip() == a.texture_layer:
-                        idx = int(i)
+        idx = texture_index(repo, common, "%sT%sZ" % (date, epochs[0]), a.texture_layer)
         if idx is None:
             print("could not resolve '%s' to an index; scene not written" % a.texture_layer)
         else:
