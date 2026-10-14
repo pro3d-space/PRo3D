@@ -616,6 +616,63 @@ module AnnotationResults =
 type SemanticId = SemanticId of string
 type SemanticType = Metric = 0 | Angular = 1 | Hierarchical = 2 | Undefined = 3
 
+/// Where a generated profile came from (supporting profiles, #833). Fixed when the profile
+/// is generated, like `majorAxisAzimuth` at ellipse construction: editing the profile
+/// afterwards does not update it. Saved under the annotation's own `"profileOf"` key, so
+/// releases that do not know it skip it.
+type ProfileLink =
+    {
+        /// key of the ellipse or polyline the profile was generated from
+        parent    : Guid
+        /// 0, 1, 2, ... in generation order
+        index     : int
+        /// "N-S", "NE-SW", "E-W", "NW-SE" (compass), "major", "major+45", "minor",
+        /// "major+135" (major axis), "" for polyline profiles
+        direction : string
+        /// deg, start -> end, clockwise from local north, 0-360
+        azimuth   : float
+        /// m along the parent polyline; None for ellipse profiles
+        station   : Option<float>
+    }
+    with
+        static let version = 0
+
+        static member private readV0 =
+            json {
+                let! parent    = Json.read "parent"
+                let! index     = Json.read "index"
+                let! direction = Json.read "direction"
+                let! azimuth   = Json.readFloat "azimuth"
+                let! (station : Option<float>) = Json.tryRead "station"
+                return {
+                    parent    = Guid.Parse (parent : string)
+                    index     = index
+                    direction = direction
+                    azimuth   = azimuth
+                    station   = station
+                }
+            }
+
+        static member FromJson(_ : ProfileLink) =
+            json {
+                let! v = Json.read "version"
+                match v with
+                | 0 -> return! ProfileLink.readV0
+                | _ -> return! v |> sprintf "don't know version %A of ProfileLink" |> Json.error
+            }
+
+        static member ToJson (x : ProfileLink) =
+            json {
+                do! Json.write      "version"   version
+                do! Json.write      "parent"    (x.parent.ToString())
+                do! Json.write      "index"     x.index
+                do! Json.write      "direction" x.direction
+                do! Json.writeFloat "azimuth"   x.azimuth
+                match x.station with
+                | Some s -> do! Json.writeFloat "station" s
+                | None   -> ()
+            }
+
 [<ModelType>]
 type Annotation = {
     version        : int
@@ -663,6 +720,9 @@ type Annotation = {
     showFill   : bool
     fillColor  : ColorInput
     fillAlpha  : NumericInput
+
+    /// set on profiles generated from another annotation (supporting profiles, #833)
+    profileOf  : Option<ProfileLink>
 }
 with
     static member current = 5
@@ -755,6 +815,7 @@ with
                 showFill             = false
                 fillColor            = color
                 fillAlpha            = Annotation.initialFillAlpha
+                profileOf            = None
             }
         }
 
@@ -822,6 +883,7 @@ with
                 showFill             = false
                 fillColor            = color
                 fillAlpha            = Annotation.initialFillAlpha
+                profileOf            = None
             }
         }
 
@@ -889,6 +951,7 @@ with
                 showFill             = false
                 fillColor            = color
                 fillAlpha            = Annotation.initialFillAlpha
+                profileOf            = None
             }
         }
 
@@ -959,6 +1022,7 @@ with
                 showFill             = false
                 fillColor            = color
                 fillAlpha            = Annotation.initialFillAlpha
+                profileOf            = None
             }
         }
 
@@ -1030,6 +1094,7 @@ with
                 showFill             = false
                 fillColor            = color
                 fillAlpha            = Annotation.initialFillAlpha
+                profileOf            = None
             }
         }
 
@@ -1086,6 +1151,9 @@ with
             let! fillColor = Json.tryRead "fillColor"
             let! fillAlpha = Json.tryRead "fillAlpha"
 
+            // optional, no version bump: older releases skip the key (#833)
+            let! profileOf = Json.tryRead "profileOf"
+
             return {
                 version          = Annotation.current
                 key              = key           |> Guid.Parse
@@ -1123,6 +1191,7 @@ with
                 fillAlpha            =
                     { Annotation.initialFillAlpha with
                         value = fillAlpha |> Option.defaultValue Annotation.initialFillAlpha.value }
+                profileOf            = profileOf
             }
         }
 
@@ -1196,6 +1265,10 @@ with
             do! Json.write "showFill"  x.showFill
             do! Json.write "fillColor" (x.fillColor.c.ToString())
             do! Json.write "fillAlpha" x.fillAlpha.value
+
+            match x.profileOf with
+            | Some link -> do! Json.write "profileOf" link
+            | None      -> ()
         }
 
 module Annotation =
@@ -1282,6 +1355,7 @@ module Annotation =
             showFill             = false
             fillColor            = color
             fillAlpha            = Annotation.initialFillAlpha
+            profileOf            = None
         }
 
     let initial =

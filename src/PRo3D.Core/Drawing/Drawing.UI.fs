@@ -60,6 +60,15 @@ module UI =
     let dropDown<'a, 'msg when 'a : enum<int> and 'a : equality> (exclude : HashSet<'a>) (selected : aval<'a>) (change : 'a -> 'msg) (getTooltip : 'a -> string) =
         dropDownDisabled exclude HashSet.empty "" selected change getTooltip
 
+    // shared by the toolbar and Properties -> Supporting Profiles
+    let private profilePlacementTooltip  = "BySpacing: one profile every n metres. ByCount: n profiles, equally spaced over the whole polyline"
+    let private profileSpacingTooltip    = "Profile spacing (m) along the polyline"
+    let private profileCountTooltip      = "Number of profiles on the polyline, equally spaced"
+    let private profileAtStartTooltip    = "A profile at the polyline's first point"
+    let private profileAtEndTooltip      = "A profile at the polyline's last point"
+    let private profileLengthTooltip     = "Profile length (m), centred on the polyline"
+    let private profileDirectionsTooltip = "Compass: N-S, NE-SW, E-W, NW-SE (needs a reference body). MajorAxis: major, +45°, minor, +135°"
+
     let viewAnnotationToolsHorizontal (paletteFile : string) (planet : aval<Planet>) (model:AdaptiveDrawingModel) =
         let geometryTooltip (i : Geometry) : string =
             match i with 
@@ -156,6 +165,42 @@ module UI =
 
                 if geometryIsFillable geometry then
                     yield! AList.ofList fillCells
+
+                // supporting profiles (#833): generated as soon as the annotation is finished,
+                // with the same settings as Properties -> Supporting Profiles
+                let profiles = model.supportingProfiles
+                match geometry with
+                | Geometry.Polyline ->
+                    let! on = profiles.autoLineament
+                    yield Html.Layout.boxH [ div [style "font-weight:bold"] [text "Lineament profiles:"] ]
+                    yield Html.Layout.boxH [ GuiEx.iconCheckBoxSet profiles.autoLineament SetAutoLineamentProfiles ]
+                          |> UI.wrapToolTip DataPosition.Bottom "Generate perpendicular profiles when the polyline is finished"
+                    if on then
+                        let! mode = profiles.lineamentMode
+                        yield Html.Layout.boxH [ Html.SemUi.dropDown profiles.lineamentMode SetLineamentMode ]
+                              |> UI.wrapToolTip DataPosition.Bottom profilePlacementTooltip
+                        match mode with
+                        | LineamentProfileMode.ByCount ->
+                            yield Html.Layout.boxH [ Numeric.view' [InputBox] profiles.count |> UI.map SetProfileCount ]
+                                  |> UI.wrapToolTip DataPosition.Bottom profileCountTooltip
+                        | _ ->
+                            yield Html.Layout.boxH [ Numeric.view' [InputBox] profiles.spacing |> UI.map SetProfileSpacing ]
+                                  |> UI.wrapToolTip DataPosition.Bottom profileSpacingTooltip
+                        yield Html.Layout.boxH [ Numeric.view' [InputBox] profiles.length |> UI.map SetProfileLength ]
+                              |> UI.wrapToolTip DataPosition.Bottom profileLengthTooltip
+                        yield Html.Layout.boxH [ GuiEx.iconCheckBoxSet profiles.atStart SetProfileAtStart; text "start" ]
+                              |> UI.wrapToolTip DataPosition.Bottom profileAtStartTooltip
+                        yield Html.Layout.boxH [ GuiEx.iconCheckBoxSet profiles.atEnd SetProfileAtEnd; text "end" ]
+                              |> UI.wrapToolTip DataPosition.Bottom profileAtEndTooltip
+                | Geometry.AxisEllipse | Geometry.Axis4PEllipse | Geometry.Ellipse ->
+                    let! on = profiles.autoCrater
+                    yield Html.Layout.boxH [ div [style "font-weight:bold"] [text "Crater profiles:"] ]
+                    yield Html.Layout.boxH [ GuiEx.iconCheckBoxSet profiles.autoCrater SetAutoCraterProfiles ]
+                          |> UI.wrapToolTip DataPosition.Bottom "Generate 4 profiles through the centre, rim to rim, when the ellipse is finished"
+                    if on then
+                        yield Html.Layout.boxH [ Html.SemUi.dropDown profiles.ellipseMode SetProfileEllipseMode ]
+                              |> UI.wrapToolTip DataPosition.Bottom profileDirectionsTooltip
+                | _ -> ()
             //  yield Html.Layout.boxH [ Html.SemUi.dropDown model.semantic SetSemantic ]
             }
 
@@ -405,5 +450,76 @@ module UI =
             let tree = viewTree model.colorByCategory [] model.annotations.rootGroup model.annotations a
             //Incremental.div (AttributeMap.ofList [clazz "ui list"]) ([])
             div [clazz "ui list"] [tree]
+        )
+
+    /// Supporting profiles (#833): generates profiles from the single-selected polyline, line
+    /// or ellipse. The settings shown follow its type; the outcome of the last run is listed
+    /// below the button, because a refused generation creates nothing else to look at.
+    let viewSupportingProfiles (model : AdaptiveDrawingModel) : DomNode<DrawingAction> =
+        let s = model.supportingProfiles
+
+        let selectedGeometry =
+            adaptive {
+                match! model.annotations.singleSelectLeaf with
+                | None -> return None
+                | Some id ->
+                    match! AMap.tryFind id model.annotations.flat with
+                    | Some (AdaptiveAnnotations a) ->
+                        let! g = a.geometry
+                        return Some g
+                    | _ -> return None
+            }
+
+        let generate =
+            div [style "padding-top: 5px"] [
+                button [clazz "ui tiny button pro3d-generate-profiles"; onClick (fun _ -> GenerateSupportingProfiles None)] [
+                    text "Generate profiles"
+                ]
+                |> UI.wrapToolTip DataPosition.Bottom "Adds Sky lines to the active group; all or none, one undo step"
+            ]
+
+        let content =
+            alist {
+                let! geometry = selectedGeometry
+                match geometry with
+                | Some (Geometry.Polyline | Geometry.Line) ->
+                    let! mode = s.lineamentMode
+                    yield Html.table [
+                        Html.row "Placement:" [ Html.SemUi.dropDown s.lineamentMode SetLineamentMode
+                                                |> UI.wrapToolTip DataPosition.Bottom profilePlacementTooltip ]
+                        match mode with
+                        | LineamentProfileMode.ByCount ->
+                            Html.row "Count:" [ Numeric.view' [InputBox] s.count |> UI.map SetProfileCount
+                                                |> UI.wrapToolTip DataPosition.Bottom profileCountTooltip ]
+                        | _ ->
+                            Html.row "Spacing (m):" [ Numeric.view' [InputBox] s.spacing |> UI.map SetProfileSpacing
+                                                      |> UI.wrapToolTip DataPosition.Bottom profileSpacingTooltip ]
+                        Html.row "Length (m):"  [ Numeric.view' [InputBox] s.length  |> UI.map SetProfileLength
+                                                  |> UI.wrapToolTip DataPosition.Bottom profileLengthTooltip ]
+                        Html.row "At start:" [ GuiEx.iconCheckBoxSet s.atStart SetProfileAtStart
+                                               |> UI.wrapToolTip DataPosition.Bottom profileAtStartTooltip ]
+                        Html.row "At end:"   [ GuiEx.iconCheckBoxSet s.atEnd SetProfileAtEnd
+                                               |> UI.wrapToolTip DataPosition.Bottom profileAtEndTooltip ]
+                    ]
+                    yield generate
+                | Some (Geometry.AxisEllipse | Geometry.Axis4PEllipse | Geometry.Ellipse) ->
+                    yield Html.table [
+                        Html.row "Directions:" [ Html.SemUi.dropDown s.ellipseMode SetProfileEllipseMode
+                                                 |> UI.wrapToolTip DataPosition.Bottom profileDirectionsTooltip ]
+                    ]
+                    yield generate
+                | _ ->
+                    yield div [style "font-style:italic"] [
+                        text "Select a polyline, a line or an ellipse to generate profiles from it."
+                    ]
+
+                let! message = s.message
+                match message with
+                | Some m -> yield div [clazz "pro3d-profiles-message"; style "padding-top: 5px"] [ text m ]
+                | None   -> ()
+            }
+
+        require GuiEx.semui (
+            Incremental.div (AttributeMap.ofList [clazz "pro3d-supporting-profiles"]) content
         )
 

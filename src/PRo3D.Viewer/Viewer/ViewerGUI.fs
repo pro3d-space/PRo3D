@@ -2218,6 +2218,11 @@ module Gui =
                             Incremental.div AttributeMap.empty (AList.ofAValSingle (Annotations.viewBulkAnnotationProperties m))
                         ]
 
+                        GuiEx.accordion "Supporting Profiles" "chart line" false [
+                            PRo3D.Core.Drawing.UI.viewSupportingProfiles m.drawing
+                            |> UI.map ViewerAction.DrawingMessage
+                        ]
+
                         GuiEx.accordion "Measurements" "Content" true [
                             Incremental.div AttributeMap.empty (AList.ofAValSingle results)                                        
                         ]

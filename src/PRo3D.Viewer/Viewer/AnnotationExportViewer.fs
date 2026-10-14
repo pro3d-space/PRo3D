@@ -75,6 +75,9 @@ module AnnotationExportViewer =
         | ExportTypeFilter.EllipsesOnly ->
             "No ellipses in scope, so there is nothing to export. Set Annotation types to \
              all, or choose a different scope."
+        | ExportTypeFilter.LinesOnly ->
+            "No lines or polylines in scope (generated profiles do not count), so there is \
+             nothing to export. Set Annotation types to all, or choose a different scope."
         | _ ->
             "There are no annotations to export."
 
@@ -346,6 +349,33 @@ module AnnotationExportViewer =
                     AnnotationExport.writeWith
                         settings (sampler |> Option.map fst) columns groupPath refSys.planet up refSys.northO path annotations
 
+                    // Craters: the profiles generated from the exported annotations, beside
+                    // the main file. Taken from the whole tree, not the scope: a profile
+                    // belongs with its crater whether or not it is selected or visible.
+                    let profileCount, profilesWithoutProperties =
+                        if settings.withProfiles && settings.format = ExportFormat.Csv then
+                            let profiles = AnnotationExport.profilesOf annotations (inTreeOrder drawing.annotations)
+                            let profileSettings = AnnotationExport.profilesSettings settings
+                            // the main file is per annotation, so Surface properties is about
+                            // this file: the OPC layers under every profile point, as in Profile
+                            let profileSampler =
+                                if profileSettings.sampleSurfaceProperties || profileSettings.latLonAltSource = LatLonAltSource.AaraFile then
+                                    Some (surfaceSampler refSys surfaces profileSettings.sampleSurfaceProperties)
+                                else None
+                            AnnotationExport.writeWith
+                                profileSettings (profileSampler |> Option.map fst) AnnotationExport.noColumns
+                                groupPath refSys.planet up refSys.northO (AnnotationExport.profilesPath path) profiles
+                            Log.line "[AnnotationExport] %d generated profiles written to %s" profiles.Length (AnnotationExport.profilesPath path)
+                            let noProperties =
+                                match profileSampler with
+                                | Some (_, tally) ->
+                                    profileSettings.sampleSurfaceProperties && not profiles.IsEmpty && tally.withProperties () = 0
+                                | None -> false
+                            if noProperties then
+                                Log.warn "[AnnotationExport] profile surface properties requested but no point hit a surface"
+                            Some profiles.Length, noProperties
+                        else None, false
+
                     // written successfully, but possibly without values the
                     // settings asked for
                     [ if AnnotationExport.geographicWithoutFrame settings refSys.planet then
@@ -367,6 +397,13 @@ module AnnotationExportViewer =
                                        (tally.withoutLonLatRad ()) (tally.total ())
                               yield partialAaraMessage (tally.withoutLonLatRad ()) (tally.total ())
                       | None -> ()
+
+                      if profilesWithoutProperties then
+                          yield noSurfacePropertiesMessage
+
+                      if profileCount = Some 0 then
+                          yield sprintf "None of the exported annotations has generated profiles, so %s holds only the header."
+                                        (IO.Path.GetFileName (AnnotationExport.profilesPath path))
 
                       if incompleteStatistics > 0 then
                           Log.warn "[AnnotationExport] %d ellipses with no or incomplete statistics" incompleteStatistics
