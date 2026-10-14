@@ -102,7 +102,9 @@ module GeologicalMapApp =
         | Action.SetUnitName (key, unitId, n) -> m |> updateMap key (updateUnit unitId (fun u -> { u with name = n }))
         | Action.SetUnitColor (key, unitId, a) -> m |> updateMap key (updateUnit unitId (fun u -> { u with color = ColorPicker.update u.color a }))
         | Action.SetActiveUnit unitId ->
-            { m with activeUnit = if m.activeUnit = Some unitId then None else Some unitId }
+            // selects, never deselects: "New unit" already makes the new unit active, and a second
+            // click on its circle must not silently turn the brush into the eyedropper
+            { m with activeUnit = Some unitId }
         | Action.SetUnitCode (key, unitId, c) ->
             let c = c.Trim()
             let taken =
@@ -644,7 +646,9 @@ module GeologicalMapApp =
                 let px = V2i (clamp (V2f.Zero) (size - V2f.II) ((ndc.XY * 0.5f + V2f(0.5f, 0.5f)) * size))
                 let terrain = terrainDepth.Read(px, 0).X
                 let z = ndc.Z * 0.5f + 0.5f
-                let hidden = z > terrain + 0.0002f
+                // alpha above 1: always shown (what is being drawn - near the cursor, and its
+                // snap points lie on contact chords that often run under the terrain)
+                let hidden = v.c.W < 1.5f && z > terrain + 0.0002f
                 return { v with pos = (if hidden then V4f(2.0f, 2.0f, 2.0f, 1.0f) else p); size = 12.0f }
             }
 
@@ -653,7 +657,7 @@ module GeologicalMapApp =
                 let d = v.pc - V2f(0.5f, 0.5f)
                 if d.Length > 0.5f then discard()
                 let edge = d.Length > 0.35f
-                return (if edge then V4f(1.0f, 1.0f, 1.0f, 1.0f) else v.c)
+                return (if edge then V4f(1.0f, 1.0f, 1.0f, 1.0f) else V4f(v.c.XYZ, 1.0f))
             }
 
     /// What the Assign unit tool needs from the viewer: whether it is the active tool, and
@@ -785,8 +789,9 @@ module GeologicalMapApp =
         // are open. An open end the stroke joins shows as joined, not red. Lifted a little off
         // the terrain so the depth test against it does not swallow them
         let red = V4f(0.9f, 0.1f, 0.1f, 1.0f)
-        let green = V4f(0.1f, 0.85f, 0.2f, 1.0f)
-        let orange = V4f(1.0f, 0.6f, 0.0f, 1.0f)
+        // alpha 2: drawn regardless of the terrain in front (MarkerShader)
+        let green = V4f(0.1f, 0.85f, 0.2f, 2.0f)
+        let orange = V4f(1.0f, 0.6f, 0.0f, 2.0f)
         let markers =
             (derived, ends, cursor) |||> AVal.map3 (fun d ends c ->
                 let strokeEnds = ends |> Array.map (fun (p, a) -> p, (if a then green else orange))

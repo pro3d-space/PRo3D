@@ -17,6 +17,8 @@ The grey area is a unit without a label point yet.*
 
 Status: first version (#843). What is not there yet is listed [below](#not-yet).
 
+A walk-through with pictures, from an empty group to a checked map: [GeologicalMap-story.md](GeologicalMap-story.md).
+
 ## Concepts
 
 | | what it is | how you make it |
