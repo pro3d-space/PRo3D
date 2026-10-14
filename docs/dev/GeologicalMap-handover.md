@@ -52,7 +52,8 @@ rounds (must-fixes done). Tests: ContactTopology 15, MapShell 8, persistence 6 (
      (position from MSAA sample 0 depth, not re-checked against the face);
    - "New unit" on an inactive map / `AssignToSelected` labels points outside the map's group;
    - `attached` (preview) scans all contact segments per stroke vertex - use the network's grid.
-2. **Video of the story** - planned, not started in code (see below).
+2. **Video of the story** - done: `PRO3D_VIDEO=1` on the story spec, see [StoryVideo.md](StoryVideo.md).
+   The MP4 (~8 MB) is not committed; host it somewhere and link it from the story.
 3. **Maps in the map projection view** (`PRo3D.MapProjection`) - not drawn there yet.
 4. Deferred by decision: maps in Snapshots, GeoPackage export.
 5. Known geometric limits (documented in the architecture doc): star-shaped bodies only; many
@@ -60,27 +61,14 @@ rounds (must-fixes done). Tests: ContactTopology 15, MapShell 8, persistence 6 (
    a body-wide Mars map); pinched cycles; two contacts joining the same two nodes directly.
 6. Before un-drafting: rebase onto `develop` after #842, mark ready, request review.
 
-### Video of the story (plan agreed, not implemented)
+### Video of the story
 
-- Reuse `tests-ui/tests/geological-map-story.spec.ts`: factor its steps into one function over a
-  small `Ui` interface (input page + offset, render/panel/annotations/toolbar frames, `caption`,
-  `shot`), run it twice: pictures (as now) and video (`PRO3D_VIDEO=1`).
-- Video run: the **main page** (full UI) recorded by Playwright (`recordVideo`, 1920×1080);
-  layout via `PRO3D_LAYOUT_DIR` with a `current.json` docking render left, Geological Maps
-  top-right, Annotations bottom-right (format: `docs/WindowLayouts.md`). Panels are iframes
-  (`iframe[src*="page=geomaps"]`): drive them through `page.frames()`; mouse via the main page
-  with the render iframe's bounding-box offset.
-- **Cursor**: mouse events inside iframes never reach the top document, so the helpers that move
-  the real mouse also position an injected overlay (pointer-events: none) and show a click ripple.
-- **Captions**: a DOM banner in the main page (the story sentences).
-- **ffmpeg** (`C:\Users\haral\Desktop\development\ffmpeg-8.1-full_build\bin\ffmpeg.exe`): cut the
-  loading time at the start (record the start time when the story begins), encode MP4
-  (`-c:v libx264 -pix_fmt yuv420p`). Checked in: the helper and a short `docs/dev` note only.
-- Pitfalls learnt with the story: `settled()` rejects yellow-green in the frame centre as the
-  splash (a selected annotation is that colour) - use a two-equal-frames wait; colour pickers in
-  legend rows contain hidden inputs (`input:visible`); wait until the toolbar shows the chosen
-  geometry before clicking; snap offsets ~4 px, not at the 10 px limit; preview picks need the
-  tool armed (Ctrl held) and the first pick loads a KdTree (seconds).
+Implemented as planned (`tests-ui/src/video.ts`, [StoryVideo.md](StoryVideo.md)). Pitfalls learnt
+with the story: `settled()` rejects yellow-green in the frame centre as the splash (a selected
+annotation is that colour) - use a two-equal-frames wait; colour pickers in legend rows contain
+hidden inputs (`input:visible`); wait until the toolbar shows the chosen geometry before clicking;
+snap offsets ~4 px, not at the 10 px limit; preview picks need the tool armed (Ctrl held) and the
+first pick loads a KdTree (seconds).
 
 ## Environment notes
 
