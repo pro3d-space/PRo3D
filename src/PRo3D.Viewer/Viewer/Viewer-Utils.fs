@@ -1916,30 +1916,67 @@ module ViewerUtils =
             )
         curtainSgOpt |> Sg.dynamic
 
-    let renderCommands
-        (sgGrouped      :alist<amap<Guid,AdaptiveSgSurface>>) 
-        (overlayed      : ISg<ViewerAction>)
-        (depthTested    : ISg<ViewerAction>)
-        (view           : aval<CameraView>)
-        (allowFootprint : bool) 
-        (allowDepthview : bool) 
-        (runtime        : IRuntime) 
-        (m              : AdaptiveModel)  =
+    /// One view's scene for one render client (#841): the surfaces offscreen
+    /// (OffscreenSurfaces), copied in, and the fills drawn against their depth texture
+    /// (PackedRendering.DeferredFills).
+    ///
+    /// The offscreen targets are made from `values` - the size and trafos of the image the
+    /// render server is making: a live frame, or a screenshot
+    /// (/rendering/screenshot?w=&h=&samples=). The server compiles one scene per sample count
+    /// and updates `values` before every frame it renders with it, so each gets its own
+    /// targets, always of the size and projection of the image at hand. Their sample count is
+    /// `samples`, the viewer's - the one the OPC patches are prepared for (OffscreenSurfaces.render);
+    /// the copy converts to the target's (`values.signature.Samples`).
+    ///
+    /// Everything else - `grouped` (createGroupedSgs), `overlayed`, `depthTested` and the
+    /// fill geometry - is built once by the caller and shared, so the surfaces' and
+    /// annotations' GPU data are not duplicated per compiled scene. `grouped` is drawn twice:
+    /// offscreen, and pick-only in the view, so clicks on a surface still reach its handlers.
+    let offscreenScene
+        (samples     : int)
+        (grouped     : alist<ISg<ViewerAction>>)
+        (overlayed   : ISg<ViewerAction>)
+        (depthTested : ISg<ViewerAction>)
+        (fills       : PackedRendering.FillGeometry)
+        (values      : RenderClientValues) : ISg<ViewerAction> =
 
-        let grouped = createGroupedSgs runtime sgGrouped view allowFootprint allowDepthview m
+        let runtime = values.runtime
+        // never an empty target
+        let size = values.size |> AVal.map (fun (s : V2i) -> V2i(max 1 s.X, max 1 s.Y))
+
+        let surfaces =
+            grouped
+            |> AList.map (fun sg -> sg :> Aardvark.SceneGraph.ISg)
+            |> OffscreenSurfaces.inPriorityGroups values.viewTrafo values.projTrafo
+
+        let color, depth = OffscreenSurfaces.render runtime samples size surfaces
+        let surfaceDepth : OffscreenSurfaces.SurfaceDepth =
+            { depth = depth; size = size; viewTrafo = values.viewTrafo; projTrafo = values.projTrafo }
+
+        // in the same command as the annotations: the fill composite runs in the fill pass,
+        // ahead of the main pass, which is what puts the outlines on top of it
+        let annotated =
+            Sg.ofList [
+                depthTested
+                PackedRendering.DeferredFills.renderOn runtime surfaceDepth fills
+                |> Sg.noEvents
+                |> Sg.fillMode (AVal.constant FillMode.Fill)
+                |> Sg.cullMode (AVal.constant CullMode.None)
+            ]
 
         alist {
-            for sg in grouped do
-                yield RenderCommand<_>.ClearDepth 1.0
-                yield RenderCommand<_>.ClearDepth 1.0
-                yield RenderCommand<_>.Render sg
+            yield RenderCommand<_>.Render (OffscreenSurfaces.blit values.signature.Samples color depth |> Sg.noEvents)
 
-            yield RenderCommand<_>.Render depthTested
+            for sg in grouped do
+                yield RenderCommand<_>.Render (OffscreenSurfaces.pickOnly sg)
+
+            yield RenderCommand<_>.Render annotated
             yield RenderCommand<_>.ClearDepth 1.0
 
             yield RenderCommand<_>.Render overlayed
-
         }
+        |> Aardvark.UI.RenderCommand.Ordered
+        |> Sg.execute
 
         //alist {
         //    for set in grouped do

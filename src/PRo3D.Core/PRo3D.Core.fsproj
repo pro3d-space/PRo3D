@@ -77,6 +77,7 @@
     <Compile Include="Surface\Surface.Sg.fs" />
     <Compile Include="Surface\SurfaceApp.fs" />
     <Compile Include="Surface\SurfaceUtils.fs" />
+    <Compile Include="OffscreenSurfaces.fs" />
     <Compile Include="Drawing\Drawing-Properties.fs" />
     <Compile Include="Drawing\Drawing-Model.fs" />
 	<Compile Include="Drawing\Drawing-Model.g.fs" />

@@ -44,6 +44,7 @@
     <Compile Include="FillInvariants.fs" />
     <Compile Include="RegionInvariants.fs" />
     <Compile Include="PolygonFillTests.fs" />
+    <Compile Include="FillVolumeTests.fs" />
     <Compile Include="RegionOpsTests.fs" />
     <Compile Include="RegionFixtureTests.fs" />
     <Compile Include="AnnotationRegionOpsTests.fs" />
@@ -92,6 +93,7 @@
     <Compile Include="VertexEditingTests.fs" />
     <Compile Include="SurfaceEffectSwitchTest.fs" />
     <Compile Include="MapProjectionRenderTest.fs" />
+    <Compile Include="FillRenderTest.fs" />
     <Compile Include="SlowProfileExportTest.fs" />
     <Compile Include="BoulderStatisticsExportTest.fs" />
     <Compile Include="SurfaceComparisonTest.fs" />

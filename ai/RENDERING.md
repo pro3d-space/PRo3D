@@ -124,7 +124,47 @@ Channel meanings, cleared to `(0,0,0,-1)`:
 
 `orderedAnnotations` is the single cached ordering — **every packed draw that writes `ObjId` must take its ids from it**, or a click selects a different annotation than the one under the cursor. It is `HashSet.toArray` inside an `AVal.custom`, so the int id space can permute whenever the annotation set changes: capture the `Guid`, never the int, if you need to hold onto a pick.
 
-Draw order inside the pass is significant — fills, then lines, then vertex handles — so an outline wins over its own fill and a handle wins over the outline through it. Each also gets a progressively larger `DepthOffset` (`fillDepthOffsetFactor`, `handleDepthOffsetFactor`).
+Draw order inside the pass is significant — fills, then lines, then vertex handles — so an outline wins over its own fill and a handle wins over the outline through it. Each also gets a progressively larger `DepthOffset` (`fillDepthOffsetFactor`, `handleDepthOffsetFactor`). The pick pass draws the fill's **flat cap** (`FillGeometry.caps`); only the visible pass uses the prisms below.
+
+### Surfaces offscreen (#841)
+
+The main and instrument views render their surfaces **offscreen** (`OffscreenSurfaces`, `ViewerUtils.offscreenScene`): the priority groups go into a multisampled colour + depth target, and a per-sample fullscreen blit copies **colour and depth** back into the render control — depth everywhere, depth 1 included; colour premultiplied (see below). The depth is cleared before each group, as before, so it only holds the last group; earlier groups keep their colour at depth 1 exactly as when drawn into the view directly (and fills cannot land on them, also as before). Everything after it (depth-tested annotations, traverses, overlay) depth-tests against the surfaces exactly as before — but the surfaces' depth now also exists as a texture (`OffscreenSurfaces.SurfaceDepth`).
+
+- **Picking** stays on scene events: the grouped surface scene graphs are added to the control a second time through `OffscreenSurfaces.pickOnly` — a typed applicator whose `RenderObjects` rule returns nothing, so their `Sg.pickable'`/`withEvents` still fire.
+- **Per render client — size, samples, trafos:** the views pass `DomNode.RenderControl` a `RenderClientValues -> ISg` function, and `offscreenScene` builds the offscreen targets and the fill accumulation from `values.size`, `values.viewTrafo`, `values.projTrafo`. aardvark.media compiles one scene per (scene, sample count) and, before every frame it renders — a live frame or a server screenshot (`/rendering/screenshot?w=&h=&samples=`) — sets these values in a transaction (`ClientRenderTask.Run` → `ConcreteScene.Apply`). So a screenshot of any size or aspect ratio gets surfaces rendered for exactly that image; one with the live view's sample count shares its compiled scene, and the targets resize to the screenshot and back. Do **not** derive the size from `viewPortSizes` — that is the page's reported size, which a screenshot does not change. Only the targets are per client: `createGroupedSgs`, the overlay, the depth-tested scene and the fill geometry are built once outside the function and shared, so the surfaces' and annotations' GPU data are not duplicated per compiled scene.
+- **Sample count:** the offscreen targets always have the viewer's (`dataSamples`), never the target's. aardvark.geospatial prepares each OPC patch once, for the framebuffer signature its node was built with (`runtime.PrepareRenderObject(n.Signature, ro)`, RenderingV2.fs); a task of another sample count rejects the prepared patches and the surfaces come out black. The blit converts instead (`TargetSamples`): fewer target samples get the mean colour of the offscreen samples they cover and the first one's depth, more get them repeated.
+- **Background:**
+ the surfaces are rendered over transparent black, which leaves premultiplied colour (`BlendMode.Blend` accumulates alpha with `One`/`InvSourceAlpha`), and the blit blends with `One`/`InvSourceAlpha` (`premultipliedOver`). Where no surface is, the target keeps its own clear colour — the control's `#222222`, a screenshot's `background=` — and translucent surfaces come out as if drawn into the target directly.
+- **Lifetime:** the offscreen tasks are compiled inside an `AdaptiveResource` (`OffscreenSurfaces.renderTargets`) — on first acquire, disposed on last release. The render control's per-client scene task acquires them, so they live exactly as long as a page shows them. Compiled eagerly in the view function they leaked a full copy of the surfaces' GPU data per page load (view functions run again per `?page=` request).
+- **Memory:** a large screenshot allocates the targets at its size — multisampled RGBA8 + D24S8 plus the RGBA32F fill accumulation, e.g. ~3 GB for 8k × 8k at 4 samples — until the next live frame resizes them back.
+
+**Known limitations:**
+- Server screenshots with a `samples=` other than the viewer's (4) come out without surfaces: the render server compiles a separate scene for that sample count, and its single frame has no OPC patches. The same on develop (checked with the 2026-09-24 develop build), so not caused by the offscreen surfaces; PRo3D's own screenshot clients send `samples=4`. Unverified guess: the OPC LoD of a freshly compiled scene has not streamed anything yet.
+- After a server screenshot of another size (same sample count, so sharing the live view's compiled scene), the live view stops showing model changes until the camera moves - an invalidation lost in aardvark.media 5.7.3 (`ClientRenderTask.Run` sets `OutOfDate` by hand before applying the screenshot's values). The same on develop. `tests-ui/tests/annotation-fill.spec.ts` therefore takes its server screenshots last.
+
+- The fill accumulation is single-sampled (depth sample 0); the composite writes one value per pixel, so fill edges at terrain silhouettes are not antialiased.
+- The stencil fallback (Snapshots) rebuilds its batches whenever the batch count changes.
+- Snapshots (`SnapshotSg`) render surfaces directly and use the stencil fill fallback.
+- Instrument view: verified by screenshot (headless probe, `fillProblem` scene) that surfaces show; fills there not checked separately.
+
+- GPU memory grows while the camera moves — on develop as much as here (OPC LoD caching), pre-existing.
+- The closing edge of Sky-projected polygon outlines is not drawn — pre-existing, unrelated to fills.
+
+### Annotation fills — against the surface depth (#841)
+
+Visible fills are **not** a mesh. A flat cap between the outline points only touches the terrain at its rim, so relief inside the outline cuts through it (z-fighting). Instead:
+
+1. `FillVolume.tryCompute` (`PRo3D.Base`, pure, unit-tested) builds a **closed prism** per fill: the `PolygonFill` triangulation as top/bottom caps, offset ±h along the outline's **fitted-plane normal** (works on vertical rock faces; no per-vertex `getUpVector`/SPICE), plus a wall on every *boundary edge of the triangulation* — so tessellator-invented vertices and holes close by construction. h = the ring's spread along the axis + the user's **fill reach** (`FillReach`: Auto = half the outline size capped per body by `FillReach.maxAuto`, or metres; `ViewConfigModel.fillReachAuto` / `fillReach`).
+2. `PackedRendering.DeferredFills`: **all prisms in one draw** into an RGBA32F accumulation target. A face fragment *behind* the surface depth adds its fill's premultiplied colour, +1 for back faces, −1 for front faces — the z-fail count per fill, in colour, order-independent. Inside a prism the sum is ±1×colour, outside 0; prisms in front of the terrain contribute nothing. Depth clamp keeps faces beyond near/far; the shader clamps `gl_FragCoord.z` itself and skips pixels without surface.
+3. A fullscreen composite (in `fillPass`, before `main`, so outlines draw on top) turns the sums into straight-alpha colour; `abs` makes it independent of the winding convention.
+
+Cost: 10240 fills ≈ 0.06-0.15 ms/frame with a moving camera (RTX 500 Ada), offscreen + blit ≈ 0.04-0.05 ms. Translucent fills overlapping *on the terrain* blend as a weighted average with alpha min(1, Σα).
+
+**Why not the stencil** (kept as fallback where no surface depth exists — Snapshots): a shared stencil mark cannot say *which* prism contains the terrain, so the colour pass painted a pixel from whichever prism face reached it first — a near prism's wall took a far fill's terrain (straight cuts in oblique views). One stencil bit per fill, eight per ordered batch (`packedFillRender`, the Snapshots fallback), is correct but costs ~10-23 ms at 10k fills (varies between runs); a render command per fill ~54 ms.
+
+The pick pass draws the flat caps (`FillGeometry.caps`); the 2D map view (`MapAnnotations`) has no terrain and draws the caps too.
+
+GPU tests and benchmark: `src/Tests/FillRenderTest.fs`. Playwright: `tests-ui/tests/annotation-fill.spec.ts`. User docs: [docs/AnnotationFill.md](../docs/AnnotationFill.md).
 
 Gates: `ViewerApp.allowAnnotationPicking` decides whether the readback is honoured at all; `ViewerApp.allowVertexEditing` additionally gates the handles. `Interactions.EditAnnotation` is the one mode where annotation picking *and* KdTree surface picking are both live — see [docs/AnnotationVertexEditing.md](../docs/AnnotationVertexEditing.md) for why that ordering hazard needs `VertexGrab.movedSinceGrab`.
 
