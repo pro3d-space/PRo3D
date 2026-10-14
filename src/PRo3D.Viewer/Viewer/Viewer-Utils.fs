@@ -1298,9 +1298,6 @@ module ViewerUtils =
             Shader.secondaryTexture |> toEffect
 
             Shader.contourLines |> toEffect
-            // additive latitude/longitude graticule; composites over the colour
-            // produced by the stages above, like contourLines.
-            Shader.latLonLines |> toEffect
             Shaders.donutFragment |> toEffect
 
             if crossSectionClip then
@@ -1322,6 +1319,11 @@ module ViewerUtils =
             // storage-buffer variant and its limitedShaderCapabilities macOS
             // split are gone
             ImageProjection.Shaders.projectedStackCoverage |> toEffect
+
+            // additive latitude/longitude graticule; composites over the texture and the
+            // projection stack above, so grid lines stay visible on projected images. Before
+            // the hover outline (which stays on top) and before lighting (grid is shaded).
+            Shader.latLonLines |> toEffect
 
             // hover footprint: green outline of the hovered image's frustum
             // footprint on the surface (D5)

@@ -4,8 +4,9 @@ Synopsis: Additive multi-scale latitude/longitude graticule drawn on OPC planeta
 Interacts with: [Reference System / SPICE](../ai/DOMAIN.md), [Contour Lines](./Contour-Lines.md)
 
 The LatLon shader is an **overlay**: it is composed into the surface effect stack
-right after the contour-line shader and blends grid lines over whatever the surface
-already renders. It never replaces another shader, and it is configured per surface.
+after the projected-image stack (and contour lines) and blends grid lines over whatever the
+surface already renders, including projected images. It sits before lighting (the grid is
+shaded) and before the green hover outline of a projected image (which stays on top). It never replaces another shader, and it is configured per surface.
 
 # UI
 
