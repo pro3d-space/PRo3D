@@ -66,6 +66,18 @@ type AnnotationField =
     | SemiMinorAxis     = 40
     /// deg, long axis clockwise from local north at the centre, axial 0-180
     | MajorAxisAzimuth  = 41
+    // generated profiles (#833), read from the ProfileLink stored at generation;
+    // empty for every other annotation
+    /// key of the ellipse or polyline the profile was generated from
+    | ParentKey         = 42
+    /// 0, 1, 2, ... in generation order
+    | ProfileIndex      = 43
+    /// "N-S", "NE-SW", "E-W", "NW-SE", "major", ...; empty for polyline profiles
+    | ProfileDirection  = 44
+    /// deg, bearing from the profile's centre to its start end, 0-360
+    | ProfileAzimuth    = 45
+    /// m along the parent polyline
+    | ProfileStation    = 46
 
 /// Per-point attributes, available when the export granularity is "one record
 /// per point". Which of `Cartesian` / `Geographic` actually produce columns is
@@ -97,6 +109,7 @@ type AnnotationFieldGroup =
     | Measurements
     | Ellipse
     | DipAndStrike
+    | Profile
 
 module AnnotationFields =
 
@@ -121,6 +134,8 @@ module AnnotationFields =
         | AnnotationField.MajorAxisAzimuth -> Ellipse
         | AnnotationField.DipAngle | AnnotationField.DipAzimuth
         | AnnotationField.StrikeAzimuth | AnnotationField.Rake -> DipAndStrike
+        | AnnotationField.ParentKey | AnnotationField.ProfileIndex | AnnotationField.ProfileDirection
+        | AnnotationField.ProfileAzimuth | AnnotationField.ProfileStation -> Profile
         | _ -> Measurements
 
     /// Stable machine name — the CSV header cell and the GeoJSON property key.
@@ -161,6 +176,11 @@ module AnnotationFields =
         | AnnotationField.DipAzimuth        -> "dipAzimuth"
         | AnnotationField.StrikeAzimuth     -> "strikeAzimuth"
         | AnnotationField.Rake              -> "rake"
+        | AnnotationField.ParentKey         -> "parentKey"
+        | AnnotationField.ProfileIndex      -> "profileIndex"
+        | AnnotationField.ProfileDirection  -> "profileDirection"
+        | AnnotationField.ProfileAzimuth    -> "profileAzimuth"
+        | AnnotationField.ProfileStation    -> "profileStation"
         | _                                 -> sprintf "%A" field
 
     /// Human-readable label with unit, shown next to the checkbox.
@@ -199,6 +219,11 @@ module AnnotationFields =
         | AnnotationField.DipAzimuth        -> "Dip azimuth (deg)"
         | AnnotationField.StrikeAzimuth     -> "Strike azimuth (deg)"
         | AnnotationField.Rake              -> "Rake (rad)"
+        | AnnotationField.ParentKey         -> "Parent id (generated from)"
+        | AnnotationField.ProfileIndex      -> "Profile index"
+        | AnnotationField.ProfileDirection  -> "Profile direction (N-S, ...)"
+        | AnnotationField.ProfileAzimuth    -> "Profile azimuth, centre to start (deg)"
+        | AnnotationField.ProfileStation    -> "Profile station along the parent (m)"
         | _                                 -> sprintf "%A" field
 
     let pointColumnName (field : PointField) =
@@ -255,6 +280,23 @@ module AnnotationFields =
             | AnnotationField.SemiMajorAxis    -> ExportValue.ofFloat e.semiMajorAxis.Length
             | AnnotationField.SemiMinorAxis    -> ExportValue.ofFloat e.semiMinorAxis.Length
             | AnnotationField.MajorAxisAzimuth -> ExportValue.ofFloat e.majorAxisAzimuth
+            | _ -> VMissing
+
+    /// Generated profiles carry where they came from; everything else has no value here.
+    let private profileValue (field : AnnotationField) (a : Annotation) =
+        match a.profileOf with
+        | None -> VMissing
+        | Some link ->
+            match field with
+            | AnnotationField.ParentKey        -> VText (link.parent.ToString())
+            | AnnotationField.ProfileIndex     -> VInt link.index
+            | AnnotationField.ProfileDirection ->
+                if String.IsNullOrEmpty link.direction then VMissing else VText link.direction
+            | AnnotationField.ProfileAzimuth   -> ExportValue.ofFloat link.azimuth
+            | AnnotationField.ProfileStation   ->
+                match link.station with
+                | Some s -> ExportValue.ofFloat s
+                | None   -> VMissing
             | _ -> VMissing
 
     /// Separator between the group names of `GroupPath`. Forward slash reads as
@@ -317,5 +359,8 @@ module AnnotationFields =
 
         | AnnotationField.DipAngle | AnnotationField.DipAzimuth
         | AnnotationField.StrikeAzimuth | AnnotationField.Rake -> dnsValue up field a
+
+        | AnnotationField.ParentKey | AnnotationField.ProfileIndex | AnnotationField.ProfileDirection
+        | AnnotationField.ProfileAzimuth | AnnotationField.ProfileStation -> profileValue field a
 
         | _ -> VMissing

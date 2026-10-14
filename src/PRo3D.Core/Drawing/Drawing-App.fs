@@ -476,7 +476,24 @@ module DrawingApp =
         | None      -> result
 
 
-    let rec update<'a> 
+    /// The annotation an update just finished, when the toolbar's *Lineament profiles* /
+    /// *Crater profiles* asks for its profiles right away (#833). Read off the undo stack:
+    /// finishing pushes `LeafAdded`, so this costs O(1) instead of a diff of the annotation map.
+    /// Callers ask only after drawing input (a pick, Finish) - a redo pushes the same delta.
+    let autoProfileParent (before : DrawingModel) (after : DrawingModel) : Option<Annotation> =
+        let s = after.supportingProfiles
+        if not (s.autoLineament || s.autoCrater)
+           || LanguagePrimitives.PhysicalEquality before.undoStack after.undoStack then
+            None
+        else
+            match after.undoStack with
+            | LeafAdded (Leaf.Annotations a, _) :: _ when a.profileOf.IsNone ->
+                if (a.geometry = Geometry.Polyline && s.autoLineament)
+                   || (SupportingProfiles.isEllipse a.geometry && s.autoCrater) then Some a
+                else None
+            | _ -> None
+
+    let rec update<'a>
         (bigConfig       : 'a) 
         (smallConfig     : SmallConfig<'a> ) 
         (referenceSystem : Option<SpiceReferenceSystem>)
@@ -715,6 +732,111 @@ module DrawingApp =
                 | _ ->
                     Log.warn "[Drawing] cutting needs a selected annotation and a stroke of at least two points"
                     model
+
+            | SetProfileSpacing a ->
+                let s = model.supportingProfiles
+                { model with supportingProfiles = { s with spacing = Numeric.update s.spacing a } }
+            | SetLineamentMode mode ->
+                { model with supportingProfiles = { model.supportingProfiles with lineamentMode = mode } }
+            | SetProfileCount a ->
+                let s = model.supportingProfiles
+                // a count is whole; the input's step is 1 but typing 2.5 must not reach the generator
+                let count = Numeric.update s.count a
+                { model with supportingProfiles = { s with count = { count with value = round count.value } } }
+            | SetProfileAtStart on ->
+                { model with supportingProfiles = { model.supportingProfiles with atStart = on } }
+            | SetProfileAtEnd on ->
+                { model with supportingProfiles = { model.supportingProfiles with atEnd = on } }
+            | SetProfileLength a ->
+                let s = model.supportingProfiles
+                { model with supportingProfiles = { s with length = Numeric.update s.length a } }
+            | SetProfileEllipseMode mode ->
+                { model with supportingProfiles = { model.supportingProfiles with ellipseMode = mode } }
+            | SetAutoLineamentProfiles on ->
+                { model with supportingProfiles = { model.supportingProfiles with autoLineament = on } }
+            | SetAutoCraterProfiles on ->
+                { model with supportingProfiles = { model.supportingProfiles with autoCrater = on } }
+
+            | GenerateSupportingProfiles projectToSurface ->
+                let project = projectToSurface |> Option.defaultValue (fun _ -> None)
+                let up     = smallConfig.up.Get(bigConfig)
+                let north  = smallConfig.north.Get(bigConfig)
+                let planet = smallConfig.planet.Get(bigConfig)
+                let settings = model.supportingProfiles
+                let report (message : string) =
+                    { model with supportingProfiles = { settings with message = Some message } }
+
+                let parent =
+                    model.annotations.singleSelectLeaf
+                    |> Option.bind (fun id -> model.annotations.flat |> HashMap.tryFind id)
+                    |> Option.bind (function Leaf.Annotations a -> Some a | _ -> None)
+
+                let specs =
+                    match parent with
+                    | Some a when SupportingProfiles.isPolyline a.geometry ->
+                        let placement =
+                            match settings.lineamentMode with
+                            | LineamentProfileMode.ByCount -> SupportingProfiles.Count (int settings.count.value)
+                            | _                            -> SupportingProfiles.Spacing settings.spacing.value
+                        SupportingProfiles.forPolyline planet up north project
+                            placement settings.atStart settings.atEnd settings.length.value a
+                    | Some a when SupportingProfiles.isEllipse a.geometry ->
+                        SupportingProfiles.forEllipse planet up north settings.ellipseMode a
+                    | Some _ -> Result.Error "profiles are generated from a polyline, a line or an ellipse"
+                    | None   -> Result.Error "select a polyline or an ellipse first"
+
+                match parent, specs with
+                | Some parent, Result.Ok specs ->
+                    let groupColor =
+                        GroupsApp.getNode model.annotations.activeGroup.path model.annotations.rootGroup
+                        |> fun node -> node.defaultColor
+                    // an ordinary Sky line, as if drawn by hand between the two ends
+                    let makeProfile (spec : SupportingProfiles.ProfileSpec) =
+                        let a =
+                            { (Annotation.make Projection.Sky None Geometry.Line parent.referenceSystem
+                                               groupColor model.thickness parent.surfaceName) with
+                                points     = IndexList.ofList [ spec.start; spec.stop ]
+                                segments   = IndexList.single (resampleSegment model.samplingDistance project spec.start spec.stop)
+                                modelTrafo = Trafo3d.Translation spec.start
+                                text       = SupportingProfiles.name parent spec.link.index
+                                // dozens of labels along a lineament or across a crater are
+                                // clutter; the name is still there to switch on per profile
+                                showText   = false
+                                view       = view
+                                profileOf  = Some spec.link }
+                        let a = { a with dnsResults = a.points |> DipAndStrike.calculateDipAndStrikeResults up north }
+                        { a with results = Some (Calculations.calculateAnnotationResults a up north planet) }
+
+                    // Generating again replaces the parent's earlier profiles: two sets with the
+                    // same names, indices and directions would be indistinguishable in the
+                    // export. Removed and added in the same undo step.
+                    let earlier = SupportingProfiles.profilesOf parent.key model.annotations
+                    let before = model.annotations
+                    let after =
+                        specs |> List.fold (fun g spec ->
+                            GroupsApp.addLeafToActiveGroup (Leaf.Annotations (makeProfile spec)) false g)
+                            (GroupsApp.removeLeavesById earlier before)
+                    // adding a leaf unselected clears the single selection; the parent stays
+                    // selected, so the panel keeps showing it and can generate again
+                    let after = { after with singleSelectLeaf = Some parent.key }
+                    // names the parent, so a message left standing after the selection moved on
+                    // is not read as being about the newly selected annotation
+                    let message =
+                        sprintf "%d profiles generated from %s%s" specs.Length
+                            (if String.IsNullOrWhiteSpace parent.text then
+                                sprintf "%A %s" parent.geometry (parent.key.ToString().Substring(0, 8))
+                             else parent.text)
+                            (if earlier.IsEmpty then "" else sprintf ", replacing the %d from before" earlier.Count)
+                    Log.line "[Drawing] %s" message
+                    { model with
+                        annotations = after
+                        supportingProfiles = { settings with message = Some message } }
+                    |> pushUndo (SnapshotDelta(before, after))
+                | _, Result.Error why ->
+                    Log.warn "[Drawing] no profiles generated: %s" why
+                    report (sprintf "No profiles generated: %s." why)
+                | None, Result.Ok _ ->
+                    report "No profiles generated: select a polyline or an ellipse first."
 
             | UnionSelectedAnnotations projectToSurface ->
                 let projectToSurface = projectToSurface |> Option.defaultValue (fun _ -> None)

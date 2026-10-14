@@ -327,6 +327,65 @@ module ViewerApp =
                 msg
         { m with scene = { m.scene with surfacesModel = surfacesModel; comparisonApp = comparisonApp } }
 
+    /// Imported annotations get fresh keys, so they cannot collide with the scene's. Generated
+    /// profiles point at their parent by key (#833), so their links move along with it.
+    let rekeyImported (groups : GroupsModel) : GroupsModel =
+        let renamed = System.Collections.Generic.Dictionary<Guid, Guid>()
+        let fresh (old : Guid) =
+            let key = Guid.NewGuid()
+            renamed.[old] <- key
+            key
+        groups
+        |> GroupsModel.patchNames fresh
+        |> SupportingProfiles.relinkProfiles (fun old ->
+            match renamed.TryGetValue old with
+            | true, key -> Some key
+            | _         -> None)
+
+    /// Drops a point onto the active surfaces along its local up: the sky ray of the drawing
+    /// tools, for operations that place vertices of their own (union, cut, supporting profiles).
+    let private skyProjection (m : Model) : V3d -> Option<V3d> =
+        let observerSystem = Gis.GisApp.getObserverSystem m.scene.gisApp
+        let observedSystem (v : SurfaceId) = Gis.GisApp.getSpiceReferenceSystem m.scene.gisApp v
+        let onlyActive (_ : Guid) (l : Leaf) (_ : SgSurface) = l.active
+        let planet = m.scene.referenceSystem.planet
+
+        fun (p : V3d) ->
+            let up = CooTransformation.getUpVector p planet
+            let reprojectionDistance =
+                match planet with
+                | Planet.Mars -> 1000000.0
+                | _ -> 100.0
+            let ray = FastRay3d(p + (up * reprojectionDistance), -up)
+            match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem observedSystem observerSystem ray onlyActive Picking.cache Config.diagnosticTimings with
+            | Some hitInfo, c -> Picking.cache <- c; ray.Ray.GetPointOnRay hitInfo.hit.RayHit.T |> Some
+            | None, c -> Picking.cache <- c; None
+
+    /// Toolbar *Lineament profiles* / *Crater profiles* (#833): the profiles of the annotation
+    /// the last drawing input finished, generated right away. Called only after drawing input
+    /// (a pick, Finish), never after undo/redo. The outcome goes to a short notice, since the
+    /// Properties panel showing the message is usually closed while drawing.
+    let private withAutoProfiles
+        (bc : BlockingCollection<string>) (view : CameraView) (before : DrawingModel) (m : Model) : Model =
+        match DrawingApp.autoProfileParent before m.drawing with
+        | None -> m
+        | Some parent ->
+            // Generate works on the single selection. Finishing selects the new annotation
+            // today; selecting it here keeps that from being an accident someone can break.
+            let selected =
+                { m.drawing with
+                    annotations = { m.drawing.annotations with singleSelectLeaf = Some parent.key } }
+            let drawing =
+                DrawingApp.update m.scene.referenceSystem drawingConfig None bc view m.shiftFlag selected
+                    (DrawingAction.GenerateSupportingProfiles (Some (skyProjection m)))
+            let feedback = {
+                id      = System.Guid.NewGuid().ToString()
+                text    = drawing.supportingProfiles.message |> Option.defaultValue ""
+                timeout = 3000
+                msg     = ViewerAction.NoAction ""
+            }
+            { m with drawing = drawing } |> UserFeedback.queueFeedback feedback
+
     let private matchPickingInteraction (bc: BlockingCollection<string>) (p: V3d) (referenceSystem : Option<SpiceReferenceSystem>) (hitFunction:(V3d -> V3d option)) (surf: Surface) (m: Model) = 
         match m.interaction, m.viewerMode with
         | Interactions.DrawAnnotation, _ -> 
@@ -343,7 +402,7 @@ module ViewerApp =
             let msg = DrawingAction.AddPointAdv(p, hitFunction, referenceSystem, surf.name, None)
             let drawing = DrawingApp.update m.scene.referenceSystem drawingConfig referenceSystem bc view m.shiftFlag m.drawing msg
             //Log.stop()
-            { m with drawing = drawing } |> stash
+            { m with drawing = drawing } |> withAutoProfiles bc view m.drawing |> stash
         | Interactions.CutAnnotation, _ ->
             // the cut stroke is a plain picked polyline: no segment sampling, so the hit
             // function is not needed - straight preview lines suffice and the boolean op
@@ -887,29 +946,17 @@ module ViewerApp =
                 | None -> m
                 
             | Drawing.UnionSelectedAnnotations None
-            | Drawing.ApplyCutStroke None ->
+            | Drawing.ApplyCutStroke None
+            | Drawing.GenerateSupportingProfiles None ->
                 // enrich the payload-less message with the terrain raycast, so vertices the
                 // boolean op invents land on the surface - same sky ray as AddPointAdv
                 // reprojection
-                let observerSystem = Gis.GisApp.getObserverSystem m.scene.gisApp
-                let observedSystem (v : SurfaceId) = Gis.GisApp.getSpiceReferenceSystem m.scene.gisApp v
-                let onlyActive (_ : Guid) (l : Leaf) (_ : SgSurface) = l.active
-                let planet = m.scene.referenceSystem.planet
-
-                let projectToSurface (p : V3d) =
-                    let up = CooTransformation.getUpVector p planet
-                    let reprojectionDistance =
-                        match planet with
-                        | Planet.Mars -> 1000000.0
-                        | _ -> 100.0
-                    let ray = FastRay3d(p + (up * reprojectionDistance), -up)
-                    match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem observedSystem observerSystem ray onlyActive Picking.cache Config.diagnosticTimings with
-                    | Some hitInfo, c -> Picking.cache <- c; ray.Ray.GetPointOnRay hitInfo.hit.RayHit.T |> Some
-                    | None, c -> Picking.cache <- c; None
+                let projectToSurface = skyProjection m
 
                 let enriched =
                     match msg with
                     | Drawing.ApplyCutStroke None -> Drawing.ApplyCutStroke (Some projectToSurface)
+                    | Drawing.GenerateSupportingProfiles None -> Drawing.GenerateSupportingProfiles (Some projectToSurface)
                     | _ -> Drawing.UnionSelectedAnnotations (Some projectToSurface)
 
                 let view =
@@ -948,7 +995,13 @@ module ViewerApp =
                 let drawing =
                     DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing msg
 
-                { m with drawing = drawing; } |> stash
+                let m' = { m with drawing = drawing; }
+                // Enter finishing a polyline: its toolbar profiles
+                let m' =
+                    match msg with
+                    | Drawing.Finish -> m' |> withAutoProfiles sendQueue view m.drawing
+                    | _ -> m'
+                m' |> stash
         | SurfaceActions msg,_ ->
             
             let view = m.navigation.camera.view
@@ -1802,7 +1855,7 @@ module ViewerApp =
             ViewerIO.replaceAnnotations m annotations
         | ImportSerializedDrawingModel(json, source), _ -> 
             let drawing = DrawingUtilities.IO.loadAnnotationsFromJson json 
-            let annotations = drawing.annotations |> GroupsModel.patchNames (fun n -> Guid.NewGuid())
+            let annotations = drawing.annotations |> rekeyImported
             let importedGroup = { annotations.rootGroup with name = source }
 
             //let msg = GroupsAppAction.AddAndSelectGroup ([], importedGroup)
@@ -1814,7 +1867,7 @@ module ViewerApp =
             let model = { m with drawing = { m.drawing with annotations = groups } }
             model
         | ImportDrawingModel(drawing, source), _ -> 
-            let annotations = drawing |> GroupsModel.patchNames (fun n -> Guid.NewGuid())
+            let annotations = drawing |> rekeyImported
             let importedGroup = { annotations.rootGroup with name = source }
 
             //let msg = GroupsAppAction.AddAndSelectGroup ([], importedGroup)
