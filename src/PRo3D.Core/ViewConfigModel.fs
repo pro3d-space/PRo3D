@@ -64,6 +64,53 @@ type FrustumModel with
             }
         }
 
+/// The color legends drawn side by side in the render view's legend dock
+/// (docs/ColorLegends.md). The order of a ViewConfigModel.colorLegendOrder is the
+/// left-to-right order of the tiles.
+[<RequireQualifiedAccess>]
+type ColorLegendKind =
+    | DipAndStrike
+    | ColorByCategory
+    | SurfaceScalar
+    | SurfaceColorMap
+    | ProjectedImage
+    | SurfaceComparison
+
+[<RequireQualifiedAccess>]
+module ColorLegendKind =
+
+    /// default left-to-right order
+    let all = [
+        ColorLegendKind.DipAndStrike
+        ColorLegendKind.ColorByCategory
+        ColorLegendKind.SurfaceScalar
+        ColorLegendKind.SurfaceColorMap
+        ColorLegendKind.ProjectedImage
+        ColorLegendKind.SurfaceComparison
+    ]
+
+    let toName (k : ColorLegendKind) =
+        match k with
+        | ColorLegendKind.DipAndStrike      -> "DipAndStrike"
+        | ColorLegendKind.ColorByCategory   -> "ColorByCategory"
+        | ColorLegendKind.SurfaceScalar     -> "SurfaceScalar"
+        | ColorLegendKind.SurfaceColorMap   -> "SurfaceColorMap"
+        | ColorLegendKind.ProjectedImage    -> "ProjectedImage"
+        | ColorLegendKind.SurfaceComparison -> "SurfaceComparison"
+
+    let tryParse (name : string) =
+        all |> List.tryFind (fun k -> toName k = name)
+
+    /// Keeps the stored order, drops unknown names and duplicates, and appends every kind
+    /// the stored order lacks (a scene written before that legend existed) at its end.
+    let normalize (order : list<ColorLegendKind>) =
+        let known = order |> List.distinct
+        known @ (all |> List.filter (fun k -> not (List.contains k known)))
+
+    /// Exchanges the positions of `a` and `b`; the other legends keep theirs.
+    let swap (a : ColorLegendKind) (b : ColorLegendKind) (order : list<ColorLegendKind>) =
+        order |> List.map (fun k -> if k = a then b elif k = b then a else k)
+
 [<ModelType>]
 type ViewConfigModel = {
     [<NonAdaptive>]
@@ -90,6 +137,9 @@ type ViewConfigModel = {
     // preview intersection (3D Cursor)
     showPreviewIntersection : bool
     previewIntersectionWorldSize : NumericInput
+
+    /// left-to-right order of the color legend tiles; hidden legends keep their place
+    colorLegendOrder        : list<ColorLegendKind>
 }
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
@@ -191,6 +241,7 @@ module ViewConfigModel =
         showLeafLabels = false
         showPreviewIntersection = true
         previewIntersectionWorldSize = previewIntersectionWorldSize
+        colorLegendOrder = ColorLegendKind.all
     }
        
     module V0 =
@@ -227,6 +278,7 @@ module ViewConfigModel =
                     showLeafLabels        = false
                     showPreviewIntersection = true
                     previewIntersectionWorldSize = previewIntersectionWorldSize
+                    colorLegendOrder      = ColorLegendKind.all
                 }
             }
     module V1 =
@@ -264,6 +316,7 @@ module ViewConfigModel =
                     showLeafLabels        = false
                     showPreviewIntersection = true
                     previewIntersectionWorldSize = previewIntersectionWorldSize
+                    colorLegendOrder      = ColorLegendKind.all
                 }
             }
 
@@ -303,6 +356,7 @@ module ViewConfigModel =
                     showLeafLabels        = false
                     showPreviewIntersection = true
                     previewIntersectionWorldSize = previewIntersectionWorldSize
+                    colorLegendOrder      = ColorLegendKind.all
                 }
             }
 
@@ -340,6 +394,7 @@ module ViewConfigModel =
                     showLeafLabels        = false
                     showPreviewIntersection = true
                     previewIntersectionWorldSize = previewIntersectionWorldSize
+                    colorLegendOrder      = ColorLegendKind.all
                 }
             }
 
@@ -362,6 +417,13 @@ module ViewConfigModel =
                 
                 let! previewIntersectionWorldSize'  = Json.tryRead "previewIntersectionWorldSize"
                 let! (showPreviewIntersection' : Option<bool>) = Json.tryRead "showPreviewIntersection"           
+                // added without a version bump: absent in older scenes
+                let! (colorLegendOrder' : Option<list<string>>) = Json.tryRead "colorLegendOrder"
+                let colorLegendOrder =
+                    colorLegendOrder'
+                    |> Option.defaultValue []
+                    |> List.choose ColorLegendKind.tryParse
+                    |> ColorLegendKind.normalize
         
                 return {            
                     version                 = current
@@ -382,6 +444,7 @@ module ViewConfigModel =
                     showLeafLabels          = false
                     showPreviewIntersection = Option.defaultValue true showPreviewIntersection'
                     previewIntersectionWorldSize = { previewIntersectionWorldSize with value = Option.defaultValue previewIntersectionWorldSize.value previewIntersectionWorldSize' }
+                    colorLegendOrder        = colorLegendOrder
                 }
             }
 
@@ -417,4 +480,5 @@ type ViewConfigModel with
             do! Json.write "showExplorationPointGui" x.showExplorationPointGui
             do! Json.write "previewIntersectionWorldSize" x.previewIntersectionWorldSize.value
             do! Json.write "showPreviewIntersection" x.showPreviewIntersection
+            do! Json.write "colorLegendOrder" (x.colorLegendOrder |> List.map ColorLegendKind.toName)
         }

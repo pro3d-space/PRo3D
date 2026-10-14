@@ -628,38 +628,43 @@ type TransferFunction =
         tf : ColorMaps.TF
         textureCombiner : TextureCombiner
         blendFactor : float
+        /// shows/hides this surface's Color Map legend in the render view's legend dock
+        /// (docs/ColorLegends.md); only meaningful while `tf` is a `Ramp`.
+        showColorMapLegend : bool
     }
 
 module TransferFunction =
 
     let current = 0
 
-    let empty = { tf = ColorMaps.TF.Passthrough; textureCombiner = TextureCombiner.Primary; blendFactor = 1.0; version = current }
+    let empty = { tf = ColorMaps.TF.Passthrough; textureCombiner = TextureCombiner.Primary; blendFactor = 1.0; version = current; showColorMapLegend = false }
 
-    let read0 = 
+    let read0 =
         json {
             let! tf  = Json.read "tf"
             let! textureCombiner  = Json.read "textureCombiner"
             let! blendFactor = Json.readFloat "blendFactor"
+            let! showColorMapLegend = Json.readOrDefault "showColorMapLegend" false
 
             return {
                 version = current
                 tf = tf
                 textureCombiner   = textureCombiner |> enum<TextureCombiner>
                 blendFactor   = blendFactor
+                showColorMapLegend = showColorMapLegend
             }
         }
 
-type TransferFunction with 
+type TransferFunction with
     static member FromJson(_ : TransferFunction) =
         json {
             let! v = Json.read "version"
             match v with
             | 0 -> return! TransferFunction.read0
-            | _ -> 
-                return! v 
-                |> sprintf "don't know version %A  of TextureLayer" 
-                |> Json.error 
+            | _ ->
+                return! v
+                |> sprintf "don't know version %A  of TextureLayer"
+                |> Json.error
         }
     static member ToJson (x : TransferFunction) =
         json {
@@ -667,6 +672,7 @@ type TransferFunction with
             do! Json.write "tf" x.tf
             do! Json.write "textureCombiner" (x.textureCombiner |> int)
             do! Json.writeFloat "blendFactor" x.blendFactor
+            do! Json.write "showColorMapLegend" x.showColorMapLegend
         }
 
 

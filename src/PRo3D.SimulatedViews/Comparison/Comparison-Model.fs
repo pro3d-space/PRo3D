@@ -132,6 +132,8 @@ type AreaSelectionAction =
   | UpdateStatistics
   | MakeBigger
   | MakeSmaller
+  /// shows/hides the area's distance legend in the render view's legend dock
+  | SetLegendVisible of bool
   | Nop
 
 [<ModelType>]

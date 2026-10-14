@@ -18,6 +18,8 @@ module FalseColorLegendApp =
             
     type Action =
         | UseFalseColors    
+        /// shows/hides the legend; unlike the UseFalseColors toggle, sending it twice is harmless
+        | SetUseFalseColors of bool
         | SetLowerBound     of Numeric.Action
         | SetUpperBound     of Numeric.Action
         | SetInterval       of Numeric.Action
@@ -34,6 +36,8 @@ module FalseColorLegendApp =
         match act with
         | UseFalseColors -> 
             { model with useFalseColors = (not model.useFalseColors) }                    
+        | SetUseFalseColors show ->
+            { model with useFalseColors = show }
         | SetLowerBound l -> 
             { model with lowerBound = Numeric.update model.lowerBound l }
         | SetUpperBound u -> 
@@ -270,19 +274,14 @@ module FalseColorLegendApp =
                 )
 
     
-        let createFalseColorLegendBasics (id : string) (falseColor : AdaptiveFalseColorsModel) =
-            alist { 
-                let! enabled        = falseColor.useFalseColors                    
-                let! fcUpperBound   = falseColor.upperBound.value
-                let! fcLowerBound   = falseColor.lowerBound.value
-                let! fcInterval     = falseColor.interval.value
-                let! startColor     = falseColor.upperColor.c
-                let! endColor       = falseColor.lowerColor.c
-                let! invertMapping  = falseColor.invertMapping
-                let! imageStream    = falseColor.imageFileStream
-                
-
-                if enabled then
+        /// SVG ramp + background + value labels for one legend. Pure (no adaptive reads),
+        /// so it is shared by the two-color ramp (`createFalseColorLegendBasics`) and the
+        /// named-image ramp (`createColorMapLegendBasics`) below.
+        let private legendBody
+            (id : string) (fcLowerBound : float) (fcUpperBound : float) (fcInterval : float)
+            (startColor : C4b) (endColor : C4b) (invertMapping : bool)
+            (imageStream : Option<System.IO.Stream>) : list<DomNode<'msg>> =
+            [
                     let range = (fcUpperBound - fcLowerBound) |> abs
                     let numOfRangeGaps = rangeGapCount range fcInterval
                     
@@ -418,12 +417,48 @@ module FalseColorLegendApp =
                         let label = sprintf "%.4f" output
                       
                         yield Svg.text ([ "x" => "25px"; "y" => toPercent (a * 100.0f); "text-anchor" => "left";
-                                                                                        "font-size" => "10"; 
+                                                                                        "font-size" => "10";
                                                                                         "fill" => "#ffffff";
                                                                                         "pointer-events" => "none";]) label
-                }
+            ]
 
-    let viewDnSLegendProperties paletteFile lifter (model : AdaptiveFalseColorsModel) = 
+        let createFalseColorLegendBasics (id : string) (falseColor : AdaptiveFalseColorsModel) =
+            alist {
+                let! enabled        = falseColor.useFalseColors
+                let! fcUpperBound   = falseColor.upperBound.value
+                let! fcLowerBound   = falseColor.lowerBound.value
+                let! fcInterval     = falseColor.interval.value
+                let! startColor     = falseColor.upperColor.c
+                let! endColor       = falseColor.lowerColor.c
+                let! invertMapping  = falseColor.invertMapping
+                let! imageStream    = falseColor.imageFileStream
+
+                if enabled then
+                    yield! legendBody id fcLowerBound fcUpperBound fcInterval startColor endColor invertMapping imageStream
+            }
+
+        /// Legend for a surface's Color Map transfer function (PRo3D.Base.ColorMaps): the
+        /// named LUT image remapped to [lowerBound, upperBound]. Unlike
+        /// `createFalseColorLegendBasics` there are no user-editable ramp colors or
+        /// interval — reuses `legendBody`'s image-gradient path with filler values for
+        /// those (`startColor`/`endColor` only matter for the two-color path; `interval`
+        /// only feeds the bucket count on that same path).
+        let createColorMapLegendBasics
+            (id : string) (visible : aval<bool>) (colorMapName : aval<string>)
+            (lowerBound : aval<float>) (upperBound : aval<float>) =
+            alist {
+                let! enabled = visible
+                if enabled then
+                    let! name = colorMapName
+                    let! lo   = lowerBound
+                    let! hi   = upperBound
+                    let stream = ColorMaps.getLegendStream name
+                    let body = legendBody id lo hi 0.0 C4b.White C4b.White false (Some stream)
+                    stream.Dispose()
+                    yield! body
+            }
+
+    let viewDnSLegendProperties paletteFile lifter (model : AdaptiveFalseColorsModel) =
         UI.viewScalarMappingProperties paletteFile model |> UI.map lifter
 
     let viewScalarsLegendProperties paletteFile lifter (model : AdaptiveFalseColorsModel) = 

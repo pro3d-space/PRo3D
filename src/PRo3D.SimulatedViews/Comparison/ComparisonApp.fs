@@ -575,8 +575,25 @@ module ComparisonApp =
                                          onMouseClick (fun _ -> RemoveArea area.id) ] []  
                                                          
 
+                        // shows/hides this area's distance legend in the render view's legend dock
+                        let legendIcon =
+                            let legendVisible =
+                                area.statistics |> AVal.bind (fun stats ->
+                                    match stats with
+                                    | AdaptiveSome stats -> stats.colorLegend.useFalseColors
+                                    | AdaptiveNone       -> AVal.constant false)
+                            let attributes =
+                                amap {
+                                    let! visible = legendVisible
+                                    yield clazz (if visible then "large paint brush icon" else "large paint brush grey icon")
+                                    yield attribute "title" "Show/hide the distance legend"
+                                    yield onMouseClick (fun _ -> AreaSelectionAction.SetLegendVisible (not visible))
+                                } |> AttributeMap.ofAMap
+                            Incremental.i attributes AList.empty
+                            |> UI.map (fun x -> AreaSelectionMessage (area.id, x))
+
                         yield (Html.row label [selectIcon;visibleIcon;
-                                               resolutionIcon;deleteButton])
+                                               resolutionIcon;legendIcon;deleteButton])
 
                 
                 }

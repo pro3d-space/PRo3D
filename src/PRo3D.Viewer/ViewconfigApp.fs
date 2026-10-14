@@ -32,7 +32,9 @@ module ConfigProperties =
 
         | ToggleShowPreviewIntersectionCursor
         | SetPreviewIntersectionCursorWorldSize of Numeric.Action
-        
+        /// swaps two tiles of the render view's color legend dock
+        | SwapColorLegends          of ColorLegendKind * ColorLegendKind
+
 
     let update (model : ViewConfigModel) (act : Action) =
         match act with
@@ -66,6 +68,7 @@ module ConfigProperties =
 
         | ToggleShowPreviewIntersectionCursor -> { model with showPreviewIntersection = not model.showPreviewIntersection }
         | SetPreviewIntersectionCursorWorldSize a ->  { model with previewIntersectionWorldSize = Numeric.update model.previewIntersectionWorldSize a }
+        | SwapColorLegends (a, b) -> { model with colorLegendOrder = ColorLegendKind.swap a b model.colorLegendOrder }
 
         | Nop -> model
         | _ -> 

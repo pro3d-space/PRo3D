@@ -25,6 +25,7 @@ open PRo3D.Bookmarkings
 open PRo3D.SimulatedViews
 
 open Adaptify
+open Adaptify.FSharp.Core
 open FSharp.Data.Adaptive
 open PRo3D.Core.Gis
 open PRo3D.ImageMapping
@@ -52,11 +53,6 @@ module Gui =
         ] 
         |> AttributeMap.ofList
     
-    let dnsColorLegend (m : AdaptiveModel) =
-        let falseColorSvg = FalseColorLegendApp.Draw.createFalseColorLegendBasics "DnsLegend" m.drawing.dnsColorLegend
-
-        Incremental.Svg.svg falseColorAttributes falseColorSvg
-
     /// the loaded annotations, for the attributes that need to enumerate them (surfaces)
     let annotationSet (m : AdaptiveModel) : aset<AdaptiveAnnotation> =
         m.drawing.annotations.flat
@@ -107,44 +103,334 @@ module Gui =
                     |> List.map (fun a -> a.key, a.points.Content.GetValue t |> IndexList.toArray)
                 ColorByCategory.stampOf layer planet annos <> store.stamp)
 
-    /// Same placement as falseColorAttributes, only wider: the hue wheel drawn for the
-    /// cyclic attributes captions itself, and the caption does not fit into 55px.
-    let colorByCategoryAttributes =
-        [
-                "display"               => "block";
-                "width"                 => "170px";
-                "height"                => "75%";
-                "preserveAspectRatio"   => "xMidYMid meet";
-                "viewBox"               => "0 0 5% 100%"
-                "style"                 => "position:absolute; left: 0%; top: 25%"
-                "pointer-events"        => "None"
-        ]
-        |> AttributeMap.ofList
-
-    let colorByCategoryLegend (m : AdaptiveModel) =
-        Incremental.Svg.svg colorByCategoryAttributes
-            (ColorByCategory.Draw.legend m.drawing.colorByCategory)
-                            
-    let scalarsColorLegend (m : AdaptiveModel) =
-        Incremental.Svg.svg falseColorAttributes (SurfaceApp.showColorLegend m.scene.surfacesModel)
-
     let depthColorLegend (m : AdaptiveModel) =
-        let falseColorSvg = FalseColorLegendApp.Draw.createFalseColorLegendBasics "DepthLegend" m.footPrint.depthColorLegend                
+        let falseColorSvg = FalseColorLegendApp.Draw.createFalseColorLegendBasics "DepthLegend" m.footPrint.depthColorLegend
         Incremental.Svg.svg falseColorAttributes falseColorSvg
 
-    let projectedColorLegend (m : AdaptiveModel) =     
-        let legend = 
+    // ------------------------------------------------------------------ color legend dock
+    // The render view's color legends share one dock in the bottom-left corner, above the
+    // navigation gizmo: one tile per visible legend, side by side, each with a header
+    // (title + close button) and a swap button between neighbours. The left-to-right
+    // order is ViewConfigModel.colorLegendOrder. See docs/ColorLegends.md.
+
+    /// One legend of the dock.
+    type private LegendTile = {
+        /// title and the message of the close button; None while the legend is hidden
+        header : aval<Option<string * ViewerAction>>
+        /// width of the legend's svg in px
+        width  : int
+        /// svg content, drawn below the header
+        body   : alist<DomNode<ViewerAction>>
+    }
+
+    /// width of the svg of a plain false-color ramp: bar plus its value labels
+    let private rampLegendWidth = 80
+
+    let private stopPropagation =
+        "$('#__ID__').on('mousedown mouseup click dblclick contextmenu wheel', function(e) { e.stopPropagation(); });"
+
+    let private dnsLegendTile (m : AdaptiveModel) =
+        let legend = m.drawing.dnsColorLegend
+        {
+            header =
+                legend.useFalseColors |> AVal.map (fun show ->
+                    if show then
+                        Some ("Dip angle [°]", DnSColorLegendMessage (FalseColorLegendApp.SetUseFalseColors false))
+                    else None)
+            width  = rampLegendWidth
+            body   = FalseColorLegendApp.Draw.createFalseColorLegendBasics "DnsLegend" legend
+        }
+
+    let private colorByCategoryLegendTile (m : AdaptiveModel) =
+        let close =
+            ViewerAction.DrawingMessage (
+                DrawingAction.ColorByCategoryMessage (
+                    ColorByCategoryAction.LegendMessage (FalseColorLegendApp.SetUseFalseColors false)))
+        {
+            header =
+                ColorByCategory.Draw.legendTitle m.drawing.colorByCategory
+                |> AVal.map (Option.map (fun title -> title, close))
+            width  = rampLegendWidth
+            body   = ColorByCategory.Draw.legend m.drawing.colorByCategory
+        }
+
+    /// the selected scalar layer of the single-selected surface, with that surface
+    let private selectedScalarLayer (m : AdaptiveModel) : aval<Option<AdaptiveSurface * AdaptiveScalarLayer>> =
+        let surfaces = m.scene.surfacesModel.surfaces
+        adaptive {
+            let! selected = surfaces.singleSelectLeaf
+            match selected with
+            | None -> return None
+            | Some id ->
+                let! leaf = AMap.tryFind id surfaces.flat
+                match leaf with
+                | Some (AdaptiveSurfaces surface) ->
+                    let! scalar = surface.selectedScalar
+                    match scalar with
+                    | AdaptiveSome scalar -> return Some (surface, scalar)
+                    | AdaptiveNone        -> return None
+                | _ -> return None
+        }
+
+    let private scalarLegendTile (m : AdaptiveModel) =
+        let selected = selectedScalarLayer m
+        {
+            header =
+                adaptive {
+                    let! selected = selected
+                    match selected with
+                    | None -> return None
+                    | Some (surface, scalar) ->
+                        let! show = scalar.colorLegend.useFalseColors
+                        if not show then
+                            return None
+                        else
+                            let! label = scalar.label
+                            let! name  = surface.name
+                            // routed to the single-selected surface's selected scalar layer
+                            let close =
+                                SurfaceActions (SurfaceAppAction.ScalarsColorLegendMessage (FalseColorLegendApp.SetUseFalseColors false))
+                            return Some (sprintf "%s — %s" label name, close)
+                }
+            width  = rampLegendWidth
+            body   =
+                alist {
+                    let! selected = selected
+                    match selected with
+                    | Some (_, scalar) ->
+                        yield! FalseColorLegendApp.Draw.createFalseColorLegendBasics "ScalarLegend" scalar.colorLegend
+                    | None -> ()
+                }
+        }
+
+    /// the single-selected surface, if any
+    let private selectedSurface (m : AdaptiveModel) : aval<Option<AdaptiveSurface>> =
+        let surfaces = m.scene.surfacesModel.surfaces
+        adaptive {
+            let! selected = surfaces.singleSelectLeaf
+            match selected with
+            | None -> return None
+            | Some id ->
+                let! leaf = AMap.tryFind id surfaces.flat
+                match leaf with
+                | Some (AdaptiveSurfaces surface) -> return Some surface
+                | _ -> return None
+        }
+
+    let private colorMapLegendTile (m : AdaptiveModel) =
+        let selected = selectedSurface m
+        let close show =
+            SurfaceActions (SurfaceAppAction.SurfacePropertiesMessage (SurfaceProperties.SetColorMapLegend show))
+        {
+            header =
+                adaptive {
+                    let! selected = selected
+                    match selected with
+                    | None -> return None
+                    | Some surface ->
+                        let! tf = surface.transferFunction
+                        match tf.tf with
+                        | ColorMaps.TF.Ramp _ when tf.showColorMapLegend ->
+                            let! name = surface.name
+                            return Some (sprintf "Color Map — %s" name, close false)
+                        | _ -> return None
+                }
+            width  = rampLegendWidth
+            body   =
+                alist {
+                    let! selected = selected
+                    match selected with
+                    | Some surface ->
+                        let! tf = surface.transferFunction
+                        match tf.tf with
+                        | ColorMaps.TF.Ramp (lo, hi, name) ->
+                            yield! FalseColorLegendApp.Draw.createColorMapLegendBasics "ColorMapLegend"
+                                    (AVal.constant tf.showColorMapLegend) (AVal.constant name) (AVal.constant lo) (AVal.constant hi)
+                        | _ -> ()
+                    | None -> ()
+                }
+        }
+
+    let private projectedImageLegendTile (m : AdaptiveModel) =
+        let selected = PRo3D.GIS.ProjectedImagesListAppHelper.getSelectedImage m.scene.gisApp.projectedImageList
+        {
+            header =
+                adaptive {
+                    let! selected = selected
+                    match selected with
+                    | None -> return None
+                    | Some image ->
+                        let! show = image.falseColorModel.useFalseColors
+                        if not show then
+                            return None
+                        else
+                            let! texture = image.texture
+                            let! channel = image.selectedChannel
+                            let name = Path.GetFileNameWithoutExtension texture
+                            let title =
+                                match channel.name with
+                                | Some c when c <> "" -> sprintf "%s · %s" name c
+                                | _ -> name
+                            let close =
+                                GisAppMessage (
+                                    GisAppAction.ProjectedImageListMessage (
+                                        ProjectedImageListMessage.ImageMessage (image.id, SetFalseColorLegend false)))
+                            return Some (title, close)
+                }
+            width  = rampLegendWidth
+            body   =
+                alist {
+                    let! selected = selected
+                    match selected with
+                    | Some image ->
+                        yield! FalseColorLegendApp.Draw.createFalseColorLegendBasics "ProjectedLegend" image.falseColorModel
+                    | None -> ()
+                }
+        }
+
+    /// statistics of the selected comparison area, with the area's label
+    let private selectedAreaStatistics (m : AdaptiveModel) =
+        let comparison = m.scene.comparisonApp
+        adaptive {
+            let! selected = comparison.selectedArea
+            match selected with
+            | None -> return None
+            | Some id ->
+                let! area = AMap.tryFind id comparison.areas
+                match area with
+                | None -> return None
+                | Some area ->
+                    let! statistics = area.statistics
+                    match statistics with
+                    | AdaptiveSome statistics ->
+                        let! label = area.label
+                        return Some (label, statistics)
+                    | AdaptiveNone -> return None
+        }
+
+    let private comparisonLegendTile (m : AdaptiveModel) =
+        let selected = selectedAreaStatistics m
+        {
+            header =
+                adaptive {
+                    let! selected = selected
+                    match selected with
+                    | None -> return None
+                    | Some (label, statistics) ->
+                        let! show = statistics.colorLegend.useFalseColors
+                        if not show then
+                            return None
+                        else
+                            let close =
+                                ComparisonMessage (
+                                    PRo3D.Comparison.ComparisonAction.UpdateSelectedArea (
+                                        PRo3D.Comparison.AreaSelectionAction.SetLegendVisible false))
+                            return Some (sprintf "Distance [m] — %s" label, close)
+                }
+            width  = rampLegendWidth
+            body   =
+                alist {
+                    let! selected = selected
+                    match selected with
+                    | Some (_, statistics) ->
+                        // own gradient id: "ScalarLegend" is taken by the surface scalar legend
+                        yield! FalseColorLegendApp.Draw.createFalseColorLegendBasics "ComparisonLegend" statistics.colorLegend
+                    | None -> ()
+                }
+        }
+
+    let private legendTileNode (tile : LegendTile) =
+        let title =
+            tile.header |> AVal.map (function Some (title, _) -> title | None -> "")
+        let titleAttributes =
+            amap {
+                yield clazz "pro3d-legend-title"
+                let! title = title
+                yield attribute "title" title
+            } |> AttributeMap.ofAMap
+        let closeAttributes =
+            amap {
+                yield clazz "close icon pro3d-legend-close"
+                yield attribute "title" "Hide this legend (show it again from its panel)"
+                let! header = tile.header
+                match header with
+                | Some (_, close) -> yield onClick (fun _ -> close)
+                | None -> ()
+            } |> AttributeMap.ofAMap
+        let svgAttributes =
+            [
+                "class"                 => "pro3d-legend-svg"
+                "width"                 => sprintf "%dpx" tile.width
+                "preserveAspectRatio"   => "xMidYMid meet"
+                "pointer-events"        => "None"
+            ] |> AttributeMap.ofList
+
+        div [clazz "pro3d-legend-tile"] [
+            // only the header takes the mouse; the ramp stays click-through for navigation
+            onBoot stopPropagation (
+                div [clazz "pro3d-legend-header"] [
+                    Incremental.span titleAttributes (AList.single (Incremental.text title))
+                    Incremental.i closeAttributes AList.empty
+                ]
+            )
+            Incremental.Svg.svg svgAttributes tile.body
+        ]
+
+    let private legendSwapButton (left : ColorLegendKind) (right : ColorLegendKind) =
+        onBoot stopPropagation (
+            div [
+                clazz "pro3d-legend-swap"
+                attribute "title" "Swap these two legends"
+                onClick (fun _ -> ConfigPropertiesMessage (ConfigProperties.SwapColorLegends (left, right)))
+            ] [ i [clazz "exchange icon"] [] ]
+        )
+
+    /// All color legends of the render view, side by side in the bottom-left corner.
+    let colorLegendDock (m : AdaptiveModel) =
+        let dns        = dnsLegendTile m
+        let cbc        = colorByCategoryLegendTile m
+        let scalar     = scalarLegendTile m
+        let colorMap   = colorMapLegendTile m
+        let projected  = projectedImageLegendTile m
+        let comparison = comparisonLegendTile m
+
+        let tileOf (kind : ColorLegendKind) =
+            match kind with
+            | ColorLegendKind.DipAndStrike      -> dns
+            | ColorLegendKind.ColorByCategory   -> cbc
+            | ColorLegendKind.SurfaceScalar     -> scalar
+            | ColorLegendKind.SurfaceColorMap   -> colorMap
+            | ColorLegendKind.ProjectedImage    -> projected
+            | ColorLegendKind.SurfaceComparison -> comparison
+
+        // built once and reused, so swapping two legends only reorders the tiles
+        let nodes = ColorLegendKind.all |> List.map (fun kind -> kind, legendTileNode (tileOf kind))
+        let nodeOf (kind : ColorLegendKind) =
+            nodes |> List.tryPick (fun (k, node) -> if k = kind then Some node else None)
+
+        // the visible legends in dock order; only reads the headers built above
+        let visible =
+            AVal.custom (fun t ->
+                m.scene.config.colorLegendOrder.GetValue t
+                |> List.filter (fun kind -> ((tileOf kind).header.GetValue t).IsSome))
+
+        let content =
             alist {
-                let! selectedImage = PRo3D.GIS.ProjectedImagesListAppHelper.getSelectedImage m.scene.gisApp.projectedImageList
+                let! visible = visible
+                match visible with
+                | [] -> ()
+                | first :: _ ->
+                    match nodeOf first with
+                    | Some node -> yield node
+                    | None -> ()
+                    for left, right in List.pairwise visible do
+                        yield legendSwapButton left right
+                        match nodeOf right with
+                        | Some node -> yield node
+                        | None -> ()
+            }
 
-                match selectedImage with 
-                | Some iM -> 
-                    let falseColorSvg = FalseColorLegendApp.Draw.createFalseColorLegendBasics "ProjectedLegend" iM.falseColorModel
-                    yield Incremental.Svg.svg AttributeMap.empty falseColorSvg
-                | None -> yield div [] []                
-        } 
-
-        Incremental.Svg.svg falseColorAttributes legend
+        Incremental.div (AttributeMap.ofList [clazz "pro3d-legend-dock"]) content
 
     
     let selectionRectangle (m : AdaptiveModel) =
@@ -2107,11 +2393,7 @@ module Gui =
                                 yield viewRenderView runtime renderViewportSizeId m
                                 yield textOverlays m.scene.referenceSystem m.navigation.camera.view
                                 yield textOverlaysUserFeedback m.scene
-                                yield dnsColorLegend m
-                                yield colorByCategoryLegend m
-                                yield (ComparisonApp.viewLegend m.scene.comparisonApp)
-                                yield scalarsColorLegend m
-                                yield projectedColorLegend m
+                                yield colorLegendDock m |> UI.map ViewerMessage
                                 yield selectionRectangle m
                                 // navigation + interaction selector, overlaid on the right edge
                                 yield ToolStrip.view m |> UI.map ViewerMessage

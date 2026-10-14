@@ -903,11 +903,7 @@ module ColorByCategory =
                             "rx"           => "3"
                             "ry"           => "3"
                         ]
-                        yield Svg.text
-                                [ "x" => "10px"; "y" => "4%"; "font-size" => "10"
-                                  "fill" => "#ffffff"; "pointer-events" => "none" ]
-                                (caption attr)
-
+                        // the caption is the tile header of the legend dock (legendTitle)
                         for i in 0 .. 4 do
                             let deg = period - (period / 4.0) * float i
                             let y = 6.0 + 90.0 * (float i / 4.0)
@@ -922,4 +918,25 @@ module ColorByCategory =
                                     "ColorByCategoryLegend" m.numericLegend
 
                     | _, None -> ()
+            }
+
+        /// Header of the legend's tile in the render view's legend dock; `None` exactly
+        /// when `legend` draws nothing.
+        let legendTitle (m : AdaptiveColorByCategoryModel) : aval<Option<string>> =
+            adaptive {
+                let! enabled = m.enabled
+                let! show    = m.numericLegend.useFalseColors
+                if not (enabled && show) then
+                    return None
+                else
+                    let! kind = m.attributeKind
+                    match kind with
+                    | ColorAttributeKind.SurfaceAttribute ->
+                        let! layer = m.surfaceLayer
+                        return Some (if layer = "" then "Surface attribute" else layer)
+                    | _ ->
+                        let! attr = m.attribute
+                        // cyclic attributes are never categorical
+                        if isCategorical attr then return None
+                        else return Some (caption attr)
             }
