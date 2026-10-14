@@ -80,4 +80,5 @@ starts a camera drag on mousedown and opens the context menu on right click.
 
 Keyboard shortcuts still set the interaction directly (F1 orbit centre, F2 draw
 annotation, F3 select annotation, F4 coordinate cross); the strip follows, because it
-renders straight off `m.interaction`.
+renders straight off `m.interaction`. Delete removes the selected annotations in any
+mode; see [AnnotationDeletion.md](AnnotationDeletion.md).

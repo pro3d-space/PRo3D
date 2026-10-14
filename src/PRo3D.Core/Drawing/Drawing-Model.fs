@@ -77,6 +77,9 @@ type DrawingAction =
 | ClearWorking
 | ClearSelection
 | Clear
+/// Delete every selected annotation (selectedLeaves ∪ singleSelectLeaf) as one undo step.
+/// Bound to the Delete key in the main render view.
+| DeleteSelectedAnnotations
 | LegacySaveVersioned
 | LegacyLoadVersioned
 // vertex editing (Interactions.EditAnnotation)

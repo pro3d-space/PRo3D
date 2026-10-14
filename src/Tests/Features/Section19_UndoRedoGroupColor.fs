@@ -216,8 +216,149 @@ let private groupColorTests =
         }
     ]
 
+// TC-19.3 Delete key: DeleteSelectedAnnotations, driven through the real DrawingApp.update
+// exactly as the viewer dispatches it for Keys.Delete (getDrawingActionForKey)
+let private run = Draw.run Draw.refSystemFlat
+
+let private drawOn (geom : Geometry) (autoFinishes : bool) (points : list<V3d>) (m : DrawingModel) =
+    let m = run m (DrawingAction.SetGeometry geom)
+    let m = points |> List.fold (fun m p -> Draw.click Draw.refSystemFlat p m) m
+    if autoFinishes then m else run m DrawingAction.Finish
+
+let private line x     = drawOn Geometry.Line true [ V3d(x, 0., 0.); V3d(x, 5., 0.) ]
+let private point x    = drawOn Geometry.Point true [ V3d(x, 0., 0.) ]
+let private polyline x = drawOn Geometry.Polyline false [ V3d(x, 0., 0.); V3d(x + 1., 1., 0.); V3d(x, 2., 0.) ]
+let private polygon x  = drawOn Geometry.Polygon false [ V3d(x, 0., 0.); V3d(x + 2., 0., 0.); V3d(x + 2., 2., 0.); V3d(x, 2., 0.) ]
+
+let private multiSelect (id : System.Guid) (m : DrawingModel) =
+    run m (DrawingAction.GroupsMessage (GroupsAppAction.AddLeafToSelection([], id, "")))
+
+/// finishing a drawing single-selects the new annotation; start each test from no selection
+let private deselect (m : DrawingModel) =
+    { m with annotations = { m.annotations with singleSelectLeaf = None; selectedLeaves = HashSet.empty } }
+
+let private keys (m : DrawingModel) =
+    Draw.annotations m |> List.map (fun a -> a.key) |> Set.ofList
+
+let private deleteTests =
+    testList "Delete key" [
+
+        test "TC-19.3 Delete removes the single-selected annotation and keeps the others" {
+            let m = DrawingModel.initialdrawing |> line 0. |> line 10. |> line 20. |> deselect
+            let target = Draw.annotations m |> List.map (fun a -> a.key) |> List.head
+            let picked = run m (DrawingAction.PickDirectly target)
+            Expect.equal picked.annotations.singleSelectLeaf (Some target) "plain pick single-selects"
+
+            let after = run picked DrawingAction.DeleteSelectedAnnotations
+            Expect.equal (keys after) (keys m |> Set.remove target) "only the picked annotation is gone"
+            Expect.isFalse (inRootLeaves target after.annotations) "and it left its group"
+            Expect.isNone after.annotations.singleSelectLeaf "the selection no longer points at it"
+        }
+
+        test "TC-19.3 Delete removes every multi-selected annotation" {
+            let m = DrawingModel.initialdrawing |> line 0. |> line 10. |> line 20. |> line 30. |> deselect
+            let selected = Draw.annotations m |> List.map (fun a -> a.key) |> List.take 3
+            let sel = selected |> List.fold (fun m id -> multiSelect id m) m
+
+            let after = run sel DrawingAction.DeleteSelectedAnnotations
+            Expect.equal (keys after) (Set.difference (keys m) (Set.ofList selected)) "the three selected are gone"
+            Expect.isTrue after.annotations.selectedLeaves.IsEmpty "the multi-selection is emptied"
+        }
+
+        test "TC-19.3 Delete removes cube-checked and name-selected annotations together" {
+            let m = DrawingModel.initialdrawing |> line 0. |> line 10. |> line 20. |> deselect
+            match Draw.annotations m |> List.map (fun a -> a.key) with
+            | a :: b :: c :: _ ->
+                let sel = m |> multiSelect a |> multiSelect b
+                // clicking another name moves the green single selection, the cube checks stay
+                let sel = run sel (DrawingAction.GroupsMessage (GroupsAppAction.SingleSelectLeaf([], c, "")))
+                let after = run sel DrawingAction.DeleteSelectedAnnotations
+                Expect.isEmpty (Draw.annotations after) "a, b (multi) and c (single) are all deleted"
+            | _ -> failtest "expected three annotations"
+        }
+
+        test "TC-19.3 Delete works on every annotation geometry" {
+            let drawn = DrawingModel.initialdrawing |> point 0. |> line 10. |> polyline 20. |> polygon 30.
+            // the remaining geometries need a planet or more interaction to draw; deletion does
+            // not look at the geometry, so inserting the leaves directly is enough
+            let extra =
+                [ Geometry.DnS; Geometry.TT; Geometry.Ellipse; Geometry.AxisEllipse; Geometry.Axis4PEllipse ]
+                |> List.map (fun g -> makeLeaf g Projection.Linear C4b.White)
+            let m = { drawn with annotations = extra |> List.fold (fun g l -> addLeaf l g) drawn.annotations }
+            let all = Draw.annotations m
+            Expect.equal (all |> List.map (fun a -> a.geometry) |> Set.ofList)
+                (Set.ofList [ Geometry.Point; Geometry.Line; Geometry.Polyline; Geometry.Polygon
+                              Geometry.DnS; Geometry.TT; Geometry.Ellipse; Geometry.AxisEllipse; Geometry.Axis4PEllipse ])
+                "one annotation of every geometry"
+
+            let sel = all |> List.fold (fun m a -> multiSelect a.key m) m
+            let after = run sel DrawingAction.DeleteSelectedAnnotations
+            Expect.isEmpty (Draw.annotations after) "every geometry is deleted"
+            Expect.isEmpty (after.annotations.rootGroup.leaves |> IndexList.toList) "and the tree is empty"
+        }
+
+        test "TC-19.3 Delete finds a leaf in a sub-group even when the selection carries the root path" {
+            let m0 = DrawingModel.initialdrawing
+            let g1 = GroupsApp.update m0.annotations (GroupsAppAction.AddGroup rootPath)
+            match g1.rootGroup.subNodes.TryGetIndex 0, g1.rootGroup.subNodes |> IndexList.tryFirst with
+            | Some subIdx, Some subNode ->
+                let g2 = { g1 with activeGroup = { id = subNode.key; path = [ subIdx ]; name = subNode.name } }
+                let m  = { m0 with annotations = g2 } |> line 0.
+                let a  = Draw.theAnnotation "one line in the sub-group" m
+                // a viewport pick: AddLeafToSelection with the root path, whatever the real group
+                let after = m |> multiSelect a.key |> fun m -> run m DrawingAction.DeleteSelectedAnnotations
+
+                let subLeaves =
+                    after.annotations.rootGroup.subNodes
+                    |> IndexList.tryFirst
+                    |> Option.map (fun n -> n.leaves |> IndexList.toList)
+                Expect.equal subLeaves (Some []) "the sub-group no longer lists the leaf"
+                Expect.isEmpty (Draw.annotations after) "and it is gone from the flat map"
+            | _ -> failtest "AddGroup did not create an addressable subgroup"
+        }
+
+        test "TC-19.3 one Undo restores the whole deletion, Redo deletes again" {
+            let m = DrawingModel.initialdrawing |> line 0. |> polygon 10. |> point 20.
+            let sel = Draw.annotations m |> List.fold (fun m a -> multiSelect a.key m) m
+            let depth = sel.undoStack.Length
+
+            let deleted = run sel DrawingAction.DeleteSelectedAnnotations
+            Expect.equal deleted.undoStack.Length (depth + 1) "one undo entry for the whole batch"
+
+            let undone = run deleted DrawingAction.Undo
+            Expect.equal (keys undone) (keys m) "the same annotations come back, same keys"
+            Expect.equal (undone.annotations.rootGroup.leaves |> IndexList.toList)
+                         (sel.annotations.rootGroup.leaves |> IndexList.toList)
+                         "with the same group membership and order"
+
+            let redone = run undone DrawingAction.Redo
+            Expect.isEmpty (Draw.annotations redone) "redo deletes them again"
+        }
+
+        test "TC-19.3 Delete with nothing selected changes nothing and records no undo step" {
+            let m = DrawingModel.initialdrawing |> line 0. |> line 10. |> deselect
+            let after = run m DrawingAction.DeleteSelectedAnnotations
+            Expect.equal (keys after) (keys m) "all annotations survive"
+            Expect.equal after.undoStack.Length m.undoStack.Length "no undo entry"
+        }
+
+        test "TC-19.3 Delete leaves the annotation being drawn alone" {
+            let m = DrawingModel.initialdrawing |> line 0.
+            let a = Draw.theAnnotation "one line" m
+            let m = multiSelect a.key m
+            let m = run m (DrawingAction.SetGeometry Geometry.Polyline)
+            let m = Draw.click Draw.refSystemFlat (V3d(50., 0., 0.)) m
+            Expect.isSome m.working "a polyline is in progress"
+
+            let after = run m DrawingAction.DeleteSelectedAnnotations
+            Expect.isEmpty (Draw.annotations after) "the selected annotation is deleted"
+            Expect.isSome after.working "the working annotation is untouched"
+        }
+    ]
+
 let tests =
     testList "Section 19 — Undo/Redo and Group Default Color" [
         undoRedoTests
         groupColorTests
+        deleteTests
     ]

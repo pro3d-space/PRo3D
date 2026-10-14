@@ -2084,6 +2084,7 @@
 			\item Press \key{F4} -- switch to Place Coordinate System interaction mode.
 			\item Press \key{Ctrl}+\key{Z} -- undo the last drawing action. Observe the annotation list.
 			\item Press \key{Ctrl}+\key{Y} -- redo the previously undone action. Observe the annotation list.
+			\item Select two annotations (cube icon in the \tab{Annotations} list), move the cursor over the 3D view and press \key{Delete}.
 		\end{enumerate} \\
 		\midrule
 		\textbf{Expected Result} &
@@ -2098,6 +2099,7 @@
 			\item \key{F1}--\key{F4}: The selected interaction mode changes in the actions drop-down.
 			\item \key{Ctrl}+\key{Z}: The last added annotation disappears from the list and the 3D view.
 			\item \key{Ctrl}+\key{Y}: The undone annotation reappears in the list and the 3D view.
+			\item \key{Delete}: Both selected annotations disappear from the list and the 3D view; the others stay.
 		\end{itemize} \\
 		\midrule
 		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
@@ -2131,6 +2133,8 @@
 			\item Draw another annotation, then in the \tab{Annotations} list click \button{remove} to delete it.
 			\item Press \key{Ctrl}+\key{Z} to undo the deletion.
 			\item Observe the \tab{Annotations} list.
+			\item Select three annotations of different types (cube icon), move the cursor over the 3D view and press \key{Delete}.
+			\item Press \key{Ctrl}+\key{Z} once, then \key{Ctrl}+\key{Y} once.
 		\end{enumerate} \\
 		\midrule
 		\textbf{Expected Result} &
@@ -2139,6 +2143,7 @@
 			\item Multiple \key{Ctrl}+\key{Z} presses step back through the annotation history one action at a time.
 			\item After \key{Ctrl}+\key{Y}: The undone annotation reappears in the list and the 3D view, restoring it exactly as it was.
 			\item Undoing a deletion (\button{remove}): The deleted annotation is restored in the list and the 3D view.
+			\item \key{Delete} removes all three selected annotations; a single \key{Ctrl}+\key{Z} restores all three in their groups, and \key{Ctrl}+\key{Y} deletes all three again.
 			\item When there is nothing left to undo/redo, additional presses of \key{Ctrl}+\key{Z}/\key{Y} have no effect (no error or crash).
 		\end{itemize} \\
 		\midrule
