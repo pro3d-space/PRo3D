@@ -112,6 +112,22 @@ let private generatorTests =
             Expect.isError (SupportingProfiles.stationsFor (SupportingProfiles.Count 0) false false 30.0) "zero profiles is refused"
         }
 
+        test "more than MaxProfiles at once is refused" {
+            Expect.isError (SupportingProfiles.stationsFor (SupportingProfiles.Spacing 0.01) true true 30.0) "3001 profiles by spacing"
+            Expect.isError (SupportingProfiles.stationsFor (SupportingProfiles.Count 1001) true true 30.0) "1001 by count"
+            Expect.isOk (SupportingProfiles.stationsFor (SupportingProfiles.Count 1000) true true 30.0) "1000 is fine"
+        }
+
+        test "a point clicked twice is skipped, not a division by zero" {
+            // the second point repeats the first: a zero-length first segment
+            let parent = polyline "dup" [ V3d(0.0, 0.0, 0.0); V3d(0.0, 0.0, 0.0); V3d(20.0, 0.0, 0.0) ]
+            let specs = SupportingProfiles.forPolyline Planet.None up north flat (SupportingProfiles.Spacing 10.0) true true 4.0 parent |> ok "dup"
+            Expect.equal specs.Length 3 "0, 10, 20"
+            for s in specs do
+                Expect.isFalse (s.start.AnyNaN || s.stop.AnyNaN) "finite ends"
+                Expect.floatClose Accuracy.medium (Vec.distance s.start s.stop) 4.0 "full length"
+        }
+
         test "a setting that leaves no profile is refused, not an empty success" {
             let parent = polyline "short" [ V3d(0.0, 0.0, 0.0); V3d(5.0, 0.0, 0.0) ]
             match SupportingProfiles.forPolyline Planet.None up north flat (SupportingProfiles.Spacing 10.0) false false 2.0 parent with
@@ -335,6 +351,21 @@ let private appTests =
             Expect.equal (DrawingApp.autoProfileParent finished withEllipse |> Option.map (fun a -> a.key)) (Some parent.key) "an ellipse is"
         }
 
+        test "generating again replaces the earlier profiles, in one undo step" {
+            let parent = polyline "trench" [ V3d(0.0, 0.0, 0.0); V3d(25.0, 0.0, 0.0) ]
+            let first = Draw.run Draw.refSystemFlat (withSelected parent) (DrawingAction.GenerateSupportingProfiles (Some flat))
+            let firstKeys = profiles first |> List.map (fun p -> p.key)
+            Expect.equal firstKeys.Length 4 "spacing 10 m: 0, 10, 20, 25"
+            let m = Draw.run Draw.refSystemFlat first (DrawingAction.SetProfileSpacing (Numeric.SetValue 5.0))
+            let second = Draw.run Draw.refSystemFlat m (DrawingAction.GenerateSupportingProfiles (Some flat))
+            let secondSet = profiles second
+            Expect.equal secondSet.Length 6 "spacing 5 m: 0, 5, ..., 25 - and none of the first set left"
+            Expect.isTrue (secondSet |> List.forall (fun p -> not (List.contains p.key firstKeys))) "the first set is gone"
+            Expect.stringContains (second.supportingProfiles.message |> Option.defaultValue "") "replacing the 4" "says so"
+            let undone = Draw.run Draw.refSystemFlat second DrawingAction.Undo
+            Expect.equal (profiles undone |> List.map (fun p -> p.key)) firstKeys "one undo brings the first set back"
+        }
+
         test "nothing selected: a message, no change" {
             let after = Draw.run Draw.refSystemFlat DrawingModel.initialdrawing (DrawingAction.GenerateSupportingProfiles (Some flat))
             Expect.isEmpty (Draw.annotations after) "nothing added"
@@ -356,6 +387,48 @@ let private persistenceTests =
             Expect.equal (roundTrip a).profileOf (Some link) "ellipse profile link"
             let polyLink = { link with direction = ""; station = Some 12.5 }
             Expect.equal (roundTrip { a with profileOf = Some polyLink }).profileOf (Some polyLink) "polyline profile link"
+        }
+
+        test "a NaN azimuth survives save and load as NaN" {
+            let link = { parent = Guid.NewGuid(); index = 0; direction = ""; azimuth = nan; station = Some 3.0 }
+            let a = { polyline "p" [ V3d.Zero; V3d.IOO ] with profileOf = Some link }
+            match (roundTrip a).profileOf with
+            | Some l -> Expect.isTrue (Double.IsNaN l.azimuth) "NaN back"; Expect.equal l.station (Some 3.0) "the rest intact"
+            | None   -> failtest "the link was lost"
+        }
+
+        test "a profileOf from a later version, or a damaged one, loads as no link instead of failing the scene" {
+            let a = { polyline "p" [ V3d.Zero; V3d.IOO ] with profileOf = Some { parent = Guid.NewGuid(); index = 0; direction = ""; azimuth = 0.0; station = None } }
+            let text = a |> Json.serialize |> Json.formatWith JsonFormattingOptions.Compact
+            // the link's own object: flat, so the first } after its start closes it
+            let start = text.IndexOf("\"profileOf\":{")
+            let link = text.Substring(start, text.IndexOf("}", start) - start + 1)
+            for broken in [ text.Replace(link, link.Replace("\"version\":0", "\"version\":99"))
+                            text.Replace(a.profileOf.Value.parent.ToString(), "not-a-guid") ] do
+                Expect.notEqual broken text "the test really changed the file"
+                let loaded : Annotation = broken |> Json.parse |> Json.deserialize
+                Expect.isNone loaded.profileOf "dropped"
+                Expect.equal loaded.key a.key "the annotation itself loads"
+        }
+
+        test "importing gives new keys and keeps every profile pointing at its parent" {
+            let parent = ellipse "crater" 1.0
+            let child =
+                { polyline "pcrater_0" [ V3d.Zero; V3d.IOO ] with
+                    profileOf = Some { parent = parent.key; index = 0; direction = "N-S"; azimuth = 0.0; station = None } }
+            let groups =
+                GroupsModel.initial
+                |> GroupsApp.addLeafToActiveGroup (Leaf.Annotations parent) false
+                |> GroupsApp.addLeafToActiveGroup (Leaf.Annotations child) false
+            let imported = PRo3D.ViewerApp.rekeyImported groups
+            let annos = imported.flat |> Leaf.toAnnotations |> HashMap.toList |> List.map snd
+            let newParent = annos |> List.tryFind (fun a -> a.text = "crater")
+            let newChild  = annos |> List.tryFind (fun a -> a.text = "pcrater_0")
+            match newParent, newChild with
+            | Some p, Some c ->
+                Expect.notEqual p.key parent.key "the parent got a new key"
+                Expect.equal (c.profileOf |> Option.map (fun l -> l.parent)) (Some p.key) "the profile follows it"
+            | _ -> failtest "both annotations survive the import"
         }
 
         test "an annotation without the key loads with no link, and none is written for it" {

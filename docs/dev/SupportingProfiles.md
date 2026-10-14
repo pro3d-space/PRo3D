@@ -37,7 +37,13 @@ Original idea (verbatim notes):
   // Annotation: profileOf : Option<ProfileLink>
   ```
   Persisted under a new JSON key `profileOf`, read with `Json.tryRead` -> `None` (no version
-  bump; older releases skip it). A deleted parent leaves a dangling `parent`; harmless.
+  bump; older releases skip it). Read raw and deserialised in a try, so a link from a later
+  `ProfileLink` version or a damaged one drops to `None` instead of failing the scene. A
+  deleted parent leaves a dangling `parent`; harmless. Import re-keys annotations
+  (`GroupsModel.patchNames`); `ViewerApp.rekeyImported` relinks the profiles.
+- **Regenerating** for a parent replaces its earlier profiles in the same undo step, so a parent
+  never has two sets with the same names/indices/directions. At most `MaxProfiles` (1000)
+  per generation.
 - **Start end**: every profile starts at its first-named end (N-S at N, NE-SW at NE, ...; major-axis
   mode: the end of the axis lying more to the north). Polyline profiles start on the left, looking
   along the polyline. So `distance` = 0 is always that end.

@@ -353,7 +353,10 @@ module AnnotationExportViewer =
                     // the main file. Taken from the whole tree, not the scope: a profile
                     // belongs with its crater whether or not it is selected or visible.
                     let profileCount, profilesWithoutProperties =
-                        if settings.withProfiles && settings.format = ExportFormat.Csv then
+                        // the window offers the checkbox for per-annotation CSV only; a profiles
+                        // file the user cannot see the reason for is not written
+                        if settings.withProfiles && settings.format = ExportFormat.Csv
+                           && settings.granularity = ExportGranularity.PerAnnotation then
                             let profiles = AnnotationExport.profilesOf annotations (inTreeOrder drawing.annotations)
                             let profileSettings = AnnotationExport.profilesSettings settings
                             // the main file is per annotation, so Surface properties is about

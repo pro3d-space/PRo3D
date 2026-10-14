@@ -62,7 +62,7 @@ module SupportingProfileSettings =
     let initial = {
         lineamentMode = LineamentProfileMode.BySpacing
         spacing     = { value = 10.0; min = 0.01; max = 100000.0; step = 1.0; format = "{0:0.00}" }
-        count       = { value = 5.0; min = 1.0; max = 10000.0; step = 1.0; format = "{0:0}" }
+        count       = { value = 5.0; min = 1.0; max = 1000.0; step = 1.0; format = "{0:0}" }
         atStart     = true
         atEnd       = true
         length      = { value = 20.0; min = 0.01; max = 100000.0; step = 1.0; format = "{0:0.00}" }

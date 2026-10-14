@@ -1151,8 +1151,17 @@ with
             let! fillColor = Json.tryRead "fillColor"
             let! fillAlpha = Json.tryRead "fillAlpha"
 
-            // optional, no version bump: older releases skip the key (#833)
-            let! profileOf = Json.tryRead "profileOf"
+            // optional, no version bump: older releases skip the key (#833). Read raw and
+            // deserialised inside a try: a link from a later version, or a damaged one, is
+            // dropped to None rather than failing the whole scene - it is derived data
+            let! (profileOfJson : Option<Chiron.Json>) = Json.tryRead "profileOf"
+            let profileOf : Option<ProfileLink> =
+                profileOfJson
+                |> Option.bind (fun j ->
+                    try Some (Json.deserialize j)
+                    with e ->
+                        Log.warn "[Annotation] profileOf could not be read, dropped: %s" e.Message
+                        None)
 
             return {
                 version          = Annotation.current

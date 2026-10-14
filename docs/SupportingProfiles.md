@@ -47,7 +47,8 @@ While the box is ticked, every polyline gets its profiles when you press **Enter
 - **Appearance:** the group's default colour and the drawing tool's current thickness. Their labels are switched off; *Show text* in a profile's properties brings one back.
 - **Sampling:** each profile is draped onto the surface like a hand-drawn *Sky* line, using the toolbar's **Sampling** distance at the moment you generate. Change that first for denser or coarser profiles.
 - **Selection:** the polyline or ellipse stays selected, so you can generate again with other settings.
-- **Undo:** one **Ctrl+Z** removes all profiles of one generation.
+- **Generating again replaces.** Generating again for the same polyline or ellipse replaces its earlier profiles; the message says how many it replaced. Each crater or lineament therefore has one set of profiles, and the export never mixes two.
+- **Undo:** one **Ctrl+Z** undoes one generation: the new profiles go, and any it replaced come back.
 
 **All or nothing:** if one profile cannot be built, typically because one of its ends would hang off the edge of the mesh, **no** profiles are created, and the message says which one failed. Shorten the length or move away from the edge, then generate again.
 
@@ -74,7 +75,7 @@ Where the profiles land on a polyline *S* metres long:
 
 - **ByCount gaps are always equal.** An end without a profile still counts as a position, so the profiles stay evenly spaced.
 - **BySpacing's last gap is the rest.** The gap before the end is whatever remains, e.g. a 48.9 m polyline with *d* = 10 gets profiles at 0, 10, 20, 30, 40 and 48.9.
-- **Refusals.** Settings that leave no profile at all are refused with a message: a polyline shorter than the spacing with both ends off, or *Count* 1 with both ends on.
+- **Refusals.** Settings that leave no profile at all are refused with a message: a polyline shorter than the spacing with both ends off, or *Count* 1 with both ends on. So are more than **1000 profiles** at once (e.g. 0.01 m spacing on a long lineament), which would keep PRo3D busy for a long time.
 
 How a polyline profile sits on the line:
 
@@ -182,5 +183,6 @@ Every column of both files is described in [AnnotationExport-CSV.md](AnnotationE
 ## Good to know
 
 - **What a profile remembers.** Each generated profile stores its parent, index, direction, azimuth and station in the scene file. These are fixed when the profile is generated: moving a profile's points afterwards does not update them. Older PRo3D releases load scenes with generated profiles fine; they show them as plain lines.
+- **Importing annotations** (*Annotations → Import*) keeps profiles tied to their crater or lineament. The imported annotations get new ids, and the links move with them.
 - **Deleting the parent** leaves its profiles in place. They are no longer exported with *Craters* or *Lineaments*, because their parent is gone.
 - **Settings and the two toolbar checkboxes** reset to their defaults when PRo3D restarts: spacing 10 m, count 5, length 20 m, both ends on, compass directions, auto-generation off.

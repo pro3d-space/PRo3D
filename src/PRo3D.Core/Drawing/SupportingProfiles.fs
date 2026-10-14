@@ -7,6 +7,7 @@ open FSharp.Data.Adaptive
 
 open PRo3D.Base
 open PRo3D.Base.Annotation
+open PRo3D.Core
 
 /// Supporting profiles (#833, docs/SupportingProfiles.md): Sky-projected lines generated from a
 /// polyline (perpendicular, every `spacing` metres) or an ellipse (4 through the centre, rim to
@@ -29,6 +30,12 @@ module SupportingProfiles =
         | Spacing of float
         /// this many, equally spaced over the whole polyline
         | Count of int
+
+    /// More profiles than this in one go are refused: each costs two ray casts plus one per
+    /// sampling step, all synchronous in the update, and a typo in the spacing (0.01 m on a
+    /// kilometre lineament) must not freeze PRo3D.
+    [<Literal>]
+    let MaxProfiles = 1000
 
     /// Compass profiles in generation order, with the bearing from the centre to the start end.
     let compass = [| "N-S", 0.0; "NE-SW", 45.0; "E-W", 90.0; "NW-SE", 315.0 |]
@@ -77,6 +84,8 @@ module SupportingProfiles =
             match placement with
             | Spacing d when not (d > 0.0) ->
                 Result.Error "the spacing must be positive"
+            | Spacing d when total / d > float (MaxProfiles - 1) ->
+                Result.Error (sprintf "a spacing of %g m gives more than %d profiles on this %.2f m polyline" d MaxProfiles total)
             | Spacing d ->
                 let all = stations d total
                 let last = all.Length - 1
@@ -87,6 +96,8 @@ module SupportingProfiles =
                 |> Result.Ok
             | Count n when n < 1 ->
                 Result.Error "the count must be at least 1"
+            | Count n when n > MaxProfiles ->
+                Result.Error (sprintf "at most %d profiles at once" MaxProfiles)
             | Count n when n < 2 && atStart && atEnd ->
                 Result.Error "with profiles at both ends the count must be at least 2"
             | Count n ->
@@ -260,6 +271,31 @@ module SupportingProfiles =
                     | _ ->
                         Result.Error (sprintf "profile %s: the outline does not enclose the centre" label))
                 |> allOrNothing
+
+    /// Keys of the profiles generated from `parent`. A scan of the annotations: called on a
+    /// user action (Generate), not per frame.
+    let profilesOf (parent : Guid) (groups : GroupsModel) : HashSet<Guid> =
+        groups.flat
+        |> HashMap.choose (fun _ leaf ->
+            match leaf with
+            | Leaf.Annotations a when a.profileOf |> Option.exists (fun l -> l.parent = parent) -> Some ()
+            | _ -> None)
+        |> HashMap.keys
+
+    /// After annotations got new keys (an import gives every leaf a fresh one), points each
+    /// profile's link at its parent's new key. `newKeyOf` answers for the keys that were
+    /// replaced; links to anything else are left alone.
+    let relinkProfiles (newKeyOf : Guid -> Option<Guid>) (groups : GroupsModel) : GroupsModel =
+        let flat =
+            groups.flat
+            |> HashMap.map (fun _ leaf ->
+                match leaf with
+                | Leaf.Annotations a ->
+                    match a.profileOf |> Option.bind (fun link -> newKeyOf link.parent |> Option.map (fun key -> link, key)) with
+                    | Some (link, key) -> Leaf.Annotations { a with profileOf = Some { link with parent = key } }
+                    | None             -> leaf
+                | _ -> leaf)
+        { groups with flat = flat }
 
     let isPolyline (g : Geometry) = g = Geometry.Polyline || g = Geometry.Line
 

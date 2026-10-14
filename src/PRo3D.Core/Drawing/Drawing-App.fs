@@ -807,20 +807,26 @@ module DrawingApp =
                         let a = { a with dnsResults = a.points |> DipAndStrike.calculateDipAndStrikeResults up north }
                         { a with results = Some (Calculations.calculateAnnotationResults a up north planet) }
 
+                    // Generating again replaces the parent's earlier profiles: two sets with the
+                    // same names, indices and directions would be indistinguishable in the
+                    // export. Removed and added in the same undo step.
+                    let earlier = SupportingProfiles.profilesOf parent.key model.annotations
                     let before = model.annotations
                     let after =
                         specs |> List.fold (fun g spec ->
-                            GroupsApp.addLeafToActiveGroup (Leaf.Annotations (makeProfile spec)) false g) before
+                            GroupsApp.addLeafToActiveGroup (Leaf.Annotations (makeProfile spec)) false g)
+                            (GroupsApp.removeLeavesById earlier before)
                     // adding a leaf unselected clears the single selection; the parent stays
                     // selected, so the panel keeps showing it and can generate again
                     let after = { after with singleSelectLeaf = Some parent.key }
                     // names the parent, so a message left standing after the selection moved on
                     // is not read as being about the newly selected annotation
                     let message =
-                        sprintf "%d profiles generated from %s" specs.Length
+                        sprintf "%d profiles generated from %s%s" specs.Length
                             (if String.IsNullOrWhiteSpace parent.text then
                                 sprintf "%A %s" parent.geometry (parent.key.ToString().Substring(0, 8))
                              else parent.text)
+                            (if earlier.IsEmpty then "" else sprintf ", replacing the %d from before" earlier.Count)
                     Log.line "[Drawing] %s" message
                     { model with
                         annotations = after

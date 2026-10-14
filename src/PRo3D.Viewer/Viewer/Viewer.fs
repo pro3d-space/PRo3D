@@ -327,6 +327,21 @@ module ViewerApp =
                 msg
         { m with scene = { m.scene with surfacesModel = surfacesModel; comparisonApp = comparisonApp } }
 
+    /// Imported annotations get fresh keys, so they cannot collide with the scene's. Generated
+    /// profiles point at their parent by key (#833), so their links move along with it.
+    let rekeyImported (groups : GroupsModel) : GroupsModel =
+        let renamed = System.Collections.Generic.Dictionary<Guid, Guid>()
+        let fresh (old : Guid) =
+            let key = Guid.NewGuid()
+            renamed.[old] <- key
+            key
+        groups
+        |> GroupsModel.patchNames fresh
+        |> SupportingProfiles.relinkProfiles (fun old ->
+            match renamed.TryGetValue old with
+            | true, key -> Some key
+            | _         -> None)
+
     /// Drops a point onto the active surfaces along its local up: the sky ray of the drawing
     /// tools, for operations that place vertices of their own (union, cut, supporting profiles).
     let private skyProjection (m : Model) : V3d -> Option<V3d> =
@@ -354,9 +369,14 @@ module ViewerApp =
         (bc : BlockingCollection<string>) (view : CameraView) (before : DrawingModel) (m : Model) : Model =
         match DrawingApp.autoProfileParent before m.drawing with
         | None -> m
-        | Some _ ->
+        | Some parent ->
+            // Generate works on the single selection. Finishing selects the new annotation
+            // today; selecting it here keeps that from being an accident someone can break.
+            let selected =
+                { m.drawing with
+                    annotations = { m.drawing.annotations with singleSelectLeaf = Some parent.key } }
             let drawing =
-                DrawingApp.update m.scene.referenceSystem drawingConfig None bc view m.shiftFlag m.drawing
+                DrawingApp.update m.scene.referenceSystem drawingConfig None bc view m.shiftFlag selected
                     (DrawingAction.GenerateSupportingProfiles (Some (skyProjection m)))
             let feedback = {
                 id      = System.Guid.NewGuid().ToString()
@@ -1835,7 +1855,7 @@ module ViewerApp =
             ViewerIO.replaceAnnotations m annotations
         | ImportSerializedDrawingModel(json, source), _ -> 
             let drawing = DrawingUtilities.IO.loadAnnotationsFromJson json 
-            let annotations = drawing.annotations |> GroupsModel.patchNames (fun n -> Guid.NewGuid())
+            let annotations = drawing.annotations |> rekeyImported
             let importedGroup = { annotations.rootGroup with name = source }
 
             //let msg = GroupsAppAction.AddAndSelectGroup ([], importedGroup)
@@ -1847,7 +1867,7 @@ module ViewerApp =
             let model = { m with drawing = { m.drawing with annotations = groups } }
             model
         | ImportDrawingModel(drawing, source), _ -> 
-            let annotations = drawing |> GroupsModel.patchNames (fun n -> Guid.NewGuid())
+            let annotations = drawing |> rekeyImported
             let importedGroup = { annotations.rootGroup with name = source }
 
             //let msg = GroupsAppAction.AddAndSelectGroup ([], importedGroup)
