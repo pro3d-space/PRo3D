@@ -102,6 +102,8 @@ type ImageHover =
 /// Image Inspector panel events. Positions are *panel* NDC ([-1,1]^2 over the visible
 /// extent, y up); ImageInspector.update maps them through the zoom to projector NDC.
 type ImageInspectorAction =
+    /// the panel is experimental: it does nothing (no texture, no picking) until enabled
+    | SetEnabled of bool
     /// pointer over the panel; None when it leaves
     | Hover     of Option<V2d>
     /// a hover picked on the background thread; `request` tells stale results apart
@@ -833,6 +835,8 @@ type Model = {
     imageHover          : Option<ImageHover>
     imageView           : ImageView
     shadowMeasure       : ShadowMeasure
+    /// Image Inspector switched on for this session (experimental; never persisted)
+    imageInspectorEnabled : bool
     ellipseModel        : Option<EllipseModel>
     pickPreviewRequested : ConsumableAsyncValue<Model * SceneHit * string>
 

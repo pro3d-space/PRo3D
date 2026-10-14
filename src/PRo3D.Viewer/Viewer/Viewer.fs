@@ -1083,6 +1083,16 @@ module ViewerApp =
         | CrossSectionMessage msg,_ ->
             let csm = CrossSectionApp.update m.scene.crossSectionModel msg
             { m with scene = { m.scene with crossSectionModel = csm } }
+        | ImageInspectorMessage (ImageInspectorAction.SetEnabled enabled), _ ->
+            ImageInspector.HoverWorker.cancel ()
+            if not enabled then ImageInspector.releaseCaches ()
+            { m with
+                imageInspectorEnabled = enabled
+                imageHover = None
+                imageView = ImageView.initial
+                shadowMeasure = ShadowMeasure.initial }
+        // experimental panel switched off: ignore anything a stale page still sends
+        | ImageInspectorMessage _, _ when not m.imageInspectorEnabled -> m
         | ImageInspectorMessage msg, _ ->
             // a move reported with a button held but no drag of ours in progress (the press
             // happened elsewhere, or its mousedown never reached us) is a hover

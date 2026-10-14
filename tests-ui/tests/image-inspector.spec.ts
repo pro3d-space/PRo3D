@@ -107,6 +107,11 @@ ${e.stack ?? ""}`));
     inspector.on("console", (m) => { if (m.type() === "error" || m.type() === "warning") console.log(`[inspector console.${m.type()}] ${m.text()}`); });
     await inspector.setViewportSize({ width: 900, height: 900 });
     await inspector.goto(app.url + "?page=imageinspector");
+    // experimental: the panel is inert (no render control) until switched on
+    const enable = inspector.locator("button", { hasText: "click to enable" });
+    await expect(enable).toBeVisible({ timeout: 120_000 });
+    await expect(inspector.locator("img.rendercontrol")).toHaveCount(0);
+    await enable.click();
     await expect(inspector.locator("text=/^wheel zooms/")).toBeVisible({ timeout: 120_000 });
     const control = inspector.locator("img.rendercontrol");
     await expect(control).toBeVisible({ timeout: 60_000 });

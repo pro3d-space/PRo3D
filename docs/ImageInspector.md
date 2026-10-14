@@ -11,6 +11,12 @@ The panel is part of the **GIS** window layout, and can be added to any layout a
 Without a selected image, an observed body, or a surface bound to a SPICE body, the panel says
 which one is missing.
 
+The panel starts **switched off**: it shows only *Experimental -- click to enable* and does
+nothing else (no texture, no rendering, no picking), so having it in a layout costs nothing.
+*Off* in its bottom bar switches it off again and drops its decoded images. The switch is not
+saved; every session starts with the panel off. Nothing of the panel is written to the scene —
+only scale bars you create from a measurement, which are ordinary scale bars.
+
 ## What it shows
 
 - **Hover the image** — the pixel under the pointer is sent through the image's camera, and where

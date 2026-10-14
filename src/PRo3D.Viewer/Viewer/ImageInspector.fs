@@ -326,8 +326,14 @@ module ImageInspector =
             with e ->
                 Log.warn "[ImageInspector] cannot read %s for edge snapping: %s" path e.Message
                 None
-        if b.IsSome then bandCache.[(path, channel)] <- b
+        if b.IsSome then
+            // a band is a whole decoded image: keep the few last used, not every image visited
+            if bandCache.Count >= 4 then bandCache.Clear()
+            bandCache.[(path, channel)] <- b
         b
+
+    /// Drops the decoded image bands (the panel was switched off).
+    let releaseCaches () = bandCache.Clear()
 
     /// Bilinear sample at a continuous pixel coordinate (integers are pixel centres).
     let private sampleAt (size : V2i, f : int -> int -> float) (p : V2d) =
@@ -755,7 +761,8 @@ module ImageInspector =
         // swallowed by the render control, must not leave hovering blocked
         | ImageInspectorAction.DragEnd
         | ImageInspectorAction.Hover _ -> { v with dragFrom = None }
-        | ImageInspectorAction.ResetView -> ImageView.initial
+        | ImageInspectorAction.ResetView
+        | ImageInspectorAction.SetEnabled _ -> ImageView.initial
         | ImageInspectorAction.HoverResult _
         | ImageInspectorAction.Click _
         | ImageInspectorAction.ToggleMeasure
@@ -933,7 +940,7 @@ module ImageInspector =
     let private fmt (v : float) = v.ToString("0.0", Globalization.CultureInfo.InvariantCulture)
     let private fmt2 (v : float) = v.ToString("0.00", Globalization.CultureInfo.InvariantCulture)
 
-    let view (m : AdaptiveModel) : DomNode<ViewerAction> =
+    let private enabledView (m : AdaptiveModel) : DomNode<ViewerAction> =
         // whole-model snapshots: they change rarely compared with the hover, and the projector
         // itself is memoized
         let context =
@@ -1157,6 +1164,8 @@ module ImageInspector =
                 | Some (Ok _) ->
                     yield button [ clazz "ui mini inverted basic button"; onClick (fun _ -> ImageInspectorMessage ImageInspectorAction.CreateScaleBar) ] [ text "Create scale bar" ]
                 | _ -> ()
+                yield button [ clazz "ui mini inverted basic button"; style "margin-left:8px"; attribute "title" "switch the experimental Image Inspector off"
+                               onClick (fun _ -> ImageInspectorMessage (ImageInspectorAction.SetEnabled false)) ] [ text "Off" ]
             }
 
         div [ style "position:relative; width:100%; height:100%; display:flex; flex-direction:column; color:#ddd; font-size:12px" ] [
@@ -1176,3 +1185,17 @@ module ImageInspector =
                 Incremental.div (AttributeMap.ofList [ style "flex:none; display:flex; align-items:center" ]) controls
             ]
         ]
+
+    /// The panel is experimental: until switched on it shows only this button -- no
+    /// texture, no render control, no picking -- so opening it by accident costs nothing.
+    let view (m : AdaptiveModel) : DomNode<ViewerAction> =
+        let off =
+            div [ style "width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; color:#bbb; font-size:13px" ] [
+                div [] [ text "Image Inspector is experimental (shadow depth / height measurement)." ]
+                button [ clazz "ui small inverted button"; onClick (fun _ -> ImageInspectorMessage (ImageInspectorAction.SetEnabled true)) ] [ text "Experimental -- click to enable" ]
+            ]
+        Incremental.div (AttributeMap.ofList [ style "width:100%; height:100%" ]) (
+            alist {
+                let! enabled = m.imageInspectorEnabled
+                if enabled then yield enabledView m else yield off
+            })

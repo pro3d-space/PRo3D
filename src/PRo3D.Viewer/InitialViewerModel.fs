@@ -182,6 +182,7 @@ module Viewer =
             imageHover            = None
             imageView             = ImageView.initial
             shadowMeasure         = ShadowMeasure.initial
+            imageInspectorEnabled = false
             ellipseModel = None
             backgroundPicking = ThreadPool.empty
             pickPreviewRequested = new ConsumableAsyncValue<_>()
