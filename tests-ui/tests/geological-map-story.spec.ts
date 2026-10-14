@@ -183,19 +183,19 @@ test("story: a geological map of Dimorphos from scratch", async ({ browser }) =>
         // 4. the legend
         await clickButton(panel, "New unit");
         await clickButton(panel, "New unit");
-        await setUnitText(panel, 0, 0, "Lo");
-        await setUnitText(panel, 0, 1, "Smooth lowland");
-        await setUnitText(panel, 1, 0, "Hi");
-        await setUnitText(panel, 1, 1, "Rough highland");
+        await setUnitText(panel, 0, 0, "A");
+        await setUnitText(panel, 0, 1, "Unit A");
+        await setUnitText(panel, 1, 0, "B");
+        await setUnitText(panel, 1, 1, "Unit B");
         save("04-legend.png", await panel.screenshot());
 
         // 5. assigning: one click per unit
         const brush = "Assign unit - click or drag across units of the active geological map";
         await clickTool(render, brush);
         await expect.poll(async () => (await tool(render, brush)).active, { timeout: 30_000 }).toBe(true);
-        await activeUnitIcon(panel, "Lo");
+        await activeUnitIcon(panel, "A");
         await gesture(render, at(0.50, 0.48));
-        await activeUnitIcon(panel, "Hi");
+        await activeUnitIcon(panel, "B");
         await gesture(render, at(0.75, 0.50));
         await expect.poll(() => panelText(panel), { timeout: 30_000 }).not.toContain("without a label");
         await shot("05-assigned.png");
@@ -227,10 +227,10 @@ test("story: a geological map of Dimorphos from scratch", async ({ browser }) =>
 
         // 7. a third unit for the new part
         await clickButton(panel, "New unit");
-        await setUnitText(panel, 2, 0, "Ej");
-        await setUnitText(panel, 2, 1, "Ejecta blanket");
+        await setUnitText(panel, 2, 0, "C");
+        await setUnitText(panel, 2, 1, "Unit C");
         await clickTool(render, brush);
-        await activeUnitIcon(panel, "Ej");
+        await activeUnitIcon(panel, "C");
         await gesture(render, at(0.38, 0.48));
         await expect.poll(() => panelText(panel), { timeout: 30_000 }).not.toContain("without a label");
         await shot("09-third-unit.png");
@@ -246,10 +246,10 @@ test("story: a geological map of Dimorphos from scratch", async ({ browser }) =>
         await expect.poll(() => panelText(panel), { timeout: 120_000 }).toContain("4 units");
         await shot("10-crater.png");
         await clickButton(panel, "New unit");
-        await setUnitText(panel, 3, 0, "Cr");
-        await setUnitText(panel, 3, 1, "Crater floor");
+        await setUnitText(panel, 3, 0, "D");
+        await setUnitText(panel, 3, 1, "Unit D");
         await clickTool(render, brush);
-        await activeUnitIcon(panel, "Cr");
+        await activeUnitIcon(panel, "D");
         await gesture(render, at(0.565, 0.48));
         await expect.poll(() => panelText(panel), { timeout: 30_000 }).not.toContain("without a label");
         await shot("11-crater-assigned.png");
@@ -284,10 +284,10 @@ test("story: a geological map of Dimorphos from scratch", async ({ browser }) =>
         await expect.poll(() => panelText(panel), { timeout: 60_000 }).toContain("5 units");
         await shot("13-ring-cut.png");
         await clickButton(panel, "New unit");
-        await setUnitText(panel, 4, 0, "Tr");
-        await setUnitText(panel, 4, 1, "Terrace");
+        await setUnitText(panel, 4, 0, "E");
+        await setUnitText(panel, 4, 1, "Unit E");
         await clickTool(render, brush);
-        await activeUnitIcon(panel, "Tr");
+        await activeUnitIcon(panel, "E");
         await gesture(render, at(0.63, 0.40));
         await expect.poll(() => panelText(panel), { timeout: 30_000 }).not.toContain("without a label");
         await shot("14-terrace.png");

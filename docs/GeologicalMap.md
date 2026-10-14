@@ -17,7 +17,7 @@ The grey area is a unit without a label point yet.*
 
 Status: first version (#843). What is not there yet is listed [below](#not-yet).
 
-A walk-through with pictures (a made-up example, not real Dimorphos geology), from an empty group to a checked map: [GeologicalMap-story.md](GeologicalMap-story.md).
+A walk-through with pictures (a made-up example), from an empty group to a checked map: [GeologicalMap-story.md](GeologicalMap-story.md).
 
 ## Concepts
 
