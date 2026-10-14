@@ -62,7 +62,9 @@ fraction of a millisecond per frame.
   (an average weighted by their opacities), not one laid over the other.
 - In the 2D map view fills are drawn flat; there is no terrain to drape onto.
 - Snapshots (PRo3D.Snapshots) use a slower fill renderer that gives the same picture.
-- Screenshots requested at a resolution other than the window's (server screenshot API) show
-  the surfaces rendered at window resolution and scaled.
+- Screenshots requested through the server screenshot API render the surfaces at the requested
+  size and sample count, so any resolution or aspect ratio works. Very large screenshots need
+  correspondingly more GPU memory while they are taken.
+
 
 Implementation notes for developers: [ai/RENDERING.md](../ai/RENDERING.md#annotation-fills--against-the-surface-depth-841).

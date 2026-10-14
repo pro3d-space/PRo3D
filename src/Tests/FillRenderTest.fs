@@ -80,22 +80,27 @@ let private fillGeometry (viewTrafo : aval<Trafo3d>) (reach : FillReach) (annos 
     PackedRendering.fills ColorByCategory.disabled (AVal.constant Planet.None) (AVal.constant reach)
         (AVal.constant 0.0) ordered (viewTrafo |> AVal.map (fun t -> t.Forward))
 
-/// What the viewer renders, in its order: the surfaces (offscreen, then copied back with
-/// their depth), then the fills against the surfaces' depth texture.
-let private deferredScene runtime (signature : IFramebufferSignature) (viewTrafo : aval<Trafo3d>) (projTrafo : aval<Trafo3d>) (fills : Option<PackedRendering.FillGeometry>) =
+/// What the viewer renders, in its order: the surfaces (offscreen with `offscreenSamples`,
+/// then copied back with their depth into a target of `signature`), then the fills against
+/// the surfaces' depth texture.
+let private deferredScene' runtime (offscreenSamples : int) (signature : IFramebufferSignature) (viewTrafo : aval<Trafo3d>) (projTrafo : aval<Trafo3d>) (fills : Option<PackedRendering.FillGeometry>) =
     let withCamera sg = sg |> Sg.viewTrafo viewTrafo |> Sg.projTrafo projTrafo
-    let color, depth = OffscreenSurfaces.render runtime signature.Samples C4f.Black (AVal.constant size) (withCamera terrain)
+    let color, depth = OffscreenSurfaces.render runtime offscreenSamples (AVal.constant size) (withCamera terrain)
     [
-        OffscreenSurfaces.blit color depth
+        OffscreenSurfaces.blit signature.Samples color depth
         match fills with
         | Some f -> PackedRendering.DeferredFills.render runtime f depth (AVal.constant size) viewTrafo projTrafo
         | None -> ()
     ]
 
-/// Offscreen target; renders `sgs` one after the other, as the viewer's render commands do.
-type private Target(runtime : IRuntime, signature : IFramebufferSignature, sgs : list<ISg>) =
+let private deferredScene runtime (signature : IFramebufferSignature) viewTrafo projTrafo fills =
+    deferredScene' runtime signature.Samples signature viewTrafo projTrafo fills
+
+/// Offscreen target, cleared to `background` (default black); renders `sgs` one after the
+/// other, as the viewer's render commands do.
+type private Target(runtime : IRuntime, signature : IFramebufferSignature, sgs : list<ISg>, ?background : C4f) =
     let tasks       = sgs |> List.map (fun sg -> runtime.CompileRender(signature, sg))
-    let clear       = runtime.CompileClear(signature, clear { color C4f.Black; depth 1.0; stencil 0 })
+    let clear       = runtime.CompileClear(signature, clear { color (defaultArg background C4f.Black); depth 1.0; stencil 0 })
     let color       = runtime.CreateTexture2D(size, TextureFormat.Rgba8, 1, signature.Samples)
     let depth       = runtime.CreateRenderbuffer(size, TextureFormat.Depth24Stencil8, signature.Samples)
     let resolved    = runtime.CreateTexture2D(size, TextureFormat.Rgba8)
@@ -271,8 +276,8 @@ let tests () =
                     }
                 let groups =
                     OffscreenSurfaces.inPriorityGroups viewTrafo projTrafo (AList.ofList [ terrain; patch ])
-                let color, depth = OffscreenSurfaces.render runtime signature.Samples C4f.Black (AVal.constant size) groups
-                use target = new Target(runtime, signature, [ OffscreenSurfaces.blit color depth ])
+                let color, depth = OffscreenSurfaces.render runtime signature.Samples (AVal.constant size) groups
+                use target = new Target(runtime, signature, [ OffscreenSurfaces.blit signature.Samples color depth ])
                 target.Frame()
                 let image = target.Image()
                 // terrain only: a point well outside the patch, on the centre row
@@ -283,7 +288,92 @@ let tests () =
                 Expect.isLessThan (green image (size.X / 2) (size.Y / 2)) 40uy "the group-1 patch is drawn at the centre")
         }
 
+        test "the copy keeps the target's clear colour, and blends translucent surfaces as drawn directly" {
+            withGL (fun runtime signature ->
+                // a server screenshot clears to its own `background`: where no surface is, the
+                // copy must leave it, and a translucent surface must come out as if drawn
+                // straight into the target (the surfaces are rendered over transparent black,
+                // premultiplied, and copied with premultiplied blending)
+                let background = C4f(0.0f, 0.5f, 1.0f, 1.0f)
+                let camera = CameraView.lookAt (V3d(0.0, 0.0, 30.0)) (V3d(0.0, 0.0, 0.0)) V3d.OIO
+                let viewTrafo = AVal.constant (CameraView.viewTrafo camera)
+                let projTrafo = AVal.constant (Frustum.projTrafo (frustumFor 200.0))
+                let withCamera sg = sg |> Sg.viewTrafo viewTrafo |> Sg.projTrafo projTrafo
+                // half red, from over the terrain (|x| <= 15) out over the background
+                let glass =
+                    let p = [| V3f(10.0f, -2.0f, 4.0f); V3f(20.0f, -2.0f, 4.0f); V3f(20.0f, 2.0f, 4.0f); V3f(10.0f, -2.0f, 4.0f); V3f(20.0f, 2.0f, 4.0f); V3f(10.0f, 2.0f, 4.0f) |]
+                    Sg.draw IndexedGeometryMode.TriangleList
+                    |> Sg.vertexAttribute DefaultSemantic.Positions (AVal.constant p)
+                    |> Sg.vertexAttribute DefaultSemantic.Colors (AVal.constant (Array.create p.Length (C4b(255uy, 0uy, 0uy, 128uy))))
+                    |> Sg.shader {
+                        do! DefaultSurfaces.trafo
+                        do! DefaultSurfaces.vertexColor
+                    }
+                    |> Sg.blendMode (AVal.constant BlendMode.Blend)
+
+                let direct =
+                    use target = new Target(runtime, signature, [ withCamera terrain; withCamera glass ], background)
+                    target.Frame()
+                    target.Image()
+                let copied =
+                    let groups = OffscreenSurfaces.inPriorityGroups viewTrafo projTrafo (AList.ofList [ terrain; glass ])
+                    let color, depth = OffscreenSurfaces.render runtime signature.Samples (AVal.constant size) groups
+                    use target = new Target(runtime, signature, [ OffscreenSurfaces.blit signature.Samples color depth ], background)
+                    target.Frame()
+                    target.Image()
+
+                let column (x : float) =
+                    let ndc = (CameraView.viewTrafo camera * Frustum.projTrafo (frustumFor 200.0)).Forward.TransformPosProj (V3d(x, 0.0, 0.0))
+                    int64 (round ((ndc.X * 0.5 + 0.5) * float size.X))
+                let row = int64 (size.Y / 2)
+                // beyond the terrain, below the camera's view edge (30 * tan 30 = 17.3)
+                Expect.isGreaterThan (green copied 2 2) 100uy "no surface in the corner: the clear colour (green 128) stays"
+                Expect.isTrue (samePixel copied direct 2L 2L) "the corner as in the direct render"
+                Expect.isTrue (samePixel copied direct (column 0.0) row) "opaque terrain as in the direct render"
+                Expect.isTrue (samePixel copied direct (column 12.0) row) "translucent over the terrain as in the direct render"
+                Expect.isTrue (samePixel copied direct (column 16.5) row) "translucent over the clear colour as in the direct render")
+        }
+
+        test "the copy converts to a target of another sample count" {
+            withGL (fun runtime signature ->
+                // the surfaces render with the viewer's sample count (their OPC patches are
+                // prepared for it); a screenshot with samples=1 or samples=8 has another
+                let camera = CameraView.lookAt (V3d(0.0, 0.0, 30.0)) (V3d(0.0, 0.0, 0.0)) V3d.OIO
+                let viewTrafo = AVal.constant (CameraView.viewTrafo camera)
+                let projTrafo = AVal.constant (Frustum.projTrafo (frustumFor 200.0))
+                let withCamera sg = sg |> Sg.viewTrafo viewTrafo |> Sg.projTrafo projTrafo
+                let fills = Some (fillGeometry viewTrafo (FillReach.Metres 5.0) [ filledSquare () ])
+                for samples in [ 1; 8 ] do
+                    use target = runtime.CreateFramebufferSignature([ DefaultSemantic.Colors, TextureFormat.Rgba8; DefaultSemantic.DepthStencil, TextureFormat.Depth24Stencil8 ], samples)
+                    let direct =
+                        use t = new Target(runtime, target, [ withCamera terrain ])
+                        t.Frame()
+                        t.Image()
+                    let copied, filled =
+                        let color, depth = OffscreenSurfaces.render runtime signature.Samples (AVal.constant size) (withCamera terrain)
+                        use t = new Target(runtime, target, [ OffscreenSurfaces.blit samples color depth ])
+                        t.Frame()
+                        let copied = t.Image()
+                        // and the fills against it, drawn into the target as in the viewer
+                        use f = new Target(runtime, target, deferredScene' runtime signature.Samples target viewTrafo projTrafo fills)
+
+                        f.Frame()
+                        copied, f.Image()
+                    let mutable worst = 0
+                    for y in 0L .. int64 size.Y - 1L do
+                        for x in 0L .. int64 size.X - 1L do
+                            for c in 0L .. 2L do
+                                worst <- max worst (abs (int (copied.GetChannel(c).[x, y]) - int (direct.GetChannel(c).[x, y])))
+                    printfn "[fill] copy into %d samples: worst channel difference %d" samples worst
+                    // the terrain silhouette edge may differ by the coverage the sample counts resolve
+                    Expect.isLessThan worst 140 (sprintf "%d samples: no garbage" samples)
+                    Expect.isTrue (samePixel copied direct (int64 (size.X / 2)) (int64 (size.Y / 2))) (sprintf "%d samples: the centre as drawn directly" samples)
+                    Expect.isGreaterThan (filledPixels filled) 1000 (sprintf "%d samples: the fill lands on the copied terrain" samples))
+        }
+
         test "fills overlapping on the terrain blend" {
+
+
             withGL (fun runtime signature ->
                 let camera = CameraView.lookAt (V3d(0.0, 0.0, 30.0)) (V3d(0.0, 0.0, 0.0)) V3d.OIO
                 let left  = square -2.0 0.0 3.0 C4b.Red 0.5

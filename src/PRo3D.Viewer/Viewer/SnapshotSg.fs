@@ -138,8 +138,12 @@ module SnapshotSg =
 
         let overlayed = ViewerApp.createOverlaySg m
 
-        let depthTested = 
-            ViewerApp.getDepthTested frustum m.navigation.camera.view observer None id runtime m //annotations + scaleBars
+        // Snapshots render surfaces directly, so their fills use the stencil renderer, in the
+        // same scene graph as the annotations (its passes run ahead of theirs)
+        let depthTested =
+            let sg, fills = ViewerApp.getDepthTested frustum m.navigation.camera.view observer id runtime m //annotations + scaleBars
+            Sg.ofList [ sg; PackedRendering.packedFillRender fills |> Sg.noEvents ]
+
 
         let camera = AVal.map2 (fun v f -> Camera.create v f) m.navigation.camera.view m.frustum 
         let sg = createSceneGraph m.scene.surfacesModel.sgGrouped 

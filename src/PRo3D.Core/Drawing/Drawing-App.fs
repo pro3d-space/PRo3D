@@ -982,9 +982,6 @@ module DrawingApp =
         (observerSystem : aval<Option<ObserverSystem>>)
         /// the scene body: bounds the automatic fill reach (FillReach.maxAuto)
         (planet           : aval<Planet>)
-        /// the surfaces' depth as a texture, when the view renders them offscreen (OffscreenSurfaces):
-        /// fills are then drawn against it in one draw. None: the stencil renderer.
-        (surfaceDepth     : Option<OffscreenSurfaces.SurfaceDepth>)
         (view             : aval<CameraView>)
         (frustum          : aval<Frustum>)
         (runtime          : IRuntime)
@@ -994,7 +991,10 @@ module DrawingApp =
         /// both drawn and pickable only while the user is actually editing.
         (vertexEditingAllowed : aval<bool>)
         (model            : AdaptiveDrawingModel)
-        : ISg<DrawingAction> * ISg<DrawingAction> =
+        /// overlay, depth-tested, and the fills - not rendered here: how they are drawn depends on
+        /// the view (against its offscreen surface depth, PackedRendering.DeferredFills, which
+        /// exists per render client; or PackedRendering.packedFillRender, the stencil renderer)
+        : ISg<DrawingAction> * ISg<DrawingAction> * PackedRendering.FillGeometry =
         // order is irrelevant for rendering. change list to set,
         // since set provides more degrees of freedom for the compiler           
         let annoSet = 
@@ -1141,19 +1141,12 @@ module DrawingApp =
                 PackedRendering.points model.colorByCategory (model.annotations.selectedLeaves |> ASet.map (fun l -> l.id)) (annoSet |> ASet.map ((fun (g, (s,t)) -> g,s))) config.offset viewMatrix
                 |> Sg.noEvents
 
-            // the fills run in their own passes ahead of the main pass (PackedRendering.packedFillRender),
-            // so outlines draw on top of them regardless of list order.
+            // fillGeometry is returned, not drawn: both fill renderers run in their own passes
+            // ahead of the main pass, so outlines draw on top of them wherever the caller adds them.
             //
             // NOTE: the spice trafo (t) is dropped here exactly as linesNoIndirect drops it, so
             // fill and outline stay aligned. The legacy branch below applies it to both for the
             // same reason. See pro3d-space/PRo3D#672.
-            let packedFills =
-                // against the surfaces' depth texture when the view renders them offscreen (one
-                // draw for any number of fills); otherwise the stencil renderer
-                match surfaceDepth with
-                | Some s -> PackedRendering.DeferredFills.renderOn runtime s fillGeometry
-                | None   -> PackedRendering.packedFillRender fillGeometry
-                |> Sg.noEvents
 
             // after the lines, so a handle is never hidden by the outline running through it -
             // matching the pick pass, where handles are drawn last for the same reason
@@ -1165,7 +1158,7 @@ module DrawingApp =
                 Sg.ofList [
                     // brush model.hoverPosition;
                     annotations
-                    Sg.ofSeq [packedFills; packedLines; packedPoints; packedVertexHandles]
+                    Sg.ofSeq [packedLines; packedPoints; packedVertexHandles]
                     Sg.drawWorkingAnnotation config.offset (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption model.working) // TODO v5: why need fully qualified
                     Sg.drawWorkingAnnotation config.offset (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption model.cutStroke)
                 ]
@@ -1178,7 +1171,7 @@ module DrawingApp =
                 PackedRendering.fastDns config model.dnsColorLegend (annoSet |> ASet.map ((fun (g, (s,t)) -> g,s))) view
                 |> Sg.noEvents
 
-            (overlay, depthTest)
+            (overlay, depthTest, fillGeometry)
 
         else
             Log.startTimed "[Drawing] creating finished annotation geometry"
@@ -1209,16 +1202,10 @@ module DrawingApp =
                 PackedRendering.fillsWithTrafos
                     model.colorByCategory planet (msmallConfig.getFillReach mbigConfig) config.offset
                     (annoSet |> ASet.map snd) viewMatrix
-                |> (fun g ->
-                    match surfaceDepth with
-                    | Some s -> PackedRendering.DeferredFills.renderOn runtime s g
-                    | None   -> PackedRendering.packedFillRender g)
-                |> Sg.noEvents
 
             let overlay =
                 Sg.ofList [
                     // brush model.hoverPosition;
-                    fills
                     annotations
                     Sg.drawWorkingAnnotation config.offset (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption model.working) // TODO v5: why need fully qualified
                     Sg.drawWorkingAnnotation config.offset (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption model.cutStroke)
@@ -1228,5 +1215,6 @@ module DrawingApp =
                 annoSet 
                 |> ASet.map(fun (_,(a,t)) -> Sg.finishedAnnotationDiscs a config model.dnsColorLegend view |> Sg.trafo t) |> Sg.set
 
-            (overlay, depthTest)
+            (overlay, depthTest, fills)
+
             
