@@ -43,8 +43,12 @@ let private anno (geometry : Geometry) (points : list<V3d>) : Annotation =
             Annotation.Initial.thickness "test-surface"
     { a with points = IndexList.ofList points }
 
+/// a 1000 x 1000 px view, for the sample spacing along segments
+let private viewport = V2d(1000.0, 1000.0)
+
+/// the hit test with occlusion ignored
 let private hits viewProj rect (annotations : list<Annotation>) =
-    DrawingApp.annotationsTouchingRect viewProj rect annotations |> Set.ofList
+    DrawingApp.annotationsTouchingRect viewProj viewport rect (fun _ -> true) annotations |> Set.ofList
 
 let private run = Draw.run Draw.refSystemFlat
 
@@ -211,7 +215,9 @@ let private selectionTests =
             let boxed =
                 DrawingApp.annotationsTouchingRect
                     (CameraView.viewTrafo view * Frustum.projTrafo (Frustum.ortho (Box3d(V3d(-30.0, -30.0, 0.1), V3d(30.0, 30.0, 100.0)))))
+                    viewport
                     (ndc -0.1 -0.1 0.4 0.2)
+                    (fun _ -> true)
                     (Draw.annotations m)
             match keys with
             | [ a; b; c ] ->
@@ -225,8 +231,134 @@ let private selectionTests =
         }
     ]
 
+// ---------------------------------------------------------------------------------------------
+// occlusion: a flat "terrain" at z = 0 seen from above, as the KdTree ray cast would report it
+
+/// distance along a ray to the plane z = 0, the way Picking.castToSurfaces answers
+let private terrainPlane (ray : Ray3d) : Option<float> =
+    if ray.Direction.Z >= 0.0 then None
+    else
+        let t = -ray.Origin.Z / ray.Direction.Z
+        if t > 0.0 then Some t else None
+
+/// the depth offset annotations are drawn with, as the viewer passes it
+let private depthOffsetClip =
+    PRo3D.Base.Shader.DepthOffset.toClip PRo3D.Base.Shader.DepthOffset.annotationWorld
+
+let private visibleOver (castRay : Ray3d -> Option<float>) viewProj =
+    DrawingApp.pointVisible viewProj depthOffsetClip castRay
+
+let private occludedHits viewProj rect (annotations : list<Annotation>) =
+    DrawingApp.annotationsTouchingRect viewProj viewport rect (visibleOver terrainPlane viewProj) annotations
+    |> Set.ofList
+
+/// runs from (-5,0,1), above the terrain, to (5,0,-1), below it: hidden for x > 0
+let private halfBuried () = anno Geometry.Line [ V3d(-5.0, 0.0, 1.0); V3d(5.0, 0.0, -1.0) ]
+
+let private occlusionTests =
+    testList "Occlusion" [
+
+        test "TC-22.4 a point on the terrain is visible, one below it hidden, one above it visible" {
+            let visible = visibleOver terrainPlane orthoViewProj
+            Expect.isTrue  (visible (V3d(1.0, 1.0, 0.0)))  "on the surface: the depth offset keeps it in front, as on screen"
+            Expect.isFalse (visible (V3d(1.0, 1.0, -1.0))) "a metre below the surface"
+            Expect.isTrue  (visible (V3d(1.0, 1.0, 1.0)))  "a metre above it"
+            Expect.isFalse (visibleOver terrainPlane perspectiveViewProj (V3d(1.0, 1.0, -1.0))) "also through a perspective camera"
+        }
+
+        test "TC-22.4 a box over a fully buried annotation selects nothing" {
+            let buried = anno Geometry.Polyline [ V3d(-2.0, 0.0, -1.0); V3d(0.0, 2.0, -1.0); V3d(2.0, 0.0, -1.0) ]
+            Expect.isEmpty (occludedHits orthoViewProj fullScreen [ buried ]) "hidden everywhere"
+            Expect.equal (hits orthoViewProj fullScreen [ buried ]) (Set.singleton buried.key)
+                "projection alone would have selected it"
+        }
+
+        test "TC-22.4 a partly buried annotation is selected only where the box covers its visible part" {
+            let l = halfBuried ()
+            Expect.equal (occludedHits orthoViewProj (ndc -0.4 -0.1 -0.2 0.1) [ l ]) (Set.singleton l.key) "box over the visible end"
+            Expect.isEmpty (occludedHits orthoViewProj (ndc 0.2 -0.1 0.4 0.1) [ l ]) "box over the buried end only"
+        }
+
+        test "TC-22.4 a fully hidden annotation costs at most the ray cap" {
+            let mutable rays = 0
+            let counting (ray : Ray3d) = rays <- rays + 1; terrainPlane ray
+            // a long, densely sampled polyline buried along its whole length
+            let buried = anno Geometry.Polyline [ for i in 0 .. 50 -> V3d(-9.0 + 0.36 * float i, 0.0, -1.0) ]
+            let selected =
+                DrawingApp.annotationsTouchingRect orthoViewProj viewport fullScreen
+                    (DrawingApp.pointVisible orthoViewProj depthOffsetClip counting) [ buried ]
+            Expect.isEmpty selected "hidden"
+            Expect.isLessThanOrEqual rays DrawingApp.maxVisibilityRaysPerAnnotation "bounded by the cap"
+            Expect.isGreaterThan rays 1 "but it did look at more than one sample"
+        }
+
+        test "TC-22.5 a click on the visible part of a partly buried annotation finds a visible point" {
+            let l = halfBuried ()
+            let visible = visibleOver terrainPlane orthoViewProj
+            match DrawingApp.annotationPointUnderCursor orthoViewProj viewport (V2d(-0.3, 0.0)) l,
+                  DrawingApp.annotationPointUnderCursor orthoViewProj viewport (V2d( 0.3, 0.0)) l with
+            | Some onVisible, Some onBuried ->
+                Expect.floatClose Accuracy.medium onVisible.X -3.0 "the clicked point, at world x = -3"
+                Expect.isTrue  (visible onVisible) "the visible part: the click selects"
+                Expect.isFalse (visible onBuried)  "the buried part: the click is ignored"
+            | _ -> failtest "the line is in front of the camera"
+        }
+
+        test "TC-22.5 the point under the cursor is perspective-correct" {
+            // a line receding from the camera: its screen midpoint is not its world midpoint
+            let l  = anno Geometry.Line [ V3d(-2.0, 0.0, 5.0); V3d(4.0, 0.0, -20.0) ]
+            let vp = perspectiveViewProj
+            let project (p : V3d) = vp.Forward.TransformPosProj p |> fun v -> V2d(v.X, v.Y)
+            let a, b   = project (V3d(-2.0, 0.0, 5.0)), project (V3d(4.0, 0.0, -20.0))
+            let cursor = (a + b) * 0.5
+            match DrawingApp.annotationPointUnderCursor vp viewport cursor l with
+            | Some p ->
+                Expect.isLessThan ((project p - cursor).Length) 1e-9 "re-projects onto the cursor"
+                Expect.isGreaterThan ((p - V3d(1.0, 0.0, -7.5)).Length) 0.5 "and is not the world midpoint"
+            | None -> failtest "the line is in front of the camera"
+        }
+
+        test "TC-22.6 against real terrain: on the MSL surface visible, 1 m into it hidden" {
+            let opc = Render.opcSurfaceDir
+            if not (System.IO.Directory.Exists opc) then
+                skiptest (sprintf "no MSL OPC at %s -- run: git submodule update --init src/Tests/resources" opc)
+            PRo3D.Core.Surface.HeadlessPicking.init ()
+            let kdTrees =
+                PRo3D.Core.Surface.HeadlessPicking.loadHierarchies opc
+                |> PRo3D.Core.Surface.HeadlessPicking.loadKdTreeMap
+            if kdTrees.IsEmpty then skiptest (sprintf "no kd-trees under %s" opc)
+
+            let mutable cache = HashMap.empty
+            let castRay (ray : Ray3d) =
+                let hit, c = PRo3D.Core.Surface.HeadlessPicking.intersectAll kdTrees cache (FastRay3d ray)
+                cache <- c
+                hit |> Option.map (fun h -> h.hit.RayHit.T)
+
+            // look down onto the middle of the surface from above, along the local up. The MSL
+            // outcrop is only metres across, so keep the camera at least 20 m away: the points
+            // tested 1 m above the ground must stay in front of it.
+            let bb     = kdTrees |> HashMap.toList |> List.map fst |> Box3d
+            let centre = bb.Center
+            let up     = if centre.Length > 1.0e5 then centre.Normalized else V3d.OOI
+            let eye    = centre + up * max 20.0 (2.0 * bb.Size.Length)
+            let toward = (centre - eye).Normalized
+            match castRay (Ray3d(eye, toward)) with
+            | None -> skiptest "the look-down ray misses the surface"
+            | Some t ->
+                let ground   = eye + toward * t
+                let side     = if abs (Vec.dot up V3d.OOI) > 0.9 then V3d.IOO else V3d.OOI
+                let view     = CameraView.lookAt eye ground (Vec.cross (Vec.cross toward side) toward)
+                let viewProj = CameraView.viewTrafo view * Frustum.projTrafo (Frustum.perspective 60.0 1.0 (t * 4.0) 1.0)
+                let visible  = DrawingApp.pointVisible viewProj depthOffsetClip castRay
+                Expect.isTrue  (visible ground) "a point on the terrain"
+                Expect.isFalse (visible (ground + toward * 1.0)) "the same point 1 m into the terrain"
+                Expect.isTrue  (visible (ground - toward * 1.0)) "and 1 m above it"
+        }
+    ]
+
 let tests =
     testList "Section 22 - Box selection of annotations" [
         hitTests
         selectionTests
+        occlusionTests
     ]

@@ -39,10 +39,49 @@ therefore be picked up by any visible part.
   control points. Ellipses are tested along their sampled outline, which is what they store.
 - Hidden annotations, either toggled invisible or in a hidden group, are never selected.
 - Geometry behind the camera is clipped away; it cannot land on screen.
-- **Occlusion is not considered.** An annotation hidden behind terrain is still selected if its
-  projection touches the rectangle.
+- **Annotations hidden behind the surface are not selected.** Only the part of an annotation
+  inside the rectangle counts, and it must be visible: a box over the visible end of an
+  annotation that runs behind a hill selects it, and a box over only its hidden end does not.
+  See [Occlusion](#occlusion).
 - A filled polygon is selected by its outline only. A rectangle drawn entirely inside the
   polygon, touching no edge, does not select it.
+
+## Occlusion
+
+On screen, annotations behind a surface are hidden by the GPU depth test: the surfaces are
+drawn first, then the annotation lines are drawn against their depth. That depth buffer lives
+inside the render control and is not available to the selection, so selection repeats the test
+on the CPU with the surfaces' picking KdTrees.
+
+- **Box.** Samples are taken along the part of each annotation inside the rectangle: its
+  vertices there, plus a point about every 8 px along segments crossing it. Each sample is
+  tested with a ray from the camera. The first visible sample selects the annotation. At most 32
+  rays are spent per annotation (`DrawingApp.maxVisibilityRaysPerAnnotation`); an annotation
+  with no visible sample among them counts as hidden.
+- **Ctrl+click.** The click is tested at the annotation point under the cursor
+  (`DrawingApp.annotationPointUnderCursor`), with the camera of that click. Clicking the visible
+  part of a partly hidden annotation selects it; clicking a hidden part does nothing. This
+  applies in every mode that picks annotations, including Edit Annotation re-selection.
+  Grabbing a control-point handle is unaffected, since handles are drawn on top of everything.
+- **Click on empty space.** A click on a surface that hides an annotation clears the
+  selection, because nothing selectable is visible there.
+
+The comparison is the depth test itself (`DrawingApp.pointVisible`). The annotation's depth is
+offset toward the camera exactly as `depthOffsetFS` offsets it on the GPU, with the same
+constant (`Shader.DepthOffset.annotationWorld`, converted by `Shader.DepthOffset.toClip`), so
+an annotation lying on the terrain counts as visible, just as it is drawn.
+
+**Cost.** Nothing per frame; rays are cast only on release or click. The first test on a surface
+patch loads its KdTree from disk, as the first surface pick does, so the first box selection in
+a fresh scene can pause briefly.
+
+**Where it differs from the screen:**
+
+- Every visible surface occludes. On screen, annotations are depth-tested only against the last
+  surface priority group drawn.
+- Surfaces without KdTrees never occlude.
+- **Hover highlighting** still comes from the annotation pick pass, which contains no terrain.
+  A hidden annotation can still light up under the cursor, but clicking it does nothing.
 
 ## Which selection it changes
 
@@ -62,7 +101,11 @@ Selection changes themselves are not undoable, as with every other selection cha
 
 | What | Where |
 |---|---|
-| Hit test: project in double on the CPU, clip against w > 0, vertex-in-rect and Liang–Barsky segment test | `DrawingApp.annotationsTouchingRect`, [Drawing-App.fs](../src/PRo3D.Core/Drawing/Drawing-App.fs) |
+| Hit test: project in double on the CPU, clip against w > 0, samples inside the rectangle (Liang–Barsky, perspective-correct) checked by a visibility predicate | `DrawingApp.annotationsTouchingRect`, [Drawing-App.fs](../src/PRo3D.Core/Drawing/Drawing-App.fs) |
+| Occlusion: the depth test on the CPU; the point a click lands on | `DrawingApp.pointVisible`, `DrawingApp.annotationPointUnderCursor` |
+| KdTree ray cast against the visible surfaces | `Picking.castToSurfaces`, [Picking.fs](../src/PRo3D.Viewer/Viewer/Picking.fs) |
+| Ctrl+click check: the pick pass sends `PickAnnotation (sceneHit, id)`, the viewer forwards `PickDirectly` only when the clicked part is visible | packed pick handler in `DrawingApp.view`; `clickedPartVisible` and the `PickAnnotation` case in [Viewer.fs](../src/PRo3D.Viewer/Viewer/Viewer.fs) |
+| The depth offset shared by the shaders and the CPU test | `Shader.DepthOffset.annotationWorld`, `Shader.DepthOffset.toClip`, [Utilities.fs](../src/PRo3D.Base/Utilities.fs) |
 | Selection modes; rebuilds `TreeSelection`s with each leaf's real group path | `SelectionMode`, `DrawingAction.SelectAnnotations`, `DrawingApp.selectAnnotations` |
 | Leaf → group path in one tree walk | `GroupsApp.leafPaths`, [GroupsApp.fs](../src/PRo3D.Core/GroupsApp.fs) |
 | Pointer events (relative position, control size, button, Shift/Alt; pointer capture) | `BoxSelectEvents`, `renderControlAttributes`, [Viewer.fs](../src/PRo3D.Viewer/Viewer/Viewer.fs) |
@@ -77,8 +120,8 @@ Notes:
   lose its release. The hit test runs once, on release.
 - **Click on empty space.** On a click, the same hit test runs on a small square around the
   cursor, sized like the pick pass's widened lines (`3 + 5 × pickingTolerance` px). Only when it
-  touches nothing is the selection cleared. A click on an annotation is still handled by the
-  existing pick (`PickDirectly`).
+  touches nothing visible is the selection cleared. A click on an annotation is still handled
+  by the existing pick, now with the occlusion check.
 - **Selection paths.** Viewport picks store the root path in their `TreeSelection`. The box
   selection stores the real group path, and drops any older entry for the same id, so nothing is
   ever selected twice.
@@ -106,5 +149,16 @@ Notes:
   - a sub-group path;
   - unknown ids.
 - **TC-22.3:** box-select, Delete, then one Undo.
+- **TC-22.4, occlusion in the box**, against a flat test terrain:
+  - a point on, below and above the terrain;
+  - a fully buried annotation;
+  - a partly buried one, boxed over its visible and over its hidden end;
+  - the ray cap.
+- **TC-22.5, the click point:**
+  - the visible and the buried part of a half-buried line;
+  - perspective-correct mapping back to the world.
+- **TC-22.6, real terrain:** the MSL OPC from `src/Tests/resources`, through
+  `HeadlessPicking`. A point on the surface is visible, 1 m into it hidden, 1 m above it
+  visible. Skipped without the data.
 
 The manual steps are in the test protocol as TC-62 (Box Selection of Annotations).

@@ -200,7 +200,8 @@ module ViewerApp =
             getArrowThickness   = fun (x:AdaptiveViewConfigModel) -> x.arrowThickness.value
             getArrowLength      = fun (x:AdaptiveViewConfigModel) -> x.arrowLength.value
             getDnsPlaneSize     = fun (x:AdaptiveViewConfigModel) -> x.dnsPlaneSize.value
-            getOffset           = fun (x:AdaptiveViewConfigModel) -> AVal.constant(0.1)//x.offset.value
+            // shared with the CPU occlusion test of annotation selection (DrawingApp.pointVisible)
+            getOffset           = fun (x:AdaptiveViewConfigModel) -> AVal.constant PRo3D.Base.Shader.DepthOffset.annotationWorld //x.offset.value
             getPickingTolerance = fun (x:AdaptiveViewConfigModel) -> x.pickingTolerance.value
         }
 
@@ -576,6 +577,14 @@ module ViewerApp =
 
     /// The annotations a pixel rectangle on the main render view touches, with the camera and
     /// frustum that view renders with.
+    /// Whether an annotation point is visible from the camera `viewProj`, i.e. not hidden by a
+    /// surface - the same decision the depth test makes on screen, with the same depth offset.
+    let private annotationPointVisible (m : Model) (viewProj : Trafo3d) =
+        DrawingApp.pointVisible
+            viewProj
+            (PRo3D.Base.Shader.DepthOffset.toClip PRo3D.Base.Shader.DepthOffset.annotationWorld)
+            (Picking.castToSurfaces m)
+
     let private annotationsInPixelBox (m : Model) (viewportSize : V2d) (box : Box2d) =
         if viewportSize.X <= 0.0 || viewportSize.Y <= 0.0 then []
         else
@@ -585,7 +594,22 @@ module ViewerApp =
             m.drawing.annotations.flat
             |> Leaf.toAnnotations
             |> HashMap.toValueList
-            |> DrawingApp.annotationsTouchingRect viewProj ndc
+            |> DrawingApp.annotationsTouchingRect viewProj viewportSize ndc (annotationPointVisible m viewProj)
+
+    /// A Ctrl+click on an annotation counts only if the clicked part of it is visible: the
+    /// annotation point nearest the click, tested against the surfaces with the click's own
+    /// camera. Fails open - an annotation or point that cannot be found keeps the click.
+    let private clickedPartVisible (m : Model) (hit : SceneHit) (id : Guid) =
+        let e = hit.event
+        match m.drawing.annotations.flat |> HashMap.tryFind id with
+        | Some (Leaf.Annotations a) when e.evtViewport.X > 0 && e.evtViewport.Y > 0 ->
+            let viewProj = e.evtView * e.evtProj
+            let size     = V2d e.evtViewport
+            let ndc      = pixelToNdc size (V2d e.evtPixel)
+            match DrawingApp.annotationPointUnderCursor viewProj size ndc a with
+            | Some p -> annotationPointVisible m viewProj p
+            | None   -> true
+        | _ -> true
 
     /// What a finished box gesture does to the selection, if anything. A drag selects what the
     /// rectangle touches (Alt toggles, else Shift adds, else it replaces). A click selects
@@ -933,7 +957,19 @@ module ViewerApp =
                     //{ m with correlationPlot = cp } |> shortFeedback msg
                     m
                 | None -> m
-                
+
+            // a Ctrl+click on an annotation (both renderers send PickAnnotation with the click's
+            // SceneHit): selects only if the clicked part is not hidden behind a surface - the
+            // pick pass that found the annotation contains no terrain (docs/AnnotationBoxSelection.md)
+            | Drawing.PickAnnotation (hit, id) ->
+                if clickedPartVisible m hit id then
+                    let drawing =
+                        DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue m.navigation.camera.view m.shiftFlag m.drawing (Drawing.PickDirectly id)
+                    { m with drawing = drawing } |> stash
+                else
+                    Log.line "[Viewer] ignoring click on a hidden part of annotation %A" id
+                    m
+
             | Drawing.UnionSelectedAnnotations None
             | Drawing.ApplyCutStroke None ->
                 // enrich the payload-less message with the terrain raycast, so vertices the

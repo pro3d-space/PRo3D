@@ -283,6 +283,15 @@ module Shader =
         [<GLSLIntrinsic("(gl_DepthRange.far - gl_DepthRange.near)")>]
         let depthDiff()  : float32 = onlyInShaderCode ""
 
+        /// The world-unit depth offset annotations are drawn with (the drawing config's
+        /// getOffset). Shared with the CPU occlusion test so selection agrees with the screen.
+        let annotationWorld = 0.1
+
+        /// World-unit offset -> the clip-space value of the DepthOffset uniform, which
+        /// depthOffsetFS subtracts from clip z before the perspective divide. The one place
+        /// this conversion lives; the CPU occlusion test (DrawingApp.pointVisible) uses it too.
+        let toClip (depthWorld : float) = depthWorld / (100.0 - 0.1)
+
         let depthOffsetFS (v : VertexDepth) =
             fragment {
                 let depthOffset = uniform.DepthOffset
@@ -921,7 +930,7 @@ module Sg =
         |> Sg.uniform "PointSize" pointSize
         |> Sg.uniform "SingleColor" color
         |> Sg.uniform "DepthOffset" (
-              offset |> AVal.map (fun depthWorld -> depthWorld / (100.0 - 0.1)))
+              offset |> AVal.map Shader.DepthOffset.toClip)
         |> Sg.effect [singleColorPointsEffect.Value]
     
     //## LINES ##
@@ -951,7 +960,7 @@ module Sg =
         |> Sg.noEvents
         |> Sg.effect [stableLinesHelperEffect]                            
         |> Sg.uniform "LineWidth" width
-        |> Sg.uniform "DepthOffset" (offset |> AVal.map (fun depthWorld -> depthWorld / (100.0 - 0.1))) 
+        |> Sg.uniform "DepthOffset" (offset |> AVal.map Shader.DepthOffset.toClip) 
 
     let drawLines (points: aval<V3d[]>) (offset: aval<float>) (color: aval<C4b>) (width: aval<float>) (trafo: aval<Trafo3d>) : ISg<_> = 
         let edges = edgeLines false points trafo

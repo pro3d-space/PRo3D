@@ -829,6 +829,7 @@
 		\begin{enumerate}[leftmargin=*, nosep]
 			\item In the actions drop-down, select \button{PickAnnotation} (or press \key{F3}).
 			\item Hold \key{Ctrl} and click \key{LMB} on or near an annotation in the main 3D view.
+			\item Turn the camera so that part of an annotation is hidden behind the surface (e.g. behind a hill). \key{Ctrl}+click where its hidden part lies, then on its visible part.
 		\end{enumerate} \\
 		\midrule
 		\textbf{Expected Result} &
@@ -837,6 +838,7 @@
 			\item It turns green in the annotations list.
 			\item It gets a green border in the 3D view.
 			\item Its properties are shown in the Properties panel.
+			\item A click where the annotation is hidden behind the surface does not select it; a click on its visible part does.
 		\end{itemize} \\
 		\midrule
 		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
@@ -864,6 +866,7 @@
 			\item Box-select two annotations again, then press \key{Delete}, then \key{Ctrl}+\key{Z}.
 			\item Start a \key{Ctrl}+drag and press \key{Esc} before releasing the mouse button.
 			\item Switch on Direct Tool Mode and repeat steps 2--4 without \key{Ctrl}; right-drag to orbit in between.
+			\item Turn the camera so that part of an annotation is hidden behind the surface. Box-select only its hidden part, then only its visible part.
 		\end{enumerate} \\
 		\midrule
 		\textbf{Expected Result} &
@@ -876,6 +879,7 @@
 			\item Step 6: \key{Delete} removes the two boxed annotations; one \key{Ctrl}+\key{Z} restores both.
 			\item Step 7: the rectangle disappears and the selection is unchanged.
 			\item Step 8: the same results; orbiting with the right button still works, and \key{Alt} does not open a menu.
+			\item Step 9: a box over only the hidden part selects nothing; a box over the visible part selects the annotation.
 		\end{itemize} \\
 		\midrule
 		\textbf{Result} & \checkbox~Pass \quad \checkbox~Fail \\
