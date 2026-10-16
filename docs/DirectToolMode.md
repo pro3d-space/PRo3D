@@ -44,6 +44,7 @@ There is **no stored arm state**. `toolArmed` together with the active
 |---|---|
 | place a point (`AddPointAdv`), cut-stroke point, coordinate cross, rover, … | `surfacePicking` (interaction ≠ Pick*) **&&** `toolArmed` **&&** left button — `ViewerUtils`, feeds `matchPickingInteraction` |
 | select an annotation / grab or drop a control point | `allowAnnotationPicking` = `toolArmed` **&&** interaction ∈ {`PickAnnotation`, `EditAnnotation`, `DrawLog`} — gates the annotation pick target |
+| start a box selection rectangle | `BoxSelectStart`: left button **&&** interaction = `PickAnnotation` **&&** `toolArmed` — see [AnnotationBoxSelection.md](AnnotationBoxSelection.md) |
 | draw the control-point handles | `allowVertexEditing` = interaction is `EditAnnotation` (no `toolArmed`, so handles stay visible while you reach for Ctrl) |
 
 `Model.ctrlFlag` / `Model.directToolMode` are the only inputs the handlers touch:

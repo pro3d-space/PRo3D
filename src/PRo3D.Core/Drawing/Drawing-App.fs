@@ -418,6 +418,113 @@ module DrawingApp =
         | None -> fun (a : Annotation) -> multiSelected |> HashSet.contains a.key
         | Some s -> fun (a : Annotation) -> a.key = s || multiSelected |> HashSet.contains a.key
 
+    /// Box selection hit test (docs/AnnotationBoxSelection.md): the visible annotations that a
+    /// screen rectangle touches - a vertex inside it, or a segment crossing it. `ndcRect` is in
+    /// normalized device coordinates (-1..1, y up), `viewProj` the camera's view * projection.
+    ///
+    /// Projects on the CPU in double: annotation points are planetary-scale world coordinates.
+    /// Segments are clipped against w > 0 before the perspective divide, so geometry behind the
+    /// camera cannot wrap onto the screen. Occlusion by terrain is not considered.
+    let annotationsTouchingRect (viewProj : Trafo3d) (ndcRect : Box2d) (annotations : seq<Annotation>) : list<Guid> =
+        let m   = viewProj.Forward
+        let eps = 1e-9
+
+        let toNdc (c : V4d) = V2d(c.X / c.W, c.Y / c.W)
+
+        // Liang-Barsky: does the 2D segment a-b reach into the rectangle?
+        let segmentHitsRect (a : V2d) (b : V2d) =
+            let d = b - a
+            let rec clip t0 t1 (constraints : list<float * float>) =
+                match constraints with
+                | [] -> t0 <= t1
+                | (p, q) :: rest ->
+                    if p = 0.0 then
+                        if q < 0.0 then false else clip t0 t1 rest
+                    else
+                        let r = q / p
+                        if p < 0.0 then
+                            if r > t1 then false else clip (max t0 r) t1 rest
+                        else
+                            if r < t0 then false else clip t0 (min t1 r) rest
+            clip 0.0 1.0 [
+                (-d.X, a.X - ndcRect.Min.X)
+                ( d.X, ndcRect.Max.X - a.X)
+                (-d.Y, a.Y - ndcRect.Min.Y)
+                ( d.Y, ndcRect.Max.Y - a.Y)
+            ]
+
+        let vertexTouches (c : V4d) = c.W > eps && ndcRect.Contains (toNdc c)
+
+        let segmentTouches (c0 : V4d) (c1 : V4d) =
+            if c0.W <= eps && c1.W <= eps then false
+            elif c0.W > eps && c1.W > eps then segmentHitsRect (toNdc c0) (toNdc c1)
+            else
+                // one end behind the camera: cut the segment where it crosses w = eps
+                let t   = (eps - c0.W) / (c1.W - c0.W)
+                let cut = c0 + (c1 - c0) * t
+                if c0.W > eps then segmentHitsRect (toNdc c0) (toNdc cut)
+                else segmentHitsRect (toNdc cut) (toNdc c1)
+
+        // draped segments carry the path actually drawn; without them (points, ellipses - whose
+        // points are the sampled outline - and annotations still being draped) the control points
+        let vertices (a : Annotation) : V3d[] =
+            if a.segments.IsEmpty then a.points |> IndexList.toArray
+            else
+                a.segments
+                |> IndexList.toArray
+                |> Array.collect (fun s ->
+                    Array.concat [ [| s.startPoint |]; s.points |> IndexList.toArray; [| s.endPoint |] ])
+
+        let touches (a : Annotation) =
+            let clipped = vertices a |> Array.map (fun p -> m * V4d(p, 1.0))
+            if clipped.Length = 1 then vertexTouches clipped.[0]
+            else
+                let mutable hit = false
+                let mutable i   = 0
+                while not hit && i < clipped.Length - 1 do
+                    hit <- vertexTouches clipped.[i] || segmentTouches clipped.[i] clipped.[i + 1]
+                    i   <- i + 1
+                hit || (clipped.Length > 0 && vertexTouches clipped.[clipped.Length - 1])
+
+        annotations
+        |> Seq.choose (fun a -> if a.visible && touches a then Some a.key else None)
+        |> Seq.toList
+
+    /// Combine `ids` with the multi-selection (SelectionMode). Works by id: a leaf selected
+    /// earlier from the viewport carries the root path, so it is dropped and re-added under its
+    /// real group path rather than ending up in the set twice. Unknown ids are ignored.
+    let selectAnnotations (mode : SelectionMode) (ids : list<Guid>) (groups : GroupsModel) : GroupsModel =
+        let paths = GroupsApp.leafPaths groups.rootGroup
+        let touched =
+            ids
+            |> List.choose (fun id ->
+                paths |> HashMap.tryFind id |> Option.map (fun p -> id, { id = id; path = p; name = "" }))
+            |> HashMap.ofList
+        let isTouched (ts : TreeSelection) = HashMap.containsKey ts.id touched
+        let touchedSet = touched |> HashMap.toValueList |> HashSet.ofList
+
+        match mode with
+        | SelectionMode.Replace ->
+            { groups with selectedLeaves = touchedSet; singleSelectLeaf = None }
+        | SelectionMode.Add ->
+            let kept = groups.selectedLeaves |> HashSet.filter (isTouched >> not)
+            { groups with selectedLeaves = HashSet.union kept touchedSet }
+        | SelectionMode.Toggle ->
+            // "selected" is the effective selection, multi plus the single (green) leaf - the set
+            // isSelected and DeleteSelectedAnnotations use - so toggling the green leaf deselects it
+            let wasSelected =
+                let multi = groups.selectedLeaves |> HashSet.map (fun ts -> ts.id)
+                match groups.singleSelectLeaf with
+                | Some s -> multi |> HashSet.add s
+                | None   -> multi
+            let kept     = groups.selectedLeaves |> HashSet.filter (isTouched >> not)
+            let switchOn = touchedSet |> HashSet.filter (fun ts -> not (HashSet.contains ts.id wasSelected))
+            let single =
+                match groups.singleSelectLeaf with
+                | Some s when HashMap.containsKey s touched -> None
+                | s -> s
+            { groups with selectedLeaves = HashSet.union kept switchOn; singleSelectLeaf = single }
+
     // specifies which drawing actions trigger re-export of geo-json files.
     // the idea behind this is to keep out high-frequency updates (mouse move)
     // but blacklist those
@@ -600,6 +707,9 @@ module DrawingApp =
                     // one snapshot for the whole batch, so a single undo restores all of them
                     { model with annotations = after; vertexGrab = grab }
                     |> pushUndo (SnapshotDelta(before, after))
+            | SelectAnnotations (mode, ids) ->
+                // like a pick, changing the selection abandons any control point being moved
+                { model with annotations = selectAnnotations mode ids model.annotations; vertexGrab = None }
             | DrawingAction.Nop -> model
             | Undo ->
                 match model.undoStack with

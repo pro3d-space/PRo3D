@@ -13,7 +13,7 @@ Delete removes the union of both kinds of annotation selection:
 
 | How it was selected | Shown as | Deleted? |
 |---|---|---|
-| Cube icon in the annotation tree, or Shift+Ctrl+click in the 3D view | coloured cube (multi-selection, `selectedLeaves`) | yes |
+| Cube icon in the annotation tree, Shift+Ctrl+click or a [selection rectangle](AnnotationBoxSelection.md) in the 3D view | coloured cube (multi-selection, `selectedLeaves`) | yes |
 | Name in the annotation tree, or Ctrl+click in the 3D view | green name (`singleSelectLeaf`) | yes |
 
 This is the same set that `DrawingApp.isSelected` treats as selected, for example when the
