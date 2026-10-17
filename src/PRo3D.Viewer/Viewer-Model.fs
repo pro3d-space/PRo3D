@@ -63,6 +63,19 @@ type PickPivot =
     | SurfacePivot      = 0
     | SceneObjectPivot  = 1
 
+/// A pointer event on the main render view, as the box selection reads it
+/// (docs/AnnotationBoxSelection.md). Coordinates are pixels relative to the render control.
+type BoxPointer =
+    {
+        /// DOM button number: 0 left, 1 middle, 2 right
+        button       : int
+        position     : V2d
+        /// the render control's size at the time of the event, for the pixel -> NDC mapping
+        viewportSize : V2d
+        shift        : bool
+        alt          : bool
+    }
+
    // | ScaleBarPivot     = 2
 //type CorrelationPanelsMessage = 
 //| CorrPlotMessage               of CorrelationPlotAction
@@ -182,6 +195,11 @@ type ViewerAction =
 | EndDragging                     of V2i * MouseButtons
 | MouseOut                        of V2i
 | MouseIn                         of V2i
+// box selection of annotations (docs/AnnotationBoxSelection.md)
+| BoxSelectStart                  of BoxPointer
+| BoxSelectMove                   of V2d
+| BoxSelectEnd                    of BoxPointer
+| BoxSelectCancel
 //| CorrelationPanelMessage         of CorrelationPanelsMessage
 | MakeSnapshot                    of int*int*string
 | ImportSnapshotData              of list<string>
@@ -549,12 +567,18 @@ module MailboxState =
 
 type MessagingMailbox = MailboxProcessor<MailboxAction>
 
+/// A box selection drag in progress (docs/AnnotationBoxSelection.md). Pixels relative to the
+/// render control; the drawn rectangle spans startPoint and current. Session state only.
 type MultiSelectionBox =
     {
-        startPoint  : V2i
-        renderBox   : Box2i
-        selectionBox: Box3d
+        startPoint   : V2d
+        current      : V2d
+        viewportSize : V2d
     }
+
+module MultiSelectionBox =
+    /// the rectangle in pixels, whichever way the drag went
+    let pixelBox (b : MultiSelectionBox) = Box2d.FromPoints(b.startPoint, b.current)
 
 type SurfaceIntersection = { surfaceName : string; hitPoint : V3d; normal : Option<V3d> }
 

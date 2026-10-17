@@ -147,24 +147,24 @@ module Gui =
         Incremental.Svg.svg falseColorAttributes legend
 
     
+    /// The box selection rectangle (docs/AnnotationBoxSelection.md), drawn while a drag is in
+    /// progress. Same origin as the render control, which is where the drag coordinates are taken.
     let selectionRectangle (m : AdaptiveModel) =
-        
-        let box = 
-            m.multiSelectBox 
-            |> AVal.map(fun x -> 
-                x 
-                |> Option.map(fun x -> x.renderBox) 
-                |> Option.defaultValue Box2i.Invalid
-            )
 
-        let attr = 
+        let attr =
             amap{
                 yield style "fill:white;stroke:green;stroke-width:2;fill-opacity:0.1;stroke-opacity:0.9"
-                let! b = box
-                yield attribute "x" (sprintf "%ipx" b.Min.X)
-                yield attribute "y" (sprintf "%ipx" b.Min.Y)
-                yield attribute "width" (sprintf "%ipx" b.SizeX)
-                yield attribute "height" (sprintf "%ipx" b.SizeY)
+                let! box = m.multiSelectBox
+                match box with
+                | Some b ->
+                    let p = MultiSelectionBox.pixelBox b
+                    let f (v : float) = v.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture)
+                    yield attribute "x" (f p.Min.X)
+                    yield attribute "y" (f p.Min.Y)
+                    yield attribute "width" (f p.SizeX)
+                    yield attribute "height" (f p.SizeY)
+                | None ->
+                    yield attribute "visibility" "hidden"
             } |> AttributeMap.ofAMap
 
         let selectionRectangle = Incremental.Svg.rect attr //Incremental.Svg.rect attr AList.empty
@@ -984,7 +984,10 @@ module Gui =
             | Interactions.PickExploreCenter     -> sprintf "%s to place arcball center" click
             | Interactions.PlaceCoordinateSystem -> sprintf "%s to place coordinate cross" click
             | Interactions.DrawAnnotation        -> sprintf "%s to pick point on surface" click
-            | Interactions.PickAnnotation        -> sprintf "%s on annotation to select" click
+            | Interactions.PickAnnotation        ->
+                // the drag gesture is armed exactly like the click (docs/AnnotationBoxSelection.md)
+                let drag = click.Replace("click", "drag").Replace("Click", "Drag")
+                sprintf "%s on annotation to select, %s to box-select (+SHIFT add, +ALT toggle)" click drag
             | Interactions.CutAnnotation         -> sprintf "%s to draw separating polyline" click
             | Interactions.PickSurface           -> sprintf "%s on surface to select" click
             | Interactions.PlaceRover            -> sprintf "%s to (1) place rover and (2) pick lookat" click

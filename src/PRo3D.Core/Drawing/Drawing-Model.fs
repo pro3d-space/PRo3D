@@ -54,6 +54,17 @@ type VertexGrab = {
     movedSinceGrab : bool
 }
 
+/// How a batch of annotations (e.g. everything a selection rectangle touches) is combined with
+/// the current selection. See docs/AnnotationBoxSelection.md.
+[<RequireQualifiedAccess>]
+type SelectionMode =
+    /// the batch becomes the whole selection; an empty batch clears it
+    | Replace
+    /// the batch is added to the selection
+    | Add
+    /// each annotation of the batch flips between selected and not selected
+    | Toggle
+
 type DrawingAction =
 | SetSemantic         of Semantic
 | ChangeThickness     of Numeric.Action
@@ -80,6 +91,9 @@ type DrawingAction =
 /// Delete every selected annotation (selectedLeaves ∪ singleSelectLeaf) as one undo step.
 /// Bound to the Delete key in the main render view.
 | DeleteSelectedAnnotations
+/// Combine these annotations with the multi-selection (box selection, click on empty space).
+/// Not undoable, like every other selection change.
+| SelectAnnotations of SelectionMode * list<Guid>
 | LegacySaveVersioned
 | LegacyLoadVersioned
 // vertex editing (Interactions.EditAnnotation)
