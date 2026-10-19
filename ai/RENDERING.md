@@ -72,7 +72,17 @@ Each surface picks its variant through `ViewerUtils.surfaceEffectPool`, an Aardv
 
 That one link costs ~6 s, and the layout is exactly what GL keys its on-disk programs by, so it is stored next to the shader cache (`<ShaderCachePath>/PRo3D.EffectInputLayouts`). A **cold** start (first after a shader change) links once; a **warm** start links nothing at all.
 
-**Adding a stage to the surface effect:** if it reads `LocalNormal`, it only works on surfaces that keep the geometry stage. If it adds a new vertex input, check `SurfaceEffectVariantTest`.
+### OPC surface effect bands
+
+The fragment stages of `surfaceEffectVariant` are ordered in three bands, so a stage's position follows from what it is:
+
+1. **Surface colour** — what the terrain *is*: texture, LoD/radiometry, secondary texture, contour lines, depth colouring, the projection stack and its coverage view. Lighting applies to it.
+2. **Lighting** — `solarShadingLS`, `terrainSunShadow`.
+3. **Overlays** — drawn *on* the terrain: unlit, so they stay readable in shadow. Bottom → top: `latLonLines`, `outcropTrace`, `footPrintF`, `hoveredProjectionOutline`, `donutFragment` (the cursor is always on top).
+
+`crossSectionClip` comes **after all three**: after a `discard`, derivatives in its pixel quad are undefined, and the grid, the outcrop trace and every implicit-LOD texture sample take them. Its tile-GPU cost comes from being composed at all, not from its position.
+
+**Adding a stage to the surface effect:** pick its band first. If it reads `LocalNormal`, it only works on surfaces that keep the geometry stage. If it adds a new vertex input, check `SurfaceEffectVariantTest`.
 
 ### One return per fragment stage
 
