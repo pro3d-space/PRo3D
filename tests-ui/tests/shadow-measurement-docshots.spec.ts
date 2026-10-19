@@ -87,16 +87,12 @@ test("shadow measurement: documentation screenshots", async ({ browser }) => {
     expect(flown).toBe("clicked");
     await render.waitForTimeout(9000);
 
-    // the panel: first its experimental notice
+    // the panel, past its experimental notice
     const inspector = await context.newPage();
     await inspector.setViewportSize({ width: 900, height: 934 });
     await inspector.goto(app.url + "?page=imageinspector");
     const open = inspector.locator("button", { hasText: "Open anyway" });
     await expect(open).toBeVisible({ timeout: 120_000 });
-    await inspector.setViewportSize({ width: 700, height: 360 });
-    await inspector.waitForTimeout(500);
-    await save("notice.png", await inspector.screenshot());
-    await inspector.setViewportSize({ width: 900, height: 934 });
 
     await open.click();
     await expect(inspector.locator("text=/^wheel zooms/")).toBeVisible({ timeout: 120_000 });

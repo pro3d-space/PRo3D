@@ -9,10 +9,13 @@ The sun direction comes from SPICE at the image's acquisition time, the geometry
 camera and the surface mesh. The tool lives in the [Image Inspector](ImageInspector.md) panel.
 The design and its verification are in [dev/shadowEstimation.md](dev/shadowEstimation.md).
 
-Why from the image and not from the mesh: a shadow shows relief the mesh may not resolve at all —
-a boulder smaller than the mesh's triangles, a crater the shape model smoothed out. Only one end of
-the measurement is taken from the mesh (the end on terrain a coarse mesh gets right); the other is
-triangulated from the image alone.
+**What it adds to the shape model.** A shape model is smoothed and limited to its own vertex
+spacing; an image resolves more, and a shadow records relief at the image's resolution. The tool
+turns that into numbers the mesh cannot give: the height of a boulder smaller than the mesh's
+triangles, the depth of a crater the model smoothed out, and — where the model does resolve the
+feature — an independent check of it (the *mesh offset*). Only one end of a measurement comes from
+the mesh, on terrain a coarse model gets right (a crater rim, the ground beside a boulder); the
+other end is triangulated from the image and the sun alone.
 
 ## What you need
 
@@ -20,14 +23,8 @@ triangulated from the image alone.
 - **SPICE kernels** covering the image's time.
 - A **projected image** with its `.mbi.json` sidecar (the acquisition time comes from there),
   **selected** under *GIS View → projected images*.
-- The **Image Inspector** panel, switched on: it is part of the **GIS** window layout, or add it to
-  any layout. It opens behind an *experimental feature* notice; click **Open anyway**.
-
-  ![The panel's experimental notice](images/shadowMeasurement-notice.png)
-
-If something is missing, the panel's bottom bar says what: *no image selected*, *no observed body
-set*, *no surface bound to a SPICE body*, *the image has no mbi sidecar*, *the image's projector
-did not resolve (SPICE coverage?)*.
+- The **Image Inspector** panel (GIS window layout, or add it to any layout), opened past its
+  *experimental feature* notice with **Open anyway**.
 
 Good images have the sun **low** (long shadows) but not grazing, and a **phase angle well above
 15°** (camera and sun rays far from parallel).
@@ -85,12 +82,44 @@ measurement lands on it: the offset stays well below a pixel (on a test frame: m
 1.6 m pixels). Above 0.5 px the box warns that the clicks are probably not on the shadow's edges.
 For a boulder the mesh may not contain it — a large offset there is expected.
 
+## How the sun elevation is computed
+
+1. **Sun direction** — SPICE: the sun's position relative to the observed body at the image's
+   acquisition time (from the `.mbi.json`, never the scene's time), in the body-fixed frame,
+   carried into the scene with the surface's placement. One direction serves the whole image.
+2. **Up** — a unit vector at the first click: by default the normal of the surrounding terrain
+   (see [Which "up"](#which-up)).
+3. **Elevation** = asin(sun · up): the sun's angle above the plane perpendicular to up. At or
+   below 0° there is no result (*the sun is … below this horizon*).
+
+The measurement itself does not use the formula above directly. The second end is where the
+camera ray through its pixel meets the sun ray through the first end; depth or height is that
+point's offset from the first end along up — which equals shadow length × tan(elevation). The
+triangulated point does not depend on up; up only decides what counts as "vertical".
+
+### How robust it is
+
+- **The sun direction is not the problem.** SPICE ephemerides are far more accurate than any
+  click. Taking the direction from the body's centre instead of the surface point changes it by
+  well under a microdegree. The sun's disc (under half a degree beyond 1 AU) is treated as a
+  point: it softens the shadow's edge, not the direction.
+- **Up is the problem.** The result is the distance along the sun ray times sin(elevation), so an
+  error in up changes it by cot(elevation) × 1.75 % per degree: **~3 % per degree with the sun
+  30° up, ~22 % per degree at 4.6°** (the screenshot above). At low sun, how you define the
+  horizon matters more than anything else.
+- **Radial up can be badly wrong on a small body.** In the screenshot the terrain tilts 26° from
+  radial; the sun is 4.6° above the local horizon but 0.8° *below* the radial one — radial up
+  gives no result at all, and slightly elsewhere it gives depths near zero.
+- **Local up** averages the mesh over a ring 24 px around the first click (16 samples, at least 8
+  must hit), so it follows the terrain at that scale, not the crater wall. It needs the shape
+  model only at that coarse scale. Where that terrain is itself uneven, compare with
+  **Up: plane** through rim points you choose.
+- **Clicks** — the row *per pixel* gives the change for one pixel along the shadow; Snap keeps
+  clicks on the edges (see [Snapping](#snapping)).
+
 ## Which "up"
 
-Depth and height depend directly on the sun's elevation above *some* horizon. On a small body the
-radial direction can tilt far from the local surface (25° and more on Didymos), and near the
-terminator the sun can sit almost on the radial horizon: radial depths then come out near zero.
-The **Up** button cycles:
+The **Up** button cycles (why it matters: [How robust it is](#how-robust-it-is)):
 
 - **Up: local** (default) — the surrounding terrain: a plane through the mesh under a ring of
   pixels 24 px around the first click.
