@@ -35,7 +35,7 @@ Good images have the sun **low** (long shadows) but not grazing, and a **phase a
    zoomed in far enough — that is the precision of a click.
 2. Click **Measure shadow** in the bottom bar. The button next to it reads **Crater depth**.
 3. **First click: the rim, where the shadow begins.** With **Snap** on (the default) the click
-   moves along the sun direction onto the rim's dark end (see [Snapping](#snapping)). An orange
+   moves along the sun direction onto the rim's dark end ([Snapping](#snapping)). An orange
    dot marks it, and a dashed yellow **sun line** appears: where the shadow can lie.
 
    ![After the first click](images/shadowMeasurement-first-click.png)
@@ -99,96 +99,45 @@ triangulated point does not depend on up; up only decides what counts as "vertic
 
 ### How robust it is
 
-- **The sun direction is not the problem.** SPICE ephemerides are far more accurate than any
-  click. Taking the direction from the body's centre instead of the surface point changes it by
-  well under a microdegree. The sun's disc (under half a degree beyond 1 AU) is treated as a
-  point: it softens the shadow's edge, not the direction.
-- **Up is the problem.** The result is the distance along the sun ray times sin(elevation), so an
-  error in up changes it by cot(elevation) × 1.75 % per degree: **~3 % per degree with the sun
-  30° up, ~22 % per degree at 4.6°** (the screenshot above). At low sun, how you define the
-  horizon matters more than anything else.
-- **Radial up can be badly wrong on a small body.** In the screenshot the terrain tilts 26° from
-  radial; the sun is 4.6° above the local horizon but 0.8° *below* the radial one — radial up
-  gives no result at all, and slightly elsewhere it gives depths near zero.
-- **Local up** averages the mesh over a ring 24 px around the first click (16 samples, at least 8
-  must hit), so it follows the terrain at that scale, not the crater wall. It needs the shape
-  model only at that coarse scale. Where that terrain is itself uneven, compare with
-  **Up: plane** through rim points you choose.
-- **Clicks** — the row *per pixel* gives the change for one pixel along the shadow; Snap keeps
-  clicks on the edges (see [Snapping](#snapping)).
+- **Sun direction:** not a concern — SPICE is far more accurate than a click; the sun's disc only
+  softens the shadow's edge.
+- **Up:** the dominant error. One degree off changes the result by cot(elevation) × 1.75 %:
+  ~3 % with the sun 30° up, ~22 % at 4.6°. Radial up can fail outright: in the screenshot the
+  terrain tilts 26° and the sun is below the radial horizon.
+- **Clicks:** *per pixel* gives the change for one pixel along the shadow.
 
 ## Which "up"
 
-The **Up** button cycles (why it matters: [How robust it is](#how-robust-it-is)):
-
-- **Up: local** (default) — the surrounding terrain: a plane through the mesh under a ring of
-  pixels 24 px around the first click.
+- **Up: local** (default) — the mesh under a ring 24 px around the first click: the surrounding
+  terrain, not the crater wall.
 - **Up: radial** — from the body centre.
-- **Up: plane** — your own reference plane: after the second click, click two or more points on
-  the crater rim (or on the ground around a boulder; blue dots). The result updates with every
-  point; **Clear** starts over.
-
-Switching up re-measures the current clicks. If the box shows *the sun is … below this horizon*,
-try another up.
+- **Up: plane** — after the second click, click two or more points on the rim (or the ground
+  around a boulder); the result updates with each.
 
 ## Snapping
 
-**Snap** moves a click along the sun line onto the nearest shadow edge in the image, within 6 px,
-to sub-pixel precision.
+**Snap** (default on) moves a click along the sun line onto the nearest shadow edge within 6 px:
+for a rim, to where its brightness ramp turns dark (the point that casts the shadow); for a
+shadow's end, halfway across the edge. On a Didymos test frame it cut the spread from clicks 3 px
+off the edges from 3 m to under 0.5 m.
 
-- A **crater rim** is not an edge but a ramp: the brightness falls over several pixels as the
-  rounded crest turns away from the sun. The point that casts the shadow is where it has become
-  dark — the snap lands there.
-- A **shadow's end** is a sharp edge; the snap lands halfway between lit and dark.
+## 3D view and scale bars
 
-At grazing light this matters: on a rendered Didymos frame, clicks 3 px off the edges moved the
-depth by up to 3 m without snapping and by under 0.5 m with it. Without Snap, click at the dark end
-of the rim's ramp.
+Depth-tested markers: axis crosses at both ends (red towards the sun, green across, blue up),
+the sun ray (yellow), the depth or height (cyan) and the mesh under the second click (gray). They
+show while **Measure shadow** is on and the measured image is selected.
 
-## In the 3D view
+**Create scale bar** adds two ordinary scale bars, one at each end, as tall as the result and
+along the camera's sky — the only thing the tool saves with the scene.
 
-The measurement is drawn as real, depth-tested geometry:
+## Pitfalls and limits
 
-- a small axis cross at each end in the local surface frame (red = horizontal towards the sun,
-  green = across, blue = up),
-- yellow: the sun ray between the two ends,
-- cyan: the depth or height, vertical from the lower end,
-- gray: the mesh under the second click (compare with the triangulated point).
+- Zoom in, keep Snap on, and watch the *mesh offset*.
+- Depth is to the shadow's tip: a shadow ending before the crater's centre underestimates a bowl.
+- Below 15° phase the result is unreliable.
+- A measurement belongs to its image and scene time; change either and measure again.
+- Pixels are assumed square (true for Hera AFC).
+- Simulated test frames (`pro3d-tool simulate-image`, as in the screenshots) need
+  `--shadow-bias 0.006`; the default 0.002 adds false shadow speckles on grazing slopes.
 
-The markers show only while **Measure shadow** is on and the measured image is selected.
-
-**Create scale bar** puts the result into the scene as two ordinary scale bars, as tall as the
-result and oriented along the camera's sky: one at each end. These are the only thing the tool
-saves with the scene.
-
-## Tips and pitfalls
-
-- **Zoom in.** With the sun a few degrees up, one pixel along the shadow is ~10× that in depth;
-  check *per pixel*.
-- **Keep Snap on** and watch the *mesh offset*.
-- **Near the terminator, avoid radial up.**
-- **A crater's depth is to the shadow tip**, not necessarily to the deepest point: a shadow that
-  ends before the centre underestimates a bowl-shaped crater.
-- **The sun is treated as a point;** at very low sun the shadow's edge blurs.
-- **Low phase** (< 15°): shadows are short and seen nearly end-on; do not trust the result.
-- **Simulated test images** (the screenshots here use one) from `pro3d-tool simulate-image`: render them with
-  `--shadow-bias 0.006`; the default 0.002 produces false shadow speckles (acne) on grazing
-  slopes.
-
-If a click fails, the bottom bar says why, for example *that pixel does not hit the surface*,
-*the tip must lie on the shadow side of the rim*, or *the top must lie towards the sun from the
-shadow tip* (the clicks are in the wrong order, or crater/boulder is set wrong).
-
-## Limits
-
-- Experimental. The measurement itself is not saved; create scale bars to keep it.
-- A measurement belongs to the image it was made on: selecting another image hides it, and the
-  next click starts a new one. Its 3D markers are placed for the scene time it was made at; after
-  changing the scene time, measure again.
-- *per pixel* and *pixel on ground* assume square image pixels (true for Hera AFC).
-- The scale bars follow the camera's sky at the moment they are created, not the up used for the
-  measurement.
-- The projection surface is the first surface bound to a SPICE body.
-
-The screenshots are produced by `tests-ui/tests/shadow-measurement-docshots.spec.ts`
-(`PRO3D_DOC_SHOTS=1`; its header names the scene and how the frame was rendered).
+Screenshots: `tests-ui/tests/shadow-measurement-docshots.spec.ts` (`PRO3D_DOC_SHOTS=1`).
