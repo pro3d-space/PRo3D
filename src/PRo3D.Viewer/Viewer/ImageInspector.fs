@@ -1164,8 +1164,8 @@ module ImageInspector =
                 | Some (Ok _) ->
                     yield button [ clazz "ui mini inverted basic button"; onClick (fun _ -> ImageInspectorMessage ImageInspectorAction.CreateScaleBar) ] [ text "Create scale bar" ]
                 | _ -> ()
-                yield button [ clazz "ui mini inverted basic button"; style "margin-left:8px"; attribute "title" "switch the experimental Image Inspector off"
-                               onClick (fun _ -> ImageInspectorMessage (ImageInspectorAction.SetEnabled false)) ] [ text "Off" ]
+                yield button [ clazz "ui mini inverted basic button"; style "margin-left:8px"; attribute "title" "close the experimental Image Inspector (back to its notice)"
+                               onClick (fun _ -> ImageInspectorMessage (ImageInspectorAction.SetEnabled false)) ] [ text "Close" ]
             }
 
         div [ style "position:relative; width:100%; height:100%; display:flex; flex-direction:column; color:#ddd; font-size:12px" ] [
@@ -1190,9 +1190,10 @@ module ImageInspector =
     /// texture, no render control, no picking -- so opening it by accident costs nothing.
     let view (m : AdaptiveModel) : DomNode<ViewerAction> =
         let off =
-            div [ style "width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; color:#bbb; font-size:13px" ] [
-                div [] [ text "Image Inspector is experimental (shadow depth / height measurement)." ]
-                button [ clazz "ui small inverted button"; onClick (fun _ -> ImageInspectorMessage (ImageInspectorAction.SetEnabled true)) ] [ text "Experimental -- click to enable" ]
+            div [ style "width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; padding:16px; box-sizing:border-box; text-align:center; color:#bbb; font-size:13px" ] [
+                div [ style "font-size:15px; font-weight:bold; color:#ffb000" ] [ text "This is an experimental feature" ]
+                div [ style "max-width:420px" ] [ text "The Image Inspector shows the selected projected image and measures crater depths and boulder heights from shadows. It is not finished and may change." ]
+                button [ clazz "ui small inverted button"; onClick (fun _ -> ImageInspectorMessage (ImageInspectorAction.SetEnabled true)) ] [ text "Open anyway" ]
             ]
         Incremental.div (AttributeMap.ofList [ style "width:100%; height:100%" ]) (
             alist {

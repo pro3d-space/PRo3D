@@ -86,7 +86,8 @@ The ray segment also previews the measurement geometry: camera ray and sun ray m
 
 ### Spike status (implemented)
 
-`src/PRo3D.Viewer/Viewer/ImageInspector.fs`, user page [../ImageInspector.md](../ImageInspector.md).
+`src/PRo3D.Viewer/Viewer/ImageInspector.fs`, user pages [../ImageInspector.md](../ImageInspector.md) (panel) and
+[../ShadowMeasurement.md](../ShadowMeasurement.md) (the tool).
 
 - Panel id **`imageinspector`** ("Image Inspector") — `instrumentview` is already the View
   Planner's rover camera, so the name from the original note could not be reused.
@@ -203,7 +204,7 @@ plane = Newell's method through the anchor and >= 2 further clicked points, in a
 - Tip click snapped to that line → triangulated tip. In 3D show both the mesh hit and the
   triangulated tip; their distance is a direct read of local mesh error.
 - Reference plane from rim clicks; depth, sun elevation, uncertainty; scale bar in 3D.
-- Persistence under a new key; `docs/ShadowMeasurement.md` user page.
+- Persistence under a new key.
 
 ## Related code
 

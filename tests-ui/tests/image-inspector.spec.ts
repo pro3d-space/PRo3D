@@ -107,8 +107,9 @@ ${e.stack ?? ""}`));
     inspector.on("console", (m) => { if (m.type() === "error" || m.type() === "warning") console.log(`[inspector console.${m.type()}] ${m.text()}`); });
     await inspector.setViewportSize({ width: 900, height: 900 });
     await inspector.goto(app.url + "?page=imageinspector");
-    // experimental: the panel is inert (no render control) until switched on
-    const enable = inspector.locator("button", { hasText: "click to enable" });
+    // experimental: the panel is inert (no render control) until opened past its notice
+    await expect(inspector.locator("text=This is an experimental feature")).toBeVisible({ timeout: 120_000 });
+    const enable = inspector.locator("button", { hasText: "Open anyway" });
     await expect(enable).toBeVisible({ timeout: 120_000 });
     await expect(inspector.locator("img.rendercontrol")).toHaveCount(0);
     await enable.click();
