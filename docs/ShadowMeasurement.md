@@ -23,6 +23,8 @@ triangulated from the image alone.
 - The **Image Inspector** panel, switched on: it is part of the **GIS** window layout, or add it to
   any layout. It opens behind an *experimental feature* notice; click **Open anyway**.
 
+  ![The panel's experimental notice](images/shadowMeasurement-notice.png)
+
 If something is missing, the panel's bottom bar says what: *no image selected*, *no observed body
 set*, *no surface bound to a SPICE body*, *the image has no mbi sidecar*, *the image's projector
 did not resolve (SPICE coverage?)*.
@@ -38,10 +40,21 @@ Good images have the sun **low** (long shadows) but not grazing, and a **phase a
 3. **First click: the rim, where the shadow begins.** With **Snap** on (the default) the click
    moves along the sun direction onto the rim's dark end (see [Snapping](#snapping)). An orange
    dot marks it, and a dashed yellow **sun line** appears: where the shadow can lie.
+
+   ![After the first click](images/shadowMeasurement-first-click.png)
+
+   *Zoomed 8× on a Didymos crater, sun from the top. The yellow crosshair is where the click
+   was; Snap moved it 3 px down the sun line to the rim's dark end (orange ring).*
 4. **Second click: the end of the shadow**, on the crater floor. The click moves onto the sun
    line, then snaps onto the shadow's edge (magenta dot).
 5. Read the result in the **result box** at the panel's top-left. The next click starts a new
    measurement; **Clear** discards the current one.
+
+   ![A finished crater measurement](images/shadowMeasurement-crater.png)
+
+   *Depth 4.15 m from a 51 m shadow with the sun 4.6° above the local horizon. Measured against
+   the radial horizon the sun would be below it (−0.8°): the terrain here tilts 26° — see
+   [Which "up"](#which-up). Mesh offset 0.0 px: the clicks sit on the shadow's edges.*
 
 ## Measuring a boulder's height
 
@@ -129,7 +142,7 @@ saves with the scene.
   ends before the centre underestimates a bowl-shaped crater.
 - **The sun is treated as a point;** at very low sun the shadow's edge blurs.
 - **Low phase** (< 15°): shadows are short and seen nearly end-on; do not trust the result.
-- **Simulated test images** from `pro3d-tool simulate-image`: render them with
+- **Simulated test images** (the screenshots here use one) from `pro3d-tool simulate-image`: render them with
   `--shadow-bias 0.006`; the default 0.002 produces false shadow speckles (acne) on grazing
   slopes.
 
@@ -147,3 +160,6 @@ shadow tip* (the clicks are in the wrong order, or crater/boulder is set wrong).
 - The scale bars follow the camera's sky at the moment they are created, not the up used for the
   measurement.
 - The projection surface is the first surface bound to a SPICE body.
+
+The screenshots are produced by `tests-ui/tests/shadow-measurement-docshots.spec.ts`
+(`PRO3D_DOC_SHOTS=1`; its header names the scene and how the frame was rendered).
