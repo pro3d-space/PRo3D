@@ -1,53 +1,29 @@
 # Image Inspector (experimental)
 
-Shows the selected projected instrument image in its own panel and links it to the 3D view in
-both directions, and hosts the [shadow measurement](ShadowMeasurement.md) tool. The design is in
+Shows the image selected in *GIS View → projected images* in its own panel, linked to the 3D view,
+and hosts the [shadow measurement](ShadowMeasurement.md) tool. Design:
 [dev/shadowEstimation.md](dev/shadowEstimation.md).
 
-## Opening it
+## Use
 
-The panel is part of the **GIS** window layout, and can be added to any layout as
-**Image Inspector**. It shows the image selected in *GIS View → projected images*.
-Without a selected image, an observed body, or a surface bound to a SPICE body, the panel says
-which one is missing.
+Open **Image Inspector** from the **GIS** window layout or add it to any layout. It starts behind
+an *experimental feature* notice and does nothing until you click **Open anyway**; **Close**
+returns to the notice. Every session starts there.
 
-The panel opens behind a notice: *This is an experimental feature* with an **Open anyway** button.
-Until then it does nothing (no texture, no rendering, no picking), so having it in a layout, or
-opening it by accident, costs nothing.
-**Close** in its bottom bar returns to the notice and drops its decoded images. This is not
-saved; every session starts at the notice. Nothing of the panel is written to the scene —
-only scale bars you create from a measurement, which are ordinary scale bars.
+- **Hover the image** — marks where that pixel's camera ray meets the surface in the 3D view
+  (axis cross plus the yellow ray); the bottom bar shows the pixel (0-based, top-left origin).
+- **Ctrl-hover the 3D view** — a cyan crosshair marks that surface point in the image.
+- **Wheel** zooms about the pointer (up to 64×), **drag** pans, **double-click** or **Reset**
+  shows the whole image. Zoomed in, pixel borders show the precision of a click.
+- **Measure shadow** — see [ShadowMeasurement.md](ShadowMeasurement.md).
 
-## What it shows
+If the panel names something missing, select an image, set the observed body, or bind a surface
+to a SPICE body.
 
-- **Hover the image** — the pixel under the pointer is sent through the image's camera, and where
-  that ray meets the surface is marked in the main view: a small red/green/blue axis cross, plus a
-  yellow stretch of the camera ray leading to it. The bottom line reads out the pixel
-  (0-based, origin top-left) and whether the ray is on or off the surface.
-- **Zoom and pan** — the mouse wheel zooms about the pointer (up to 64x; the pixel under the
-  pointer stays put), dragging pans, double-click or *Reset* returns to the whole image.
-  Zoomed in, image pixels show as flat squares with light borders (from about 5 screen pixels
-  per image pixel) — the precision a click really has.
-- **Hover the 3D view** — the surface point under the 3D cursor is projected into the image and
-  marked with a cyan crosshair.
+## Notes
 
-## Shadow measurement
-
-**Measure shadow** in the bottom bar measures crater depths and boulder heights from shadows in
-the image — see [ShadowMeasurement.md](ShadowMeasurement.md).
-
-## What it proves — and what not
-
-The image is drawn exactly the way the projection samples it, so the marker always lands on the
-texture of the pixel you hover. That checks that **panel and projection agree** (orientation,
-flips). It does **not** check that the projection matches reality: for that, compare the projected
-texture with the mesh's own relief — boulders and rims should sit on the boulders and rims of the
-geometry.
-
-## Limits
-
-- Experimental; nothing but a scale bar created from a measurement is saved with the scene.
-- Hover picking runs on a background thread, newest position wins; the first hovers can lag
-  while kd-trees load. Measurement clicks pick on the UI thread.
-- The projection surface is the first surface bound to a SPICE body (the same choice as
-  *fly to image*).
+- The panel draws the image the way the projection samples it, so it checks that the two agree
+  (orientation, flips), not that the projection matches reality.
+- Nothing is saved with the scene except scale bars created from a measurement.
+- The projection surface is the first surface bound to a SPICE body (as for *fly to image*).
+- The first hovers can lag while kd-trees load.
