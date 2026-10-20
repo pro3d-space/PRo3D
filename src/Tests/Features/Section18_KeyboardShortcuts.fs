@@ -106,4 +106,34 @@ let tests =
             Expect.isTrue m.ctrlFlag "Ctrl is still tracked for picking"
             Expect.equal (List.length m.drawing.undoStack) 1 "KeyDown Z leaves the undo stack alone"
         }
+
+        test "TC-18.1 CtrlShortcut S leaves a held Ctrl armed" {
+            let model, update = Head.make ()
+            let m = update model (ViewerAction.KeyDown Keys.LeftCtrl)
+            let m = update m (ViewerAction.CtrlShortcut Keys.S)   // no scene path: feedback only
+            Expect.isTrue m.ctrlFlag "Ctrl+S must not drop the Ctrl the user still holds"
+        }
+
+        test "TC-18.1 releasing Ctrl and Shift clears both flags (render control blur)" {
+            let model, update = Head.make ()
+            let m = [ Keys.LeftCtrl; Keys.LeftShift ] |> List.fold (fun m k -> update m (ViewerAction.KeyDown k)) model
+            Expect.isTrue (m.ctrlFlag && m.shiftFlag) "both held"
+            let m = [ Keys.LeftCtrl; Keys.LeftShift ] |> List.fold (fun m k -> update m (ViewerAction.KeyUp k)) m
+            Expect.isFalse (m.ctrlFlag || m.shiftFlag) "both released"
+        }
+
+        test "TC-18.1 onCtrlShortcut: client filter and key decoding" {
+            match Aardvark.UI.Events.onCtrlShortcut id with
+            | "onkeydown", Aardvark.UI.AttributeValue.Event e ->
+                let js = e.clientSide (fun _ args -> sprintf "SEND(%s)" (String.concat "," args)) "id"
+                for part in [ "SEND(event.keyCode)"; "event.preventDefault()"; "event.ctrlKey || event.metaKey"
+                              "!event.altKey"; "!event.repeat"; "=== 90"; "=== 89"; "=== 83"; "isContentEditable" ] do
+                    Expect.stringContains js part (sprintf "client filter contains %s" part)
+                let decode code = e.serverSide System.Guid.Empty "id" [ code ] |> Seq.toList
+                Expect.equal (decode "90") [ Keys.Z ] "90 is Z"
+                Expect.equal (decode "89") [ Keys.Y ] "89 is Y"
+                Expect.equal (decode "83") [ Keys.S ] "83 is S"
+                Expect.isEmpty (decode "garbage") "a non-numeric key code is dropped, not thrown"
+            | name, _ -> failtestf "expected an onkeydown event attribute, got %s" name
+        }
     ]

@@ -2102,10 +2102,11 @@ module ViewerApp =
             | Aardvark.Application.Keys.Y, _ ->
                 let drawing = DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing DrawingAction.Redo
                 { m with drawing = drawing }
+            // ctrlFlag is left alone: Ctrl may still be held, and blur releases it otherwise
             | Aardvark.Application.Keys.S, Some path ->
-                { (saveScene path m) with ctrlFlag = false } |> shortFeedback "scene saved"
+                saveScene path m |> shortFeedback "scene saved"
             | Aardvark.Application.Keys.S, None ->
-                { m with ctrlFlag = false } |> shortFeedback "please use \"save\" in the menu to save the scene"
+                m |> shortFeedback "please use \"save\" in the menu to save the scene"
             | _ -> m
         | SetInteraction t,_ ->
                 

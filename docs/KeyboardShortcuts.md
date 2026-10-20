@@ -13,10 +13,12 @@ On macOS, Cmd works in place of Ctrl.
 These keys work wherever the mouse cursor is: over the 3D view, the instrument view, any dock
 panel (annotation properties, annotation tree, surfaces, config, …) or the top menu. The one
 exception is a focused **text or number field**. There, Ctrl+Z / Ctrl+Y undo and redo your
-typing as usual, and Ctrl+S does nothing. Click outside the field (or press Tab to leave it) to
-undo drawing actions again.
+typing as usual, and Ctrl+S does nothing (not even the browser's "save page"). Click outside the
+field (or press Tab to leave it) to undo drawing actions again.
 
-Holding a key down does not repeat the shortcut. Ctrl+Alt+Z and the like are ignored.
+Holding a key down does not repeat the shortcut. Ctrl+Alt+Z and the like are ignored, and so is
+Alt+Z on its own: earlier versions treated Alt like Ctrl in the 3D view, so Alt+Z used to undo.
+Alt+click still picks like Ctrl+click.
 
 ## Keys handled only by the 3D view
 
@@ -32,7 +34,7 @@ forgets any Ctrl or Shift it saw go down. A modifier released elsewhere therefor
 
 | What | Where |
 |---|---|
-| `Events.onCtrlShortcut`: client-side filter (Ctrl/Cmd, no Alt, not repeated, not in an editable field, key Z/Y/S) and `preventDefault` | [Utilities.fs](../src/PRo3D.Viewer/Utilities.fs) |
+| `Events.onCtrlShortcut`: client-side filter (Ctrl/Cmd, no Alt, not repeated, not in an editable field, key Z/Y/S) and `preventDefault` (Ctrl+S also inside editable fields) | [Utilities.fs](../src/PRo3D.Viewer/Utilities.fs) |
 | `ViewerAction.CtrlShortcut` | [Viewer-Model.fs](../src/PRo3D.Viewer/Viewer-Model.fs) |
 | Update case: undo / redo / save | [Viewer.fs](../src/PRo3D.Viewer/Viewer/Viewer.fs) |
 | The handler on every page body | `Gui.Pages.pageRouting` in [ViewerGUI.fs](../src/PRo3D.Viewer/Viewer/ViewerGUI.fs) |
