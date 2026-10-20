@@ -15,7 +15,7 @@ pole or date-line special case.
 *The showcase map: contacts (black lines) cut Dimorphos into units, coloured by the legend.
 The grey area is a unit without a label point yet.*
 
-Status: first version (#843), **experimental**. What is not there yet is listed [below](#not-yet).
+Status: first version (#843), **experimental**. What is not there yet is listed under [Limitations](#limitations).
 
 The *Geological Maps* panel opens behind a notice, *This is an experimental feature*, with an
 **Open anyway** button. Until then no map is drawn, contacts do not snap and the Assign unit
@@ -179,18 +179,17 @@ Maps are saved with the annotations, in the scene's `.pro3d.ann` file, under new
 recomputed on load and on every change. Older PRo3D versions open such scenes and ignore the
 maps; contacts and label points stay ordinary annotations there.
 
-## Limits
+## Limitations
 
 - **Bodies**: units are computed and drawn as seen from the body's centre, which is exact on
   a sphere and correct on any body where each ray from the centre meets the surface once
   (Dimorphos, Didymos, Mars). Bodies with overhanging shapes (67P) are not supported.
 - Map scenes need the scene body set (annotations in body-fixed coordinates).
+- Screenshots at a size other than the window's show the units misaligned (to be fixed).
+- Maps are not shown in the map projection view or in Snapshots, and cannot be exported to
+  GeoPackage yet.
 
-## Not yet
-
-These are planned (see `docs/dev/GeologicalMap-plan.md`):
-
-- export to GeoPackage.
+All known gaps, for developers: [dev/GeologicalMap-architecture.md](dev/GeologicalMap-architecture.md#known-limitations-and-open-gaps).
 
 ## How it works
 

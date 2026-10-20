@@ -184,12 +184,44 @@ edits and assignments from rebuilding geometry.
 | showcase: 5–9 Dimorphos contacts | build 30–90 ms; assignment: face table only |
 | GPU, 10k annotation fills (#842) | 0.12 ms |
 
-## Known limitations
+## Known limitations and open gaps
 
+The one list of what is missing or wrong, for later handling. The user doc's
+[Limitations](../GeologicalMap.md#limitations) links here.
+
+**Output**
+- Server screenshots (`/rendering/screenshot`, Screenshot panel) at a size other than the
+  window's: units misaligned. Fix after #842 is in develop: render the maps in its per-client
+  offscreen scene (`RenderClientValues`) and extend the screenshot comparison of
+  `annotation-fill.spec.ts` to maps.
+- Not drawn in the map projection view (`PRo3D.MapProjection`) or Snapshots.
+- No GeoPackage export.
+
+**Geometry**
 - Star-shaped bodies only (radial projection).
-- Many separate networks (hundreds of isolated loops): containment is O(C²) queries plus O(C³)
-  separation checks.
 - Body-wide Mars maps: one float32 pivot per map (~0.5 m).
 - A contact passing a node twice (pinched cycle), and two contacts joining the same two nodes
   directly (a lens dropped by edge de-duplication), are not handled specially.
-- Maps are not drawn in Snapshots or the map projection view; GeoPackage export is deferred.
+- Linear contacts are straight chords off the terrain; only warned about, Sky is not forced.
+
+**Performance**
+- Every annotation edit anywhere re-runs each map's `sources` and re-uploads its face table
+  (`sources` reads the whole annotation map; split per group or compare first).
+- The split preview (`attached`) scans all contact segments per stroke vertex; use the
+  network's grid.
+- Many separate networks (hundreds of isolated loops): containment is O(C²) queries plus O(C³)
+  separation checks.
+
+**Behaviour**
+- `N` (`problemsOf`, `Annotation.retrievePoints`) and the panel (`Sg.getPolylinePointsAt`) read
+  contacts slightly differently (`dedupeConsecutive` only in the latter); tolerances can differ.
+- The snap radius uses an arbitrary viewport width (`m.viewPortSizes |> Seq.tryHead`) and the
+  main frustum even in the instrument view (`Viewer.fs`, `matchPickingInteraction`).
+- A label point placed by the Assign tool next to a contact can land in the neighbouring unit
+  (position from depth sample 0, not re-checked against the face).
+- On-screen messages (`shortFeedback`): one plain text slot top right, no warning style.
+
+**Requested, not started**
+- Contacts *certain* / *inferred*, drawn black solid / dashed in the final map (geologist's
+  request).
+- The story video (MP4, ~8 MB) is not committed; host it and link it from the story.
