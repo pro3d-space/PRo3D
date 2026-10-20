@@ -362,12 +362,12 @@ module ViewerApp =
             | None, c -> Picking.cache <- c; None
 
     /// Toolbar *Lineament profiles* / *Crater profiles* (#833): the profiles of the annotation
-    /// the last drawing input finished, generated right away. Called only after drawing input
-    /// (a pick, Finish), never after undo/redo. The outcome goes to a short notice, since the
-    /// Properties panel showing the message is usually closed while drawing.
+    /// drawing input just finished (from `DrawingApp.updateFinishing`), generated right away.
+    /// The outcome goes to a short notice, since the Properties panel showing the message is
+    /// usually closed while drawing.
     let private withAutoProfiles
-        (bc : BlockingCollection<string>) (view : CameraView) (before : DrawingModel) (m : Model) : Model =
-        match DrawingApp.autoProfileParent before m.drawing with
+        (bc : BlockingCollection<string>) (view : CameraView) (finished : Option<Annotation>) (m : Model) : Model =
+        match DrawingApp.autoProfileParent m.drawing.supportingProfiles finished with
         | None -> m
         | Some parent ->
             // Generate works on the single selection. Finishing selects the new annotation
@@ -400,9 +400,9 @@ module ViewerApp =
                 | ViewerMode.Instrument -> m.scene.viewPlans.instrumentCam 
 
             let msg = DrawingAction.AddPointAdv(p, hitFunction, referenceSystem, surf.name, None)
-            let drawing = DrawingApp.update m.scene.referenceSystem drawingConfig referenceSystem bc view m.shiftFlag m.drawing msg
+            let drawing, finished = DrawingApp.updateFinishing m.scene.referenceSystem drawingConfig referenceSystem bc view m.shiftFlag m.drawing msg
             //Log.stop()
-            { m with drawing = drawing } |> withAutoProfiles bc view m.drawing |> stash
+            { m with drawing = drawing } |> withAutoProfiles bc view finished |> stash
         | Interactions.CutAnnotation, _ ->
             // the cut stroke is a plain picked polyline: no segment sampling, so the hit
             // function is not needed - straight preview lines suffice and the boolean op
@@ -992,16 +992,11 @@ module ViewerApp =
                     | ViewerMode.Standard -> m.navigation.camera.view
                     | ViewerMode.Instrument -> m.scene.viewPlans.instrumentCam
 
-                let drawing =
-                    DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing msg
+                let drawing, finished =
+                    DrawingApp.updateFinishing m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing msg
 
-                let m' = { m with drawing = drawing; }
                 // Enter finishing a polyline: its toolbar profiles
-                let m' =
-                    match msg with
-                    | Drawing.Finish -> m' |> withAutoProfiles sendQueue view m.drawing
-                    | _ -> m'
-                m' |> stash
+                { m with drawing = drawing; } |> withAutoProfiles sendQueue view finished |> stash
         | SurfaceActions msg,_ ->
             
             let view = m.navigation.camera.view

@@ -248,20 +248,19 @@ module DrawingApp =
                 Some { w with results = Some results; view = view; }
         | None -> None
 
-    let finishAndAppend up north planet (referenceSystem : Option<SpiceReferenceSystem>) (sampleSurface : Option<V3d -> Option<V3d>>) (view:CameraView) (model : DrawingModel)  = 
-      
-        let groups = 
-            match getFinishedAnnotation up north planet referenceSystem sampleSurface view model with
-            | Some a -> 
-                //let json = a |> JsonTypes.ofAnnotation |> Aardvark.UI.Pickler.jsonToString                 
-                //bc.Add json
-                model.annotations |> GroupsApp.addLeafToActiveGroup (Leaf.Annotations a) true
-            | None -> 
-                model.annotations
-        
-        { model with  working = None; annotations = groups }
+    /// Closes the working annotation and adds it to the active group; also returns the
+    /// annotation it added, if any.
+    let finishAndAppend up north planet (referenceSystem : Option<SpiceReferenceSystem>) (sampleSurface : Option<V3d -> Option<V3d>>) (view:CameraView) (model : DrawingModel) : DrawingModel * Option<Annotation> =
+
+        match getFinishedAnnotation up north planet referenceSystem sampleSurface view model with
+        | Some a ->
+            let groups = model.annotations |> GroupsApp.addLeafToActiveGroup (Leaf.Annotations a) true
+            { model with working = None; annotations = groups }, Some a
+        | None ->
+            { model with working = None }, None
 
     //adds new point to working state, if certain conditions are met the annotation finishes itself
+    //(then also returns the finished annotation)
     let addPoint up north planet (referenceSystem : Option<SpiceReferenceSystem>) (samplePoint : V3d -> Option<V3d>) (p : V3d) view model surfaceName bc bookmarkId =
       
         let working =
@@ -323,10 +322,10 @@ module DrawingApp =
             finishAndAppend up north planet referenceSystem (Some samplePoint) view model
         | Geometry.Axis4PEllipse, 4 ->  
             finishAndAppend up north planet referenceSystem (Some samplePoint) view model
-        | _ -> 
-            model
+        | _ ->
+            model, None
 
-        
+
     let pickler = MBrace.FsPickler.Json.JsonSerializer(indent=true)
 
     let pushUndo (delta : AnnotationsDelta) (model : DrawingModel) =
@@ -459,41 +458,31 @@ module DrawingApp =
 
         GeoJSONExport.writeStreamGeoJSON_XYZ (isSelected model) path annotations
 
-    let finish (bigConfig  : 'a) (smallConfig : SmallConfig<'a> ) (model : DrawingModel) (view : CameraView) =
+    /// Pushes the undo step for an annotation that drawing input just finished.
+    let private recordFinished groupPath (model : DrawingModel, finished : Option<Annotation>) =
+        match finished with
+        | Some a -> model |> pushUndo (LeafAdded(Leaf.Annotations a, groupPath)), finished
+        | None   -> model, None
+
+    let finish (bigConfig  : 'a) (smallConfig : SmallConfig<'a> ) (model : DrawingModel) (view : CameraView) : DrawingModel * Option<Annotation> =
         let up     = smallConfig.up.Get(bigConfig)
         let north  = smallConfig.north.Get(bigConfig)
         let planet = smallConfig.planet.Get(bigConfig)
-        let groupPath  = model.annotations.activeGroup.path
-        let flatBefore = model.annotations.flat
-        let result = finishAndAppend up north planet None None view model
-        let newLeaf =
-            result.annotations.flat
-            |> HashMap.toList
-            |> List.tryFind (fun (id, _) -> not (HashMap.containsKey id flatBefore))
-            |> Option.map snd
-        match newLeaf with
-        | Some leaf -> result |> pushUndo (LeafAdded(leaf, groupPath))
-        | None      -> result
+        finishAndAppend up north planet None None view model
+        |> recordFinished model.annotations.activeGroup.path
 
+    /// Whether the toolbar's *Lineament profiles* / *Crater profiles* wants profiles for an
+    /// annotation drawing input just finished (#833).
+    let autoProfileParent (s : SupportingProfileSettings) (finished : Option<Annotation>) : Option<Annotation> =
+        match finished with
+        | Some a when a.profileOf.IsNone
+                      && ((a.geometry = Geometry.Polyline && s.autoLineament)
+                          || (SupportingProfiles.isEllipse a.geometry && s.autoCrater)) -> Some a
+        | _ -> None
 
-    /// The annotation an update just finished, when the toolbar's *Lineament profiles* /
-    /// *Crater profiles* asks for its profiles right away (#833). Read off the undo stack:
-    /// finishing pushes `LeafAdded`, so this costs O(1) instead of a diff of the annotation map.
-    /// Callers ask only after drawing input (a pick, Finish) - a redo pushes the same delta.
-    let autoProfileParent (before : DrawingModel) (after : DrawingModel) : Option<Annotation> =
-        let s = after.supportingProfiles
-        if not (s.autoLineament || s.autoCrater)
-           || LanguagePrimitives.PhysicalEquality before.undoStack after.undoStack then
-            None
-        else
-            match after.undoStack with
-            | LeafAdded (Leaf.Annotations a, _) :: _ when a.profileOf.IsNone ->
-                if (a.geometry = Geometry.Polyline && s.autoLineament)
-                   || (SupportingProfiles.isEllipse a.geometry && s.autoCrater) then Some a
-                else None
-            | _ -> None
-
-    let rec update<'a>
+    /// `update`, also returning the annotation the action finished, if any: a pick that completes
+    /// a Line/Point/ellipse, or Finish. The toolbar's auto profiles hang off this (#833).
+    let updateFinishing<'a>
         (bigConfig       : 'a) 
         (smallConfig     : SmallConfig<'a> ) 
         (referenceSystem : Option<SpiceReferenceSystem>)
@@ -501,9 +490,9 @@ module DrawingApp =
         (view        : CameraView) 
         (shiftFlag   : bool)
         (model       : DrawingModel) 
-        (act         : DrawingAction) =
+        (act         : DrawingAction) : DrawingModel * Option<Annotation> =
 
-        let newModel =
+        let other () =
             // Whether the drawing/picking tool is "armed" is decided at the event source now
             // (ViewerApp.toolArmed + the active interaction gate the scene-event handlers and
             // allowAnnotationPicking), so the update no longer matches on draw/pick flags.
@@ -517,27 +506,7 @@ module DrawingApp =
                 { model with hoverPosition = None }
             | DrawingAction.Move p ->
                 { model with hoverPosition = Some (Trafo3d.Translation p) }
-            | AddPointAdv (point, projectSurface, referenceFrame, name, bookmarkId) ->
-                let up    = smallConfig.up.Get(bigConfig)
-                let north = smallConfig.north.Get(bigConfig)
-                let planet = smallConfig.planet.Get(bigConfig)
-                let groupPath  = model.annotations.activeGroup.path
-                let flatBefore = model.annotations.flat
-
-                let model' = addPoint up north planet referenceFrame projectSurface point view model name webSocket bookmarkId
-
-                // For geometries that auto-finish after N points (Line, Point, Ellipse, …),
-                // addPoint calls finishAndAppend internally. Detect that by checking whether
-                // a new leaf appeared in the flat map and push the undo delta here.
-                let newLeaf =
-                    model'.annotations.flat
-                    |> HashMap.toList
-                    |> List.tryFind (fun (id, _) -> not (HashMap.containsKey id flatBefore))
-                    |> Option.map snd
-                match newLeaf with
-                | Some leaf -> model' |> pushUndo (LeafAdded(leaf, groupPath))
-                | None      -> model'
-            | RemoveLastPoint -> 
+            | RemoveLastPoint ->
               //let annotation = { w with points = w.points |> IndexList.append p }
               // { annotation with segments = IndexList.append newSegment annotation.segments }
           
@@ -547,9 +516,7 @@ module DrawingApp =
                                                     segments = w.segments |> IndexList.removeAt (w.segments.Count - 1)}}
                 | Some _ -> { model with working = None }
                 | None -> model
-            | Finish -> 
-                finish bigConfig smallConfig model view
-            | Exit -> 
+            | Exit ->
                 { model with hoverPosition = None }
             | SetSemantic mode ->
                 let model =
@@ -1047,20 +1014,46 @@ module DrawingApp =
 
             | _ -> model
 
+        // drawing input can finish an annotation; everything else cannot
+        let newModel, finished =
+            match act with
+            | AddPointAdv (point, projectSurface, referenceFrame, name, bookmarkId) ->
+                let up     = smallConfig.up.Get(bigConfig)
+                let north  = smallConfig.north.Get(bigConfig)
+                let planet = smallConfig.planet.Get(bigConfig)
+                // Line, Point and the ellipses finish themselves after N points
+                addPoint up north planet referenceFrame projectSurface point view model name webSocket bookmarkId
+                |> recordFinished model.annotations.activeGroup.path
+            | Finish ->
+                finish bigConfig smallConfig model view
+            | _ ->
+                other (), None
+
         // optionally also store geojson to disk
         match automaticallyReExportGeoJson act && newModel.automaticGeoJsonExport.enabled with
-        | true -> 
+        | true ->
             match newModel.automaticGeoJsonExport.lastGeoJsonPathXyz with
-            | Some path -> 
+            | Some path ->
                 Log.line "[Drawing] automatically writing geojson.xyz file to %s since the annotations have changed." path
                 // virtually finish the annotation (as if closed by interaction) - to let it be part of the exported ones.
-                let artificiallyFinishedModel = finish bigConfig smallConfig model view
+                let artificiallyFinishedModel, _ = finish bigConfig smallConfig model view
                 exportGeoJsonStream artificiallyFinishedModel path
             | _ -> ()
-            newModel
-        | false -> 
-            newModel
-                                    
+            newModel, finished
+        | false ->
+            newModel, finished
+
+    let update<'a>
+        (bigConfig       : 'a)
+        (smallConfig     : SmallConfig<'a> )
+        (referenceSystem : Option<SpiceReferenceSystem>)
+        (webSocket   : BlockingCollection<string>)
+        (view        : CameraView)
+        (shiftFlag   : bool)
+        (model       : DrawingModel)
+        (act         : DrawingAction) : DrawingModel =
+        updateFinishing bigConfig smallConfig referenceSystem webSocket view shiftFlag model act |> fst
+
     let tryToAnnotation : AdaptiveLeafCase -> Option<AdaptiveAnnotation> = 
         function
         | AdaptiveAnnotations ann -> Some ann

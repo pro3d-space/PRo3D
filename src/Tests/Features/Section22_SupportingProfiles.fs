@@ -325,30 +325,43 @@ let private appTests =
                 let started = Draw.startTool Draw.refSystemFlat Geometry.Polyline
                 let started = Draw.run Draw.refSystemFlat started (DrawingAction.SetAutoLineamentProfiles auto)
                 let working = pts |> List.fold (fun m p -> Draw.click Draw.refSystemFlat p m) started
-                working, Draw.run Draw.refSystemFlat working DrawingAction.Finish
-            let before, after = drawn true
-            match DrawingApp.autoProfileParent before after with
-            | Some a -> Expect.equal a.geometry Geometry.Polyline "the finished polyline"
-            | None   -> failtest "a finished polyline with Lineament profiles on asks for profiles"
-            let before, after = drawn false
-            Expect.isNone (DrawingApp.autoProfileParent before after) "off: nothing"
-            // a click that does not finish anything
+                Draw.runFinishing Draw.refSystemFlat working DrawingAction.Finish
+            let auto (on : bool) =
+                let after, finished = drawn on
+                Expect.equal (finished |> Option.map (fun a -> a.geometry)) (Some Geometry.Polyline) "Finish returns the finished polyline"
+                Expect.equal (Draw.annotations after |> List.map (fun a -> a.key)) (finished |> Option.map (fun a -> a.key) |> Option.toList) "the one it added"
+                DrawingApp.autoProfileParent after.supportingProfiles finished
+            Expect.isSome (auto true) "a finished polyline with Lineament profiles on asks for profiles"
+            Expect.isNone (auto false) "off: nothing"
+        }
+
+        test "toolbar auto profiles: only drawing input that finishes something returns it" {
             let started = Draw.run Draw.refSystemFlat (Draw.startTool Draw.refSystemFlat Geometry.Polyline) (DrawingAction.SetAutoLineamentProfiles true)
-            let one = Draw.click Draw.refSystemFlat V3d.Zero started
-            Expect.isNone (DrawingApp.autoProfileParent started one) "an unfinished polyline asks for nothing"
+            let one, finished = Draw.runFinishing Draw.refSystemFlat started (DrawingAction.AddPointAdv(V3d.Zero, Draw.identityHit, None, "test-surface", None))
+            Expect.isNone finished "a click that does not finish a polyline"
+            let two = Draw.click Draw.refSystemFlat (V3d(10.0, 0.0, 0.0)) one
+            let closed, _ = Draw.runFinishing Draw.refSystemFlat two DrawingAction.Finish
+            // undo/redo push and pop LeafAdded too, but finish nothing
+            let undone, finished = Draw.runFinishing Draw.refSystemFlat closed DrawingAction.Undo
+            Expect.isNone finished "undo"
+            let _, finished = Draw.runFinishing Draw.refSystemFlat undone DrawingAction.Redo
+            Expect.isNone finished "redo"
+            // a Line finishes itself on its second pick
+            let line = Draw.startTool Draw.refSystemFlat Geometry.Line
+            let line = Draw.click Draw.refSystemFlat V3d.Zero line
+            let _, finished = Draw.runFinishing Draw.refSystemFlat line (DrawingAction.AddPointAdv(V3d(5.0, 0.0, 0.0), Draw.identityHit, None, "test-surface", None))
+            Expect.equal (finished |> Option.map (fun a -> a.geometry)) (Some Geometry.Line) "the pick that completes a Line returns it"
         }
 
         test "toolbar auto profiles: Crater profiles picks up a finished ellipse, not a polyline" {
             let s = { DrawingModel.initialdrawing.supportingProfiles with autoCrater = true }
             let started = { Draw.startTool Draw.refSystemFlat Geometry.Polyline with supportingProfiles = s }
             let working = [ V3d.Zero; V3d(10.0, 0.0, 0.0) ] |> List.fold (fun m p -> Draw.click Draw.refSystemFlat p m) started
-            let finished = Draw.run Draw.refSystemFlat working DrawingAction.Finish
-            Expect.isNone (DrawingApp.autoProfileParent working finished) "a polyline is not a crater"
+            let _, finished = Draw.runFinishing Draw.refSystemFlat working DrawingAction.Finish
+            Expect.isNone (DrawingApp.autoProfileParent s finished) "a polyline is not a crater"
             let parent = ellipse "c" 1.0
-            let withEllipse =
-                { finished with
-                    undoStack = LeafAdded (Leaf.Annotations parent, []) :: finished.undoStack }
-            Expect.equal (DrawingApp.autoProfileParent finished withEllipse |> Option.map (fun a -> a.key)) (Some parent.key) "an ellipse is"
+            Expect.equal (DrawingApp.autoProfileParent s (Some parent) |> Option.map (fun a -> a.key)) (Some parent.key) "an ellipse is"
+            Expect.isNone (DrawingApp.autoProfileParent s (Some { parent with profileOf = Some { parent = parent.key; index = 0; direction = "N-S"; azimuth = 0.0; station = None } })) "a generated profile never is"
         }
 
         test "generating again replaces the earlier profiles, in one undo step" {

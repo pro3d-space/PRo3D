@@ -163,7 +163,7 @@ key,text,parentKey,profileIndex,profileDirection,profileAzimuth,profileStation,p
 | File | Role |
 |---|---|
 | `src/PRo3D.Core/Drawing/SupportingProfiles.fs` | the geometry: stations, perpendiculars, compass and axis directions, rim intersection |
-| `src/PRo3D.Core/Drawing/Drawing-App.fs` (`GenerateSupportingProfiles`, `autoProfileParent`) | turns the profiles into annotations, all or nothing, one undo step; which finished annotation the toolbar generates for |
+| `src/PRo3D.Core/Drawing/Drawing-App.fs` (`GenerateSupportingProfiles`, `updateFinishing`, `autoProfileParent`) | turns the profiles into annotations, all or nothing, one undo step; `updateFinishing` returns the annotation a pick or Finish completed, `autoProfileParent` decides whether the toolbar wants its profiles |
 | `src/PRo3D.Viewer/Viewer/Viewer.fs` (`skyProjection`, `withAutoProfiles`) | the sky ray, and generating right after a polyline or ellipse is finished |
 | `src/PRo3D.Core/Drawing/Drawing.UI.fs` (`viewSupportingProfiles`, toolbar) | the panel and the toolbar checkboxes |
 | `src/PRo3D.Base/Annotation/Annotation-Model.fs` (`ProfileLink`) | the stored link, key `profileOf` |
