@@ -2076,6 +2076,13 @@ module Gui =
                         MapProjectionHost.view m |> UI.map ViewerMessage
                     ]
                 )
+            | Some "imageinspector" ->
+                // selected projected image in 2D, hover-linked to 3D (docs/dev/shadowEstimation.md)
+                require (viewerDependencies) (
+                    body [ style "background: #1B1C1E; width:100%; height:100%; overflow:hidden" ] [
+                        ImageInspector.view m |> UI.map ViewerMessage
+                    ]
+                )
             | Some "render" -> 
                 require (viewerDependencies) (
 
