@@ -23,6 +23,16 @@ shortcut. Ctrl+Alt+Z and the like are ignored, and so is
 Alt+Z on its own: earlier versions treated Alt like Ctrl in the 3D view, so Alt+Z used to undo.
 Alt+click still picks like Ctrl+click.
 
+## Delete: only where annotations are
+
+**Delete** deletes the selected annotations, in one undo step
+([AnnotationDeletion.md](AnnotationDeletion.md)). Unlike the Ctrl shortcuts it is taken only by
+the pages about annotations: the 3D view, the **Annotations** tree and the annotation
+**Properties** panel. In any other panel (Surfaces, say, where Delete would mean the selected
+surface) it does nothing, and in a text field it deletes text. Modifiers turn it off: Shift+Delete,
+Ctrl+Delete and the like are ignored. On a Mac keyboard the key labelled *delete* is Backspace;
+Delete is fn+delete there.
+
 ## Keys handled only by the 3D view
 
 Everything else (F1–F4 interaction modes, Enter / Backspace / Escape while drawing, 0–3
@@ -38,7 +48,9 @@ forgets any Ctrl or Shift it saw go down. A modifier released elsewhere therefor
 | What | Where |
 |---|---|
 | `pro3dCtrlShortcut(event)`: the client-side filter (Ctrl/Cmd, no Alt, not repeated, key Z/Y/S, not in a text-entry field) and `preventDefault` (Ctrl+S also inside text fields) | [utilities.js](../src/PRo3D.Viewer/resources/utilities.js) |
-| `Events.onCtrlShortcut`: the body `onkeydown` that asks it and sends the key code and Shift | [Utilities.fs](../src/PRo3D.Viewer/Utilities.fs) |
+| `Events.onCtrlShortcut`: the body `onkeydown` that asks it and sends the key code and Shift |
+| `pro3dDeleteKey(event)`: Delete, no modifier, not repeated, not in a text-entry field | [utilities.js](../src/PRo3D.Viewer/resources/utilities.js) |
+| `Events.onCtrlShortcutOrDelete`: the same handler plus Delete, on the render, annotations and properties pages; `Gui.annotationShortcut` turns Delete into `DeleteSelectedAnnotations` | [Utilities.fs](../src/PRo3D.Viewer/Utilities.fs), [ViewerGUI.fs](../src/PRo3D.Viewer/Viewer/ViewerGUI.fs) | [Utilities.fs](../src/PRo3D.Viewer/Utilities.fs) |
 | `ViewerAction.CtrlShortcut` | [Viewer-Model.fs](../src/PRo3D.Viewer/Viewer-Model.fs) |
 | Update case: undo / redo / save | [Viewer.fs](../src/PRo3D.Viewer/Viewer/Viewer.fs) |
 | The handler on every page body | `Gui.Pages.pageRouting` in [ViewerGUI.fs](../src/PRo3D.Viewer/Viewer/ViewerGUI.fs) |

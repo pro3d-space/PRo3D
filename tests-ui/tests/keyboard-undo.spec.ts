@@ -11,7 +11,9 @@ import * as path from "path";
  * on the focused render control. Keys go to the focused page: a panel the user clicked, or
  * the 3D view, which focuses itself on hover. On the Dimorphos OPC, as a user does it:
  *
- *  1. draw two Sky lines;
+ *  1. draw two Sky lines (finishing one selects it); Delete in the *Surfaces* panel leaves
+ *     both, Delete in *Properties* deletes the selected one, Ctrl+Z brings it back; the same
+ *     with the 3D view focused;
  *  2. Ctrl+Z in the annotation *properties* panel: one is gone; Ctrl+Y: it is back;
  *     Ctrl+Z, then Ctrl+Shift+Z (redo as on macOS): gone and back again;
  *  3. Ctrl+Z inside the toolbar's number field: nothing is undone (the field keeps it);
@@ -38,6 +40,22 @@ async function pressOn(page: Page, keys: string, app: Pro3d) {
     await page.bringToFront();
     await page.keyboard.press(keys);
     await awaitIdle(page, app, 2000);
+}
+
+/** Focuses the render control as a user does, by moving the cursor into it: blur it, leave
+ *  over the tool strip (an overlay, not part of the control) and come back, so it is
+ *  onmouseenter that focuses it, not an earlier pick. */
+async function focusRender(render: Page, x: number, y: number) {
+    await render.bringToFront();
+    await render.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    expect(await focused(render), "the render control is blurred").not.toContain("mainrendercontrol");
+    const strip = await render.locator(".pro3d-tool").first().boundingBox();
+    expect(strip, "the tool strip is on the render page").not.toBeNull();
+    await render.mouse.move(Math.round(strip!.x + strip!.width / 2), Math.round(strip!.y + strip!.height / 2));
+    await render.waitForTimeout(300);
+    await render.mouse.move(x, y);
+    await expect.poll(() => focused(render), { timeout: 10_000, message: "the render control has focus" })
+        .toContain("mainrendercontrol");
 }
 
 /** The element focused in `page`, as tag.class. */
@@ -74,10 +92,28 @@ test("Ctrl+Z/Y work from a dock panel and the top page, not in a text field, and
         await expectCount(context, app, 2, "two lines drawn");
         save("01-two-lines.png", await render.screenshot());
 
-        // 2. the properties panel, nothing focused in it
+        // 1b. Delete: only the annotation pages act on it (docs/AnnotationDeletion.md)
+        const surfaces = await context.newPage();
+        await surfaces.goto(app.url + "?page=surfaces");
+        await surfaces.waitForLoadState("networkidle");
+        await pressOn(surfaces, "Delete", app);
+        await expectCount(context, app, 2, "Delete in the Surfaces panel deletes no annotation");
+        await surfaces.close();
+
         const props = await context.newPage();
         await props.goto(app.url + "?page=properties");
         await props.waitForLoadState("networkidle");
+        await pressOn(props, "Delete", app);
+        await expectCount(context, app, 1, "Delete in the Properties panel deletes the selected line");
+        await pressOn(props, "Control+z", app);
+        await expectCount(context, app, 2, "Ctrl+Z brings it back");
+        await focusRender(render, cx, cy);
+        await pressOn(render, "Delete", app);
+        await expectCount(context, app, 1, "Delete in the 3D view deletes the selected line");
+        await pressOn(render, "Control+z", app);
+        await expectCount(context, app, 2, "Ctrl+Z brings it back");
+
+        // 2. the properties panel, nothing focused in it
         await pressOn(props, "Control+z", app);
         expect(await focused(props), "the panel's body has focus").toMatch(/^body/);
         await expectCount(context, app, 1, "Ctrl+Z in the properties panel undoes the last line");
@@ -106,19 +142,8 @@ test("Ctrl+Z/Y work from a dock panel and the top page, not in a text field, and
         await pressOn(main, "Control+y", app);
         await expectCount(context, app, 2, "Ctrl+Y on the top-level page redoes it");
 
-        // 4. the 3D view focused, as by hovering it: one undo, not two. Blur it, leave over
-        //    the tool strip (an overlay, not part of the control) and come back, so it is
-        //    onmouseenter that focuses the render control, not an earlier pick.
-        await render.bringToFront();
-        await render.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
-        expect(await focused(render), "the render control is blurred").not.toContain("mainrendercontrol");
-        const strip = await render.locator(".pro3d-tool").first().boundingBox();
-        expect(strip, "the tool strip is on the render page").not.toBeNull();
-        await render.mouse.move(Math.round(strip!.x + strip!.width / 2), Math.round(strip!.y + strip!.height / 2));
-        await render.waitForTimeout(300);
-        await render.mouse.move(cx, cy);
-        await expect.poll(() => focused(render), { timeout: 10_000, message: "the render control has focus" })
-            .toContain("mainrendercontrol");
+        // 4. the 3D view focused, as by hovering it: one undo, not two
+        await focusRender(render, cx, cy);
         await pressOn(render, "Control+z", app);
         await expectCount(context, app, 1, "Ctrl+Z in the 3D view undoes exactly one line");
         save("02-after-undo.png", await render.screenshot());

@@ -147,4 +147,25 @@ let tests =
                 Expect.isEmpty (e.serverSide System.Guid.Empty "id" [ "90" ] |> Seq.toList) "a missing Shift is dropped"
             | name, _ -> failtestf "expected an onkeydown event attribute, got %s" name
         }
+
+        test "TC-18.1 Delete is accepted only on the annotation pages" {
+            let clientJs (name : string, v : Aardvark.UI.AttributeValue<_>) =
+                match v with
+                | Aardvark.UI.AttributeValue.Event e -> e.clientSide (fun _ _ -> "SEND") "id"
+                | _ -> failtestf "expected an event attribute, got %s" name
+            let everywhere = clientJs (Aardvark.UI.Events.onCtrlShortcut (fun k s -> (k, s)))
+            let annotations = clientJs (Aardvark.UI.Events.onCtrlShortcutOrDelete (fun k s -> (k, s)))
+            Expect.isFalse (everywhere.Contains "pro3dDeleteKey") "other panels (Surfaces, …) ignore Delete"
+            Expect.stringContains annotations "pro3dDeleteKey(event)" "3D view, Annotations, Properties take it"
+        }
+
+        test "TC-18.1 annotationShortcut: Delete deletes the selection, the rest are Ctrl shortcuts" {
+            // ViewerAction has no equality (DrawingAction carries functions): match instead
+            match Gui.annotationShortcut Keys.Delete false with
+            | ViewerAction.DrawingMessage DrawingAction.DeleteSelectedAnnotations -> ()
+            | other -> failtestf "Delete should delete the selection, got %A" other
+            match Gui.annotationShortcut Keys.Z true with
+            | ViewerAction.CtrlShortcut (Keys.Z, true) -> ()
+            | other -> failtestf "Ctrl+Shift+Z should stay a Ctrl shortcut, got %A" other
+        }
     ]

@@ -113,3 +113,15 @@ function pro3dCtrlShortcut(event) {
 	event.preventDefault();
 	return true;
 }
+
+// Delete with no modifier, on the pages that opt in (the 3D view, Annotations, Properties;
+// Events.onCtrlShortcutOrDelete): deletes the selected annotations. In a text field it
+// deletes text, and elsewhere - the Surfaces tree, say - it must not touch annotations.
+
+function pro3dDeleteKey(event) {
+	if (event.keyCode !== 46 || event.repeat) { return false; }
+	if (event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) { return false; }
+	if (pro3dIsTextEntry(event.target)) { return false; }
+	event.preventDefault();
+	return true;
+}
