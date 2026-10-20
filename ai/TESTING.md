@@ -265,3 +265,28 @@ verbatim into `cameraView`; never rebuild one as "position, looking at the
 origin", which discards the orientation and reframes the shot. Scaling `Location`
 to dolly in or out is safe only for a radial view, so `pullBack` asserts that
 rather than assuming it.
+
+### Story videos: screen recordings with pointer and captions
+
+A story spec can record the full UI as a captioned MP4 (`PRO3D_VIDEO=1`, `tests-ui/src/video.ts`,
+how-to in [../docs/dev/StoryVideo.md](../docs/dev/StoryVideo.md); first one:
+`geological-map-story.spec.ts`). Rules, from making that one:
+
+- **One spec, two modes.** Write the steps once against a small `Ui` (render, panels, toolbar,
+  input page); pictures use separate pages, the video one page with the panels docked as iframes
+  (layout via `PRO3D_LAYOUT_DIR`/`current.json`). Points as fractions of the view the story was
+  laid out in, scaled by view *width* (the field of view is horizontal).
+- **Machine time is cut, viewer time is explicit.** Every wait on PRo3D (pick, KdTree load,
+  panel update, settling) goes through `until(...)`: the video keeps 0.35 s of it, and nothing of
+  a wait directly following another. Only captions (`say`, hold = reading time before the action;
+  the caption stays up during it) and results (`shot`, 1.5 s) hold the picture. Mechanics (pointer
+  glides, pauses before Ctrl+click, typing, key badges) are paced to be followed, not realistic.
+  An unwrapped wait is dead time in the video - the first take was ~3:45 mostly from that.
+- **Frames from the CDP screencast, not `recordVideo`** (fixed low bitrate, blurry at 1080p); each
+  frame carries its time, so cuts are applied while writing ffmpeg's concat list.
+- **The pointer is drawn into the page**: headless Chromium draws none, and mouse events in
+  iframes never reach the top document - every move goes through `Video.move`.
+- **Captions** sit 200 px above the bottom of the render view, clear of PRo3D's "picking"
+  indicator.
+- **Check a take with contact sheets** (`ffmpeg -vf "fps=1/8,scale=960:-1,tile=3x4"`) before
+  watching it end to end.

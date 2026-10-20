@@ -21,6 +21,7 @@ export class Video {
     private cdp?: CDPSession;
     private seq = 0;
     private at = { x: 0, y: 0 };
+    private lastCut = 0;
 
     constructor(readonly page: Page, readonly dir: string) {}
 
@@ -43,12 +44,17 @@ export class Video {
         this.start = Date.now() / 1000;
     }
 
-    /** Runs `wait` and cuts all of it from the video but its first `keep` seconds. */
-    async cut<T>(wait: () => Promise<T>, keep = 0.8): Promise<T> {
+    /** Runs `wait` and cuts all of it from the video but its first `keep` seconds - nothing of
+     *  it when it directly follows another cut wait. */
+    async cut<T>(wait: () => Promise<T>, keep = 0.35): Promise<T> {
         const t0 = Date.now() / 1000;
         const r = await wait();
         const t1 = Date.now() / 1000;
-        if (t1 - t0 > keep + 0.2) this.cuts.push([t0 + keep, t1]);
+        const k = t0 - this.lastCut < 0.1 ? 0 : keep;
+        if (t1 - t0 > k + 0.1) {
+            this.cuts.push([t0 + k, t1]);
+            this.lastCut = t1;
+        }
         return r;
     }
 
@@ -87,7 +93,7 @@ export class Video {
     async move(x: number, y: number) {
         await this.overlay();
         const d = Math.hypot(x - this.at.x, y - this.at.y);
-        const ms = d < 1 ? 0 : Math.round(Math.min(900, Math.max(250, d * 0.9)));
+        const ms = d < 1 ? 0 : Math.round(Math.min(600, Math.max(200, d * 0.6)));
         await this.page.evaluate(({ x, y, ms }) => {
             const p = document.getElementById("vid-pointer")!;
             p.style.transitionDuration = `${ms}ms`;

@@ -104,11 +104,11 @@ async function ctrl(ui: Ui, down: boolean) {
 async function press(ui: Ui, key: string) {
     if (ui.video) {
         await ui.video.keys(key, ui.view);
-        await ui.input.waitForTimeout(500);
+        await ui.input.waitForTimeout(300);
     }
     await ui.input.keyboard.press(key);
     if (ui.video) {
-        await ui.input.waitForTimeout(400);
+        await ui.input.waitForTimeout(250);
         await ui.video.keys(null, ui.view);
     }
 }
@@ -169,7 +169,7 @@ async function setUnitText(ui: Ui, row: number, column: number, value: string) {
     await pointTo(ui, await input.boundingBox());
     if (ui.video) {
         await input.fill("", { timeout: 30_000 });
-        await input.pressSequentially(value, { delay: 90 });
+        await input.pressSequentially(value, { delay: 50 });
     } else await input.fill(value, { timeout: 30_000 });
     await input.press("Enter", { timeout: 30_000 });
     await ui.input.waitForTimeout(400);
@@ -194,7 +194,8 @@ async function activeUnitIcon(ui: Ui, code: string) {
 async function pick(ui: Ui, p: Point) {
     await ui.input.bringToFront();
     await move(ui, p);
-    await ui.input.waitForTimeout(400);
+    // the render view focuses itself on mouseenter; a video's glide already gave it the time
+    await ui.input.waitForTimeout(ui.video ? 150 : 400);
     await ctrl(ui, true);
     await ui.input.waitForTimeout(200);
     await ui.input.mouse.click(p.x, p.y);
@@ -226,7 +227,7 @@ async function hover(ui: Ui, p: Point) {
     await ui.input.bringToFront();
     await move(ui, p);
     await ctrl(ui, true);
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < (ui.video ? 5 : 8); i++) {
         await ui.input.mouse.move(p.x + (i % 2), p.y);
         await ui.input.waitForTimeout(400);
     }
@@ -259,7 +260,7 @@ async function snap(ui: Ui, name: string) {
 }
 
 async function panelShot(ui: Ui, name: string) {
-    if (ui.video) await ui.input.waitForTimeout(1200);
+    if (ui.video) await ui.input.waitForTimeout(800);
     else save(name, await (ui.panel as Page).screenshot());
 }
 
