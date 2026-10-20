@@ -2129,8 +2129,12 @@ module ViewerApp =
         | Logging (text,message),_ ->  
             message |> MailboxAction.ViewerAction |> mailbox.Post
             { m with scene = { m.scene with userFeedback = text } }
-        | ThreadsDone id,_ ->  
-            { m with scene = { m.scene with userFeedback = ""; feedbackThreads = ThreadPool.remove id m.scene.feedbackThreads;} }
+        | ThreadsDone id,_ ->
+            // one text, several timers: a message still pending is the one shown, so an
+            // earlier message's timer must not clear it
+            let threads = ThreadPool.remove id m.scene.feedbackThreads
+            let text = if HashMap.isEmpty threads.store then "" else m.scene.userFeedback
+            { m with scene = { m.scene with userFeedback = text; feedbackThreads = threads } }
         //| SnapshotThreadsDone id,_,_ ->  
         //    let _m = 
         //        { m with arnoldSnapshotThreads = ThreadPool.remove id m.arnoldSnapshotThreads }
