@@ -1304,9 +1304,6 @@ module ViewerUtils =
             // a terrain property, so shaded
             Shader.contourLines |> toEffect
 
-            //PRo3D.Base.Shader.depthImageF        |> toEffect
-            PRo3D.Base.Shader.depthCalculation2     |> toEffect //depthImageF        |> toEffect
-
             // The projection stack (multi-image projection). Subsumes the old
             // single-image stableImageProjection: a stack of one behaves
             // identically, and hovering a library image previews it as the top
@@ -1321,6 +1318,9 @@ module ViewerUtils =
 
             // -- 2. lighting
 
+            // the surface colour as it is before lighting, for depthCalculation2 below
+            PRo3D.Base.Shader.surfaceColor |> toEffect
+
             // Lommel-Seeliger over the terrain normal; solarLighting's Lambert-on-a-
             // sphere-normal predecessor made relief invisible under sun lighting.
             PRo3D.SPICE.Shaders.solarShadingLS |> toEffect
@@ -1331,7 +1331,11 @@ module ViewerUtils =
             // readable in shadow and on the night side; bottom -> top, each paints over the
             // ones before it. A new overlay goes here, at the layer it belongs to.
 
-            // latitude/longitude graticule: the reference grid, lowest
+            // depth false colour (DepthVisible): tints the unlit surface colour, lowest
+            //PRo3D.Base.Shader.depthImageF        |> toEffect
+            PRo3D.Base.Shader.depthCalculation2     |> toEffect //depthImageF        |> toEffect
+
+            // latitude/longitude graticule: the reference grid, over the depth colouring
             Shader.latLonLines |> toEffect
 
             // outcrop traces: interpretation, over the grid
