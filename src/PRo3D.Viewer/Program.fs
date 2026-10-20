@@ -321,7 +321,7 @@ let main argv =
                 renderingUrl 
                 ViewerApp.dataSamples
                 startupArgs.enableProvenanceTracking
-                appData
+                (startupArgs.screenshotDirectory |> Option.defaultValue appData)
                 viewerVersion
 
         let adaptiveModel = mainApp.MutableModel

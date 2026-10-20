@@ -16,6 +16,7 @@ Arguments are parsed at startup in `src/PRo3D.Viewer/Program.fs` via the parsers
 | `--snap <path>` | Load camera views (snapshot file) |
 | `--asnap <path>` | Load an animation snapshot (camera sequence) |
 | `--out <folder>` | Output directory for screenshots/snapshots |
+| `--screenshotDirectory <folder>` | Folder the *Screenshots* panel saves into (default: AppData), see [docs/Screenshots.md](../docs/Screenshots.md) |
 | `--port <n>` | Web server port |
 | `--samples <n>` | MSAA sample count |
 | `--backgroundColor <c>` | Background color |
