@@ -110,6 +110,8 @@ type ViewerAction =
 | SetCameraAndFrustum2            of CameraView * Frustum
 | SetFrustum                      of Frustum
 | SetRenderViewportSize           of V2i
+/// A main-view render control booted, with its render-server scene name (docs/Screenshots.md)
+| MainViewBooted                  of sceneName : string
 | ImportSurface                   of list<string>
 | DiscoverAndImportOpcs           of list<string>
 | ImportDiscoveredSurfacesThreads of list<string>
@@ -671,6 +673,11 @@ type Model = {
     numberOfSamples      : int
     renderingUrl         : string
     screenshotDirectory  : string
+    /// Render-server scene names of the main view's render controls, newest first - one per
+    /// page showing the main view. Screenshots capture the first one the server still renders
+    /// (ScreenshotUtilities.tryChooseScene). Session-only; see docs/Screenshots.md.
+    [<NonAdaptive>]
+    mainViewScenes       : list<string>
 
     [<NonAdaptive>]
     animator             : Animation.Animator<Model>

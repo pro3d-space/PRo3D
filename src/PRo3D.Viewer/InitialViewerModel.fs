@@ -174,6 +174,7 @@ module Viewer =
             renderingUrl        = renderingUrl       
             numberOfSamples     = numberOfSamples    
             screenshotDirectory = screenshotDirectory
+            mainViewScenes      = []
             animator            = Animation.Animator.initial animatorLens
 
             provenanceModel = ProvenanceModel.invalid

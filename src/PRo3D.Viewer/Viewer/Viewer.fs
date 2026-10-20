@@ -1843,7 +1843,9 @@ module ViewerApp =
 
             // the layout belongs to the user, not the scene; a fresh Golden Layout model would also
             // reset the version its browser channel compares against and swallow the next change
-            { initialModel with recent = m.recent; layout = m.layout } |> ViewerIO.loadRoverData
+            // nor do the render controls on screen belong to it: they do not boot again
+            { initialModel with recent = m.recent; layout = m.layout; mainViewScenes = m.mainViewScenes }
+            |> ViewerIO.loadRoverData
 
         | KeyDown k, _ ->
             let m =
@@ -2126,6 +2128,11 @@ module ViewerApp =
         | ResizeMainControl (a,id),_ -> 
             printfn "[main] resize %A" (a,id)
             updateFrustumAspect m a id
+        | MainViewBooted sceneName, _ ->
+            // a page that closes or reloads never says so: keep the newest few, screenshots skip
+            // the ones the render server no longer renders
+            let older = m.mainViewScenes |> List.filter (fun s -> s <> sceneName) |> List.truncate 15
+            { m with mainViewScenes = sceneName :: older }
         | ResizeInstrumentControl (a,id),_ -> 
             printfn "[instrument] resize %A" (a,id)
             updateFrustumAspect m a id
@@ -2304,6 +2311,7 @@ module ViewerApp =
                     m.renderingUrl 
                     m.numberOfSamples 
                     m.screenshotDirectory 
+                    m.mainViewScenes
                     m.scene.screenshotModel
                     msg
 
@@ -2602,6 +2610,14 @@ module ViewerApp =
                 )
                 onKeyUp   (KeyUp)        
                 clazz "mainrendercontrol"
+                // from the boot script in viewRenderView, carrying the control's own id - its scene
+                // name on the render server, which screenshots of the main view ask for
+                onEvent "pro3dSceneBooted" [] (
+                    fun p ->
+                        match p with
+                        | [sceneName] -> MainViewBooted (Pickler.json.UnPickleOfString sceneName)
+                        | _ -> Nop
+                )
                 onEvent "resizeControl"  [] (
                     fun p -> 
                         match p with
@@ -3035,8 +3051,11 @@ module ViewerApp =
             ViewerUtils.offscreenScene dataSamples grouped overlayed depthTested fills values
             |> Sg.map ViewerMessage
 
-        onBoot "attachResize('__ID__')" (
-            DomNode.RenderControl((renderControlAttributes id m), cam, cmds)
+        // the control's id is its scene name on the render server; screenshots need it
+        onBoot "aardvark.processEvent('__ID__', 'pro3dSceneBooted', '__ID__')" (
+            onBoot "attachResize('__ID__')" (
+                DomNode.RenderControl((renderControlAttributes id m), cam, cmds)
+            )
         )
         
     let view (runtime : IRuntime) (m: AdaptiveModel) = //(localhost: string)
