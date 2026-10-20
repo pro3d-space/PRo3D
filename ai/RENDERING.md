@@ -150,15 +150,15 @@ The main and instrument views render their surfaces **offscreen** (`OffscreenSur
 
 **Known limitations:**
 - Server screenshots with a `samples=` other than the viewer's (4) come out without surfaces: the render server compiles a separate scene for that sample count, and its single frame has no OPC patches. The same on develop (checked with the 2026-09-24 develop build), so not caused by the offscreen surfaces; PRo3D's own screenshot clients send `samples=4`. Unverified guess: the OPC LoD of a freshly compiled scene has not streamed anything yet.
-- After a server screenshot of another size (same sample count, so sharing the live view's compiled scene), the live view stops showing model changes until the camera moves - an invalidation lost in aardvark.media 5.7.3 (`ClientRenderTask.Run` sets `OutOfDate` by hand before applying the screenshot's values). The same on develop. `tests-ui/tests/annotation-fill.spec.ts` therefore takes its server screenshots last.
+- A server screenshot of another size shares the live view's compiled scene (same sample count). An earlier note claimed the live view then stopped showing model changes until the camera moved; it did not reproduce (2026-10-20, this branch and develop): a Sky line and a filled polygon drawn after 500 x 500 and 3200 x 900 screenshots appear at once, camera untouched.
 
 - The fill accumulation is single-sampled (depth sample 0); the composite writes one value per pixel, so fill edges at terrain silhouettes are not antialiased.
 - The stencil fallback (Snapshots) rebuilds its batches whenever the batch count changes.
 - Snapshots (`SnapshotSg`) render surfaces directly and use the stencil fill fallback.
 - Instrument view: verified by screenshot (headless probe, `fillProblem` scene) that surfaces show; fills there not checked separately.
 
-- GPU memory grows while the camera moves — on develop as much as here (OPC LoD caching), pre-existing.
-- The closing edge of Sky-projected polygon outlines is not drawn — pre-existing, unrelated to fills.
+- Memory while the camera moves (2026-10-20, Dimorphos, 60 identical orbit/zoom cycles): GPU memory levels off on this branch and on develop, this branch ~90 MB higher (the offscreen targets); private bytes swing with GC but do not grow on either.
+- The closing edge of Sky-projected polygon outlines is not drawn — confirmed on develop too, unrelated to fills.
 
 ### Annotation fills — against the surface depth (#841)
 
@@ -174,7 +174,7 @@ Cost: 10240 fills ≈ 0.06-0.15 ms/frame with a moving camera (RTX 500 Ada), off
 
 The pick pass draws the flat caps (`FillGeometry.caps`); the 2D map view (`MapAnnotations`) has no terrain and draws the caps too.
 
-GPU tests and benchmark: `src/Tests/FillRenderTest.fs`. Playwright: `tests-ui/tests/annotation-fill.spec.ts`. User docs: [docs/AnnotationFill.md](../docs/AnnotationFill.md).
+GPU tests and benchmark: `src/Tests/FillRenderTest.fs`. Playwright: `tests-ui/tests/annotation-fill.spec.ts`. User docs: [docs/AnnotationFill.md](../docs/AnnotationFill.md); the technique explained for developers (z-fail count, why the sum is the colour, overlap blending): [docs/dev/AnnotationFill-technique.md](../docs/dev/AnnotationFill-technique.md).
 
 Gates: `ViewerApp.allowAnnotationPicking` decides whether the readback is honoured at all; `ViewerApp.allowVertexEditing` additionally gates the handles. `Interactions.EditAnnotation` is the one mode where annotation picking *and* KdTree surface picking are both live — see [docs/AnnotationVertexEditing.md](../docs/AnnotationVertexEditing.md) for why that ordering hazard needs `VertexGrab.movedSinceGrab`.
 

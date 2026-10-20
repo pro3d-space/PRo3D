@@ -67,4 +67,4 @@ fraction of a millisecond per frame.
   correspondingly more GPU memory while they are taken.
 
 
-Implementation notes for developers: [ai/RENDERING.md](../ai/RENDERING.md#annotation-fills--against-the-surface-depth-841).
+How the fills are drawn, step by step: [docs/dev/AnnotationFill-technique.md](dev/AnnotationFill-technique.md). Implementation notes: [ai/RENDERING.md](../ai/RENDERING.md#annotation-fills--against-the-surface-depth-841).

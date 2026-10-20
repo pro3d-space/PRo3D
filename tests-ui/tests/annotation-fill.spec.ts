@@ -185,9 +185,8 @@ test("a filled polygon tints the terrain inside its outline, bulge included", as
         expect(outside, "nothing outside the outline is tinted").toBeLessThan(0.05);
 
         // Server screenshots of other sizes and aspect ratios show the same picture: surfaces,
-        // fill and outline where the live view has them. Taken last: after a server
-        // screenshot at another size the live view stops showing model changes until the
-        // camera moves (aardvark.media 5.7.3; on develop as much as here).
+        // fill and outline where the live view has them. Taken last, after every live-view
+        // check, so a screenshot cannot influence those.
         const client = await renderClient(render);
         expect(client, "the render control's element id").not.toBe("");
         const control = await render.evaluate(() => {
