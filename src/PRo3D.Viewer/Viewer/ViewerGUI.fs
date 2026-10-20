@@ -2036,7 +2036,12 @@ module Gui =
     module Pages =
         let mutable renderViewportSizeId = System.Guid.NewGuid().ToString()
         let pageRouting viewerDependencies bodyAttributes (m : AdaptiveModel) viewInstrumentView viewRenderView (runtime : IRuntime) (request : IHttpRequest) =
-            
+            // Every dock panel is its own document: each page body carries the Ctrl+Z/Y/S
+            // handler so the shortcuts work wherever the cursor is (docs/KeyboardShortcuts.md).
+            let ctrlShortcut : Attribute<ViewerAnimationAction> =
+                Events.onCtrlShortcut CtrlShortcut |> ViewerUtils.mapAttribute ViewerMessage
+            let bodyAttributes = ctrlShortcut :: bodyAttributes
+
             match request.QueryParam "page" with
             | Some "instrumentview" ->
                 let id = System.Guid.NewGuid().ToString()
@@ -2060,7 +2065,7 @@ module Gui =
                       |> AttributeMap.mapAttributes (AttributeValue.map ViewerMessage)
 
                 require (viewerDependencies) (
-                    body [ style "background: #1B1C1E; width:100%; height:100%; overflow-y:auto; overflow-x:auto;"] [
+                    body [ ctrlShortcut; style "background: #1B1C1E; width:100%; height:100%; overflow-y:auto; overflow-x:auto;"] [
                       Incremental.div instrumentViewAttributes (
                         alist {
                             yield viewInstrumentView runtime id m 
@@ -2072,14 +2077,14 @@ module Gui =
             | Some "mapprojection" ->
                 // map projection panel (#772); gates itself to small bodies
                 require (viewerDependencies) (
-                    body [ style "background: #1B1C1E; width:100%; height:100%; overflow:hidden" ] [
+                    body [ ctrlShortcut; style "background: #1B1C1E; width:100%; height:100%; overflow:hidden" ] [
                         MapProjectionHost.view m |> UI.map ViewerMessage
                     ]
                 )
             | Some "imageinspector" ->
                 // selected projected image in 2D, hover-linked to 3D (docs/dev/shadowEstimation.md)
                 require (viewerDependencies) (
-                    body [ style "background: #1B1C1E; width:100%; height:100%; overflow:hidden" ] [
+                    body [ ctrlShortcut; style "background: #1B1C1E; width:100%; height:100%; overflow:hidden" ] [
                         ImageInspector.view m |> UI.map ViewerMessage
                     ]
                 )
@@ -2095,8 +2100,9 @@ module Gui =
                         onEvent "onfocus" ["{ X: $(document).width(), Y: $(document).height()  }"] (List.head >> Pickler.json.UnPickleOfString >> cb)
 
                     let renderViewAttributes : list<Attribute<ViewerAnimationAction>> = 
-                        [ 
+                        [
                         style "background: #1B1C1E; height:100%; width:100%"
+                        Events.onCtrlShortcut CtrlShortcut
                         Events.onClick (fun _ -> SwitchViewerMode ViewerMode.Standard)
                         onResize (fun s -> OnResize(s, renderViewportSizeId))
                         onFocus (fun s -> OnResize(s, renderViewportSizeId))
@@ -2302,7 +2308,7 @@ module Gui =
             | None ->
                 require (viewerDependencies) (
                     onBoot (sprintf "document.title = '%s'" Config.title) (
-                        body [] [
+                        body [ ctrlShortcut ] [
                             TopMenu.getTopMenu m
                             |> UI.map ViewerMessage
                             div [clazz "dockingMainDings"] [

@@ -2012,28 +2012,7 @@ module ViewerApp =
                 | Keyboard.Modifier -> { m with ctrlFlag = true }
                 | _ -> m
 
-            let m =
-                match (m.ctrlFlag, k, m.scene.scenePath) with
-                | true, Aardvark.Application.Keys.S, Some path ->
-                    { (saveScene path m) with ctrlFlag = false } |> shortFeedback "scene saved"
-                | true, Aardvark.Application.Keys.S, None ->
-                    { m with ctrlFlag = false } |> shortFeedback "please use \"save\" in the menu to save the scene"
-                    // (saveSceneAndAnnotations p m)
-                |_-> m
-
-            let m =
-                let view =
-                    match m.viewerMode with
-                    | ViewerMode.Standard    -> m.navigation.camera.view
-                    | ViewerMode.Instrument  -> m.scene.viewPlans.instrumentCam
-                match (m.ctrlFlag, k) with
-                | true, Aardvark.Application.Keys.Z ->
-                    let drawing = DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing DrawingAction.Undo
-                    { m with drawing = drawing }
-                | true, Aardvark.Application.Keys.Y ->
-                    let drawing = DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing DrawingAction.Redo
-                    { m with drawing = drawing }
-                | _ -> m
+            // Ctrl+Z/Y/S are not handled here but in CtrlShortcut, sent by every page's body
 
             // comparison areas: resize the area just placed, Enter to finish
             let m =
@@ -2110,6 +2089,24 @@ module ViewerApp =
 
             match k with
             | Keyboard.Modifier -> { m with ctrlFlag = false }
+            | _ -> m
+        | CtrlShortcut k,_ ->
+            let view =
+                match m.viewerMode with
+                | ViewerMode.Standard    -> m.navigation.camera.view
+                | ViewerMode.Instrument  -> m.scene.viewPlans.instrumentCam
+            match k, m.scene.scenePath with
+            | Aardvark.Application.Keys.Z, _ ->
+                let drawing = DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing DrawingAction.Undo
+                { m with drawing = drawing }
+            | Aardvark.Application.Keys.Y, _ ->
+                let drawing = DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing DrawingAction.Redo
+                { m with drawing = drawing }
+            // ctrlFlag is left alone: Ctrl may still be held, and blur releases it otherwise
+            | Aardvark.Application.Keys.S, Some path ->
+                saveScene path m |> shortFeedback "scene saved"
+            | Aardvark.Application.Keys.S, None ->
+                m |> shortFeedback "please use \"save\" in the menu to save the scene"
             | _ -> m
         | SetInteraction t,_ ->
                 
@@ -2692,8 +2689,14 @@ module ViewerApp =
         }
         |> Sg.noEvents
         |> Sg.trafo(trafo)
-    
-    let renderControlAttributes (id : string) (m: AdaptiveModel) = 
+
+    /// Ctrl/Shift held while focus leaves a render control are released elsewhere; that
+    /// KeyUp never arrives here, and a stale ctrlFlag/shiftFlag would keep picking armed.
+    let private releaseModifiersOnBlur : Attribute<ViewerAction> =
+        onEvent' "onblur" [] (fun _ ->
+            [KeyUp Aardvark.Application.Keys.LeftCtrl; KeyUp Aardvark.Application.Keys.LeftShift])
+
+    let renderControlAttributes (id : string) (m: AdaptiveModel) =
 
         let renderControlAtts (model: AdaptiveNavigationModel) =
             amap {
@@ -2745,7 +2748,8 @@ module ViewerApp =
                     let drawingAction = getDrawingActionForKey (m.interaction |> AVal.force) k
                     [KeyDown k; DrawingMessage drawingAction]
                 )
-                onKeyUp   (KeyUp)        
+                onKeyUp   (KeyUp)
+                releaseModifiersOnBlur
                 clazz "mainrendercontrol"
                 onEvent "resizeControl"  [] (
                     fun p -> 
@@ -2771,6 +2775,7 @@ module ViewerApp =
                 attribute "useMapping" "true"
                 onKeyDown (KeyDown)
                 onKeyUp (KeyUp)
+                releaseModifiersOnBlur
                 clazz "instrumentrendercontrol"
                 onEvent "resizeControl"  [] (
                     fun p -> 

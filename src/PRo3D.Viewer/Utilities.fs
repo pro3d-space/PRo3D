@@ -79,4 +79,23 @@ module Events =
                             Seq.empty
                 )
         )
-        
+
+    /// Ctrl (Cmd on macOS) + Z / Y / S, for a page's body: key events bubble up from
+    /// anywhere in the page, so the shortcut no longer needs the render control to have
+    /// focus. Which keys are sent, and what text fields keep, is decided client side by
+    /// pro3dCtrlShortcut in resources/utilities.js (docs/KeyboardShortcuts.md).
+    let onCtrlShortcut (cb : Keys -> 'msg) =
+        "onkeydown",
+        AttributeValue.Event {
+            clientSide = fun send id ->
+                "if (window.pro3dCtrlShortcut && pro3dCtrlShortcut(event)) { " + send id ["event.keyCode"] + " }"
+            serverSide = fun _ _ args ->
+                match args with
+                | keyCode :: _ ->
+                    match System.Int32.TryParse keyCode with
+                    | true, code -> Seq.delay (fun () -> Seq.singleton (cb (KeyConverter.keyFromVirtualKey code)))
+                    | _ -> Seq.empty
+                | _ ->
+                    Seq.empty
+        }
+
