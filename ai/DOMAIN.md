@@ -180,7 +180,7 @@ The attitude aggregate (`ViewerUtils.outcropTraceAttitude`) is deliberately **no
 draw gate lives in `outcropTraceUniforms`, which folds every "do not draw" case into one `None`.
 
 Rendering notes are in [RENDERING.md](RENDERING.md#shaders--effects) territory: one view-space
-plane uniform plus `d mod bedThickness` in the fragment shader, added last to the effect stacks,
+plane uniform plus `d mod bedThickness` in the fragment shader, in the unlit overlay band after lighting,
 with screen-space-derivative antialiasing that is load-bearing rather than cosmetic once a whole
 sequence is on screen.
 

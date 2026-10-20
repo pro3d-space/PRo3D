@@ -40,6 +40,9 @@ type ExportTypeFilter =
     | All          = 0
     /// `AxisEllipse`, `Axis4PEllipse` and `Ellipse`
     | EllipsesOnly = 1
+    /// `Line` and `Polyline`, except generated profiles (which are lines too): the
+    /// lineaments the Lineaments preset exports, #833
+    | LinesOnly    = 2
 
 type CoordinateMode =
     | Cartesian  = 0
@@ -87,6 +90,12 @@ type ExportPreset =
     | Boulders          = 6
     /// one row per segment of every line: lengths, endpoints, azimuth
     | Fractures         = 7
+    /// Boulders rows for the ellipses, plus a second file with the profiles generated
+    /// from them, one row per point (#833)
+    | Craters           = 8
+    /// one row per polyline, plus a second file with the profiles generated from them,
+    /// one row per point (#833)
+    | Lineaments        = 9
 
 /// Immutable snapshot handed to the record builder and the writers. Contains no
 /// adaptive types and no reference to the surface model, so it can live in
@@ -116,6 +125,9 @@ type AnnotationExportSettings = {
     /// (EllipseStatistics) to its per-annotation row. Reads the OPC meshes, so it
     /// is off by default; only the Boulders preset switches it on.
     ellipseStatistics : bool
+    /// also write `<file>_profiles.csv`: the profiles generated from the exported
+    /// annotations, one row per point (the Craters preset, #833)
+    withProfiles      : bool
     annotationFields  : list<AnnotationField>
     pointFields       : list<PointField>
 }
@@ -124,7 +136,7 @@ module ExportPreset =
 
     let all =
         [ ExportPreset.Custom; ExportPreset.QgisFeatures; ExportPreset.AnnotationTable
-          ExportPreset.Profile; ExportPreset.Boulders; ExportPreset.Fractures
+          ExportPreset.Profile; ExportPreset.Boulders; ExportPreset.Craters; ExportPreset.Lineaments; ExportPreset.Fractures
           ExportPreset.AttitudePlanes; ExportPreset.ContinuousGeoJson ]
 
     let label (preset : ExportPreset) =
@@ -137,15 +149,18 @@ module ExportPreset =
         | ExportPreset.ContinuousGeoJson -> "Continuous GeoJSON"
         | ExportPreset.Boulders          -> "Boulders (ellipses)"
         | ExportPreset.Fractures         -> "Fractures (segments)"
+        | ExportPreset.Craters           -> "Craters (ellipses + profiles)"
+        | ExportPreset.Lineaments        -> "Lineaments (polylines + profiles)"
         | _                              -> string preset
 
 module ExportTypeFilter =
 
-    let all = [ ExportTypeFilter.All; ExportTypeFilter.EllipsesOnly ]
+    let all = [ ExportTypeFilter.All; ExportTypeFilter.EllipsesOnly; ExportTypeFilter.LinesOnly ]
 
     let label (filter : ExportTypeFilter) =
         match filter with
         | ExportTypeFilter.EllipsesOnly -> "ellipses only"
+        | ExportTypeFilter.LinesOnly    -> "lines only (no generated profiles)"
         | _                             -> "all"
 
     let isEllipse (g : Geometry) =
@@ -157,6 +172,8 @@ module ExportTypeFilter =
     let admits (filter : ExportTypeFilter) (a : Annotation) =
         match filter with
         | ExportTypeFilter.EllipsesOnly -> isEllipse a.geometry
+        | ExportTypeFilter.LinesOnly    ->
+            (a.geometry = Geometry.Line || a.geometry = Geometry.Polyline) && a.profileOf.IsNone
         | _                             -> true
 
 module AnnotationExportSettings =
@@ -167,8 +184,8 @@ module AnnotationExportSettings =
         AnnotationFields.all
         |> List.filter (fun f ->
             match AnnotationFields.groupOf f with
-            | Identity -> false
-            | _        -> true)
+            | Identity | Profile -> false
+            | _                  -> true)
 
     let initial = {
         format            = ExportFormat.Csv
@@ -182,6 +199,7 @@ module AnnotationExportSettings =
         useSampledPoints  = true
         sampleSurfaceProperties = false
         ellipseStatistics = false
+        withProfiles      = false
         annotationFields  =
             [ AnnotationField.Key; AnnotationField.Text; AnnotationField.GroupName
               AnnotationField.GroupPath; AnnotationField.SurfaceName
@@ -190,9 +208,16 @@ module AnnotationExportSettings =
         pointFields       = AnnotationFields.allPointFields
     }
 
+    /// The columns of a profile row: identity, then where a generated profile came from
+    /// (empty for a hand-drawn line). Shared by *Profile* and the profiles file of *Craters*.
+    let profileFields =
+        [ AnnotationField.Key; AnnotationField.Text; AnnotationField.SurfaceName
+          AnnotationField.ParentKey; AnnotationField.ProfileIndex; AnnotationField.ProfileDirection
+          AnnotationField.ProfileAzimuth; AnnotationField.ProfileStation ]
+
     /// A preset only pre-fills the settings; every individual control stays
     /// editable afterwards (which flips the preset back to `Custom`).
-    let applyPreset (preset : ExportPreset) (settings : AnnotationExportSettings) =
+    let rec applyPreset (preset : ExportPreset) (settings : AnnotationExportSettings) =
         // Defaults every preset shares. `Custom` is not really a preset —
         // selecting it must leave the settings exactly as they are.
         //
@@ -214,7 +239,8 @@ module AnnotationExportSettings =
                     signedLongitude = true
                     latLonAltSource = LatLonAltSource.Spice
                     typeFilter      = ExportTypeFilter.All
-                    ellipseStatistics = false }
+                    ellipseStatistics = false
+                    withProfiles    = false }
 
         match preset with
         | ExportPreset.QgisFeatures ->
@@ -255,7 +281,7 @@ module AnnotationExportSettings =
                 // it called `distance`
                 coordinates      = CoordinateMode.Both
                 useSampledPoints = true
-                annotationFields = [ AnnotationField.Key; AnnotationField.Text; AnnotationField.SurfaceName ]
+                annotationFields = profileFields
                 pointFields      = AnnotationFields.allPointFields }
         | ExportPreset.Boulders ->
             // One row per ellipse. The row's coordinates are the stored ellipse
@@ -273,6 +299,25 @@ module AnnotationExportSettings =
                     [ AnnotationField.Key; AnnotationField.Text; AnnotationField.SurfaceName
                       AnnotationField.GroupPath; AnnotationField.SemiMajorAxis
                       AnnotationField.SemiMinorAxis; AnnotationField.MajorAxisAzimuth ] }
+        | ExportPreset.Craters ->
+            // the Boulders file, and the profiles generated from its ellipses beside it
+            { applyPreset ExportPreset.Boulders settings with withProfiles = true }
+        | ExportPreset.Lineaments ->
+            // one row per polyline, and the profiles generated from it beside it; the
+            // polyline counterpart of Craters
+            { settings with
+                format           = ExportFormat.Csv
+                granularity      = ExportGranularity.PerAnnotation
+                scope            = ExportScope.All
+                typeFilter       = ExportTypeFilter.LinesOnly
+                withProfiles     = true
+                coordinates      = CoordinateMode.Both
+                longitude        = LongitudeConvention.Native
+                // in enum order, which is the order the export window writes them in
+                annotationFields =
+                    [ AnnotationField.Key; AnnotationField.Text; AnnotationField.SurfaceName
+                      AnnotationField.Length; AnnotationField.WayLength; AnnotationField.Bearing
+                      AnnotationField.GroupPath ] }
         | ExportPreset.Fractures ->
             // One row per segment. Ellipses have no clicked-to-clicked segments and
             // produce no rows, so no type filter is needed.
