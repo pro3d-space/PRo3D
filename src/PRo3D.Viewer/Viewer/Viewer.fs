@@ -3015,9 +3015,16 @@ module ViewerApp =
                 surfaceIntersection
                 vertexEdit
                 curtainSg
-                // Image Inspector markers: real geometry, depth-tested against the terrain
-                ImageInspector.hoverSg m.imageHover view
-                ImageInspector.measureSg m.shadowMeasure m.scene.gisApp.projectedImageList.selectedImage view
+                // Image Inspector markers: real geometry, depth-tested against the terrain. Built
+                // only while the (experimental) panel is open: closed, nothing is in the graph.
+                m.imageInspectorEnabled |> AVal.map (fun enabled ->
+                    if enabled then
+                        Sg.ofList [
+                            ImageInspector.hoverSg m.imageHover view
+                            ImageInspector.measureSg m.shadowMeasure m.scene.gisApp.projectedImageList.selectedImage view
+                        ]
+                    else Sg.empty)
+                |> Sg.dynamic
             ] |> Sg.ofList
 
         let heightValidationDiscs =
