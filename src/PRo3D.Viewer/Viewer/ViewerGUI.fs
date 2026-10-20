@@ -2032,14 +2032,25 @@ module Gui =
               ]      
           ] |> UI.map SequencedBookmarkMessage
     
+    /// The page-body key handler's message on the annotation pages: Delete deletes the
+    /// selected annotations (one undo step), everything else is a Ctrl shortcut.
+    let annotationShortcut (k : Aardvark.Application.Keys) (shift : bool) : ViewerAction =
+        match k with
+        | Aardvark.Application.Keys.Delete -> ViewerAction.DrawingMessage DrawingAction.DeleteSelectedAnnotations
+        | _ -> CtrlShortcut (k, shift)
+
     //TODO refactor: two codes for resize attachments
     module Pages =
         let mutable renderViewportSizeId = System.Guid.NewGuid().ToString()
         let pageRouting viewerDependencies bodyAttributes (m : AdaptiveModel) viewInstrumentView viewRenderView (runtime : IRuntime) (request : IHttpRequest) =
             // Every dock panel is its own document: each page body carries the Ctrl+Z/Y/S
-            // handler so the shortcuts work wherever the cursor is (docs/KeyboardShortcuts.md).
+            // handler so the shortcuts work in whichever panel has focus; the annotation pages
+            // also take Delete (docs/KeyboardShortcuts.md).
             let ctrlShortcut : Attribute<ViewerAnimationAction> =
                 Events.onCtrlShortcut (fun k shift -> CtrlShortcut (k, shift)) |> ViewerUtils.mapAttribute ViewerMessage
+            let annotationShortcuts : Attribute<ViewerAnimationAction> =
+                Events.onCtrlShortcutOrDelete annotationShortcut |> ViewerUtils.mapAttribute ViewerMessage
+            let annotationBodyAttributes = annotationShortcuts :: bodyAttributes
             let bodyAttributes = ctrlShortcut :: bodyAttributes
 
             match request.QueryParam "page" with
@@ -2102,7 +2113,7 @@ module Gui =
                     let renderViewAttributes : list<Attribute<ViewerAnimationAction>> = 
                         [
                         style "background: #1B1C1E; height:100%; width:100%"
-                        Events.onCtrlShortcut (fun k shift -> CtrlShortcut (k, shift))
+                        Events.onCtrlShortcutOrDelete annotationShortcut
                         Events.onClick (fun _ -> SwitchViewerMode ViewerMode.Standard)
                         onResize (fun s -> OnResize(s, renderViewportSizeId))
                         onFocus (fun s -> OnResize(s, renderViewportSizeId))
@@ -2182,7 +2193,7 @@ module Gui =
                         [SurfaceApp.surfaceUI m.scene.scenePath Config.colorPaletteStore m.scene.referenceSystem m.scene.surfacesModel |> UI.map SurfaceActions |> UI.map ViewerMessage]
                 )
             | Some "annotations" -> 
-                require (viewerDependencies) (body bodyAttributes [Annotations.annotationUI m
+                require (viewerDependencies) (body annotationBodyAttributes [Annotations.annotationUI m
                                                                         |> UI.map ViewerMessage])
             | Some "validation" -> 
                 require (viewerDependencies) (body bodyAttributes [HeightValidatorApp.viewUI m.heighValidation 
@@ -2250,7 +2261,7 @@ module Gui =
                             Incremental.div AttributeMap.empty (AList.ofAValSingle(Annotations.viewColorByCategory m))]
                     ]
 
-                require (viewerDependencies) (body bodyAttributes (blurg() |> List.map (UI.map ViewerMessage)))
+                require (viewerDependencies) (body annotationBodyAttributes (blurg() |> List.map (UI.map ViewerMessage)))
             | Some "config" ->
                 require (viewerDependencies) (body bodyAttributes [Config.configUI m |> UI.map ViewerMessage])
             | Some "viewplanner" -> 

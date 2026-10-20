@@ -613,6 +613,8 @@ module ViewerApp =
             // working annotation to clear
             | Interactions.EditAnnotation -> DrawingAction.CancelVertexEdit
             | _ -> DrawingAction.ClearWorking
+        // Delete (selected annotations, one undo step) is not handled here but by the page
+        // body (Gui.annotationShortcut); the render control's keydown bubbles there too
         // Ctrl no longer maps to Start/Stop{Drawing,Picking} here: arming the tool is
         // `toolArmed` (ctrlFlag <> directToolMode), evaluated at the event source.
         //| Aardvark.Application.Keys.LeftShift ->

@@ -567,6 +567,25 @@ module DrawingApp =
                 let before = model.annotations
                 let after  = GroupsModel.initial
                 { model with annotations = after } |> pushUndo (SnapshotDelta(before, after))
+            | DeleteSelectedAnnotations ->
+                // same selection as isSelected: the multi-selection plus the single-selected leaf
+                let before = model.annotations
+                let ids =
+                    let multi = before.selectedLeaves |> HashSet.map (fun ts -> ts.id)
+                    match before.singleSelectLeaf with
+                    | Some id -> multi |> HashSet.add id
+                    | None    -> multi
+                // only ids that still exist: a stale selection must not record an empty undo step
+                let ids = ids |> HashSet.filter (fun id -> HashMap.containsKey id before.flat)
+                if ids.IsEmpty then model
+                else
+                    // by id, not by path: viewport picks carry the root path whatever the leaf's group;
+                    // one walk of the tree for the whole batch (a box selection can be thousands)
+                    let after = GroupsApp.removeLeavesById ids before
+                    let grab  = model.vertexGrab |> Option.filter (fun g -> not (HashSet.contains g.annotation ids))
+                    // one snapshot for the whole batch, so a single undo restores all of them
+                    { model with annotations = after; vertexGrab = grab }
+                    |> pushUndo (SnapshotDelta(before, after))
             | DrawingAction.Nop -> model
             | Undo ->
                 match model.undoStack with
