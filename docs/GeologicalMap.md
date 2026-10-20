@@ -41,10 +41,12 @@ through the contacts and the label points, and the units follow.
 ## Making a map
 
 1. Create an annotation group for the map (Annotations panel) and make it the active group.
-2. Open the **Geological Maps** panel (main menu → *Layout* → *Reopen Panel*) and press **New map from group '…'**.
+2. Open the **Geological Maps** panel (main menu → *Layout* → *Reopen Panel*), press **Open anyway**, then **New map from group '…'**.
    The map is created over the active group and becomes the **active map**.
-3. Draw contacts into the group with the ordinary annotation tools (polyline, Sky
-   projection on small bodies). A point placed within **10 pixels of an existing contact snaps
+3. Draw contacts into the group with the ordinary annotation tools (polyline, **Sky**
+   projection). With *Linear* projection a contact's segments are straight lines between the
+   clicks, off the terrain, so the drawn line and the units' edges part on uneven ground; the
+   first click of such a contact shows a warning in the 3D view. A point placed within **10 pixels of an existing contact snaps
    exactly onto it**, so a contact drawn to end on another one meets it. Alternatively let a
    contact **overshoot** the one it ends on - the overhanging piece is trimmed automatically.
 4. Add units to the legend with **New unit** and give each a code (`Cr`), a name (*Crater

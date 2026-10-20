@@ -238,6 +238,17 @@ module GeologicalMapApp =
                 | _ -> None)
         | _ -> [||]
 
+    /// Whether the next click starts a contact of the active map drawn with Linear projection:
+    /// straight chords between the clicks, off the terrain, so the units' edges (draped) and the
+    /// drawn line part. Sky is not forced - the user chooses; the viewer only warns.
+    let startsLinearContact (drawing : DrawingModel) =
+        drawing.working.IsNone
+        && drawing.projection = Projection.Linear
+        && isLineTool drawing.geometry
+        && (match GeologicalMapsModel.tryActive drawing.geologicalMaps with
+            | Some map -> map.sourceGroup = drawing.annotations.activeGroup.id
+            | None -> false)
+
     /// How close to a contact (screen pixels) a new contact point snaps onto it.
     [<Literal>]
     let SnapPixels = 10.0

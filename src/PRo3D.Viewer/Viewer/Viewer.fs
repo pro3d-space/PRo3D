@@ -350,10 +350,14 @@ module ViewerApp =
                 let hfov = 2.0 * atan ((m.frustum.right - m.frustum.left) / (2.0 * m.frustum.near))
                 GeologicalMapApp.snap m.drawing view.Location hfov width p
 
+            let linearContact = GeologicalMapApp.startsLinearContact m.drawing
             let msg = DrawingAction.AddPointAdv(p, hitFunction, referenceSystem, surf.name, None)
             let drawing = DrawingApp.update m.scene.referenceSystem drawingConfig referenceSystem bc view m.shiftFlag m.drawing msg
             //Log.stop()
-            { m with drawing = drawing } |> stash
+            let m = { m with drawing = drawing } |> stash
+            if linearContact then
+                m |> logScreen 6000 "Contact drawn with Linear projection: its straight segments leave the terrain, so it will not follow the units' edges. Choose Sky projection for contacts."
+            else m
         | Interactions.CutAnnotation, _ ->
             // the cut stroke is a plain picked polyline: no segment sampling, so the hit
             // function is not needed - straight preview lines suffice and the boolean op
