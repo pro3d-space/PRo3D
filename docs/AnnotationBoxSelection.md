@@ -14,7 +14,6 @@ click. In the classic mouse scheme that means **Ctrl held**; in
 | Ctrl+drag | drag | **replace** the selection with every annotation the rectangle touches |
 | Ctrl+Shift+drag | Shift+drag | **add** the touched annotations |
 | Ctrl+Alt+drag | Alt+drag | **toggle** each touched annotation: selected ones are deselected, the others selected |
-| Ctrl+click on empty space | click on empty space | **clear** the selection |
 | Ctrl+click on an annotation | click on an annotation | select it (unchanged) |
 | Ctrl+Shift+click on an annotation | Shift+click on an annotation | toggle it in the multi-selection (unchanged) |
 | Esc while dragging | Esc while dragging | cancel the rectangle, selection unchanged |
@@ -23,11 +22,15 @@ click. In the classic mouse scheme that means **Ctrl held**; in
 in Direct Tool Mode it hands the left button back to the camera. Alt is the toggle key instead.
 
 A release within 4 px of the press counts as a click. If both Alt and Shift are held, Alt wins.
-Shift+click or Alt+click on empty space leaves the selection alone.
+A click on empty space leaves the selection alone.
 
 The camera is unaffected. In the classic scheme a held Ctrl already switches the camera off, and
 in Direct Tool Mode the camera never uses the left button, so the rectangle takes no navigation
 gesture away.
+
+In the classic scheme, releasing Ctrl before the mouse button **cancels** the rectangle,
+selection unchanged: without Ctrl the left button drives the camera again, and the rectangle
+would no longer match what is under it.
 
 ## What counts as touching
 
@@ -56,15 +59,17 @@ on the CPU with the surfaces' picking KdTrees.
 - **Box.** Samples are taken along the part of each annotation inside the rectangle: its
   vertices there, plus a point about every 8 px along segments crossing it. Each sample is
   tested with a ray from the camera. The first visible sample selects the annotation. At most 32
-  rays are spent per annotation (`DrawingApp.maxVisibilityRaysPerAnnotation`); an annotation
-  with no visible sample among them counts as hidden.
+  rays are spent per annotation (`DrawingApp.maxVisibilityRaysPerAnnotation`), spread evenly
+  over its samples so a hidden first stretch cannot use them all up; an annotation with no
+  visible sample among them counts as hidden.
 - **Ctrl+click.** The click is tested at the annotation point under the cursor
   (`DrawingApp.annotationPointUnderCursor`), with the camera of that click. Clicking the visible
   part of a partly hidden annotation selects it; clicking a hidden part does nothing. This
   applies in every mode that picks annotations, including Edit Annotation re-selection.
   Grabbing a control-point handle is unaffected, since handles are drawn on top of everything.
-- **Click on empty space.** A click on a surface that hides an annotation clears the
-  selection, because nothing selectable is visible there.
+- **Nearest surface.** The ray takes the nearest hit over all occluding surfaces, whatever
+  their priority (`Picking.castToSurfaces`). Surface picking prefers the highest priority
+  instead, which would let a nearer low-priority surface fail to hide what is behind it.
 
 The comparison is the depth test itself (`DrawingApp.pointVisible`). The annotation's depth is
 offset toward the camera exactly as `depthOffsetFS` offsets it on the GPU, with the same
@@ -118,10 +123,12 @@ Notes:
   idle view sends no move traffic. Down, up and cancel stay attached: the handler set changes
   only after the server has processed the start of a drag, and a quick click would otherwise
   lose its release. The hit test runs once, on release.
-- **Click on empty space.** On a click, the same hit test runs on a small square around the
-  cursor, sized like the pick pass's widened lines (`3 + 5 × pickingTolerance` px). Only when it
-  touches nothing visible is the selection cleared. A click on an annotation is still handled
-  by the existing pick, now with the occlusion check.
+- **Clicks.** A click runs no box hit test; a click on an annotation is handled by the
+  existing pick, now with the occlusion check. An earlier version cleared the selection on a
+  click on empty space, deciding "empty" with a second hit test on a small square. That square
+  could not match the pick pass's widened lines and points, so a click near the edge of a thick
+  line selected it on press and cleared it again on release. Clearing on empty space was
+  dropped rather than duplicating the pick pass's footprint.
 - **Selection paths.** Viewport picks store the root path in their `TreeSelection`. The box
   selection stores the real group path, and drops any older entry for the same id, so nothing is
   ever selected twice.
@@ -143,7 +150,7 @@ Notes:
   - every geometry.
 - **TC-22.2, the selection modes:**
   - Replace;
-  - Replace with nothing, as on a click on empty space;
+  - Replace with nothing;
   - Add, without duplicating a viewport pick;
   - Toggle, including the green annotation;
   - a sub-group path;
