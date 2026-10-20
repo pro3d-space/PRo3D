@@ -1,6 +1,6 @@
 # CSV export: field reference
 
-What every column of the annotation CSV export means, for the three presets users work with: **Profiles**, **Boulders** and **Fractures** (issue #644). The export window itself is described in [AnnotationExport.md](AnnotationExport.md).
+What every column of the annotation CSV export means, for the three presets users work with: **Profiles**, **Boulders** and **Fractures** (issue #644). The export window itself is described in [AnnotationExport.md](AnnotationExport.md). The *Craters* preset (issue #833) writes the *Boulders* file plus a profiles file; see [Craters](#craters).
 
 Columns come in a fixed order: the annotation columns in the order of the window's attribute list, then the coordinates.
 
@@ -42,6 +42,11 @@ A profile is the line followed across the surface point by point, one row per po
 | `key` | — | Annotation id (GUID); the same on every row of one line. |
 | `text` | — | Annotation label. |
 | `surfaceName` | — | Surface the line was drawn on. |
+| `parentKey` | — | Only on a [generated profile](SupportingProfiles.md): `key` of the ellipse or polyline it was generated from. Empty for a hand-drawn line, like the four columns below. |
+| `profileIndex` | — | Number of the generated profile, from 0, in generation order. |
+| `profileDirection` | — | `N-S`, `NE-SW`, `E-W`, `NW-SE` (ellipse, compass) or `major`, `major+45`, `minor`, `major+135` (ellipse, major axis). Empty for profiles of a polyline. The profile starts at the first-named end. |
+| `profileAzimuth` | deg | Bearing from the profile's centre to its start end, clockwise from local north, 0–360: 0 for `N-S`, 45 for `NE-SW`, 90 for `E-W`, 315 for `NW-SE`. Fixed when the profile was generated. |
+| `profileStation` | m | Polyline profiles only: where along the parent polyline the profile crosses it. |
 | `pointIndex` | — | Row number within the line, from 0. |
 | `segmentIndex` | — | Segment this point belongs to, from 0. Where two segments meet, the joint point appears twice: as the last row of one segment and the first of the next. |
 | `x, y, z` | m | Position of the point. |
@@ -59,13 +64,13 @@ To plot a profile: `distance` (or, once fixed, `groundDistance`) on the horizont
 A line of three clicked points on the floor of Gale crater (Mars, 4.6° S 137.4° E), each segment draped as one interior sample, exported with the *Profile* preset. This is the exporter's actual output, full precision included:
 
 ```csv
-key,text,surfaceName,pointIndex,segmentIndex,x,y,z,lat,lon,alt,body,latLonAltSource,stepLength,segmentLength,distance,groundDistance
-60086695-3803-4414-a056-b13fec0644f9,F-01,Gale_HiRISE,0,0,-2488533.042481201,2288403.5967716263,-271980.3869067464,-4.599499999999999,137.399,-4499.999999999484,Mars,spice_recpgr,0,41.840414962850396,0,0
-60086695-3803-4414-a056-b13fec0644f9,F-01,Gale_HiRISE,1,0,-2488544.487996643,2288394.081505143,-271965.6996725798,-4.599250000000001,137.39925,-4499.199999999805,Mars,spice_recpgr,20.9106424446417,41.840414962850396,20.9106424446417,20.923054508441023
-60086695-3803-4414-a056-b13fec0644f9,F-01,Gale_HiRISE,2,0,-2488556.226917929,2288384.8360203668,-271951.04449888744,-4.599,137.3995,-4498.000000000339,Mars,spice_recpgr,20.929772518208697,41.840414962850396,41.840414962850396,41.846112677470586
-60086695-3803-4414-a056-b13fec0644f9,F-01,Gale_HiRISE,3,1,-2488556.226917929,2288384.8360203668,-271951.04449888744,-4.599,137.3995,-4498.000000000339,Mars,spice_recpgr,0,42.98627769660064,41.840414962850396,41.846112677470586
-60086695-3803-4414-a056-b13fec0644f9,F-01,Gale_HiRISE,4,1,-2488569.78305936,2288369.245503309,-271956.93703987973,-4.599099999999999,137.39985,-4498.100000000383,Mars,spice_recpgr,21.483836528073553,42.98627769660064,63.32425149092395,63.35820795108502
-60086695-3803-4414-a056-b13fec0644f9,F-01,Gale_HiRISE,5,1,-2488582.7521122536,2288353.115143978,-271962.7654316903,-4.5992,137.40020000000004,-4498.999999999665,Mars,spice_recpgr,21.50244116852709,42.98627769660064,84.82669265945104,84.87030043736804
+key,text,surfaceName,parentKey,profileIndex,profileDirection,profileAzimuth,profileStation,pointIndex,segmentIndex,x,y,z,lat,lon,alt,body,latLonAltSource,stepLength,segmentLength,distance,groundDistance
+60086695-3803-4414-a056-b13fec0644f9,F-01,Gale_HiRISE,,,,,,0,0,-2488533.042481201,2288403.5967716263,-271980.3869067464,-4.599499999999999,137.399,-4499.999999999484,Mars,spice_recpgr,0,41.840414962850396,0,0
+60086695-3803-4414-a056-b13fec0644f9,F-01,Gale_HiRISE,,,,,,1,0,-2488544.487996643,2288394.081505143,-271965.6996725798,-4.599250000000001,137.39925,-4499.199999999805,Mars,spice_recpgr,20.9106424446417,41.840414962850396,20.9106424446417,20.923054508441023
+60086695-3803-4414-a056-b13fec0644f9,F-01,Gale_HiRISE,,,,,,2,0,-2488556.226917929,2288384.8360203668,-271951.04449888744,-4.599,137.3995,-4498.000000000339,Mars,spice_recpgr,20.929772518208697,41.840414962850396,41.840414962850396,41.846112677470586
+60086695-3803-4414-a056-b13fec0644f9,F-01,Gale_HiRISE,,,,,,3,1,-2488556.226917929,2288384.8360203668,-271951.04449888744,-4.599,137.3995,-4498.000000000339,Mars,spice_recpgr,0,42.98627769660064,41.840414962850396,41.846112677470586
+60086695-3803-4414-a056-b13fec0644f9,F-01,Gale_HiRISE,,,,,,4,1,-2488569.78305936,2288369.245503309,-271956.93703987973,-4.599099999999999,137.39985,-4498.100000000383,Mars,spice_recpgr,21.483836528073553,42.98627769660064,63.32425149092395,63.35820795108502
+60086695-3803-4414-a056-b13fec0644f9,F-01,Gale_HiRISE,,,,,,5,1,-2488582.7521122536,2288353.115143978,-271962.7654316903,-4.5992,137.40020000000004,-4498.999999999665,Mars,spice_recpgr,21.50244116852709,42.98627769660064,84.82669265945104,84.87030043736804
 ```
 
 How to read it:
@@ -205,6 +210,36 @@ How to read it:
 - `alt` is 86.6 m from the body centre (`spice_reclat`); `Elevation` is the OPC's own elevation layer, a different quantity.
 
 ---
+
+## Craters
+
+**Preset *Craters (ellipses + profiles)*** · two files · issue #833.
+
+One export writes:
+
+- **`<file>.csv`**: the crater ellipses, exactly the [*Boulders*](#boulders) rows and columns (statistics included).
+- **`<file>_profiles.csv`**: the [supporting profiles](SupportingProfiles.md) generated from those ellipses, one row per point, in the [*Profiles*](#profiles) layout including `parentKey`, `profileIndex`, `profileDirection`, `profileAzimuth` and `profileStation`. It uses the main file's coordinate settings (*Native* longitudes, like *Boulders*), so the two files agree. Ticking *Surface properties in <file>_profiles.csv* (shown once *Generated profiles* is on; off by default, as in *Profile*) adds the `surface_<layer>` columns of [*Profiles*](#profiles) to every point.
+
+Which profiles: every profile whose `parentKey` is one of the exported ellipses, wherever it sits in the annotation tree and whether it is visible or not. Rows are ordered by crater (in the order of the main file), then by `profileIndex`, then by `pointIndex`. A profile of an ellipse that is not exported, and a profile whose parent was deleted, is left out. When none of the exported ellipses has profiles, `<file>_profiles.csv` holds only the header, and the export window says so.
+
+To rebuild the profiles: join `<file>_profiles.csv` to `<file>.csv` on `parentKey` = `key` to get each crater's profiles, then group by `key` (or `profileDirection`) for one profile, ordered by `pointIndex`. `distance` = 0 is the first-named end: the north rim of `N-S`, the north-east rim of `NE-SW`, and so on. `segmentIndex` is always 0, because a profile is a single segment between two points.
+
+```csv
+# craters_profiles.csv (excerpt; x, y, z and the geographic bookkeeping columns left out)
+key,text,surfaceName,parentKey,profileIndex,profileDirection,profileAzimuth,profileStation,pointIndex,segmentIndex,lat,lon,alt,distance
+1a2b…,p88f3c1d2_0,Dimorphos,88f3c1d2-…,0,N-S,0,,0,0,…,…,…,0
+1a2b…,p88f3c1d2_0,Dimorphos,88f3c1d2-…,0,N-S,0,,1,0,…,…,…,1.02
+3c4d…,p88f3c1d2_1,Dimorphos,88f3c1d2-…,1,NE-SW,45,,0,0,…,…,…,0
+```
+
+## Lineaments
+
+**Preset *Lineaments (polylines + profiles)*** · two files · issue #833. The polyline counterpart of [*Craters*](#craters).
+
+- **`<file>.csv`**: one row per line or polyline, **not** counting generated profiles (they are lines too, so the annotation-type filter *lines only (no generated profiles)* leaves them out). Columns `key`, `text`, `surfaceName`, `length` (straight, first to last point), `wayLength` (along the surface), `bearing` (first to last point, deg), `groupPath`, then the coordinates of the bounding-box centre.
+- **`<file>_profiles.csv`**: the perpendicular [supporting profiles](SupportingProfiles.md) of those polylines, exactly as for *Craters*. `profileStation` says where along the lineament each profile crosses it; `profileDirection` is empty; `distance` = 0 is the profile's start, on the left of the lineament looking along it.
+
+Join on `parentKey` = `key`, group by `key` (or sort by `profileStation`) for one profile.
 
 ## Fractures
 
