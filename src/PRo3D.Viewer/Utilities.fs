@@ -83,17 +83,20 @@ module Events =
     /// Ctrl (Cmd on macOS) + Z / Y / S, for a page's body: key events bubble up from
     /// anywhere in the page, so the shortcut no longer needs the render control to have
     /// focus. Which keys are sent, and what text fields keep, is decided client side by
-    /// pro3dCtrlShortcut in resources/utilities.js (docs/KeyboardShortcuts.md).
-    let onCtrlShortcut (cb : Keys -> 'msg) =
+    /// pro3dCtrlShortcut in resources/utilities.js (docs/KeyboardShortcuts.md). `cb` also
+    /// gets whether Shift was down (Ctrl+Shift+Z is redo).
+    let onCtrlShortcut (cb : Keys -> bool -> 'msg) =
         "onkeydown",
         AttributeValue.Event {
             clientSide = fun send id ->
-                "if (window.pro3dCtrlShortcut && pro3dCtrlShortcut(event)) { " + send id ["event.keyCode"] + " }"
+                "if (window.pro3dCtrlShortcut && pro3dCtrlShortcut(event)) { " + send id ["event.keyCode"; "event.shiftKey"] + " }"
             serverSide = fun _ _ args ->
                 match args with
-                | keyCode :: _ ->
+                | keyCode :: shift :: _ ->
                     match System.Int32.TryParse keyCode with
-                    | true, code -> Seq.delay (fun () -> Seq.singleton (cb (KeyConverter.keyFromVirtualKey code)))
+                    | true, code ->
+                        let key = KeyConverter.keyFromVirtualKey code
+                        Seq.delay (fun () -> Seq.singleton (cb key (shift = "true")))
                     | _ -> Seq.empty
                 | _ ->
                     Seq.empty

@@ -89,11 +89,21 @@ let tests =
             let delta = AnnotationsDelta.SnapshotDelta(GroupsModel.initial, GroupsModel.initial)
             let m = { model with drawing = DrawingApp.pushUndo delta model.drawing }
             Expect.isFalse m.ctrlFlag "the shortcut must not depend on a tracked Ctrl-down"
-            let undone = update m (ViewerAction.CtrlShortcut Keys.Z)
+            let undone = update m (ViewerAction.CtrlShortcut (Keys.Z, false))
             Expect.isEmpty undone.drawing.undoStack "Ctrl+Z pops the undo stack"
             Expect.equal (List.length undone.drawing.redoStack) 1 "... onto the redo stack"
-            let redone = update undone (ViewerAction.CtrlShortcut Keys.Y)
+            let redone = update undone (ViewerAction.CtrlShortcut (Keys.Y, false))
             Expect.equal (List.length redone.drawing.undoStack) 1 "Ctrl+Y pushes it back"
+            Expect.isEmpty redone.drawing.redoStack "... and empties the redo stack"
+        }
+
+        test "TC-18.1 CtrlShortcut Shift+Z redoes, as on macOS" {
+            let model, update = Head.make ()
+            let delta = AnnotationsDelta.SnapshotDelta(GroupsModel.initial, GroupsModel.initial)
+            let m = { model with drawing = DrawingApp.pushUndo delta model.drawing }
+            let undone = update m (ViewerAction.CtrlShortcut (Keys.Z, false))
+            let redone = update undone (ViewerAction.CtrlShortcut (Keys.Z, true))
+            Expect.equal (List.length redone.drawing.undoStack) 1 "Ctrl+Shift+Z pushes it back"
             Expect.isEmpty redone.drawing.redoStack "... and empties the redo stack"
         }
 
@@ -110,7 +120,7 @@ let tests =
         test "TC-18.1 CtrlShortcut S leaves a held Ctrl armed" {
             let model, update = Head.make ()
             let m = update model (ViewerAction.KeyDown Keys.LeftCtrl)
-            let m = update m (ViewerAction.CtrlShortcut Keys.S)   // no scene path: feedback only
+            let m = update m (ViewerAction.CtrlShortcut (Keys.S, false))   // no scene path: feedback only
             Expect.isTrue m.ctrlFlag "Ctrl+S must not drop the Ctrl the user still holds"
         }
 
@@ -123,16 +133,18 @@ let tests =
         }
 
         test "TC-18.1 onCtrlShortcut: calls the client filter, decodes the key" {
-            match Aardvark.UI.Events.onCtrlShortcut id with
+            match Aardvark.UI.Events.onCtrlShortcut (fun k shift -> (k, shift)) with
             | "onkeydown", Aardvark.UI.AttributeValue.Event e ->
                 let js = e.clientSide (fun _ args -> sprintf "SEND(%s)" (String.concat "," args)) "id"
                 Expect.stringContains js "pro3dCtrlShortcut(event)" "the filter lives in resources/utilities.js"
-                Expect.stringContains js "SEND(event.keyCode)" "sends the key code once the filter agrees"
-                let decode code = e.serverSide System.Guid.Empty "id" [ code ] |> Seq.toList
-                Expect.equal (decode "90") [ Keys.Z ] "90 is Z"
-                Expect.equal (decode "89") [ Keys.Y ] "89 is Y"
-                Expect.equal (decode "83") [ Keys.S ] "83 is S"
-                Expect.isEmpty (decode "garbage") "a non-numeric key code is dropped, not thrown"
+                Expect.stringContains js "SEND(event.keyCode,event.shiftKey)" "sends key code and Shift once the filter agrees"
+                let decode code shift = e.serverSide System.Guid.Empty "id" [ code; shift ] |> Seq.toList
+                Expect.equal (decode "90" "false") [ (Keys.Z, false) ] "90 is Z"
+                Expect.equal (decode "90" "true") [ (Keys.Z, true) ] "with Shift"
+                Expect.equal (decode "89" "false") [ (Keys.Y, false) ] "89 is Y"
+                Expect.equal (decode "83" "false") [ (Keys.S, false) ] "83 is S"
+                Expect.isEmpty (decode "garbage" "false") "a non-numeric key code is dropped, not thrown"
+                Expect.isEmpty (e.serverSide System.Guid.Empty "id" [ "90" ] |> Seq.toList) "a missing Shift is dropped"
             | name, _ -> failtestf "expected an onkeydown event attribute, got %s" name
         }
     ]
