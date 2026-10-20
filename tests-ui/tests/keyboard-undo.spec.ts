@@ -13,6 +13,7 @@ import * as path from "path";
  *
  *  1. draw two Sky lines;
  *  2. Ctrl+Z in the annotation *properties* panel: one is gone; Ctrl+Y: it is back;
+ *     Ctrl+Z, then Ctrl+Shift+Z (redo as on macOS): gone and back again;
  *  3. Ctrl+Z inside the toolbar's number field: nothing is undone (the field keeps it);
  *     the same keys on the top-level page outside the field: undo, redo;
  *  4. Ctrl+Z with the 3D view focused: exactly one is gone -- the render control's own
@@ -82,6 +83,10 @@ test("Ctrl+Z/Y work from a dock panel and the top page, not in a text field, and
         await expectCount(context, app, 1, "Ctrl+Z in the properties panel undoes the last line");
         await pressOn(props, "Control+y", app);
         await expectCount(context, app, 2, "Ctrl+Y in the properties panel redoes it");
+        await pressOn(props, "Control+z", app);
+        await expectCount(context, app, 1, "Ctrl+Z undoes it again");
+        await pressOn(props, "Control+Shift+z", app);
+        await expectCount(context, app, 2, "Ctrl+Shift+Z redoes it, as on macOS");
 
         // 3. inside a text-entry field the keys belong to the field: the toolbar's thickness
         //    (a number input, always shown while drawing)

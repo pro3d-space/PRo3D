@@ -5,7 +5,7 @@
 | Keys | Action |
 |---|---|
 | **Ctrl+Z** | undo the last drawing action |
-| **Ctrl+Y** | redo it |
+| **Ctrl+Y** or **Ctrl+Shift+Z** | redo it |
 | **Ctrl+S** | save the scene (only once it has a path; otherwise use *Save* in the menu) |
 
 On macOS, Cmd works in place of Ctrl.
@@ -17,8 +17,9 @@ the cursor enters it. The one exception is a focused **text or number field**. T
 typing as usual, and Ctrl+S does nothing (not even the browser's "save page"). Click outside the
 field (or press Tab to leave it) to undo drawing actions again.
 
-Shift is not looked at: Ctrl+Shift+Z undoes and Ctrl+Shift+S saves. Holding a key down does
-not repeat the shortcut. Ctrl+Alt+Z and the like are ignored, and so is
+Ctrl+Shift+Z is redo as on macOS (Cmd+Shift+Z) and in many Windows applications; Ctrl+Shift+S
+saves like Ctrl+S, there is no "save as" shortcut. Holding a key down does not repeat the
+shortcut. Ctrl+Alt+Z and the like are ignored, and so is
 Alt+Z on its own: earlier versions treated Alt like Ctrl in the 3D view, so Alt+Z used to undo.
 Alt+click still picks like Ctrl+click.
 
@@ -37,7 +38,7 @@ forgets any Ctrl or Shift it saw go down. A modifier released elsewhere therefor
 | What | Where |
 |---|---|
 | `pro3dCtrlShortcut(event)`: the client-side filter (Ctrl/Cmd, no Alt, not repeated, key Z/Y/S, not in a text-entry field) and `preventDefault` (Ctrl+S also inside text fields) | [utilities.js](../src/PRo3D.Viewer/resources/utilities.js) |
-| `Events.onCtrlShortcut`: the body `onkeydown` that asks it and sends the key code | [Utilities.fs](../src/PRo3D.Viewer/Utilities.fs) |
+| `Events.onCtrlShortcut`: the body `onkeydown` that asks it and sends the key code and Shift | [Utilities.fs](../src/PRo3D.Viewer/Utilities.fs) |
 | `ViewerAction.CtrlShortcut` | [Viewer-Model.fs](../src/PRo3D.Viewer/Viewer-Model.fs) |
 | Update case: undo / redo / save | [Viewer.fs](../src/PRo3D.Viewer/Viewer/Viewer.fs) |
 | The handler on every page body | `Gui.Pages.pageRouting` in [ViewerGUI.fs](../src/PRo3D.Viewer/Viewer/ViewerGUI.fs) |

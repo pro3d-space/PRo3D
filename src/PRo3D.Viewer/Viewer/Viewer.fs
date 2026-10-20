@@ -2090,16 +2090,17 @@ module ViewerApp =
             match k with
             | Keyboard.Modifier -> { m with ctrlFlag = false }
             | _ -> m
-        | CtrlShortcut k,_ ->
+        | CtrlShortcut (k, shift),_ ->
             let view =
                 match m.viewerMode with
                 | ViewerMode.Standard    -> m.navigation.camera.view
                 | ViewerMode.Instrument  -> m.scene.viewPlans.instrumentCam
             match k, m.scene.scenePath with
-            | Aardvark.Application.Keys.Z, _ ->
+            | Aardvark.Application.Keys.Z, _ when not shift ->
                 let drawing = DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing DrawingAction.Undo
                 { m with drawing = drawing }
-            | Aardvark.Application.Keys.Y, _ ->
+            // Ctrl+Y, and Ctrl+Shift+Z as on macOS and in many Windows apps
+            | Aardvark.Application.Keys.Y, _ | Aardvark.Application.Keys.Z, _ ->
                 let drawing = DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing DrawingAction.Redo
                 { m with drawing = drawing }
             // ctrlFlag is left alone: Ctrl may still be held, and blur releases it otherwise

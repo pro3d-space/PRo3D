@@ -2039,7 +2039,7 @@ module Gui =
             // Every dock panel is its own document: each page body carries the Ctrl+Z/Y/S
             // handler so the shortcuts work wherever the cursor is (docs/KeyboardShortcuts.md).
             let ctrlShortcut : Attribute<ViewerAnimationAction> =
-                Events.onCtrlShortcut CtrlShortcut |> ViewerUtils.mapAttribute ViewerMessage
+                Events.onCtrlShortcut (fun k shift -> CtrlShortcut (k, shift)) |> ViewerUtils.mapAttribute ViewerMessage
             let bodyAttributes = ctrlShortcut :: bodyAttributes
 
             match request.QueryParam "page" with
@@ -2102,7 +2102,7 @@ module Gui =
                     let renderViewAttributes : list<Attribute<ViewerAnimationAction>> = 
                         [
                         style "background: #1B1C1E; height:100%; width:100%"
-                        Events.onCtrlShortcut CtrlShortcut
+                        Events.onCtrlShortcut (fun k shift -> CtrlShortcut (k, shift))
                         Events.onClick (fun _ -> SwitchViewerMode ViewerMode.Standard)
                         onResize (fun s -> OnResize(s, renderViewportSizeId))
                         onFocus (fun s -> OnResize(s, renderViewportSizeId))
