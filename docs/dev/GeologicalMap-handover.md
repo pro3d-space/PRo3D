@@ -84,7 +84,6 @@ first pick loads a KdTree (seconds).
 
 ## Pre-existing issues seen, not filed
 
-- the closing edge of Sky-projected polygons is not drawn;
 - memory grows with camera motion (OPC LoD caching);
 - an old develop build crashed when the render page was reopened;
 - `ProfileAttributeExtraction` tests race under parallel KdTree loading (pass sequentially);

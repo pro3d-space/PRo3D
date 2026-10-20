@@ -311,6 +311,47 @@ let private segmentUpdateTests =
         }
     ]
 
+// ---------------------------------------------------------------------------------------------
+// closing edge of a Sky polygon
+// ---------------------------------------------------------------------------------------------
+
+let closingEdgeTests =
+    // clicks 5 m above the ground, samples on it: a straight closing edge would stay at z = 5
+    let drawSampled () =
+        let refSystem = Draw.refSystemFlat
+        let start =
+            Draw.startTool refSystem Geometry.Polygon
+            |> fun m -> Draw.run refSystem m (DrawingAction.SetProjection Projection.Sky)
+        let click m p = Draw.run refSystem m (DrawingAction.AddPointAdv(p, flattenToGround, None, "test-surface", None))
+        let drawn = [ V3d(0,0,5); V3d(10,0,5); V3d(10,10,5) ] |> List.fold click start
+        Draw.run refSystem drawn DrawingAction.Finish |> theOnly "polygon"
+
+    testList "closing edge" [
+        test "is sampled onto the surface like the other edges" {
+            let a = drawSampled ()
+            let closing =
+                match IndexList.tryLast a.segments with
+                | Some s -> s
+                | None -> failtest "no closing segment"
+            Expect.equal (IndexList.count a.segments) 3 "closed ring"
+            // still stored first -> last (#821), what older releases read
+            Expect.equal closing.startPoint (V3d(0,0,5)) "starts at the first click"
+            Expect.equal closing.endPoint (V3d(10,10,5)) "ends at the last click"
+            Expect.isGreaterThan (IndexList.count closing.points) 10 "sampled every metre"
+            for p in closing.points do
+                Expect.floatClose Accuracy.high p.Z 0.0 "sample on the surface"
+        }
+
+        test "the flattened line walks it from the last point back to the first" {
+            let a = drawSampled ()
+            let pts = Annotation.retrievePoints a |> Array.ofList
+            Expect.equal pts.[pts.Length - 1] (V3d(0,0,5)) "the ring ends where it started"
+            // no straight jump back to the first point before the closing edge
+            for i in 1 .. pts.Length - 1 do
+                Expect.isLessThan (Vec.Distance(pts.[i - 1], pts.[i])) 5.5 (sprintf "step %d" i)
+        }
+    ]
+
 let tests () =
     testList "vertex editing" [
         touchedSegmentTests
@@ -318,4 +359,5 @@ let tests () =
         resampleTests
         moveTests
         segmentUpdateTests
+        closingEdgeTests
     ]

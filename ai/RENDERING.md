@@ -144,7 +144,6 @@ The main and instrument views render their surfaces **offscreen** (`OffscreenSur
 - Snapshots (`SnapshotSg`) render surfaces directly and use the stencil fill fallback.
 - Instrument view: verified by screenshot (headless probe, `fillProblem` scene) that surfaces show after the size fallback; fills there not checked separately.
 - GPU memory grows while the camera moves — on develop as much as here (OPC LoD caching), pre-existing.
-- The closing edge of Sky-projected polygon outlines is not drawn — pre-existing, unrelated to fills.
 
 ### Annotation fills — against the surface depth (#841)
 

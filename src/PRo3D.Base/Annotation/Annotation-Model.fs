@@ -1303,20 +1303,21 @@ module Annotation =
     let initial =
         make Projection.Viewpoint None Geometry.Polyline None { c = C4b.Magenta } Initial.thickness ""
 
-    let retrievePoints (a : Annotation) =
-        let points = 
-            if a.segments.Count = 0 then
-                a.points |> IndexList.toSeq
-            else
-                a.segments 
-                |> IndexList.toSeq 
-                |> Seq.map(fun x -> 
-                    seq {
-                        yield x.startPoint
-                        yield! (x.points |> IndexList.toSeq)
-                        yield x.endPoint
-                    }
-                ) 
-                |> Seq.concat
+    /// Whether segment `i` is a ring's closing segment, which is stored first -> last (#821) and
+    /// so has to be read backwards to walk the ring. `closePolyline` appends it, so a ring has as
+    /// many segments as points, an open chain one fewer.
+    let isClosingSegment (pointCount : int) (segmentCount : int) (i : int) =
+        segmentCount > 1 && segmentCount >= pointCount && i = segmentCount - 1
 
-        points |> Seq.toList
+    /// The sampled line in drawing order: each segment's start, samples and end - a ring's
+    /// closing segment backwards, so the line runs last point -> first point.
+    let retrievePoints (a : Annotation) =
+        if a.segments.Count = 0 then
+            a.points |> IndexList.toList
+        else
+            a.segments
+            |> IndexList.toList
+            |> List.indexed
+            |> List.collect (fun (i, x) ->
+                let ps = [ yield x.startPoint; yield! x.points |> IndexList.toSeq; yield x.endPoint ]
+                if isClosingSegment a.points.Count a.segments.Count i then List.rev ps else ps)

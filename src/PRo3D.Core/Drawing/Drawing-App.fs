@@ -156,19 +156,32 @@ module DrawingApp =
             let a = { a with dnsResults = points |> DipAndStrike.calculateDipAndStrikeResults up north }
             { a with results = Some (Calculations.calculateAnnotationResults a up north planet) }
 
-    let closePolyline (a:Annotation) =
+    /// The surface sampler of the working annotation's last click, keyed by its annotation. A
+    /// polygon is finished by Enter (`Finish`), which carries no sampler, yet its closing edge
+    /// must be draped with the same projection, surface and frame as its other edges. Not model
+    /// state: a function has no equality and is never persisted.
+    let mutable private workingSampler : Option<Guid * (V3d -> Option<V3d>)> = None
+
+    /// Closes a polygon. Sky/Viewpoint: one more segment, sampled onto the surface like the
+    /// others (with `samplePoint`; straight without one). It is stored first -> last, as it
+    /// always was (#821): older releases and `segmentEndpoints` read it that way.
+    let closePolyline (samplingDistance : float) (samplePoint : Option<V3d -> Option<V3d>>) (a:Annotation) =
         let firstP = a.points.[0]
         let lastP = a.points.[(a.points.Count-1)]
         match a.projection with
         | Projection.Viewpoint | Projection.Sky ->
-            let dir = lastP - firstP
-            let points = [
-                    for s in 0 .. PRo3D.Config.sampleCount do
-                        yield firstP + dir * (float s / float PRo3D.Config.sampleCount) // world space
-                ]
-            let newSegment = { startPoint = firstP; endPoint = lastP; points = IndexList.ofList points }
+            let newSegment =
+                match samplePoint with
+                | Some samplePoint -> resampleSegment samplingDistance samplePoint firstP lastP
+                | None ->
+                    let dir = lastP - firstP
+                    let points = [
+                            for s in 0 .. PRo3D.Config.sampleCount do
+                                yield firstP + dir * (float s / float PRo3D.Config.sampleCount) // world space
+                        ]
+                    { startPoint = firstP; endPoint = lastP; points = IndexList.ofList points }
             { a with segments = IndexList.add newSegment a.segments }
-        | _ -> 
+        | _ ->
             { a with points = a.points |> IndexList.add firstP }
     
     let getFinishedAnnotation up north planet (referenceSystem : Option<SpiceReferenceSystem>) (sampleSurface : Option<V3d -> Option<V3d>>)  (view:CameraView) (model : DrawingModel) =
@@ -176,7 +189,13 @@ module DrawingApp =
         | Some w ->  
             let w = 
                 match w.geometry with
-                | Geometry.Polygon -> closePolyline w
+                | Geometry.Polygon ->
+                    let sampler =
+                        match sampleSurface, workingSampler with
+                        | Some s, _ -> Some s
+                        | None, Some (key, s) when key = w.key -> Some s
+                        | None, _ -> None
+                    closePolyline model.samplingDistance sampler w
                 | Geometry.TT -> 
                     { 
                         w with 
@@ -316,7 +335,8 @@ module DrawingApp =
         //          | _ -> ""
         //let working' = { working with text = text }
         let model = { model with working = Some working }
-        
+        workingSampler <- Some (working.key, samplePoint)
+
         match (working.geometry, (working.points |> IndexList.count)) with
         | Geometry.Point, 1 -> 
             Log.line "Picked single point at: %A" (working.points |> IndexList.tryFirst).Value

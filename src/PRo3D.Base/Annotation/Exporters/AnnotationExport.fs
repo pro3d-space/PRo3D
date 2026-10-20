@@ -176,10 +176,12 @@ module AnnotationExport =
             |> IndexList.toList
             |> List.mapi (fun segmentIndex segment ->
                 let length = Calculations.getSegmentDistance segment
-                [ yield segment.startPoint
-                  yield! (segment.points |> IndexList.toList)
-                  yield segment.endPoint ]
-                |> List.map (fun p ->
+                let ps =
+                    [ yield segment.startPoint
+                      yield! (segment.points |> IndexList.toList)
+                      yield segment.endPoint ]
+                let ps = if Annotation.isClosingSegment a.points.Count a.segments.Count segmentIndex then List.rev ps else ps
+                ps |> List.map (fun p ->
                     { position = p; segmentIndex = Some segmentIndex; segmentLength = Some length }))
             |> List.concat
         else
