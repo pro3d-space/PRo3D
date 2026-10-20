@@ -1255,6 +1255,9 @@ module ViewerUtils =
     ///   missing.
     /// - `crossSectionClip`: the only discard in the stack. A shader that may discard
     ///   defeats hidden-surface removal on tile-based (Apple) GPUs even when it never does.
+    ///
+    /// The fragment stages come in three bands (see ai/RENDERING.md): surface colour (shaded),
+    /// lighting, then unlit overlays bottom -> top. The cross-section discard runs last.
     let surfaceEffectVariant (geometryStage : bool) (crossSectionClip : bool) =
         Effect.compose [
 
@@ -1295,21 +1298,11 @@ module ViewerUtils =
             PRo3D.Base.Shader.mapColorAdaption  |> toEffect
             PRo3D.Base.Shader.mapRadiometry |> toEffect
 
+            // -- 1. surface colour: what the terrain is. Shaded by the lighting below.
+
             Shader.secondaryTexture |> toEffect
-
+            // a terrain property, so shaded
             Shader.contourLines |> toEffect
-            // additive latitude/longitude graticule; composites over the colour
-            // produced by the stages above, like contourLines.
-            Shader.latLonLines |> toEffect
-            Shaders.donutFragment |> toEffect
-
-            if crossSectionClip then
-                CrossSectionShader.crossSectionClip |> toEffect
-
-            //PRo3D.Base.Shader.depthImageF        |> toEffect
-            PRo3D.Base.Shader.depthCalculation2     |> toEffect //depthImageF        |> toEffect
-
-            PRo3D.Base.Shader.footPrintF        |> toEffect
 
             // The projection stack (multi-image projection). Subsumes the old
             // single-image stableImageProjection: a stack of one behaves
@@ -1323,9 +1316,10 @@ module ViewerUtils =
             // split are gone
             ImageProjection.Shaders.projectedStackCoverage |> toEffect
 
-            // hover footprint: green outline of the hovered image's frustum
-            // footprint on the surface (D5)
-            ImageProjection.Shaders.hoveredProjectionOutline |> toEffect
+            // -- 2. lighting
+
+            // the surface colour as it is before lighting, for depthCalculation2 below
+            PRo3D.Base.Shader.surfaceColor |> toEffect
 
             // Lommel-Seeliger over the terrain normal; solarLighting's Lambert-on-a-
             // sphere-normal predecessor made relief invisible under sun lighting.
@@ -1333,10 +1327,35 @@ module ViewerUtils =
             // Cast shadows (LightingMode.SunShadow); per-patch gated, no-op otherwise.
             PRo3D.SPICE.Shaders.terrainSunShadow |> toEffect
 
-            // Last in the stack on purpose: outcrop traces are an interpretive overlay, so
-            // their colour must survive lighting and shadowing. contourLines sits earlier
-            // and is shaded, which is right for a terrain property and wrong for this.
+            // -- 3. overlays: drawn on the terrain, not part of it. After lighting so they stay
+            // readable in shadow and on the night side; bottom -> top, each paints over the
+            // ones before it. A new overlay goes here, at the layer it belongs to.
+
+            // depth false colour (DepthVisible): tints the unlit surface colour, lowest
+            //PRo3D.Base.Shader.depthImageF        |> toEffect
+            PRo3D.Base.Shader.depthCalculation2     |> toEffect //depthImageF        |> toEffect
+
+            // latitude/longitude graticule: the reference grid, over the depth colouring
+            Shader.latLonLines |> toEffect
+
+            // outcrop traces: interpretation, over the grid
             OutcropTraceShader.outcropTrace |> toEffect
+
+            // instrument footprint border
+            PRo3D.Base.Shader.footPrintF        |> toEffect
+
+            // hover footprint: green outline of the hovered image's frustum
+            // footprint on the surface (D5)
+            ImageProjection.Shaders.hoveredProjectionOutline |> toEffect
+
+            // 3D cursor, always on top
+            Shaders.donutFragment |> toEffect
+
+            // -- the discard goes last: after a discard, derivatives in its quad are undefined,
+            // and latLonLines, outcropTrace and every implicit-LOD texture sample above take
+            // them. Where it sits does not change its tile-GPU cost (see above).
+            if crossSectionClip then
+                CrossSectionShader.crossSectionClip |> toEffect
         ]
 
     /// Everything composed: what every OPC surface used before #719.
