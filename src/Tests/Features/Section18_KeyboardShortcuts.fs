@@ -17,7 +17,8 @@ open Aardvark.Rendering                  // IRuntime, IFramebufferSignature
 open Expecto
 
 open PRo3D
-open PRo3D.Core                          // Interactions
+open PRo3D.Core                          // Interactions, GroupsModel
+open PRo3D.Core.Drawing                  // DrawingApp, AnnotationsDelta
 open PRo3D.Viewer
 open PRo3D.Tests
 
@@ -79,5 +80,30 @@ let tests =
             let m = update model (ViewerAction.SetInteraction Interactions.PickSurface)
             Expect.equal m.interaction Interactions.PickSurface
                 "selecting an action in the menu sets the same interaction the shortcuts do"
+        }
+
+        // Ctrl+Z/Y arrive as CtrlShortcut from every page body (docs/KeyboardShortcuts.md)
+
+        test "TC-18.1 CtrlShortcut Z undoes and Y redoes, with no ctrlFlag" {
+            let model, update = Head.make ()
+            let delta = AnnotationsDelta.SnapshotDelta(GroupsModel.initial, GroupsModel.initial)
+            let m = { model with drawing = DrawingApp.pushUndo delta model.drawing }
+            Expect.isFalse m.ctrlFlag "the shortcut must not depend on a tracked Ctrl-down"
+            let undone = update m (ViewerAction.CtrlShortcut Keys.Z)
+            Expect.isEmpty undone.drawing.undoStack "Ctrl+Z pops the undo stack"
+            Expect.equal (List.length undone.drawing.redoStack) 1 "... onto the redo stack"
+            let redone = update undone (ViewerAction.CtrlShortcut Keys.Y)
+            Expect.equal (List.length redone.drawing.undoStack) 1 "Ctrl+Y pushes it back"
+            Expect.isEmpty redone.drawing.redoStack "... and empties the redo stack"
+        }
+
+        test "TC-18.1 the render control's KeyDown no longer undoes (would undo twice)" {
+            // the render control's keydown also bubbles to its page body, which sends CtrlShortcut
+            let model, update = Head.make ()
+            let delta = AnnotationsDelta.SnapshotDelta(GroupsModel.initial, GroupsModel.initial)
+            let m = { model with drawing = DrawingApp.pushUndo delta model.drawing }
+            let m = [ Keys.LeftCtrl; Keys.Z ] |> List.fold (fun m k -> update m (ViewerAction.KeyDown k)) m
+            Expect.isTrue m.ctrlFlag "Ctrl is still tracked for picking"
+            Expect.equal (List.length m.drawing.undoStack) 1 "KeyDown Z leaves the undo stack alone"
         }
     ]

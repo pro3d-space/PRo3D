@@ -193,7 +193,8 @@ type ViewerAction =
 
 | NewScene
 | KeyDown                         of key : Aardvark.Application.Keys
-| KeyUp                           of key : Aardvark.Application.Keys      
+| KeyUp                           of key : Aardvark.Application.Keys
+| CtrlShortcut                    of key : Aardvark.Application.Keys // Ctrl+Z/Y/S from any page, see docs/KeyboardShortcuts.md
 | ResizeMainControl               of V2i * string
 | ResizeInstrumentControl         of V2i * string
 | SetKind                         of TrafoKind
