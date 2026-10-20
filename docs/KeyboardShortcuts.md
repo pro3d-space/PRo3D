@@ -10,13 +10,15 @@
 
 On macOS, Cmd works in place of Ctrl.
 
-These keys work wherever the mouse cursor is: over the 3D view, the instrument view, any dock
-panel (annotation properties, annotation tree, surfaces, config, …) or the top menu. The one
-exception is a focused **text or number field**. There, Ctrl+Z / Ctrl+Y undo and redo your
+These keys work in whichever part of the window has keyboard focus: the 3D view, the
+instrument view, any dock panel (annotation properties, annotation tree, surfaces, config, …)
+or the top menu. A panel gets focus when you click into it; the 3D view takes it as soon as
+the cursor enters it. The one exception is a focused **text or number field**. There, Ctrl+Z / Ctrl+Y undo and redo your
 typing as usual, and Ctrl+S does nothing (not even the browser's "save page"). Click outside the
 field (or press Tab to leave it) to undo drawing actions again.
 
-Holding a key down does not repeat the shortcut. Ctrl+Alt+Z and the like are ignored, and so is
+Shift is not looked at: Ctrl+Shift+Z undoes and Ctrl+Shift+S saves. Holding a key down does
+not repeat the shortcut. Ctrl+Alt+Z and the like are ignored, and so is
 Alt+Z on its own: earlier versions treated Alt like Ctrl in the 3D view, so Alt+Z used to undo.
 Alt+click still picks like Ctrl+click.
 
