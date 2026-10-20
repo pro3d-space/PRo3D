@@ -82,23 +82,13 @@ module Events =
 
     /// Ctrl (Cmd on macOS) + Z / Y / S, for a page's body: key events bubble up from
     /// anywhere in the page, so the shortcut no longer needs the render control to have
-    /// focus. Modifiers come from the event itself, not from a tracked Ctrl-down flag.
-    /// Editable fields keep Z/Y for their own text undo/redo; S does nothing there (no
-    /// browser "save page" either).
+    /// focus. Which keys are sent, and what text fields keep, is decided client side by
+    /// pro3dCtrlShortcut in resources/utilities.js (docs/KeyboardShortcuts.md).
     let onCtrlShortcut (cb : Keys -> 'msg) =
         "onkeydown",
         AttributeValue.Event {
             clientSide = fun send id ->
-                String.concat " " [
-                    "var t = event.target, tag = t && t.tagName;"
-                    "var editable = t && (t.isContentEditable || tag === 'TEXTAREA' || tag === 'SELECT' ||"
-                    "(tag === 'INPUT' && ['checkbox','radio','button','submit','reset','range','color','file'].indexOf(t.type) < 0));"
-                    "if (!event.repeat && (event.ctrlKey || event.metaKey) && !event.altKey &&"
-                    "(event.keyCode === 90 || event.keyCode === 89 || event.keyCode === 83)) {"
-                    "if (!editable) { event.preventDefault(); " + send id ["event.keyCode"] + " }"
-                    "else if (event.keyCode === 83) { event.preventDefault(); }"
-                    "}"
-                ]
+                "if (window.pro3dCtrlShortcut && pro3dCtrlShortcut(event)) { " + send id ["event.keyCode"] + " }"
             serverSide = fun _ _ args ->
                 match args with
                 | keyCode :: _ ->

@@ -122,13 +122,12 @@ let tests =
             Expect.isFalse (m.ctrlFlag || m.shiftFlag) "both released"
         }
 
-        test "TC-18.1 onCtrlShortcut: client filter and key decoding" {
+        test "TC-18.1 onCtrlShortcut: calls the client filter, decodes the key" {
             match Aardvark.UI.Events.onCtrlShortcut id with
             | "onkeydown", Aardvark.UI.AttributeValue.Event e ->
                 let js = e.clientSide (fun _ args -> sprintf "SEND(%s)" (String.concat "," args)) "id"
-                for part in [ "SEND(event.keyCode)"; "event.preventDefault()"; "event.ctrlKey || event.metaKey"
-                              "!event.altKey"; "!event.repeat"; "=== 90"; "=== 89"; "=== 83"; "isContentEditable" ] do
-                    Expect.stringContains js part (sprintf "client filter contains %s" part)
+                Expect.stringContains js "pro3dCtrlShortcut(event)" "the filter lives in resources/utilities.js"
+                Expect.stringContains js "SEND(event.keyCode)" "sends the key code once the filter agrees"
                 let decode code = e.serverSide System.Guid.Empty "id" [ code ] |> Seq.toList
                 Expect.equal (decode "90") [ Keys.Z ] "90 is Z"
                 Expect.equal (decode "89") [ Keys.Y ] "89 is Y"

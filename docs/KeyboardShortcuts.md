@@ -34,7 +34,8 @@ forgets any Ctrl or Shift it saw go down. A modifier released elsewhere therefor
 
 | What | Where |
 |---|---|
-| `Events.onCtrlShortcut`: client-side filter (Ctrl/Cmd, no Alt, not repeated, not in an editable field, key Z/Y/S) and `preventDefault` (Ctrl+S also inside editable fields) | [Utilities.fs](../src/PRo3D.Viewer/Utilities.fs) |
+| `pro3dCtrlShortcut(event)`: the client-side filter (Ctrl/Cmd, no Alt, not repeated, key Z/Y/S, not in a text-entry field) and `preventDefault` (Ctrl+S also inside text fields) | [utilities.js](../src/PRo3D.Viewer/resources/utilities.js) |
+| `Events.onCtrlShortcut`: the body `onkeydown` that asks it and sends the key code | [Utilities.fs](../src/PRo3D.Viewer/Utilities.fs) |
 | `ViewerAction.CtrlShortcut` | [Viewer-Model.fs](../src/PRo3D.Viewer/Viewer-Model.fs) |
 | Update case: undo / redo / save | [Viewer.fs](../src/PRo3D.Viewer/Viewer/Viewer.fs) |
 | The handler on every page body | `Gui.Pages.pageRouting` in [ViewerGUI.fs](../src/PRo3D.Viewer/Viewer/ViewerGUI.fs) |

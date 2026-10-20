@@ -89,3 +89,27 @@ function startBusyIndicator(id, thresholdMs) {
 			.then(function () { inFlight = false; });
 	}, 200);
 }
+
+// --- Ctrl shortcuts ----------------------------------------------------------------
+//
+// Every page body has an onkeydown that asks this whether to send a Ctrl+Z/Y/S to the
+// server (Events.onCtrlShortcut, docs/KeyboardShortcuts.md). A text field's own undo is
+// the browser's default action, not a listener that could stop the event, so the target
+// decides: typing keeps Z/Y, and S never reaches the browser's "save page".
+
+function isTextEntry(t) {
+	return !!t && (t.isContentEditable || t.tagName === 'TEXTAREA' ||
+		(t.tagName === 'INPUT' && /^(text|number|search|email|url|tel|password)$/.test(t.type)));
+}
+
+function pro3dCtrlShortcut(event) {
+	var k = event.keyCode;                                       // 90 Z, 89 Y, 83 S
+	if (event.repeat || !(event.ctrlKey || event.metaKey) || event.altKey) { return false; }
+	if (k !== 90 && k !== 89 && k !== 83) { return false; }
+	if (isTextEntry(event.target)) {
+		if (k === 83) { event.preventDefault(); }
+		return false;
+	}
+	event.preventDefault();
+	return true;
+}
