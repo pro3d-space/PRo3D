@@ -88,6 +88,12 @@ function changedFraction(a: Buffer, b: Buffer, threshold = 24) {
     return changed / total;
 }
 
+/** The panel is experimental: a notice until opened, and no map is drawn before that. */
+async function openMapsPanel(panel: Page, url: string) {
+    await panel.goto(url + "?page=geomaps");
+    await panel.locator("button", { hasText: "Open anyway" }).click({ timeout: 120_000 });
+}
+
 async function panelText(panel: Page) {
     return panel.evaluate(() => document.body.innerText);
 }
@@ -142,7 +148,7 @@ test("a label point drawn into the map gives its unit the active legend entry", 
     try {
         const panel = await context.newPage();
         await panel.setViewportSize({ width: 520, height: 900 });
-        await panel.goto(app.url + "?page=geomaps");
+        await openMapsPanel(panel, app.url);
         await panel.waitForLoadState("domcontentloaded");
         await expect.poll(() => panelText(panel), { timeout: 60_000 }).toContain("1 without a label");
 
@@ -228,7 +234,7 @@ test("the Assign unit tool: click, Alt+click and drag across units", async ({ br
     try {
         const panel = await context.newPage();
         await panel.setViewportSize({ width: 520, height: 900 });
-        await panel.goto(app.url + "?page=geomaps");
+        await openMapsPanel(panel, app.url);
         await panel.waitForLoadState("domcontentloaded");
         await expect.poll(() => panelText(panel), { timeout: 60_000 }).toContain("1 without a label");
         await activateMap(panel);
@@ -309,7 +315,7 @@ test("a contact drawn to end near other contacts snaps onto them and cuts a unit
     try {
         const panel = await context.newPage();
         await panel.setViewportSize({ width: 520, height: 900 });
-        await panel.goto(app.url + "?page=geomaps");
+        await openMapsPanel(panel, app.url);
         await panel.waitForLoadState("domcontentloaded");
         await expect.poll(() => panelText(panel), { timeout: 60_000 }).toContain("6 units");
         // the active map's group takes what is drawn next
@@ -402,7 +408,7 @@ for (const view of [
         try {
             const panel = await context.newPage();
             await panel.setViewportSize({ width: 520, height: 900 });
-            await panel.goto(app.url + "?page=geomaps");
+            await openMapsPanel(panel, app.url);
             await panel.waitForLoadState("domcontentloaded");
 
             // the panel reports what the topology made of the group

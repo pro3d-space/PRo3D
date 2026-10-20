@@ -343,6 +343,8 @@ test("story: a geological map of Dimorphos from scratch", async ({ browser }) =>
 
     try {
         await expect.poll(() => panelText(ui.annotations), { timeout: 60_000 }).toContain("Dimorphos geology");
+        // experimental: the panel opens behind a notice (not part of the story)
+        await ui.panel.locator("button", { hasText: "Open anyway" }).click({ timeout: 120_000 });
         await expect.poll(() => panelText(ui.panel), { timeout: 60_000 }).toContain("New map from group");
         if (ui.video) {
             await ui.video.record();

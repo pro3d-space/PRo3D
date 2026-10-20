@@ -822,6 +822,10 @@ module DrawingApp =
                     model.annotations.flat |> Leaf.toAnnotations |> HashMap.toList |> List.map snd
                 { model with
                     colorByCategory = ColorByCategory.update annotations model.colorByCategory msg }
+            // experimental and closed (GeologicalMapApp.update): a stale panel changes nothing
+            | GeologicalMapMessage msg
+                when not model.geologicalMaps.enabled && (match msg with GeologicalMapAction.SetEnabled _ -> false | _ -> true) ->
+                model
             | GeologicalMapMessage msg ->
                 let maps = GeologicalMapApp.update model.geologicalMaps msg
                 match msg with

@@ -15,7 +15,13 @@ pole or date-line special case.
 *The showcase map: contacts (black lines) cut Dimorphos into units, coloured by the legend.
 The grey area is a unit without a label point yet.*
 
-Status: first version (#843). What is not there yet is listed [below](#not-yet).
+Status: first version (#843), **experimental**. What is not there yet is listed [below](#not-yet).
+
+The *Geological Maps* panel opens behind a notice, *This is an experimental feature*, with an
+**Open anyway** button. Until then no map is drawn, contacts do not snap and the Assign unit
+tool does nothing - a scene with maps costs nothing until you open the panel. **Close** at the
+bottom of the panel returns to the notice. This is not saved: every session starts at the
+notice; the maps themselves stay in the scene either way.
 
 A walk-through with pictures (a made-up example), from an empty group to a checked map: [GeologicalMap-story.md](GeologicalMap-story.md).
 

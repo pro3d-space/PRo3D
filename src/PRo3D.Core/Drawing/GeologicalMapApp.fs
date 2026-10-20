@@ -75,6 +75,9 @@ module GeologicalMapApp =
 
     let update (m : GeologicalMapsModel) (action : Action) : GeologicalMapsModel =
         match action with
+        | Action.SetEnabled e -> { m with enabled = e; problemCursor = -1 }
+        // experimental and closed: ignore anything a stale panel still sends
+        | _ when not m.enabled -> m
         | Action.NewMap (group, name) ->
             let map = GeologicalMap.make name group
             { m with maps = IndexList.add map m.maps; active = Some map.key; activeUnit = None }
@@ -1003,8 +1006,9 @@ module GeologicalMapApp =
         match surfaceDepth with
         | None -> Sg.empty
         | Some s ->
-            maps.maps
-            |> AList.toASet
+            // experimental: nothing is derived or drawn until the panel is opened
+            maps.enabled
+            |> ASet.bind (fun enabled -> if enabled then AList.toASet maps.maps else ASet.empty)
             |> ASet.map (mapSg runtime s planet reach groups maps gate tools textView stroke view)
             |> Sg.set
 
@@ -1115,20 +1119,37 @@ module GeologicalMapApp =
                 ]
             ]
 
-        /// The Geological maps panel. `activeGroup` is the annotation group a new map is made of.
-        let view (groups : AdaptiveGroupsModel) (model : AdaptiveGeologicalMapsModel) =
+        /// The panel past its experimental notice.
+        let private enabledView (groups : AdaptiveGroupsModel) (model : AdaptiveGeologicalMapsModel) =
             let activeGroup = groups.activeGroup
+            div [style "padding: 4px"] [
+                Incremental.div AttributeMap.empty (
+                    alist {
+                        let! g = activeGroup
+                        yield
+                            button [clazz "ui small inverted button"; onClick (fun _ -> Action.NewMap(g.id, g.name))] [
+                                text (sprintf "New map from group '%s'" g.name)
+                            ]
+                            |> UI.wrapToolTip DataPosition.Bottom
+                                "Contacts: the polylines and polygons of the active annotation group. Label points: its points with a Geo Unit."
+                    })
+                Incremental.div AttributeMap.empty (model.maps |> AList.map (mapView groups model))
+                button [clazz "ui tiny inverted basic button"; style "margin-top: 8px"; onClick (fun _ -> Action.SetEnabled false)] [text "Close"]
+                |> UI.wrapToolTip DataPosition.Bottom "Closes the experimental geological maps: no map is drawn and no tool works on one until opened again"
+            ]
+
+        /// The Geological maps panel. Experimental: until opened past its notice no map is drawn
+        /// and no tool works on one, so a scene with maps costs nothing.
+        let view (groups : AdaptiveGroupsModel) (model : AdaptiveGeologicalMapsModel) =
+            let notice =
+                div [style "width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; padding:16px; box-sizing:border-box; text-align:center; color:#bbb; font-size:13px"] [
+                    div [style "font-size:15px; font-weight:bold; color:#ffb000"] [text "This is an experimental feature"]
+                    div [style "max-width:420px"] [text "Geological maps colour the terrain by units derived from contacts and label points. It is not finished and may change."]
+                    button [clazz "ui small inverted button"; onClick (fun _ -> Action.SetEnabled true)] [text "Open anyway"]
+                ]
             require GuiEx.semui (
-                div [style "padding: 4px"] [
-                    Incremental.div AttributeMap.empty (
-                        alist {
-                            let! g = activeGroup
-                            yield
-                                button [clazz "ui small inverted button"; onClick (fun _ -> Action.NewMap(g.id, g.name))] [
-                                    text (sprintf "New map from group '%s'" g.name)
-                                ]
-                                |> UI.wrapToolTip DataPosition.Bottom
-                                    "Contacts: the polylines and polygons of the active annotation group. Label points: its points with a Geo Unit."
-                        })
-                    Incremental.div AttributeMap.empty (model.maps |> AList.map (mapView groups model))
-                ])
+                Incremental.div (AttributeMap.ofList [style "width:100%; height:100%"]) (
+                    alist {
+                        let! enabled = model.enabled
+                        if enabled then yield enabledView groups model else yield notice
+                    }))

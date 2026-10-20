@@ -19,6 +19,9 @@ open PRo3D.Base
 /// annotations.
 [<RequireQualifiedAccess>]
 type GeologicalMapAction =
+    /// the feature is experimental: off (panel notice only, no maps drawn, no tools) until
+    /// opened; session only
+    | SetEnabled      of bool
     /// a new map over the annotation group with this Node.key, made active
     | NewMap          of group : Guid * name : string
     | RemoveMap       of Guid
@@ -78,6 +81,9 @@ type GeologicalMapsModel = {
     activeUnit  : Option<Guid>
     /// which problem NextProblem flew to last; session only, not persisted
     problemCursor : int
+    /// opened past the panel's experimental notice; session only, not persisted. Off, no map
+    /// is drawn and no tool works on one (`tryActive` is None)
+    enabled     : bool
 }
 
 /// Reading maps never fails the annotation file they ride in: an entry this release cannot
@@ -218,7 +224,7 @@ type GeologicalMap with
 
 module GeologicalMapsModel =
 
-    let initial = { maps = IndexList.empty; active = None; activeUnit = None; problemCursor = -1 }
+    let initial = { maps = IndexList.empty; active = None; activeUnit = None; problemCursor = -1; enabled = false }
 
     let private read0 =
         json {
@@ -233,6 +239,7 @@ module GeologicalMapsModel =
                         | _ -> None)
                 activeUnit = None
                 problemCursor = -1
+                enabled    = false
             }
         }
 
@@ -254,7 +261,9 @@ module GeologicalMapsModel =
             | _ -> return initial
         }
 
+    /// The map the tools work on; none while the feature is off.
     let tryActive (m : GeologicalMapsModel) =
+        if not m.enabled then None else
         m.active |> Option.bind (fun k -> m.maps |> IndexList.toArray |> Array.tryFind (fun x -> x.key = k))
 
 type GeologicalMapsModel with

@@ -136,7 +136,8 @@ let tests () =
         test "a unit code already used in the map is refused" {
             let file, _, map = withMap ()
             let np = map.units |> IndexList.toArray |> Array.tryFind (fun u -> u.code = "Np") |> Option.defaultWith (fun () -> failwith "no Np")
-            let renamed = GeologicalMapApp.update file.geologicalMaps (GeologicalMapAction.SetUnitCode(map.key, np.id, "Cr"))
+            // the panel is open: a closed (experimental) panel ignores every action
+            let renamed = GeologicalMapApp.update { file.geologicalMaps with enabled = true } (GeologicalMapAction.SetUnitCode(map.key, np.id, "Cr"))
             let codes = renamed.maps |> IndexList.toArray |> Array.collect (fun m -> m.units |> IndexList.toArray |> Array.map (fun u -> u.code))
             Expect.equal codes [| "Cr"; "Np" |] "unchanged"
         }
