@@ -1,7 +1,8 @@
 # Deleting annotations with the Delete key
 
-Press **Delete** (labelled DEL, Entf or CANC depending on the keyboard) in the 3D view to delete
-every selected annotation at once. **Ctrl+Z** brings them all back in one step, and **Ctrl+Y**
+Press **Delete** (labelled DEL, Entf or CANC depending on the keyboard) in the 3D view, the
+**Annotations** tree or the annotation **Properties** panel to delete every selected annotation
+at once. **Ctrl+Z** brings them all back in one step, and **Ctrl+Y**
 deletes them again.
 
 Before this, the only way to delete an annotation was the **remove** button next to it in the
@@ -34,9 +35,13 @@ Things to be aware of:
 
 ## Keyboard focus
 
-The key is handled by the main 3D view, which takes keyboard focus as soon as the mouse cursor
-enters it. Pressing Delete while typing in a GUI text field, for example an annotation's name,
-edits the text and deletes no annotation. The instrument view does not handle the key.
+Delete goes to whichever part of the window has keyboard focus, like the Ctrl shortcuts
+([KeyboardShortcuts.md](KeyboardShortcuts.md)): the 3D view takes focus as soon as the cursor
+enters it, a panel when you click into it. Only the pages about annotations act on it: the 3D
+view, Annotations and Properties. In any other panel - Surfaces, say, where a user would expect
+Delete to mean the selected surface - it does nothing to annotations. Pressing Delete while
+typing in a text field, for example an annotation's text, edits the text and deletes no
+annotation. The instrument view does not handle the key.
 
 ## Undo and redo
 
@@ -50,7 +55,13 @@ original id, its group and its position in the group.
 |---|---|
 | `DrawingAction.DeleteSelectedAnnotations` | [Drawing-Model.fs](../src/PRo3D.Core/Drawing/Drawing-Model.fs) |
 | Update case: collect the selection, remove each leaf by id, push one undo snapshot | [Drawing-App.fs](../src/PRo3D.Core/Drawing/Drawing-App.fs) |
-| `Keys.Delete` → `DeleteSelectedAnnotations` in `getDrawingActionForKey` | [Viewer.fs](../src/PRo3D.Viewer/Viewer/Viewer.fs) |
+| `pro3dDeleteKey(event)`: Delete, no modifier, not repeated, not in a text-entry field | [utilities.js](../src/PRo3D.Viewer/resources/utilities.js) |
+| `Events.onCtrlShortcutOrDelete` on the render, annotations and properties page bodies | [Utilities.fs](../src/PRo3D.Viewer/Utilities.fs), `Gui.Pages.pageRouting` in [ViewerGUI.fs](../src/PRo3D.Viewer/Viewer/ViewerGUI.fs) |
+| `Gui.annotationShortcut`: `Keys.Delete` → `DeleteSelectedAnnotations` | [ViewerGUI.fs](../src/PRo3D.Viewer/Viewer/ViewerGUI.fs) |
+
+The key is handled on the page body, not by the render control's own `onkeydown` (which used to
+map it in `getDrawingActionForKey`): the render control's keydown bubbles to its page body, so
+handling it in both places would run the deletion twice.
 
 Leaves are removed with `GroupsApp.removeLeafById`, not the path-based `removeLeaf`. A viewport
 pick stores the root path whatever group the leaf really sits in, and `removeLeaf` would silently

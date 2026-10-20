@@ -217,7 +217,7 @@ let private groupColorTests =
     ]
 
 // TC-19.3 Delete key: DeleteSelectedAnnotations, driven through the real DrawingApp.update
-// exactly as the viewer dispatches it for Keys.Delete (getDrawingActionForKey)
+// exactly as the viewer dispatches it for Keys.Delete (Gui.annotationShortcut)
 let private run = Draw.run Draw.refSystemFlat
 
 let private drawOn (geom : Geometry) (autoFinishes : bool) (points : list<V3d>) (m : DrawingModel) =
@@ -245,24 +245,29 @@ let private deleteTests =
 
         test "TC-19.3 Delete removes the single-selected annotation and keeps the others" {
             let m = DrawingModel.initialdrawing |> line 0. |> line 10. |> line 20. |> deselect
-            let target = Draw.annotations m |> List.map (fun a -> a.key) |> List.head
-            let picked = run m (DrawingAction.PickDirectly target)
-            Expect.equal picked.annotations.singleSelectLeaf (Some target) "plain pick single-selects"
+            match Draw.annotations m |> List.map (fun a -> a.key) with
+            | target :: _ ->
+                let picked = run m (DrawingAction.PickDirectly target)
+                Expect.equal picked.annotations.singleSelectLeaf (Some target) "plain pick single-selects"
 
-            let after = run picked DrawingAction.DeleteSelectedAnnotations
-            Expect.equal (keys after) (keys m |> Set.remove target) "only the picked annotation is gone"
-            Expect.isFalse (inRootLeaves target after.annotations) "and it left its group"
-            Expect.isNone after.annotations.singleSelectLeaf "the selection no longer points at it"
+                let after = run picked DrawingAction.DeleteSelectedAnnotations
+                Expect.equal (keys after) (keys m |> Set.remove target) "only the picked annotation is gone"
+                Expect.isFalse (inRootLeaves target after.annotations) "and it left its group"
+                Expect.isNone after.annotations.singleSelectLeaf "the selection no longer points at it"
+            | [] -> failtest "expected three annotations"
         }
 
         test "TC-19.3 Delete removes every multi-selected annotation" {
             let m = DrawingModel.initialdrawing |> line 0. |> line 10. |> line 20. |> line 30. |> deselect
-            let selected = Draw.annotations m |> List.map (fun a -> a.key) |> List.take 3
-            let sel = selected |> List.fold (fun m id -> multiSelect id m) m
+            match Draw.annotations m |> List.map (fun a -> a.key) with
+            | a :: b :: c :: _ ->
+                let selected = [ a; b; c ]
+                let sel = selected |> List.fold (fun m id -> multiSelect id m) m
 
-            let after = run sel DrawingAction.DeleteSelectedAnnotations
-            Expect.equal (keys after) (Set.difference (keys m) (Set.ofList selected)) "the three selected are gone"
-            Expect.isTrue after.annotations.selectedLeaves.IsEmpty "the multi-selection is emptied"
+                let after = run sel DrawingAction.DeleteSelectedAnnotations
+                Expect.equal (keys after) (Set.difference (keys m) (Set.ofList selected)) "the three selected are gone"
+                Expect.isTrue after.annotations.selectedLeaves.IsEmpty "the multi-selection is emptied"
+            | _ -> failtest "expected four annotations"
         }
 
         test "TC-19.3 Delete removes cube-checked and name-selected annotations together" {

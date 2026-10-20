@@ -578,8 +578,9 @@ module DrawingApp =
                 let ids = ids |> HashSet.filter (fun id -> HashMap.containsKey id before.flat)
                 if ids.IsEmpty then model
                 else
-                    // by id, not by path: viewport picks carry the root path whatever the leaf's group
-                    let after = ids |> HashSet.fold (fun g id -> GroupsApp.removeLeafById id g) before
+                    // by id, not by path: viewport picks carry the root path whatever the leaf's group;
+                    // one walk of the tree for the whole batch (a box selection can be thousands)
+                    let after = GroupsApp.removeLeavesById ids before
                     let grab  = model.vertexGrab |> Option.filter (fun g -> not (HashSet.contains g.annotation ids))
                     // one snapshot for the whole batch, so a single undo restores all of them
                     { model with annotations = after; vertexGrab = grab }
