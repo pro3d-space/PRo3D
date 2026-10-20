@@ -612,9 +612,10 @@ module ViewerApp =
         | _ -> true
 
     /// What a finished box gesture does to the selection, if anything. A drag selects what the
-    /// rectangle touches (Alt toggles, else Shift adds, else it replaces). A click selects
-    /// nothing itself - a click on an annotation is PickDirectly's - but a plain click on empty
-    /// space clears the selection.
+    /// rectangle touches (Alt toggles, else Shift adds, else it replaces). A click does nothing
+    /// here - a click on an annotation is PickDirectly's. It deliberately does not clear the
+    /// selection on empty space: telling "empty" from a hit by a second hit test disagreed with
+    /// the pick pass's widened lines and points, and undid picks on release.
     let boxSelectionAction (m : Model) (box : MultiSelectionBox) (release : BoxPointer) : Option<DrawingAction> =
         let box    = { box with current = release.position }
         let pixels = MultiSelectionBox.pixelBox box
@@ -624,16 +625,8 @@ module ViewerApp =
                 elif release.shift then Drawing.SelectionMode.Add
                 else Drawing.SelectionMode.Replace
             Some (DrawingAction.SelectAnnotations(mode, annotationsInPixelBox m box.viewportSize pixels))
-        elif release.shift || release.alt then
-            None
         else
-            // about the half-width the pick pass widens lines to (PackedRendering: width + 5 +
-            // 10 * tolerance), so "nothing here" agrees with what a click could have picked
-            let radius = 3.0 + 5.0 * m.scene.config.pickingTolerance.value
-            let around = Box2d(release.position - V2d(radius, radius), release.position + V2d(radius, radius))
-            match annotationsInPixelBox m box.viewportSize around with
-            | [] -> Some (DrawingAction.SelectAnnotations(Drawing.SelectionMode.Replace, []))
-            | _  -> None
+            None
 
     let updateFrustumAspect m (windowSize : V2i) (viewPortSizeId : string) =
             let aspect = float windowSize.X / float windowSize.Y
@@ -2246,12 +2239,17 @@ module ViewerApp =
                 { m with multiSelectBox = Some { startPoint = p.position; current = p.position; viewportSize = p.viewportSize } }
             else
                 m
+        // the gate is held for the whole drag: releasing Ctrl hands the left button back to the
+        // camera, so the rectangle would no longer match what is under it - drop it instead
+        | BoxSelectMove _,_ when m.multiSelectBox.IsSome && not (toolArmed m) ->
+            { m with multiSelectBox = None }
         | BoxSelectMove p,_ ->
             match m.multiSelectBox with
             | Some b -> { m with multiSelectBox = Some { b with current = p } }
             | None   -> m
         | BoxSelectEnd p,_ ->
             match m.multiSelectBox with
+            | Some _ when not (toolArmed m) -> { m with multiSelectBox = None }
             | Some b ->
                 let m = { m with multiSelectBox = None }
                 match boxSelectionAction m b p with

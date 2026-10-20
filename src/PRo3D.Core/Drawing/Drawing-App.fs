@@ -511,15 +511,17 @@ module DrawingApp =
                     let s = viewProj.Forward * V4d(origin + dir * t, 1.0)
                     let annotationDepth = (c.Z - depthOffsetClip) / c.W
                     let surfaceDepth    = s.Z / s.W
-                    annotationDepth <= surfaceDepth + 1e-7
+                    // no extra slack: depthOffsetClip already keeps an annotation on the terrain
+                    // in front, and a fixed NDC slack grows with distance squared (metres at range)
+                    annotationDepth <= surfaceDepth
 
     /// Box selection hit test: the visible annotations that a screen rectangle touches - a part
     /// of them inside it (a vertex, or a stretch of a segment crossing it) that `isVisible`
     /// accepts. `ndcRect` is in normalized device coordinates (-1..1, y up), `viewProj` the
     /// camera's view * projection, `viewportSize` the view in pixels (for the sample spacing).
     ///
-    /// Samples are tested in path order and the first visible one decides; at most
-    /// maxVisibilityRaysPerAnnotation are tested. `fun _ -> true` ignores occlusion.
+    /// The first visible sample decides. At most maxVisibilityRaysPerAnnotation are tested,
+    /// spread evenly over the samples in path order. `fun _ -> true` ignores occlusion.
     let annotationsTouchingRect
         (viewProj     : Trafo3d)
         (viewportSize : V2d)
@@ -563,9 +565,20 @@ module DrawingApp =
                     if path.Length > 1 && vertexInside clipped.[path.Length - 1] then yield path.[path.Length - 1]
             }
 
+        // every k-th sample, so the ray budget covers the whole part inside the box rather than
+        // running out on its first, possibly hidden, stretch
+        let anyVisible (s : V3d[]) =
+            let stride = max 1 ((s.Length + maxVisibilityRaysPerAnnotation - 1) / maxVisibilityRaysPerAnnotation)
+            let mutable i = 0
+            let mutable found = false
+            while not found && i < s.Length do
+                found <- isVisible s.[i]
+                i <- i + stride
+            found
+
         annotations
         |> Seq.choose (fun a ->
-            if a.visible && (samples a |> Seq.truncate maxVisibilityRaysPerAnnotation |> Seq.exists isVisible)
+            if a.visible && anyVisible (samples a |> Seq.toArray)
             then Some a.key
             else None)
         |> Seq.toList

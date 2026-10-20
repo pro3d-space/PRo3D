@@ -154,7 +154,7 @@ let private selectionTests =
             | _ -> failtest "expected three lines"
         }
 
-        test "TC-22.2 Replace with nothing (click on empty space) clears both selection kinds" {
+        test "TC-22.2 Replace with nothing clears both selection kinds" {
             let m, keys = threeLines ()
             match keys with
             | [ a; b; _ ] ->
@@ -290,6 +290,17 @@ let private occlusionTests =
             Expect.isEmpty selected "hidden"
             Expect.isLessThanOrEqual rays DrawingApp.maxVisibilityRaysPerAnnotation "bounded by the cap"
             Expect.isGreaterThan rays 1 "but it did look at more than one sample"
+        }
+
+        test "TC-22.4 a long hidden stretch does not use up the ray cap before the visible part" {
+            // buried and densely sampled for its first half - far more samples than the cap - then
+            // above the terrain: the rays must be spread over the whole path to reach the visible half
+            let l =
+                anno Geometry.Polyline [
+                    for i in 0 .. 50 -> V3d(-9.0 + 0.18 * float i, 0.0, -1.0)
+                    for i in 1 .. 10 -> V3d(0.9 * float i, 0.0, 1.0)
+                ]
+            Expect.equal (occludedHits orthoViewProj fullScreen [ l ]) (Set.singleton l.key) "the visible half selects it"
         }
 
         test "TC-22.5 a click on the visible part of a partly buried annotation finds a visible point" {

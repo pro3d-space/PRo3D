@@ -88,18 +88,39 @@ module Picking =
     /// Occluders are the visible surfaces, as on screen, that have a KdTree. Surfaces without
     /// one are left out up front: doKdTreeIntersection logs an error per ray for an empty
     /// KdTree, and a box selection casts many rays.
+    ///
+    /// Each surface is intersected on its own and the nearest hit wins: doKdTreeIntersection
+    /// prefers the highest-priority surface over the nearest one, which is right for picking
+    /// but not for occlusion - a nearer low-priority surface still hides what is behind it.
     let castToSurfaces (m : Model) (ray : Ray3d) : Option<float> =
         let observerSystem = Gis.GisApp.getObserverSystem m.scene.gisApp
         let observedSystem (v : SurfaceId) = Gis.GisApp.getSpiceReferenceSystem m.scene.gisApp v
+        let surfaces = Optic.get _surfacesModel m
         let occluder (_ : Guid) (l : Leaf) (s : SgSurface) =
             l.visible &&
             // fully qualified: inside this module `Picking` names the module itself
             match s.picking with
             | PRo3D.Core.Surface.Picking.KdTree kd -> not kd.IsEmpty
             | _ -> false
-        match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem observedSystem observerSystem (FastRay3d ray) occluder cache false with
-        | Some hitInfo, c -> cache <- c; Some hitInfo.hit.RayHit.T
-        | None, c -> cache <- c; None
+        let occluders =
+            surfaces.surfaces.flat
+            |> HashMap.toArray
+            |> Array.choose (fun (id, l) ->
+                match HashMap.tryFind id surfaces.sgSurfaces with
+                | Some s when occluder id l s -> Some id
+                | _ -> None)
+        let mutable nearest = None
+        for occluderId in occluders do
+            let only (id : Guid) l s = id = occluderId && occluder id l s
+            match SurfaceIntersection.doKdTreeIntersection surfaces m.scene.referenceSystem observedSystem observerSystem (FastRay3d ray) only cache false with
+            | Some hitInfo, c ->
+                cache <- c
+                let t = hitInfo.hit.RayHit.T
+                match nearest with
+                | Some n when n <= t -> ()
+                | _ -> nearest <- Some t
+            | None, c -> cache <- c
+        nearest
 
     let pickRay (m : Model) (r : FastRay3d) (surfaceName : Option<string>) =
         pickRayInfo m r surfaceName
