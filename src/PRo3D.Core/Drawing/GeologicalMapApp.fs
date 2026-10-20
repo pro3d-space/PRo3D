@@ -49,11 +49,17 @@ module GeologicalMapApp =
         m.maps |> IndexList.toArray |> Array.tryPick (fun map ->
             map.units |> IndexList.toArray |> Array.tryFind (fun u -> u.id = unitId) |> Option.map (fun u -> map, u))
 
+    /// The active map and its active unit; none when the active unit belongs to another map.
+    let activeMapUnit (m : GeologicalMapsModel) : Option<GeologicalMap * GeoUnit> =
+        match GeologicalMapsModel.tryActive m, m.activeUnit with
+        | Some map, Some unitId ->
+            map.units |> IndexList.toArray |> Array.tryFind (fun u -> u.id = unitId) |> Option.map (fun u -> map, u)
+        | _ -> None
+
     /// The active unit, when the active map is drawn into: its group is `activeGroup`.
     let activeUnitFor (activeGroup : Guid) (m : GeologicalMapsModel) : Option<GeoUnit> =
-        match GeologicalMapsModel.tryActive m, m.activeUnit with
-        | Some map, Some unitId when map.sourceGroup = activeGroup ->
-            map.units |> IndexList.toArray |> Array.tryFind (fun u -> u.id = unitId)
+        match activeMapUnit m with
+        | Some (map, u) when map.sourceGroup = activeGroup -> Some u
         | _ -> None
 
     /// Path (as GroupsApp addresses groups) and node of the group with this key.
@@ -75,9 +81,8 @@ module GeologicalMapApp =
 
     let update (m : GeologicalMapsModel) (action : Action) : GeologicalMapsModel =
         match action with
+        // experimental: while closed, DrawingApp.update passes nothing else here
         | Action.SetEnabled e -> { m with enabled = e; problemCursor = -1 }
-        // experimental and closed: ignore anything a stale panel still sends
-        | _ when not m.enabled -> m
         | Action.NewMap (group, name) ->
             let map = GeologicalMap.make name group
             { m with maps = IndexList.add map m.maps; active = Some map.key; activeUnit = None }

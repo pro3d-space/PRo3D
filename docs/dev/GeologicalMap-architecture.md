@@ -219,7 +219,14 @@ The one list of what is missing or wrong, for later handling. The user doc's
   main frustum even in the instrument view (`Viewer.fs`, `matchPickingInteraction`).
 - A label point placed by the Assign tool next to a contact can land in the neighbouring unit
   (position from depth sample 0, not re-checked against the face).
-- On-screen messages (`shortFeedback`): one plain text slot top right, no warning style.
+- On-screen messages (`shortFeedback`): one plain text slot top right, no warning style; the
+  text stays while any message's timer runs, so a short message after a long one outlives its
+  own timeout.
+- Importing the same annotation file twice: `GroupsApp.union` keeps the leaf keys, so both
+  groups (and their maps) share the same annotations; editing a unit code in one map relabels
+  the other's points. Pre-existing import behaviour.
+- The closing edge of a polygon is sampled with the last click's sampler, held in a module-level
+  mutable (`DrawingApp.workingSampler`) while the polygon is drawn: `Finish` carries none.
 
 **Requested, not started**
 - Contacts *certain* / *inferred*, drawn black solid / dashed in the final map (geologist's

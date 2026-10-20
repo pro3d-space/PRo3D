@@ -200,7 +200,7 @@ module Sg =
         if IndexList.isEmpty segments then
             a.points.Content.GetValue(t) |> IndexList.toArray |> dedupeConsecutive
         else
-            let pointCount = a.points.Content.GetValue(t).Count
+            let controlPoints = a.points.Content.GetValue(t)
             let points = System.Collections.Generic.List<V3d>()
             let mutable i = 0
             for s in segments do
@@ -209,7 +209,7 @@ module Sg =
                 for p in s.points.Content.GetValue(t) do points.Add(p)
                 points.Add(s.endPoint.GetValue(t))
                 // a ring's closing segment is stored first -> last: walk it last -> first
-                if Annotation.isClosingSegment pointCount segments.Count i then
+                if Annotation.isReversedClosingSegment controlPoints segments.Count i points.[from] points.[points.Count - 1] then
                     points.Reverse(from, points.Count - from)
                 i <- i + 1
             points.ToArray() |> dedupeConsecutive

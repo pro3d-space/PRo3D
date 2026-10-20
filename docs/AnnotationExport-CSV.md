@@ -233,7 +233,7 @@ Where the segments come from: a line drawn with *Sky* or *Viewpoint* projection 
 
 `segmentAzimuth` is axial, like the ellipse's long-axis azimuth: a lineament has no head, so a segment drawn the other way round gives the same value.
 
-The closing edge of a polygon drawn with *Sky* or *Viewpoint* projection is stored from the first click to the last, so its row runs backwards ([#821](https://github.com/pro3d-space/PRo3D/issues/821)); its lengths and axial azimuth are unaffected.
+The closing edge of a polygon drawn with *Sky* or *Viewpoint* projection is stored from the first click to the last ([#821](https://github.com/pro3d-space/PRo3D/issues/821)); the export turns it around, so its segment row and its point rows run from the last click back to the first, in drawing order.
 
 For a total-length-only table, keep one row per `key`: `key, text, wayLength`.
 

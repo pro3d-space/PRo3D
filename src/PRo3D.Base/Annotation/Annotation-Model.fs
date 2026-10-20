@@ -1303,11 +1303,19 @@ module Annotation =
     let initial =
         make Projection.Viewpoint None Geometry.Polyline None { c = C4b.Magenta } Initial.thickness ""
 
-    /// Whether segment `i` is a ring's closing segment, which is stored first -> last (#821) and
-    /// so has to be read backwards to walk the ring. `closePolyline` appends it, so a ring has as
-    /// many segments as points, an open chain one fewer.
-    let isClosingSegment (pointCount : int) (segmentCount : int) (i : int) =
-        segmentCount > 1 && segmentCount >= pointCount && i = segmentCount - 1
+    /// Whether an annotation's segments form a closed ring. `closePolyline` appends one segment
+    /// joining the last point back to the first, so a ring has as many segments as points, an
+    /// open chain one fewer. Derived from the counts rather than from `geometry`, because that
+    /// is the invariant the segment indices rest on.
+    let hasClosingSegment (pointCount : int) (segmentCount : int) =
+        segmentCount >= pointCount
+
+    /// Whether segment `i` (`startPoint` -> `endPoint`) is a ring's closing segment as
+    /// `closePolyline` stores it: first -> last (#821), so it is read backwards to walk the ring.
+    /// The endpoints are checked too: a closing segment stored last -> first is left as it is.
+    let isReversedClosingSegment (points : IndexList<V3d>) (segmentCount : int) (i : int) (startPoint : V3d) (endPoint : V3d) =
+        hasClosingSegment points.Count segmentCount && i = segmentCount - 1
+        && IndexList.tryFirst points = Some startPoint && IndexList.tryLast points = Some endPoint
 
     /// The sampled line in drawing order: each segment's start, samples and end - a ring's
     /// closing segment backwards, so the line runs last point -> first point.
@@ -1320,4 +1328,4 @@ module Annotation =
             |> List.indexed
             |> List.collect (fun (i, x) ->
                 let ps = [ yield x.startPoint; yield! x.points |> IndexList.toSeq; yield x.endPoint ]
-                if isClosingSegment a.points.Count a.segments.Count i then List.rev ps else ps)
+                if isReversedClosingSegment a.points a.segments.Count i x.startPoint x.endPoint then List.rev ps else ps)

@@ -350,6 +350,17 @@ let closingEdgeTests =
             for i in 1 .. pts.Length - 1 do
                 Expect.isLessThan (Vec.Distance(pts.[i - 1], pts.[i])) 5.5 (sprintf "step %d" i)
         }
+
+        test "a closing segment already stored last -> first is not turned around" {
+            let a = drawSampled ()
+            let turned =
+                match IndexList.tryLast a.segments with
+                | Some s ->
+                    let s' = { startPoint = s.endPoint; endPoint = s.startPoint; points = s.points |> IndexList.toList |> List.rev |> IndexList.ofList }
+                    { a with segments = a.segments |> IndexList.setAt (IndexList.count a.segments - 1) s' }
+                | None -> failtest "no closing segment"
+            Expect.equal (Annotation.retrievePoints turned) (Annotation.retrievePoints a) "the same ring either way"
+        }
     ]
 
 let tests () =

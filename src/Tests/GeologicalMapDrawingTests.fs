@@ -84,6 +84,8 @@ let tests () =
                 | [ imported ] ->
                     Expect.equal imported.name map.name "the map"
                     Expect.equal imported.units.Count 2 "its legend"
+                    let fileUnits = map.units |> IndexList.toList |> List.map (fun u -> u.id)
+                    Expect.isFalse (imported.units |> IndexList.toList |> List.exists (fun u -> List.contains u.id fileUnits)) "legend entries get new ids"
                     let ids = GeologicalMapApp.leafIdsOf once.annotations.rootGroup imported.sourceGroup
                     Expect.equal ids [| inside.key |] "its group, renewed on load, holds the point"
                 | ms -> failtestf "%d maps after one import" ms.Length

@@ -21,8 +21,8 @@ change that would be ignored.
   `Projection.Linear` there is no sampling, so the group is hidden. A polygon's closing edge
   (last point back to the first, added on Enter) is sampled like its other edges, with the
   surface and projection of the last click. It is stored first -> last
-  ([#821](https://github.com/pro3d-space/PRo3D/issues/821)); `Annotation.retrievePoints` and
-  the drawn line walk it backwards, so the ring runs in drawing order.
+  ([#821](https://github.com/pro3d-space/PRo3D/issues/821)); `Annotation.retrievePoints`, the
+  drawn line and the CSV export walk it backwards, so the ring runs in drawing order.
 - **Fill/Alpha** (`geometryIsFillable`) — fill only applies to closed geometries whose
   interior can be triangulated: `Polygon`, `Ellipse`, `AxisEllipse`, `Axis4PEllipse`.
   This mirrors `PackedRendering.isFillable`. For points, lines, polylines and `DnS` the

@@ -332,8 +332,10 @@ module ViewerApp =
 
     let private matchPickingInteraction (bc: BlockingCollection<string>) (p: V3d) (referenceSystem : Option<SpiceReferenceSystem>) (hitFunction:(V3d -> V3d option)) (surf: Surface) (m: Model) = 
         match m.interaction, m.viewerMode with
-        | Interactions.DrawAnnotation, _ -> 
-            let m = 
+        | Interactions.DrawAnnotation, _ ->
+            // the projection the user chose, before a Mesh surface forces Linear below
+            let linearContact = GeologicalMapApp.startsLinearContact m.drawing
+            let m =
                 match surf.surfaceType with
                 | SurfaceType.Mesh -> { m with drawing = { m.drawing with projection = Projection.Linear } } //TODO LF ... why is this happening?
                 | _ -> m
@@ -350,7 +352,6 @@ module ViewerApp =
                 let hfov = 2.0 * atan ((m.frustum.right - m.frustum.left) / (2.0 * m.frustum.near))
                 GeologicalMapApp.snap m.drawing view.Location hfov width p
 
-            let linearContact = GeologicalMapApp.startsLinearContact m.drawing
             let msg = DrawingAction.AddPointAdv(p, hitFunction, referenceSystem, surf.name, None)
             let drawing = DrawingApp.update m.scene.referenceSystem drawingConfig referenceSystem bc view m.shiftFlag m.drawing msg
             //Log.stop()
