@@ -88,6 +88,7 @@
     <Compile Include="Drawing\PackedRendering.fs" />
     <Compile Include="Drawing\EllipseConstruction.fs" />
     <Compile Include="Drawing\EllipseAnnotation.fs" />
+    <Compile Include="Drawing\SupportingProfiles.fs" />
     <Compile Include="Drawing\Drawing-App.fs" />
     <Compile Include="InstrumentMetadata.fs" />
     <Compile Include="OpcMetadata.fs" />

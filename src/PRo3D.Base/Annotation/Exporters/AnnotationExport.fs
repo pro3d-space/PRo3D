@@ -595,6 +595,39 @@ module AnnotationExport =
             | _ ->
                 ExportWriters.writeCsv path (schemaFor settings records) records
 
+    // ---- the profiles file beside a Craters export (#833) ---------------------------
+
+    /// `<stem>_profiles.csv` next to the main file.
+    let profilesPath (path : string) =
+        let dir = IO.Path.GetDirectoryName path
+        let stem = IO.Path.GetFileNameWithoutExtension path
+        IO.Path.Combine((if isNull dir then "" else dir), stem + "_profiles.csv")
+
+    /// The profiles file is laid out like the *Profile* preset, one row per point, but
+    /// takes the main export's coordinate settings so both files agree on lat/lon. The
+    /// main file has one row per annotation, so *Surface properties* applies to this one.
+    let profilesSettings (main : AnnotationExportSettings) =
+        { AnnotationExportSettings.applyPreset ExportPreset.Profile main with
+            scope                   = ExportScope.All
+            coordinates             = main.coordinates
+            longitude               = main.longitude
+            signedLongitude         = main.signedLongitude
+            latLonAltSource         = main.latLonAltSource
+            sampleSurfaceProperties = main.sampleSurfaceProperties }
+
+    /// The profiles generated from `parents`, found among `candidates`: grouped by parent in
+    /// the order of `parents`, then by profile index. Profiles of other annotations, and ones
+    /// whose parent is gone, are left out.
+    let profilesOf (parents : list<Annotation>) (candidates : list<Annotation>) =
+        let order = parents |> List.mapi (fun i a -> a.key, i) |> HashMap.ofList
+        candidates
+        |> List.choose (fun a ->
+            a.profileOf
+            |> Option.bind (fun link ->
+                order |> HashMap.tryFind link.parent |> Option.map (fun i -> (i, link.index), a)))
+        |> List.sortBy fst
+        |> List.map snd
+
     /// `writeWith` without columns of its own.
     let write settings sampler groupPath planet (up : V3d) path annotations =
         writeWith settings sampler noColumns groupPath planet up V3d.NaN path annotations

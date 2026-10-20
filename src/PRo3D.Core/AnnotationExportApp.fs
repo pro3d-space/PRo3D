@@ -81,6 +81,7 @@ module AnnotationExportApp =
         | ToggleSampledPoints        -> custom { model with useSampledPoints = not model.useSampledPoints }
         | ToggleSurfaceProperties    -> custom { model with sampleSurfaceProperties = not model.sampleSurfaceProperties }
         | ToggleEllipseStatistics    -> custom { model with ellipseStatistics = not model.ellipseStatistics }
+        | ToggleWithProfiles         -> custom { model with withProfiles = not model.withProfiles }
 
         // Key is always exported (see AnnotationExportModel.toSettings), so its
         // checkbox is inert rather than lying about the output.
@@ -316,6 +317,7 @@ module AnnotationExportApp =
                     let! format = model.format
                     let! granularity = model.granularity
                     let! coordinates = model.coordinates
+                    let! withProfiles = model.withProfiles
                     if AnnotationExportSettings.isContinuous format then
                         let! target = state.target
                         yield div [ clazz "ui small message" ] [
@@ -362,6 +364,17 @@ module AnnotationExportApp =
                                     yield Html.row "Ellipse statistics:" [
                                         checkBox "surface area and layer statistics inside each ellipse (reads the OPC, slower)"
                                             model.ellipseStatistics ToggleEllipseStatistics ]
+                                    // CSV only: the second file is a per-point table
+                                    if format = ExportFormat.Csv then
+                                        yield Html.row "Generated profiles:" [
+                                            checkBox "also write <file>_profiles.csv with the profiles generated from these annotations"
+                                                model.withProfiles ToggleWithProfiles ]
+                                        // the main file has no points to sample at; the
+                                        // profiles file does, like a Profile export
+                                        if withProfiles then
+                                            yield Html.row "Profile surface properties:" [
+                                                checkBox "Surface properties in <file>_profiles.csv (re-picks every point, slower)"
+                                                    model.sampleSurfaceProperties ToggleSurfaceProperties ]
                                 if AnnotationExport.wantsGeographic coordinates
                                    && granularity <> ExportGranularity.PerSegment then
                                     yield Html.row "Lat/Lon/Alt Source:" [
@@ -392,7 +405,8 @@ module AnnotationExportApp =
                                 [ annotationFieldSection model Identity "Identity"
                                   annotationFieldSection model Measurements "Measurements"
                                   annotationFieldSection model Ellipse "Ellipse"
-                                  annotationFieldSection model DipAndStrike "Dip and strike" ]
+                                  annotationFieldSection model DipAndStrike "Dip and strike"
+                                  annotationFieldSection model Profile "Generated profile" ]
 
                         if granularity = ExportGranularity.PerPoint then
                             yield
