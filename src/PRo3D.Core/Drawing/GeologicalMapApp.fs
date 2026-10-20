@@ -98,7 +98,8 @@ module GeologicalMapApp =
                     let u = GeoUnit.make (freshCode map) color
                     added <- Some u.id
                     { map with units = IndexList.add u map.units })
-            { m with activeUnit = added |> Option.orElse m.activeUnit }
+            // the new unit becomes the brush only in the map the tools work on
+            { m with activeUnit = if m.active = Some key then added |> Option.orElse m.activeUnit else m.activeUnit }
         | Action.RemoveUnit (key, unitId) ->
             let m = m |> updateMap key (fun map -> { map with units = map.units |> IndexList.filter (fun u -> u.id <> unitId) })
             { m with activeUnit = if m.activeUnit = Some unitId then None else m.activeUnit }

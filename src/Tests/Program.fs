@@ -69,6 +69,7 @@ let allTests (parameters : TestUtils.TestParameters) : Test =
         AnnotationRegionOpsTests.tests()
         AdaptiveNestingTests.tests()
         VertexEditingTests.tests()
+        GeologicalMapDrawingTests.tests()
 
         // requires the (non-public) HERA kernels; self-skips without them
         HeraSpiceTests.tests()

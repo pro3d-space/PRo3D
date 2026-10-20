@@ -830,14 +830,23 @@ module DrawingApp =
                 let maps = GeologicalMapApp.update model.geologicalMaps msg
                 match msg with
                 | GeologicalMapAction.AssignToSelected ->
-                    match model.geologicalMaps.activeUnit |> Option.bind (GeologicalMapApp.tryFindUnit model.geologicalMaps) with
-                    | Some (_, u) ->
+                    // the active unit of the active map, onto the selected points of that map's group
+                    let unit =
+                        match GeologicalMapsModel.tryActive model.geologicalMaps, model.geologicalMaps.activeUnit with
+                        | Some map, Some unitId ->
+                            map.units |> IndexList.toArray |> Array.tryFind (fun u -> u.id = unitId) |> Option.map (fun u -> map, u)
+                        | _ -> None
+                    match unit with
+                    | Some (map, u) ->
                         let before = model.annotations
+                        let inMap = GeologicalMapApp.leafIdsOf before.rootGroup map.sourceGroup |> HashSet.ofArray
                         let selected =
                             let ids = model.annotations.selectedLeaves |> HashSet.map (fun s -> s.id)
-                            match model.annotations.singleSelectLeaf with
-                            | Some id -> HashSet.add id ids
-                            | None -> ids
+                            let ids =
+                                match model.annotations.singleSelectLeaf with
+                                | Some id -> HashSet.add id ids
+                                | None -> ids
+                            ids |> HashSet.filter (fun id -> HashSet.contains id inMap)
                         // label points only: a unit on a contact would mean nothing
                         let flat =
                             selected |> HashSet.fold (fun flat id ->
@@ -846,14 +855,14 @@ module DrawingApp =
                                     HashMap.add id (Leaf.Annotations (GeologicalMapApp.withUnit u.code a)) flat
                                 | _ -> flat) before.flat
                         if flat = before.flat then
-                            Log.warn "[GeologicalMap] assign: no point annotation selected"
+                            Log.warn "[GeologicalMap] assign: no point annotation of the active map's group selected"
                             { model with geologicalMaps = maps }
                         else
                             let after = { before with flat = flat }
                             { model with annotations = after; geologicalMaps = maps }
                             |> pushUndo (SnapshotDelta(before, after))
                     | None ->
-                        Log.warn "[GeologicalMap] assign: no active unit"
+                        Log.warn "[GeologicalMap] assign: no active unit in the active map"
                         { model with geologicalMaps = maps }
                 | GeologicalMapAction.SetUnitCode (mapKey, unitId, code) ->
                     let code = code.Trim()
@@ -1009,7 +1018,16 @@ module DrawingApp =
                     let annos = DrawingUtilities.IO.loadAnnotationsFromFile p
                     Log.line "[Drawing] Merging annotations"                
                     let merged = GroupsApp.union model.annotations annos.annotations
-                    { model with annotations = merged }
+                    // the file's geological maps come along: their groups were renewed on load
+                    // and arrive with the union; a map key already here (the same file twice)
+                    // gets a new one
+                    let maps =
+                        let present = model.geologicalMaps.maps |> IndexList.toArray |> Array.map (fun m -> m.key) |> HashSet.ofArray
+                        let imported =
+                            annos.geologicalMaps.maps |> IndexList.map (fun m ->
+                                if HashSet.contains m.key present then { m with key = Guid.NewGuid() } else m)
+                        { model.geologicalMaps with maps = IndexList.append model.geologicalMaps.maps imported }
+                    { model with annotations = merged; geologicalMaps = maps }
                 | None ->
                     model
             | ExportAsAnnotations path ->

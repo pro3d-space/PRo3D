@@ -95,6 +95,7 @@
     <!-- after Features\TestHelpers.fs: these drive the real DrawingApp through the Draw harness -->
     <Compile Include="AdaptiveNestingTests.fs" />
     <Compile Include="VertexEditingTests.fs" />
+    <Compile Include="GeologicalMapDrawingTests.fs" />
     <Compile Include="SurfaceEffectSwitchTest.fs" />
     <Compile Include="MapProjectionRenderTest.fs" />
     <Compile Include="FillRenderTest.fs" />
