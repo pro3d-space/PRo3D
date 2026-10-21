@@ -125,6 +125,7 @@ module SbmtImporter =
             showFill         = false
             fillColor        = { c = color }
             fillAlpha        = Annotation.initialFillAlpha
+            geoUnit          = None
             profileOf        = None
             thickness        = Annotation.Initial.thickness
             results          = None
@@ -246,6 +247,7 @@ module SbmtImporter =
             showFill         = false
             fillColor        = { c = color }
             fillAlpha        = Annotation.initialFillAlpha
+            geoUnit          = None
             profileOf        = None
             thickness        = Annotation.Initial.thickness
             results          = None

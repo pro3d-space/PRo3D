@@ -14,6 +14,7 @@ module IO =
             annotations     = model.annotations
             dnsColorLegend  = model.dnsColorLegend
             colorByCategory = model.colorByCategory
+            geologicalMaps  = model.geologicalMaps
         }
         |> Json.serialize 
         |> Json.formatWith JsonFormattingOptions.Pretty 

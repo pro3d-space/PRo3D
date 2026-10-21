@@ -395,7 +395,8 @@ module Gui =
             | Interactions.DrawAnnotation
             | Interactions.PickAnnotation
             | Interactions.CutAnnotation
-            | Interactions.EditAnnotation           -> annotation
+            | Interactions.EditAnnotation
+            | Interactions.AssignUnit               -> annotation
             | Interactions.PickSurface
             | Interactions.SelectArea               -> selection
             | Interactions.PlaceRover
@@ -1006,6 +1007,7 @@ module Gui =
             match i with
             | Interactions.EditAnnotation when grabbed -> sprintf "%s to drop the point, ESC to cancel" click
             | Interactions.EditAnnotation -> sprintf "%s a vertex of the selected annotation to move it" click
+            | Interactions.AssignUnit -> sprintf "%s or drag across units of the active map to give them the active unit, Alt+%s to pick a unit" click click
             | _ -> interactionText directToolMode i
 
         let interactionTooltip (i : Interactions) : string =
@@ -1017,6 +1019,7 @@ module Gui =
             | Interactions.PlaceRover            -> "Select a rover model in the rover menu."
             | Interactions.PickAnnotation        -> "Select an annotation in the main view. The selected annotation will be highlighted green."
             | Interactions.EditAnnotation        -> "Move the vertices of the selected annotation. Its control points appear as handles; click one to pick it up, move the cursor over the surface and click again to put it down. Clicking an annotation selects it."
+            | Interactions.AssignUnit            -> "Geological maps: click a unit of the active map to give it the active legend unit (Geological Maps panel), or drag across several. Alt+click makes the unit under the cursor the active one."
             | Interactions.PickSurface           -> "Select a surface in the main view. The selected surface will be highlighted green."
             | Interactions.SelectArea            -> "Place areas for the Comparison panel (Surface Comparison dashboard). Pick both surfaces there, then press Update Measurements to colour each area by the distance between them."
             | Interactions.PlaceScaleBar         -> ""
@@ -1033,6 +1036,7 @@ module Gui =
             | Interactions.PickAnnotation        -> "Select Annotation"
             | Interactions.CutAnnotation         -> "Cut Annotation"
             | Interactions.EditAnnotation        -> "Edit Annotation"
+            | Interactions.AssignUnit            -> "Assign Unit"
             | Interactions.PickSurface           -> "Select Surface"
             | Interactions.SelectArea            -> "Comparison Area"
             | Interactions.PlaceRover            -> "Place Rover"
@@ -1262,6 +1266,7 @@ module Gui =
                                  "Union selected annotations (2 or more)"
                                  (ViewerAction.DrawingMessage (DrawingAction.UnionSelectedAnnotations None))
                     tool "move"          "Edit annotation - move the control points of the selected annotation" Interactions.EditAnnotation
+                    tool "paint brush"   "Assign unit - click or drag across units of the active geological map" Interactions.AssignUnit
 
                     divider
 
@@ -2211,6 +2216,12 @@ module Gui =
                 require (viewerDependencies) (body bodyAttributes [ScaleBars.scaleBarsUI m |> UI.map ViewerMessage])
             | Some "traverse" -> 
                 require (viewerDependencies) (body bodyAttributes [Traverse.traverseUI m |> UI.map ViewerMessage])
+            | Some "geomaps" ->
+                require (viewerDependencies) (
+                    body bodyAttributes [
+                        GeologicalMapApp.UI.view m.drawing.annotations m.drawing.geologicalMaps
+                        |> UI.map (DrawingAction.GeologicalMapMessage >> ViewerAction.DrawingMessage >> ViewerMessage)
+                    ])
             | Some "geologicSurf" -> 
                 require (viewerDependencies) (body bodyAttributes [GeologicSurfaces.geologicSurfacesUI m |> UI.map ViewerMessage])
             | Some "sequencedBookmarks" -> 

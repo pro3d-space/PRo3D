@@ -176,10 +176,12 @@ module AnnotationExport =
             |> IndexList.toList
             |> List.mapi (fun segmentIndex segment ->
                 let length = Calculations.getSegmentDistance segment
-                [ yield segment.startPoint
-                  yield! (segment.points |> IndexList.toList)
-                  yield segment.endPoint ]
-                |> List.map (fun p ->
+                let ps =
+                    [ yield segment.startPoint
+                      yield! (segment.points |> IndexList.toList)
+                      yield segment.endPoint ]
+                let ps = if Annotation.isReversedClosingSegment a.points a.segments.Count segmentIndex segment.startPoint segment.endPoint then List.rev ps else ps
+                ps |> List.map (fun p ->
                     { position = p; segmentIndex = Some segmentIndex; segmentLength = Some length }))
             |> List.concat
         else
@@ -486,7 +488,12 @@ module AnnotationExport =
         elif a.segments.Count > 0 then
             a.segments
             |> IndexList.toList
-            |> List.map (fun s -> s.startPoint, s.endPoint, Calculations.getSegmentDistance s)
+            |> List.mapi (fun i s ->
+                // a ring's closing segment is stored first -> last (#821): exported last -> first,
+                // in drawing order, like its point rows
+                if Annotation.isReversedClosingSegment a.points a.segments.Count i s.startPoint s.endPoint
+                then s.endPoint, s.startPoint, Calculations.getSegmentDistance s
+                else s.startPoint, s.endPoint, Calculations.getSegmentDistance s)
         else
             a.points
             |> IndexList.toList

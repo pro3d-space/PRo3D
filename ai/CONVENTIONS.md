@@ -371,6 +371,28 @@ The scene graph (`ISg`) is adaptive, but it is **not free** — each render obje
 
 When you add geometry, a shader, or any per-vertex math: adopt the same discipline — local-space geometry + `Sg.trafo`, double-composed MVP (reuse `stableTrafo` / the existing pattern), and do per-vertex work (lighting, large-triangle filtering, screen-space scaling) in **view space**. If a feature seems to need world-space coordinates on the GPU, that's a red flag — raise it.
 
+### `Sg`: open `Aardvark.SceneGraph` before `Aardvark.UI`
+
+Both define a module `Sg`. F# resolves `Sg.f` in the **most recently opened** `Sg` that has
+an `f`, falling back to earlier ones. So the open order decides which scene graph you get:
+
+```fsharp
+open Aardvark.SceneGraph   // plain ISg: Sg.draw, Sg.fullScreenQuad, ...
+open Aardvark.UI           // last: Sg.* = aardvark.media's ISg<'msg> versions
+open Aardvark.UI.Primitives
+```
+
+With `Aardvark.UI` last, `Sg.*` builds message-carrying `ISg<'msg>` (events, `Sg.set`,
+`Sg.empty`, `Sg.onOff` all type-check together), and only what aardvark.media lacks
+(`Sg.fullScreenQuad`, ...) comes from Aardvark.SceneGraph - lift such a plain `ISg` with
+`Sg.noEvents`. An `ISg<'msg>` *is* an `ISg` (it inherits it), so offscreen passes that want a
+plain `ISg` (`runtime.CompileRender`, `OffscreenSurfaces.renderTargets`) take it with an upcast.
+
+The other order makes `Sg.set`/`Sg.empty` produce plain `ISg` and the message-carrying
+versions unreachable except by spelling out `Aardvark.UI.``F# Sg``.Sg.set` - if you find
+yourself writing that, fix the opens instead. (`PackedRendering.fs` still opens the other
+way round; it builds plain `ISg` only.)
+
 ### Optimizations
 
 - **Instance repeated geometry — don't emit one `Sg` per copy.** When you draw many copies of the same geometry (markers, scale-bar ticks, points, rover sol markers, preview cones/cylinders), use **`Sg.instanced` / `Sg.instanced'` / `Sg.instancedGeometry`** — one draw call with per-instance attributes (e.g. an `aval<Trafo3d[]>` of transforms) instead of N nodes and N draw calls. PRo3D already does this (`src/PRo3D.Viewer/TraverseApp.fs` sol markers; `src/PRo3D.Core/Drawing/PackedRendering.fs` cones/cylinders). If you find yourself `List.map`-ing geometry into many `Sg` nodes, reach for instancing first.

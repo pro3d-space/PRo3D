@@ -163,6 +163,7 @@ type DrawingAction =
 | ApplyCutStroke         of Option<V3d -> Option<V3d>>
 | DnsColorLegendMessage  of FalseColorLegendApp.Action
 | ColorByCategoryMessage of ColorByCategoryAction
+| GeologicalMapMessage   of GeologicalMapAction
 | ExportAsAnnotations    of string
 | AddAnnotations         of list<string>
 | PickAnnotation         of SceneHit * Guid
@@ -242,6 +243,9 @@ type DrawingModel = {
     /// to the annotations themselves
     colorByCategory : ColorByCategoryModel
 
+    /// geological maps over annotation groups (#843); persisted with the annotations
+    geologicalMaps  : GeologicalMapsModel
+
     // test laura
     haltonPoints   : list<V3d>
 
@@ -301,6 +305,8 @@ module DrawingModel =
         dnsColorLegend = FalseColorsModel.initDnSLegend
 
         colorByCategory = ColorByCategoryModel.initial
+
+        geologicalMaps  = GeologicalMapsModel.initial
 
         // test laura
         haltonPoints = []

@@ -391,8 +391,10 @@ module ViewerApp =
 
     let private matchPickingInteraction (bc: BlockingCollection<string>) (p: V3d) (referenceSystem : Option<SpiceReferenceSystem>) (hitFunction:(V3d -> V3d option)) (surf: Surface) (m: Model) = 
         match m.interaction, m.viewerMode with
-        | Interactions.DrawAnnotation, _ -> 
-            let m = 
+        | Interactions.DrawAnnotation, _ ->
+            // the projection the user chose, before a Mesh surface forces Linear below
+            let linearContact = GeologicalMapApp.startsLinearContact m.drawing
+            let m =
                 match surf.surfaceType with
                 | SurfaceType.Mesh -> { m with drawing = { m.drawing with projection = Projection.Linear } } //TODO LF ... why is this happening?
                 | _ -> m
@@ -402,10 +404,20 @@ module ViewerApp =
                 | ViewerMode.Standard -> m.navigation.camera.view
                 | ViewerMode.Instrument -> m.scene.viewPlans.instrumentCam 
 
+            // drawing a contact of the active geological map: a click near another contact
+            // lands exactly on it, so the two meet in the map (#843)
+            let p =
+                let width = m.viewPortSizes |> HashMap.toSeq |> Seq.tryHead |> Option.map (fun (_, s) -> s.X) |> Option.defaultValue 1000
+                let hfov = 2.0 * atan ((m.frustum.right - m.frustum.left) / (2.0 * m.frustum.near))
+                GeologicalMapApp.snap m.drawing view.Location hfov width p
+
             let msg = DrawingAction.AddPointAdv(p, hitFunction, referenceSystem, surf.name, None)
             let drawing, finished = DrawingApp.updateFinishing m.scene.referenceSystem drawingConfig referenceSystem bc view m.shiftFlag m.drawing msg
             //Log.stop()
-            { m with drawing = drawing } |> withAutoProfiles bc view finished |> stash
+            let m = { m with drawing = drawing } |> withAutoProfiles bc view finished |> stash
+            if linearContact then
+                m |> logScreen 6000 "Contact drawn with Linear projection: its straight segments leave the terrain, so it will not follow the units' edges. Choose Sky projection for contacts."
+            else m
         | Interactions.CutAnnotation, _ ->
             // the cut stroke is a plain picked polyline: no segment sampling, so the hit
             // function is not needed - straight preview lines suffice and the boolean op
@@ -580,6 +592,34 @@ module ViewerApp =
             msg     = ViewerAction.NoAction ""
         }
         m |> UserFeedback.queueFeedback feedback
+
+    /// The camera onto a point of a geological map: looking straight down at it along the body's
+    /// radial direction, from the distance it has now - so the zoom stays as the user set it.
+    let private flyToMapProblem (p : V3d) (m : Model) =
+        let cam = m.navigation.camera.view
+        let dir = (p - GeologicalMapApp.center).Normalized
+        let distance = max 1.0 (Vec.Distance(cam.Location, p))
+        let location = p + dir * distance
+        let forward = -dir
+        let up =
+            let u = cam.Up - forward * Vec.Dot(cam.Up, forward)
+            if u.Length > 1e-6 then u.Normalized else (if abs forward.Z < 0.9 then V3d.OOI else V3d.IOO)
+        let animation = CameraAnimations.animateForwardAndLocation location forward up 1.5 "FlyToMapProblem"
+        { m with animations = AnimationApp.update m.animations (AnimationAction.PushAnimation animation) }
+
+    /// N: the camera to the active map's next problem (GeologicalMapApp.problems order).
+    let private nextMapProblem (m : Model) =
+        match GeologicalMapsModel.tryActive m.drawing.geologicalMaps with
+        | None -> m |> shortFeedback "no active geological map"
+        | Some map ->
+            match GeologicalMapApp.problemsOf m.drawing.annotations map with
+            | [||] -> m |> shortFeedback "the map has no problems"
+            | ps ->
+                let i = (m.drawing.geologicalMaps.problemCursor + 1) % ps.Length
+                let maps = { m.drawing.geologicalMaps with problemCursor = i }
+                { m with drawing = { m.drawing with geologicalMaps = maps } }
+                |> flyToMapProblem ps.[i].position
+                |> shortFeedback (sprintf "%d/%d: %s" (i + 1) ps.Length ps.[i].text)
 
     /// Saves the scene and writes its window layout beside it. The layout sidecar can
     /// never fail the save; if it could not be written the user is told.
@@ -913,6 +953,10 @@ module ViewerApp =
             { m with directToolMode = not m.directToolMode }
         | DrawingMessage msg,_ -> //Interactions.DrawAnnotation
             match msg with
+            | Drawing.GeologicalMapMessage (GeologicalMapAction.FlyTo p) ->
+                flyToMapProblem p m
+            | Drawing.GeologicalMapMessage GeologicalMapAction.NextProblem ->
+                nextMapProblem m
             | Drawing.FlyToAnnotation id ->
                 let _a = m |> Optic.get _flat |> HashMap.tryFind id |> Option.map Leaf.toAnnotation
                 match _a with 
@@ -2019,6 +2063,14 @@ module ViewerApp =
                 | Keyboard.Modifier -> { m with ctrlFlag = true }
                 | _ -> m
 
+            // N: next problem of the active geological map, while working on it
+            let m =
+                match m.ctrlFlag, k, m.interaction with
+                | false, Aardvark.Application.Keys.N, (Interactions.AssignUnit | Interactions.DrawAnnotation)
+                    when (GeologicalMapsModel.tryActive m.drawing.geologicalMaps).IsSome ->
+                    nextMapProblem m
+                | _ -> m
+
             // Ctrl+Z/Y/S are not handled here but in CtrlShortcut, sent by every page's body
 
             // comparison areas: resize the area just placed, Enter to finish
@@ -2228,8 +2280,12 @@ module ViewerApp =
         | Logging (text,message),_ ->  
             message |> MailboxAction.ViewerAction |> mailbox.Post
             { m with scene = { m.scene with userFeedback = text } }
-        | ThreadsDone id,_ ->  
-            { m with scene = { m.scene with userFeedback = ""; feedbackThreads = ThreadPool.remove id m.scene.feedbackThreads;} }
+        | ThreadsDone id,_ ->
+            // one text, several timers: a message still pending is the one shown, so an
+            // earlier message's timer must not clear it
+            let threads = ThreadPool.remove id m.scene.feedbackThreads
+            let text = if HashMap.isEmpty threads.store then "" else m.scene.userFeedback
+            { m with scene = { m.scene with userFeedback = text; feedbackThreads = threads } }
         //| SnapshotThreadsDone id,_,_ ->  
         //    let _m = 
         //        { m with arnoldSnapshotThreads = ThreadPool.remove id m.arnoldSnapshotThreads }
@@ -2987,7 +3043,7 @@ module ViewerApp =
     // not drawn yet: the views draw them against their offscreen surfaces
     // (ViewerUtils.offscreenScene), Snapshots with the stencil renderer
     let getDepthTested (frustum: aval<Frustum>) (view :aval<CameraView>) (observer : aval<ObserverSystem option>) (id : string) (runtime : IRuntime) (m: AdaptiveModel) =
-        let annotations, discs, fills =
+        let annotations, discs, fills, maps =
             DrawingApp.view 
                 m.scene.config 
                 mdrawingConfig
@@ -2999,6 +3055,10 @@ module ViewerApp =
                 (m.viewPortSizes |> AMap.tryFind id |> AVal.map (Option.defaultValue V2i.II))
                 (allowAnnotationPicking m)
                 (allowVertexEditing m)
+                { active = m.interaction |> AVal.map (fun i -> i = Interactions.AssignUnit)
+                  armed  = ViewerUtils.toolArmed m }
+                { drawingLine = m.interaction |> AVal.map (fun i -> i = Interactions.DrawAnnotation)
+                  cursor      = m.surfaceIntersection |> AVal.map (Option.map (fun s -> s.hitPoint)) }
                 m.drawing
          
         let annotationSg =
@@ -3129,7 +3189,7 @@ module ViewerApp =
                 gisEntities
                 ellipseDrawing
             ] |> Sg.ofList
-        sg, fills
+        sg, fills, (maps >> Sg.map DrawingMessage)
 
     let viewInstrumentView (runtime : IRuntime) (id : string) (m: AdaptiveModel) = 
         let frustum = m.scene.viewPlans.instrumentFrustum
@@ -3139,11 +3199,11 @@ module ViewerApp =
         let ioverlayed = getOverlayed m m.scene.viewPlans.instrumentCam frustum
 
         let grouped = ViewerUtils.createGroupedSgs runtime m.scene.surfacesModel.sgGrouped m.scene.viewPlans.instrumentCam false true m
-        let depthTested, fills = getDepthTested frustum m.scene.viewPlans.instrumentCam observer id runtime m
+        let depthTested, fills, maps = getDepthTested frustum m.scene.viewPlans.instrumentCam observer id runtime m
 
         // instrument view control; surfaces offscreen per render client (#841)
         let icmds (values : RenderClientValues) =
-            ViewerUtils.offscreenScene dataSamples grouped ioverlayed depthTested fills values
+            ViewerUtils.offscreenScene dataSamples grouped ioverlayed depthTested fills maps values
             |> Sg.map ViewerMessage
 
         onBoot "attachResize('__ID__')" (
@@ -3208,13 +3268,13 @@ module ViewerApp =
         let overlayed = createOverlaySg m
 
         let grouped = ViewerUtils.createGroupedSgs runtime m.scene.surfacesModel.sgGrouped m.navigation.camera.view true false m
-        let depthTested, fills =
+        let depthTested, fills, maps =
             getDepthTested frustum m.navigation.camera.view observer id runtime m //annotations + scaleBars
 
         // OPCs in priority groups, offscreen per render client: their depth texture is what
         // the annotation fills are drawn against (#841)
         let cmds (values : RenderClientValues) =
-            ViewerUtils.offscreenScene dataSamples grouped overlayed depthTested fills values
+            ViewerUtils.offscreenScene dataSamples grouped overlayed depthTested fills maps values
             |> Sg.map ViewerMessage
 
         // the control's id is its scene name on the render server; screenshots need it
