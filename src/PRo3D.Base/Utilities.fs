@@ -667,8 +667,10 @@ module Shader =
                     let X = fpt.X < -1.0f + threshold || fpt.X > 1.0f - threshold
                     let Y = fpt.Y < -1.0f + threshold || fpt.Y > 1.0f - threshold
                     let Z = fpt.Z < -1.0f + threshold 
+                    // a fixed colour, not just the red channel: as an overlay the border has
+                    // to show over anything below it, including the yellow equator line
                     if X || Y || Z then  
-                        color.X <- 1.0f
+                        color <- V4f(1.0f, 0.0f, 0.0f, color.W)
                         
             return color
         }
@@ -855,7 +857,29 @@ module Shader =
         }
 
 
-    let depthCalculation2 (v : FootPrintVertex) =
+    type SurfaceColorVertex =
+        {
+            [<Color>]                     c  : V4f
+            [<Semantic("SurfaceColor")>]  sc : V4f
+        }
+
+    /// Keeps the surface colour as it is before lighting, for overlays that tint the
+    /// terrain (depthCalculation2) but must stay readable in shadow.
+    let surfaceColor (v : SurfaceColorVertex) =
+        fragment {
+            return { v with sc = v.c }
+        }
+
+    type DepthVertex =
+        {
+            [<Color>]                     c   : V4f
+            [<Semantic("FootPrintProj")>] tc0 : V4f
+            [<Semantic("SurfaceColor")>]  sc  : V4f
+        }
+
+    /// Depth false colour: tints the UNLIT surface colour (see surfaceColor), so the hue
+    /// stays readable on the night side and in cast shadows.
+    let depthCalculation2 (v : DepthVertex) =
         fragment {     
             let mutable color = v.c
             if uniform?DepthVisible then
@@ -863,7 +887,7 @@ module Shader =
 
                 let hue = mapFalseColors depth 
                 let c = hsv2rgb ((clamp 0.0f 255.0f hue)/ 255.0f ) 1.0f 1.0f 
-                let texColor = v.c * V4f(c.X, c.Y, c.Z, 1.0f)
+                let texColor = v.sc * V4f(c.X, c.Y, c.Z, 1.0f)
                 color <- texColor
 
             return color
@@ -1564,6 +1588,14 @@ module ScreenshotUtilities =
         let downloadClientStatistics baseAddress (httpClient : HttpClient) =
             (downloadClientStatisticsAsync baseAddress httpClient CancellationToken.None)
                 .GetAwaiter().GetResult()
+
+        /// The scene a screenshot of the main view must ask the render server for: the first of
+        /// `candidates` (the main view's render controls, newest first) that the server still
+        /// renders. The server lists every live render control - the main view, the instrument
+        /// view, each page and iframe showing one - in no particular order, so its list alone
+        /// cannot say which is the main view. None: no main view is live.
+        let tryChooseScene (candidates : list<string>) (live : list<ClientStatistics>) =
+            candidates |> List.tryFind (fun c -> live |> List.exists (fun s -> s.name = c))
 
         let getScreenshotUrl baseAddress clientStatistic width height =                                
 

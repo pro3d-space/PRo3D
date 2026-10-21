@@ -2,6 +2,7 @@ import { test, expect, Page } from "@playwright/test";
 import { fixture, testData } from "../src/pro3d";
 import { awaitIdle, clickTool, drawingScene, openDrawingViewer, pick, selectByOption, settled, tool } from "../src/drawing";
 import { PNG } from "pngjs";
+import { controlSize, mismatch, renderClient, serverShot, shotsFor } from "../src/server-shot";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -422,6 +423,23 @@ for (const view of [
             save(`${view.name}-panel.png`, await panel.screenshot());
 
             const withMap = await settled(render, `${view.name}-1-map.png`, save);
+
+            // server screenshots of other sizes and aspect ratios show the units where the live
+            // view has them: the maps are drawn per render client, against its own surface depth
+            const client = await renderClient(render);
+            expect(client, "the render control's element id").not.toBe("");
+            const control = await controlSize(render);
+            const live = PNG.sync.read(withMap);
+            const box = { x0: Math.round(live.width * 0.3), y0: Math.round(live.height * 0.3), x1: Math.round(live.width * 0.7), y1: Math.round(live.height * 0.7) };
+            for (const s of shotsFor(control.width, control.height)) {
+                const png = await serverShot(context, app, client, s);
+                save(`${view.name}-server-${s.name}.png`, png);
+                const shot = PNG.sync.read(png);
+                expect([shot.width, shot.height], `screenshot ${s.name} has the requested size`).toEqual([s.w, s.h]);
+                const off = mismatch(live, shot, box.x0, box.y0, box.x1, box.y1);
+                console.log(`[geomap] ${view.name}: server ${s.name} ${s.w}x${s.h} differs from the live view in ${(off * 100).toFixed(1)} % of the centre`);
+                expect(off, `${s.name}: the units as in the live view`).toBeLessThan(0.1);
+            }
 
             // hiding the map takes its colours off the terrain
             await clickRowIcon(panel, "Visible:");

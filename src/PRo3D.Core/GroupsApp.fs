@@ -263,6 +263,20 @@ module GroupsApp =
             singleSelectLeaf = (match model.singleSelectLeaf with Some s when s = id -> None | s -> s)
             selectedLeaves   = model.selectedLeaves |> HashSet.filter (fun ts -> ts.id <> id) }
 
+    /// `removeLeafById` for many leaves in one walk of the tree.
+    let removeLeavesById (ids : HashSet<Guid>) (model : GroupsModel) =
+        if ids.IsEmpty then model
+        else
+            let rec strip (n : Node) =
+                { n with
+                    leaves   = n.leaves |> IndexList.filter (fun leafId -> not (ids |> HashSet.contains leafId))
+                    subNodes = n.subNodes |> IndexList.map strip }
+            { model with
+                rootGroup        = strip model.rootGroup
+                flat             = model.flat |> HashMap.filter (fun id _ -> not (ids |> HashSet.contains id))
+                singleSelectLeaf = (match model.singleSelectLeaf with Some s when ids |> HashSet.contains s -> None | s -> s)
+                selectedLeaves   = model.selectedLeaves |> HashSet.filter (fun ts -> not (ids |> HashSet.contains ts.id)) }
+
     let rec removeSelected (selection:list<TreeSelection>) (removeFromFlat:bool) (m:GroupsModel)  =
         match selection with
         | x::rest ->                

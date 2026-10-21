@@ -616,6 +616,63 @@ module AnnotationResults =
 type SemanticId = SemanticId of string
 type SemanticType = Metric = 0 | Angular = 1 | Hierarchical = 2 | Undefined = 3
 
+/// Where a generated profile came from (supporting profiles, #833). Fixed when the profile
+/// is generated, like `majorAxisAzimuth` at ellipse construction: editing the profile
+/// afterwards does not update it. Saved under the annotation's own `"profileOf"` key, so
+/// releases that do not know it skip it.
+type ProfileLink =
+    {
+        /// key of the ellipse or polyline the profile was generated from
+        parent    : Guid
+        /// 0, 1, 2, ... in generation order
+        index     : int
+        /// "N-S", "NE-SW", "E-W", "NW-SE" (compass), "major", "major+45", "minor",
+        /// "major+135" (major axis), "" for polyline profiles
+        direction : string
+        /// deg, start -> end, clockwise from local north, 0-360
+        azimuth   : float
+        /// m along the parent polyline; None for ellipse profiles
+        station   : Option<float>
+    }
+    with
+        static let version = 0
+
+        static member private readV0 =
+            json {
+                let! parent    = Json.read "parent"
+                let! index     = Json.read "index"
+                let! direction = Json.read "direction"
+                let! azimuth   = Json.readFloat "azimuth"
+                let! (station : Option<float>) = Json.tryRead "station"
+                return {
+                    parent    = Guid.Parse (parent : string)
+                    index     = index
+                    direction = direction
+                    azimuth   = azimuth
+                    station   = station
+                }
+            }
+
+        static member FromJson(_ : ProfileLink) =
+            json {
+                let! v = Json.read "version"
+                match v with
+                | 0 -> return! ProfileLink.readV0
+                | _ -> return! v |> sprintf "don't know version %A of ProfileLink" |> Json.error
+            }
+
+        static member ToJson (x : ProfileLink) =
+            json {
+                do! Json.write      "version"   version
+                do! Json.write      "parent"    (x.parent.ToString())
+                do! Json.write      "index"     x.index
+                do! Json.write      "direction" x.direction
+                do! Json.writeFloat "azimuth"   x.azimuth
+                match x.station with
+                | Some s -> do! Json.writeFloat "station" s
+                | None   -> ()
+            }
+
 [<ModelType>]
 type Annotation = {
     version        : int
@@ -667,6 +724,8 @@ type Annotation = {
     /// The geological unit a label point assigns to the map unit it lies in (#843,
     /// docs/GeologicalMap.md): a GeoUnit.code. None for every other annotation.
     geoUnit    : Option<string>
+    /// set on profiles generated from another annotation (supporting profiles, #833)
+    profileOf  : Option<ProfileLink>
 }
 with
     static member current = 5
@@ -760,6 +819,7 @@ with
                 fillColor            = color
                 fillAlpha            = Annotation.initialFillAlpha
                 geoUnit              = None
+                profileOf            = None
             }
         }
 
@@ -828,6 +888,7 @@ with
                 fillColor            = color
                 fillAlpha            = Annotation.initialFillAlpha
                 geoUnit              = None
+                profileOf            = None
             }
         }
 
@@ -896,6 +957,7 @@ with
                 fillColor            = color
                 fillAlpha            = Annotation.initialFillAlpha
                 geoUnit              = None
+                profileOf            = None
             }
         }
 
@@ -967,6 +1029,7 @@ with
                 fillColor            = color
                 fillAlpha            = Annotation.initialFillAlpha
                 geoUnit              = None
+                profileOf            = None
             }
         }
 
@@ -1039,6 +1102,7 @@ with
                 fillColor            = color
                 fillAlpha            = Annotation.initialFillAlpha
                 geoUnit              = None
+                profileOf            = None
             }
         }
 
@@ -1097,6 +1161,18 @@ with
             // optional, no version bump (#843)
             let! geoUnit   = Json.tryRead "geoUnit"
 
+            // optional, no version bump: older releases skip the key (#833). Read raw and
+            // deserialised inside a try: a link from a later version, or a damaged one, is
+            // dropped to None rather than failing the whole scene - it is derived data
+            let! (profileOfJson : Option<Chiron.Json>) = Json.tryRead "profileOf"
+            let profileOf : Option<ProfileLink> =
+                profileOfJson
+                |> Option.bind (fun j ->
+                    try Some (Json.deserialize j)
+                    with e ->
+                        Log.warn "[Annotation] profileOf could not be read, dropped: %s" e.Message
+                        None)
+
             return {
                 version          = Annotation.current
                 key              = key           |> Guid.Parse
@@ -1135,6 +1211,7 @@ with
                     { Annotation.initialFillAlpha with
                         value = fillAlpha |> Option.defaultValue Annotation.initialFillAlpha.value }
                 geoUnit              = geoUnit
+                profileOf            = profileOf
             }
         }
 
@@ -1211,6 +1288,10 @@ with
             match x.geoUnit with
             | Some u -> do! Json.write "geoUnit" u
             | None -> ()
+
+            match x.profileOf with
+            | Some link -> do! Json.write "profileOf" link
+            | None      -> ()
         }
 
 module Annotation =
@@ -1298,6 +1379,7 @@ module Annotation =
             fillColor            = color
             fillAlpha            = Annotation.initialFillAlpha
             geoUnit              = None
+            profileOf            = None
         }
 
     let initial =

@@ -72,7 +72,17 @@ Each surface picks its variant through `ViewerUtils.surfaceEffectPool`, an Aardv
 
 That one link costs ~6 s, and the layout is exactly what GL keys its on-disk programs by, so it is stored next to the shader cache (`<ShaderCachePath>/PRo3D.EffectInputLayouts`). A **cold** start (first after a shader change) links once; a **warm** start links nothing at all.
 
-**Adding a stage to the surface effect:** if it reads `LocalNormal`, it only works on surfaces that keep the geometry stage. If it adds a new vertex input, check `SurfaceEffectVariantTest`.
+### OPC surface effect bands
+
+The fragment stages of `surfaceEffectVariant` are ordered in three bands, so a stage's position follows from what it is:
+
+1. **Surface colour** — what the terrain *is*: texture, LoD/radiometry, secondary texture, contour lines, the projection stack and its coverage view. Lighting applies to it.
+2. **Lighting** — `surfaceColor` keeps the unlit colour in the `SurfaceColor` semantic, then `solarShadingLS`, `terrainSunShadow`.
+3. **Overlays** — drawn *on* the terrain: unlit, so they stay readable in shadow. Bottom → top: `depthCalculation2` (tints `SurfaceColor`, not the lit colour), `latLonLines`, `outcropTrace`, `footPrintF`, `hoveredProjectionOutline`, `donutFragment` (the cursor is always on top).
+
+`crossSectionClip` comes **after all three**: after a `discard`, derivatives in its pixel quad are undefined, and the grid, the outcrop trace and every implicit-LOD texture sample take them. Its tile-GPU cost comes from being composed at all, not from its position.
+
+**Adding a stage to the surface effect:** pick its band first. If it reads `LocalNormal`, it only works on surfaces that keep the geometry stage. If it adds a new vertex input, check `SurfaceEffectVariantTest`.
 
 ### One return per fragment stage
 
@@ -128,22 +138,26 @@ Draw order inside the pass is significant — fills, then lines, then vertex han
 
 ### Surfaces offscreen (#841)
 
-The main and instrument views render their surfaces **offscreen** (`OffscreenSurfaces`, `ViewerUtils.offscreenView`): the priority groups go into a multisampled colour + depth target of the size the page reports and the viewer's sample count (`dataSamples`), and a per-sample fullscreen blit copies **colour and depth** back into the render control — everything, depth 1 included. The depth is cleared before each group, as before, so it only holds the last group; earlier groups keep their colour at depth 1 exactly as when drawn into the view directly (and fills cannot land on them, also as before). Everything after it (depth-tested annotations, traverses, overlay) depth-tests against the surfaces exactly as before — but the surfaces' depth now also exists as a texture (`OffscreenSurfaces.SurfaceDepth`).
+The main and instrument views render their surfaces **offscreen** (`OffscreenSurfaces`, `ViewerUtils.offscreenScene`): the priority groups go into a multisampled colour + depth target, and a per-sample fullscreen blit copies **colour and depth** back into the render control — depth everywhere, depth 1 included; colour premultiplied (see below). The depth is cleared before each group, as before, so it only holds the last group; earlier groups keep their colour at depth 1 exactly as when drawn into the view directly (and fills cannot land on them, also as before). Everything after it (depth-tested annotations, traverses, overlay) depth-tests against the surfaces exactly as before — but the surfaces' depth now also exists as a texture (`OffscreenSurfaces.SurfaceDepth`).
 
 - **Picking** stays on scene events: the grouped surface scene graphs are added to the control a second time through `OffscreenSurfaces.pickOnly` — a typed applicator whose `RenderObjects` rule returns nothing, so their `Sg.pickable'`/`withEvents` still fire.
-- The offscreen projection is `RenderControlConfig.standard.adjustAspect size frustum` — what the render control applies itself; the blit and the fill composite map `gl_FragCoord` through `ViewportSize`, so a target of another size stays aligned.
+- **Per render client — size, samples, trafos:** the views pass `DomNode.RenderControl` a `RenderClientValues -> ISg` function, and `offscreenScene` builds the offscreen targets and the fill accumulation from `values.size`, `values.viewTrafo`, `values.projTrafo`. aardvark.media compiles one scene per (scene, sample count) and, before every frame it renders — a live frame or a server screenshot (`/rendering/screenshot?w=&h=&samples=`) — sets these values in a transaction (`ClientRenderTask.Run` → `ConcreteScene.Apply`). So a screenshot of any size or aspect ratio gets surfaces rendered for exactly that image; one with the live view's sample count shares its compiled scene, and the targets resize to the screenshot and back. Do **not** derive the size from `viewPortSizes` — that is the page's reported size, which a screenshot does not change. Only the targets are per client: `createGroupedSgs`, the overlay, the depth-tested scene and the fill geometry are built once outside the function and shared, so the surfaces' and annotations' GPU data are not duplicated per compiled scene.
+- **Sample count:** the offscreen targets always have the viewer's (`dataSamples`), never the target's. aardvark.geospatial prepares each OPC patch once, for the framebuffer signature its node was built with (`runtime.PrepareRenderObject(n.Signature, ro)`, RenderingV2.fs); a task of another sample count rejects the prepared patches and the surfaces come out black. The blit converts instead (`TargetSamples`): fewer target samples get the mean colour of the offscreen samples they cover and the first one's depth, more get them repeated.
+- **Background:**
+ the surfaces are rendered over transparent black, which leaves premultiplied colour (`BlendMode.Blend` accumulates alpha with `One`/`InvSourceAlpha`), and the blit blends with `One`/`InvSourceAlpha` (`premultipliedOver`). Where no surface is, the target keeps its own clear colour — the control's `#222222`, a screenshot's `background=` — and translucent surfaces come out as if drawn into the target directly.
 - **Lifetime:** the offscreen tasks are compiled inside an `AdaptiveResource` (`OffscreenSurfaces.renderTargets`) — on first acquire, disposed on last release. The render control's per-client scene task acquires them, so they live exactly as long as a page shows them. Compiled eagerly in the view function they leaked a full copy of the surfaces' GPU data per page load (view functions run again per `?page=` request).
-- **Size:** the main view uses the size the page reports (`OnResize`); the instrument view falls back to its CSS size (half the instrument resolution) until it reports one — without that it rendered at 1×1 and stayed black.
+- **Memory:** a large screenshot allocates the targets at its size — multisampled RGBA8 + D24S8 plus the RGBA32F fill accumulation, e.g. ~3 GB for 8k × 8k at 4 samples — until the next live frame resizes them back.
 
 **Known limitations:**
-- A server-side screenshot (`/rendering/screenshot`) at another size gets surface textures of the control's size, scaled; at another **aspect ratio** surfaces and fills no longer line up with annotations and overlays (the offscreen projection follows the page's reported size, the screenshot's frustum its own). A different `samples=` than `dataSamples` reads samples the textures do not have. Fix: per-client offscreen targets (`Scene.custom`, `RenderClientValues`).
-- Two clients of the same page id share one reported size; the last resize wins.
-- Translucent surfaces blend offscreen over the fixed `#222222` background, not over a screenshot's `background=`.
+- Server screenshots with a `samples=` other than the viewer's (4) come out without surfaces: the render server compiles a separate scene for that sample count, and its single frame has no OPC patches. The same on develop (checked with the 2026-09-24 develop build), so not caused by the offscreen surfaces; PRo3D's own screenshot clients send `samples=4`. Unverified guess: the OPC LoD of a freshly compiled scene has not streamed anything yet.
+- A server screenshot of another size shares the live view's compiled scene (same sample count). An earlier note claimed the live view then stopped showing model changes until the camera moved; it did not reproduce (2026-10-20, this branch and develop): a Sky line and a filled polygon drawn after 500 x 500 and 3200 x 900 screenshots appear at once, camera untouched.
+
 - The fill accumulation is single-sampled (depth sample 0); the composite writes one value per pixel, so fill edges at terrain silhouettes are not antialiased.
 - The stencil fallback (Snapshots) rebuilds its batches whenever the batch count changes.
 - Snapshots (`SnapshotSg`) render surfaces directly and use the stencil fill fallback.
-- Instrument view: verified by screenshot (headless probe, `fillProblem` scene) that surfaces show after the size fallback; fills there not checked separately.
-- GPU memory grows while the camera moves — on develop as much as here (OPC LoD caching), pre-existing.
+- Instrument view: verified by screenshot (headless probe, `fillProblem` scene) that surfaces show; fills there not checked separately.
+
+- Memory while the camera moves (2026-10-20, Dimorphos, 60 identical orbit/zoom cycles): GPU memory levels off on this branch and on develop, this branch ~90 MB higher (the offscreen targets); private bytes swing with GC but do not grow on either.
 
 ### Annotation fills — against the surface depth (#841)
 
@@ -159,7 +173,7 @@ Cost: 10240 fills ≈ 0.06-0.15 ms/frame with a moving camera (RTX 500 Ada), off
 
 The pick pass draws the flat caps (`FillGeometry.caps`); the 2D map view (`MapAnnotations`) has no terrain and draws the caps too.
 
-GPU tests and benchmark: `src/Tests/FillRenderTest.fs`. Playwright: `tests-ui/tests/annotation-fill.spec.ts`. User docs: [docs/AnnotationFill.md](../docs/AnnotationFill.md).
+GPU tests and benchmark: `src/Tests/FillRenderTest.fs`. Playwright: `tests-ui/tests/annotation-fill.spec.ts`. User docs: [docs/AnnotationFill.md](../docs/AnnotationFill.md); the technique explained for developers (z-fail count, why the sum is the colour, overlap blending): [docs/dev/AnnotationFill-technique.md](../docs/dev/AnnotationFill-technique.md).
 
 Gates: `ViewerApp.allowAnnotationPicking` decides whether the readback is honoured at all; `ViewerApp.allowVertexEditing` additionally gates the handles. `Interactions.EditAnnotation` is the one mode where annotation picking *and* KdTree surface picking are both live — see [docs/AnnotationVertexEditing.md](../docs/AnnotationVertexEditing.md) for why that ordering hazard needs `VertexGrab.movedSinceGrab`.
 

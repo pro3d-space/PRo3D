@@ -178,7 +178,9 @@ is the shape to copy.
   projection, set `focal = 10.25` and move the camera in (`drawing.ts:drawingScene`).
   It matters beyond framing: a selected annotation's outline spheres are scaled
   without the field of view (`Utilities.drawSpheresFast`, issue #770), so at 5.53°
-  they are drawn ~10x too large.
+  they are drawn ~10x too large. The template's **near plane is 10 m** as well, against
+  PRo3D's default 0.1 m; annotation depth offset scales with `distance / near`, so draped
+  lines and ellipse outlines z-fight with the terrain. `drawingScene` resets it to 0.1.
 - **When a measurement disagrees with what the app does in front of you, instrument
   the app instead of theorising.** That ~10x outline cost hours from the outside,
   and every conclusion was wrong, including "it is the harness". Three `Log.line`

@@ -28,6 +28,7 @@ let featureTests () : Test =
         PRo3D.Tests.Section19_UndoRedoGroupColor.tests
         PRo3D.Tests.Section20_BooleanOperations.tests
         PRo3D.Tests.Section21_OutcropTraces.tests
+        PRo3D.Tests.Section22_SupportingProfiles.tests
     ]
 
 let allTests (parameters : TestUtils.TestParameters) : Test =

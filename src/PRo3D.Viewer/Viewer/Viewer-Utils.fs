@@ -1255,6 +1255,9 @@ module ViewerUtils =
     ///   missing.
     /// - `crossSectionClip`: the only discard in the stack. A shader that may discard
     ///   defeats hidden-surface removal on tile-based (Apple) GPUs even when it never does.
+    ///
+    /// The fragment stages come in three bands (see ai/RENDERING.md): surface colour (shaded),
+    /// lighting, then unlit overlays bottom -> top. The cross-section discard runs last.
     let surfaceEffectVariant (geometryStage : bool) (crossSectionClip : bool) =
         Effect.compose [
 
@@ -1295,21 +1298,11 @@ module ViewerUtils =
             PRo3D.Base.Shader.mapColorAdaption  |> toEffect
             PRo3D.Base.Shader.mapRadiometry |> toEffect
 
+            // -- 1. surface colour: what the terrain is. Shaded by the lighting below.
+
             Shader.secondaryTexture |> toEffect
-
+            // a terrain property, so shaded
             Shader.contourLines |> toEffect
-            // additive latitude/longitude graticule; composites over the colour
-            // produced by the stages above, like contourLines.
-            Shader.latLonLines |> toEffect
-            Shaders.donutFragment |> toEffect
-
-            if crossSectionClip then
-                CrossSectionShader.crossSectionClip |> toEffect
-
-            //PRo3D.Base.Shader.depthImageF        |> toEffect
-            PRo3D.Base.Shader.depthCalculation2     |> toEffect //depthImageF        |> toEffect
-
-            PRo3D.Base.Shader.footPrintF        |> toEffect
 
             // The projection stack (multi-image projection). Subsumes the old
             // single-image stableImageProjection: a stack of one behaves
@@ -1323,9 +1316,10 @@ module ViewerUtils =
             // split are gone
             ImageProjection.Shaders.projectedStackCoverage |> toEffect
 
-            // hover footprint: green outline of the hovered image's frustum
-            // footprint on the surface (D5)
-            ImageProjection.Shaders.hoveredProjectionOutline |> toEffect
+            // -- 2. lighting
+
+            // the surface colour as it is before lighting, for depthCalculation2 below
+            PRo3D.Base.Shader.surfaceColor |> toEffect
 
             // Lommel-Seeliger over the terrain normal; solarLighting's Lambert-on-a-
             // sphere-normal predecessor made relief invisible under sun lighting.
@@ -1333,10 +1327,35 @@ module ViewerUtils =
             // Cast shadows (LightingMode.SunShadow); per-patch gated, no-op otherwise.
             PRo3D.SPICE.Shaders.terrainSunShadow |> toEffect
 
-            // Last in the stack on purpose: outcrop traces are an interpretive overlay, so
-            // their colour must survive lighting and shadowing. contourLines sits earlier
-            // and is shaded, which is right for a terrain property and wrong for this.
+            // -- 3. overlays: drawn on the terrain, not part of it. After lighting so they stay
+            // readable in shadow and on the night side; bottom -> top, each paints over the
+            // ones before it. A new overlay goes here, at the layer it belongs to.
+
+            // depth false colour (DepthVisible): tints the unlit surface colour, lowest
+            //PRo3D.Base.Shader.depthImageF        |> toEffect
+            PRo3D.Base.Shader.depthCalculation2     |> toEffect //depthImageF        |> toEffect
+
+            // latitude/longitude graticule: the reference grid, over the depth colouring
+            Shader.latLonLines |> toEffect
+
+            // outcrop traces: interpretation, over the grid
             OutcropTraceShader.outcropTrace |> toEffect
+
+            // instrument footprint border
+            PRo3D.Base.Shader.footPrintF        |> toEffect
+
+            // hover footprint: green outline of the hovered image's frustum
+            // footprint on the surface (D5)
+            ImageProjection.Shaders.hoveredProjectionOutline |> toEffect
+
+            // 3D cursor, always on top
+            Shaders.donutFragment |> toEffect
+
+            // -- the discard goes last: after a discard, derivatives in its quad are undefined,
+            // and latLonLines, outcropTrace and every implicit-LOD texture sample above take
+            // them. Where it sits does not change its tile-GPU cost (see above).
+            if crossSectionClip then
+                CrossSectionShader.crossSectionClip |> toEffect
         ]
 
     /// Everything composed: what every OPC surface used before #719.
@@ -1917,72 +1936,70 @@ module ViewerUtils =
             )
         curtainSgOpt |> Sg.dynamic
 
-    /// The surfaces of one view, rendered offscreen (#841, OffscreenSurfaces): their textures,
-    /// and the grouped scene graphs themselves, which the view keeps as pick-only so that
-    /// clicks on a surface still reach its handlers.
-    type OffscreenView =
-        {
-            grouped  : alist<ISg<ViewerAction>>
-            color    : aval<ITexture>
-            surfaces : OffscreenSurfaces.SurfaceDepth
-        }
+    /// One view's scene for one render client (#841): the surfaces offscreen
+    /// (OffscreenSurfaces), copied in, and the fills drawn against their depth texture
+    /// (PackedRendering.DeferredFills).
+    ///
+    /// The offscreen targets are made from `values` - the size and trafos of the image the
+    /// render server is making: a live frame, or a screenshot
+    /// (/rendering/screenshot?w=&h=&samples=). The server compiles one scene per sample count
+    /// and updates `values` before every frame it renders with it, so each gets its own
+    /// targets, always of the size and projection of the image at hand. Their sample count is
+    /// `samples`, the viewer's - the one the OPC patches are prepared for (OffscreenSurfaces.render);
+    /// the copy converts to the target's (`values.signature.Samples`).
+    ///
+    /// Everything else - `grouped` (createGroupedSgs), `overlayed`, `depthTested` and the
+    /// fill geometry - is built once by the caller and shared, so the surfaces' and
+    /// annotations' GPU data are not duplicated per compiled scene. `grouped` is drawn twice:
+    /// offscreen, and pick-only in the view, so clicks on a surface still reach its handlers.
+    let offscreenScene
+        (samples     : int)
+        (grouped     : alist<ISg<ViewerAction>>)
+        (overlayed   : ISg<ViewerAction>)
+        (depthTested : ISg<ViewerAction>)
+        (fills       : PackedRendering.FillGeometry)
+        /// drawn against this client's surface depth too: the geological maps (#843)
+        (onSurfaces  : OffscreenSurfaces.SurfaceDepth -> ISg<ViewerAction>)
+        (values      : RenderClientValues) : ISg<ViewerAction> =
 
-    /// The render controls' clear colour (renderControlAttributes: background-color #222222).
-    /// Translucent surfaces blend over it offscreen exactly as they did in the control.
-    let private viewBackground = C4f(34.0f / 255.0f, 34.0f / 255.0f, 34.0f / 255.0f, 1.0f)
-
-    /// Renders the surfaces of a view offscreen, in priority groups exactly as the view did
-    /// (depth cleared before each group), at `size` with `samples` samples - the render
-    /// control's. The projection is the one the render control derives from `frustum`.
-    let offscreenView
-        (runtime        : IRuntime)
-        (samples        : int)
-        (sgGrouped      : alist<amap<Guid,AdaptiveSgSurface>>)
-        (view           : aval<CameraView>)
-        (frustum        : aval<Frustum>)
-        (size           : aval<V2i>)
-        (allowFootprint : bool)
-        (allowDepthview : bool)
-        (m              : AdaptiveModel) : OffscreenView =
-
-        let grouped = createGroupedSgs runtime sgGrouped view allowFootprint allowDepthview m
-        // never an empty target: a view reports its size only after its first resize event
-        let size = size |> AVal.map (fun (s : V2i) -> V2i(max 1 s.X, max 1 s.Y))
-        let viewTrafo = view |> AVal.map CameraView.viewTrafo
-        let projTrafo =
-            (frustum, size) ||> AVal.map2 (fun f s ->
-                Frustum.projTrafo (RenderControlConfig.standard.adjustAspect s f))
+        let runtime = values.runtime
+        // never an empty target
+        let size = values.size |> AVal.map (fun (s : V2i) -> V2i(max 1 s.X, max 1 s.Y))
 
         let surfaces =
             grouped
             |> AList.map (fun sg -> sg :> Aardvark.SceneGraph.ISg)
-            |> OffscreenSurfaces.inPriorityGroups viewTrafo projTrafo
+            |> OffscreenSurfaces.inPriorityGroups values.viewTrafo values.projTrafo
 
-        let color, depth = OffscreenSurfaces.render runtime samples viewBackground size surfaces
-        {
-            grouped  = grouped
-            color    = color
-            surfaces = { depth = depth; size = size; viewTrafo = viewTrafo; projTrafo = projTrafo }
-        }
+        let color, depth = OffscreenSurfaces.render runtime samples size surfaces
+        let surfaceDepth : OffscreenSurfaces.SurfaceDepth =
+            { depth = depth; size = size; viewTrafo = values.viewTrafo; projTrafo = values.projTrafo }
 
-    let renderCommands
-        (offscreen      : OffscreenView)
-        (overlayed      : ISg<ViewerAction>)
-        (depthTested    : ISg<ViewerAction>) =
+        // in the same command as the annotations: the fill composite runs in the fill pass,
+        // ahead of the main pass, which is what puts the outlines on top of it
+        let annotated =
+            Sg.ofList [
+                depthTested
+                PackedRendering.DeferredFills.renderOn runtime surfaceDepth fills
+                |> Sg.noEvents
+                |> Sg.fillMode (AVal.constant FillMode.Fill)
+                |> Sg.cullMode (AVal.constant CullMode.None)
+                onSurfaces surfaceDepth
+            ]
 
         alist {
-            // the surfaces: colour and depth copied in from offscreen, then their scene graphs
-            // once more, pick-only, for their scene events
-            yield RenderCommand<_>.Render (OffscreenSurfaces.blit offscreen.color offscreen.surfaces.depth |> Sg.noEvents)
-            for sg in offscreen.grouped do
+            yield RenderCommand<_>.Render (OffscreenSurfaces.blit values.signature.Samples color depth |> Sg.noEvents)
+
+            for sg in grouped do
                 yield RenderCommand<_>.Render (OffscreenSurfaces.pickOnly sg)
 
-            yield RenderCommand<_>.Render depthTested
+            yield RenderCommand<_>.Render annotated
             yield RenderCommand<_>.ClearDepth 1.0
 
             yield RenderCommand<_>.Render overlayed
-
         }
+        |> Aardvark.UI.RenderCommand.Ordered
+        |> Sg.execute
 
         //alist {
         //    for set in grouped do

@@ -174,11 +174,16 @@ module Viewer =
             renderingUrl        = renderingUrl       
             numberOfSamples     = numberOfSamples    
             screenshotDirectory = screenshotDirectory
+            mainViewScenes      = []
             animator            = Animation.Animator.initial animatorLens
 
             provenanceModel = ProvenanceModel.invalid
             surfaceIntersection   = None
             cursorAttributes      = None
+            imageHover            = None
+            imageView             = ImageView.initial
+            shadowMeasure         = ShadowMeasure.initial
+            imageInspectorEnabled = false
             ellipseModel = None
             backgroundPicking = ThreadPool.empty
             pickPreviewRequested = new ConsumableAsyncValue<_>()

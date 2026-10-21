@@ -62,3 +62,5 @@ tools, `Sky` for the ellipses.
 - [EllipseAnnotations.md](EllipseAnnotations.md) — ellipse tools force `Projection.Sky`
   and grey out the projection dropdown; with Sky selected the Sampling group is visible.
 - [ToolStrip.md](ToolStrip.md) — the tool rail and how the second toolbar row is hosted.
+- [AnnotationDeletion.md](AnnotationDeletion.md) — the Delete key removes all selected
+  annotations in one undo step.

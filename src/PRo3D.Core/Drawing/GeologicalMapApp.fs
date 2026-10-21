@@ -1015,19 +1015,16 @@ module GeologicalMapApp =
     /// The maps' units over the terrain, one offscreen pass per visible map. Only in views that
     /// render their surfaces offscreen; the Snapshots path (no surface depth) shows no maps yet.
     let render
-        (runtime : IRuntime) (surfaceDepth : Option<OffscreenSurfaces.SurfaceDepth>)
+        (runtime : IRuntime) (s : OffscreenSurfaces.SurfaceDepth)
         (planet : aval<Planet>) (reach : aval<FillReach>) (gate : AssignGate) (tools : DrawState) (textView : TextView)
         /// the points of the contact being drawn (empty when no line is being drawn)
         (stroke : aval<V3d[]>)
         (groups : AdaptiveGroupsModel) (maps : AdaptiveGeologicalMapsModel) (view : aval<M44d>) : ISg<Action> =
-        match surfaceDepth with
-        | None -> Sg.empty
-        | Some s ->
-            // experimental: nothing is derived or drawn until the panel is opened
-            maps.enabled
-            |> ASet.bind (fun enabled -> if enabled then AList.toASet maps.maps else ASet.empty)
-            |> ASet.map (mapSg runtime s planet reach groups maps gate tools textView stroke view)
-            |> Sg.set
+        // experimental: nothing is derived or drawn until the panel is opened
+        maps.enabled
+        |> ASet.bind (fun enabled -> if enabled then AList.toASet maps.maps else ASet.empty)
+        |> ASet.map (mapSg runtime s planet reach groups maps gate tools textView stroke view)
+        |> Sg.set
 
     // -----------------------------------------------------------------------------------------
     // panel

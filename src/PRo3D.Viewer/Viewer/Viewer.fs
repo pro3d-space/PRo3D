@@ -330,6 +330,65 @@ module ViewerApp =
                 msg
         { m with scene = { m.scene with surfacesModel = surfacesModel; comparisonApp = comparisonApp } }
 
+    /// Imported annotations get fresh keys, so they cannot collide with the scene's. Generated
+    /// profiles point at their parent by key (#833), so their links move along with it.
+    let rekeyImported (groups : GroupsModel) : GroupsModel =
+        let renamed = System.Collections.Generic.Dictionary<Guid, Guid>()
+        let fresh (old : Guid) =
+            let key = Guid.NewGuid()
+            renamed.[old] <- key
+            key
+        groups
+        |> GroupsModel.patchNames fresh
+        |> SupportingProfiles.relinkProfiles (fun old ->
+            match renamed.TryGetValue old with
+            | true, key -> Some key
+            | _         -> None)
+
+    /// Drops a point onto the active surfaces along its local up: the sky ray of the drawing
+    /// tools, for operations that place vertices of their own (union, cut, supporting profiles).
+    let private skyProjection (m : Model) : V3d -> Option<V3d> =
+        let observerSystem = Gis.GisApp.getObserverSystem m.scene.gisApp
+        let observedSystem (v : SurfaceId) = Gis.GisApp.getSpiceReferenceSystem m.scene.gisApp v
+        let onlyActive (_ : Guid) (l : Leaf) (_ : SgSurface) = l.active
+        let planet = m.scene.referenceSystem.planet
+
+        fun (p : V3d) ->
+            let up = CooTransformation.getUpVector p planet
+            let reprojectionDistance =
+                match planet with
+                | Planet.Mars -> 1000000.0
+                | _ -> 100.0
+            let ray = FastRay3d(p + (up * reprojectionDistance), -up)
+            match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem observedSystem observerSystem ray onlyActive Picking.cache Config.diagnosticTimings with
+            | Some hitInfo, c -> Picking.cache <- c; ray.Ray.GetPointOnRay hitInfo.hit.RayHit.T |> Some
+            | None, c -> Picking.cache <- c; None
+
+    /// Toolbar *Lineament profiles* / *Crater profiles* (#833): the profiles of the annotation
+    /// drawing input just finished (from `DrawingApp.updateFinishing`), generated right away.
+    /// The outcome goes to a short notice, since the Properties panel showing the message is
+    /// usually closed while drawing.
+    let private withAutoProfiles
+        (bc : BlockingCollection<string>) (view : CameraView) (finished : Option<Annotation>) (m : Model) : Model =
+        match DrawingApp.autoProfileParent m.drawing.supportingProfiles finished with
+        | None -> m
+        | Some parent ->
+            // Generate works on the single selection. Finishing selects the new annotation
+            // today; selecting it here keeps that from being an accident someone can break.
+            let selected =
+                { m.drawing with
+                    annotations = { m.drawing.annotations with singleSelectLeaf = Some parent.key } }
+            let drawing =
+                DrawingApp.update m.scene.referenceSystem drawingConfig None bc view m.shiftFlag selected
+                    (DrawingAction.GenerateSupportingProfiles (Some (skyProjection m)))
+            let feedback = {
+                id      = System.Guid.NewGuid().ToString()
+                text    = drawing.supportingProfiles.message |> Option.defaultValue ""
+                timeout = 3000
+                msg     = ViewerAction.NoAction ""
+            }
+            { m with drawing = drawing } |> UserFeedback.queueFeedback feedback
+
     let private matchPickingInteraction (bc: BlockingCollection<string>) (p: V3d) (referenceSystem : Option<SpiceReferenceSystem>) (hitFunction:(V3d -> V3d option)) (surf: Surface) (m: Model) = 
         match m.interaction, m.viewerMode with
         | Interactions.DrawAnnotation, _ ->
@@ -353,9 +412,9 @@ module ViewerApp =
                 GeologicalMapApp.snap m.drawing view.Location hfov width p
 
             let msg = DrawingAction.AddPointAdv(p, hitFunction, referenceSystem, surf.name, None)
-            let drawing = DrawingApp.update m.scene.referenceSystem drawingConfig referenceSystem bc view m.shiftFlag m.drawing msg
+            let drawing, finished = DrawingApp.updateFinishing m.scene.referenceSystem drawingConfig referenceSystem bc view m.shiftFlag m.drawing msg
             //Log.stop()
-            let m = { m with drawing = drawing } |> stash
+            let m = { m with drawing = drawing } |> withAutoProfiles bc view finished |> stash
             if linearContact then
                 m |> logScreen 6000 "Contact drawn with Linear projection: its straight segments leave the terrain, so it will not follow the units' edges. Choose Sky projection for contacts."
             else m
@@ -594,6 +653,8 @@ module ViewerApp =
             // working annotation to clear
             | Interactions.EditAnnotation -> DrawingAction.CancelVertexEdit
             | _ -> DrawingAction.ClearWorking
+        // Delete (selected annotations, one undo step) is not handled here but by the page
+        // body (Gui.annotationShortcut); the render control's keydown bubbles there too
         // Ctrl no longer maps to Start/Stop{Drawing,Picking} here: arming the tool is
         // `toolArmed` (ctrlFlag <> directToolMode), evaluated at the event source.
         //| Aardvark.Application.Keys.LeftShift ->
@@ -934,29 +995,17 @@ module ViewerApp =
                 | None -> m
                 
             | Drawing.UnionSelectedAnnotations None
-            | Drawing.ApplyCutStroke None ->
+            | Drawing.ApplyCutStroke None
+            | Drawing.GenerateSupportingProfiles None ->
                 // enrich the payload-less message with the terrain raycast, so vertices the
                 // boolean op invents land on the surface - same sky ray as AddPointAdv
                 // reprojection
-                let observerSystem = Gis.GisApp.getObserverSystem m.scene.gisApp
-                let observedSystem (v : SurfaceId) = Gis.GisApp.getSpiceReferenceSystem m.scene.gisApp v
-                let onlyActive (_ : Guid) (l : Leaf) (_ : SgSurface) = l.active
-                let planet = m.scene.referenceSystem.planet
-
-                let projectToSurface (p : V3d) =
-                    let up = CooTransformation.getUpVector p planet
-                    let reprojectionDistance =
-                        match planet with
-                        | Planet.Mars -> 1000000.0
-                        | _ -> 100.0
-                    let ray = FastRay3d(p + (up * reprojectionDistance), -up)
-                    match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem observedSystem observerSystem ray onlyActive Picking.cache Config.diagnosticTimings with
-                    | Some hitInfo, c -> Picking.cache <- c; ray.Ray.GetPointOnRay hitInfo.hit.RayHit.T |> Some
-                    | None, c -> Picking.cache <- c; None
+                let projectToSurface = skyProjection m
 
                 let enriched =
                     match msg with
                     | Drawing.ApplyCutStroke None -> Drawing.ApplyCutStroke (Some projectToSurface)
+                    | Drawing.GenerateSupportingProfiles None -> Drawing.GenerateSupportingProfiles (Some projectToSurface)
                     | _ -> Drawing.UnionSelectedAnnotations (Some projectToSurface)
 
                 let view =
@@ -992,10 +1041,11 @@ module ViewerApp =
                     | ViewerMode.Standard -> m.navigation.camera.view
                     | ViewerMode.Instrument -> m.scene.viewPlans.instrumentCam
 
-                let drawing =
-                    DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing msg
+                let drawing, finished =
+                    DrawingApp.updateFinishing m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing msg
 
-                { m with drawing = drawing; } |> stash
+                // Enter finishing a polyline: its toolbar profiles
+                { m with drawing = drawing; } |> withAutoProfiles sendQueue view finished |> stash
         | SurfaceActions msg,_ ->
             
             let view = m.navigation.camera.view
@@ -1130,6 +1180,106 @@ module ViewerApp =
         | CrossSectionMessage msg,_ ->
             let csm = CrossSectionApp.update m.scene.crossSectionModel msg
             { m with scene = { m.scene with crossSectionModel = csm } }
+        | ImageInspectorMessage (ImageInspectorAction.SetEnabled enabled), _ ->
+            ImageInspector.HoverWorker.cancel ()
+            if not enabled then ImageInspector.releaseCaches ()
+            { m with
+                imageInspectorEnabled = enabled
+                imageHover = None
+                imageView = ImageView.initial
+                shadowMeasure = ShadowMeasure.initial }
+        // experimental panel switched off: ignore anything a stale page still sends
+        | ImageInspectorMessage _, _ when not m.imageInspectorEnabled -> m
+        | ImageInspectorMessage msg, _ ->
+            // a move reported with a button held but no drag of ours in progress (the press
+            // happened elsewhere, or its mousedown never reached us) is a hover
+            let msg =
+                match msg with
+                | ImageInspectorAction.DragMove p when m.imageView.dragFrom.IsNone ->
+                    ImageInspectorAction.Hover (Some p)
+                | _ -> msg
+            let view = ImageInspector.updateView m.imageView msg
+            match msg with
+            | ImageInspectorAction.Hover None ->
+                ImageInspector.HoverWorker.cancel ()
+                { m with imageView = view; imageHover = None }
+            | ImageInspectorAction.Hover (Some panel) when view.dragFrom.IsNone ->
+                match ImageInspector.tryContext m.scene.gisApp m.scene.surfacesModel m.scene.referenceSystem with
+                | Result.Error _ -> { m with imageView = view; imageHover = None }
+                | Ok ctx ->
+                    // picked on the hover worker against this model snapshot; the result comes
+                    // back as HoverResult through the mailbox
+                    let pick (r : Ray3d) = Picking.pickRay m (FastRay3d r) None |> Option.map snd
+                    let ndc = ImageView.toImage view panel
+                    ImageInspector.HoverWorker.request
+                        (fun () -> ImageInspector.hover pick ctx ndc)
+                        (fun (id, h) -> mailbox.Post(MailboxAction.ViewerAction (ImageInspectorMessage (ImageInspectorAction.HoverResult(id, h)))))
+                    { m with imageView = view }
+            | ImageInspectorAction.HoverResult (id, h) ->
+                if id = ImageInspector.HoverWorker.latest () then { m with imageHover = Some h } else m
+            | ImageInspectorAction.ToggleMeasure ->
+                { m with shadowMeasure = { m.shadowMeasure with active = not m.shadowMeasure.active } }
+            | ImageInspectorAction.ToggleShadowKind ->
+                let kind = if m.shadowMeasure.kind = ShadowKind.Height then ShadowKind.Depth else ShadowKind.Height
+                // the clicks mean something else now: start over
+                { m with shadowMeasure = { ShadowMeasure.initial with active = m.shadowMeasure.active; kind = kind; upMode = m.shadowMeasure.upMode; snap = m.shadowMeasure.snap } }
+            | ImageInspectorAction.ToggleShadowUp ->
+                let s = m.shadowMeasure
+                let next =
+                    match s.upMode with
+                    | ShadowUp.Local -> ShadowUp.Radial
+                    | ShadowUp.Radial -> ShadowUp.Plane
+                    | _ -> ShadowUp.Local
+                let s = { s with upMode = next }
+                match ImageInspector.tryContext m.scene.gisApp m.scene.surfacesModel m.scene.referenceSystem with
+                | Ok ctx ->
+                    let pick (r : Ray3d) = Picking.pickRay m (FastRay3d r) None |> Option.map snd
+                    { m with shadowMeasure = ImageInspector.remeasure pick ctx s }
+                // no context to re-measure in: drop the result rather than show one for the old up
+                | Result.Error _ -> { m with shadowMeasure = { s with result = None } }
+            | ImageInspectorAction.ToggleSnap ->
+                { m with shadowMeasure = { m.shadowMeasure with snap = not m.shadowMeasure.snap } }
+            | ImageInspectorAction.ClearMeasure ->
+                { m with shadowMeasure = { ShadowMeasure.initial with active = m.shadowMeasure.active; kind = m.shadowMeasure.kind; upMode = m.shadowMeasure.upMode; snap = m.shadowMeasure.snap } }
+            | ImageInspectorAction.Click _ when m.shadowMeasure.active && m.imageView.dragMoved ->
+                Log.line "[ImageInspector] click ignored: it ended a drag"
+                { m with imageView = view }
+            | ImageInspectorAction.Click panel when m.shadowMeasure.active && not m.imageView.dragMoved ->
+                match ImageInspector.tryContext m.scene.gisApp m.scene.surfacesModel m.scene.referenceSystem with
+                | Result.Error e -> { m with shadowMeasure = { m.shadowMeasure with result = Some (Result.Error e) } }
+                | Ok ctx ->
+                    let pick (r : Ray3d) = Picking.pickRay m (FastRay3d r) None |> Option.map snd
+                    let ndc = ImageView.toImage view panel
+                    let sw = System.Diagnostics.Stopwatch.StartNew()
+                    let s = ImageInspector.click pick ctx m.shadowMeasure ndc
+                    Log.line "[ImageInspector] click %A: anchor %b, second %b, %A (%d ms)"
+                        ndc s.anchor.IsSome s.second.IsSome (s.result |> Option.map (Result.map (fun r -> r.value))) sw.ElapsedMilliseconds
+                    { m with imageView = view; shadowMeasure = s }
+            | ImageInspectorAction.CreateScaleBar ->
+                match m.shadowMeasure.result with
+                | Some (Ok r) ->
+                    match m.shadowMeasure.anchor with
+                    | Some (_, anchor) ->
+                        // One bar at each end, both spanning the measured interval along the
+                        // camera's sky: the lower end's bar points up to the upper end's height,
+                        // the upper end's bar (pivot right = it ends at its position) reaches down.
+                        let upper, lower = if Vec.distance anchor r.bottom < 1e-9 then r.point, anchor else anchor, r.point
+                        let bar (position : V3d) (alignment : PRo3D.Core.Pivot) =
+                            let drawing =
+                                { m.scaleBarsDrawing with
+                                    orientation = PRo3D.Core.Orientation.Sky_cam
+                                    alignment = alignment
+                                    unit = PRo3D.Core.Unit.m
+                                    length = { m.scaleBarsDrawing.length with value = Math.Round(r.value, 2) } }
+                            ScaleBarsAction.AddScaleBar(position, drawing, m.navigation.camera.view)
+                        let scaleBars =
+                            [ bar lower PRo3D.Core.Pivot.Left; bar upper PRo3D.Core.Pivot.Right ]
+                            |> List.fold (fun sb msg -> ScaleBarsApp.update sb msg m.scene.referenceSystem) m.scene.scaleBars
+                        { m with scene = { m.scene with scaleBars = scaleBars } }
+                    | None -> m
+                | _ -> m
+            | _ ->
+                { m with imageView = view }
         | MapProjectionMessage msg,_ ->
             { m with mapProjection = PRo3D.MapProjection.MapProjectionApp.update m.mapProjection msg }
         | AnnotationExportMessage msg,_ ->
@@ -1849,7 +1999,7 @@ module ViewerApp =
             ViewerIO.replaceAnnotations m annotations
         | ImportSerializedDrawingModel(json, source), _ -> 
             let drawing = DrawingUtilities.IO.loadAnnotationsFromJson json 
-            let annotations = drawing.annotations |> GroupsModel.patchNames (fun n -> Guid.NewGuid())
+            let annotations = drawing.annotations |> rekeyImported
             let importedGroup = { annotations.rootGroup with name = source }
 
             //let msg = GroupsAppAction.AddAndSelectGroup ([], importedGroup)
@@ -1861,7 +2011,7 @@ module ViewerApp =
             let model = { m with drawing = { m.drawing with annotations = groups } }
             model
         | ImportDrawingModel(drawing, source), _ -> 
-            let annotations = drawing |> GroupsModel.patchNames (fun n -> Guid.NewGuid())
+            let annotations = drawing |> rekeyImported
             let importedGroup = { annotations.rootGroup with name = source }
 
             //let msg = GroupsAppAction.AddAndSelectGroup ([], importedGroup)
@@ -1887,7 +2037,9 @@ module ViewerApp =
 
             // the layout belongs to the user, not the scene; a fresh Golden Layout model would also
             // reset the version its browser channel compares against and swallow the next change
-            { initialModel with recent = m.recent; layout = m.layout } |> ViewerIO.loadRoverData
+            // nor do the render controls on screen belong to it: they do not boot again
+            { initialModel with recent = m.recent; layout = m.layout; mainViewScenes = m.mainViewScenes }
+            |> ViewerIO.loadRoverData
 
         | KeyDown k, _ ->
             let m =
@@ -1919,28 +2071,7 @@ module ViewerApp =
                     nextMapProblem m
                 | _ -> m
 
-            let m =
-                match (m.ctrlFlag, k, m.scene.scenePath) with
-                | true, Aardvark.Application.Keys.S, Some path ->
-                    { (saveScene path m) with ctrlFlag = false } |> shortFeedback "scene saved"
-                | true, Aardvark.Application.Keys.S, None ->
-                    { m with ctrlFlag = false } |> shortFeedback "please use \"save\" in the menu to save the scene"
-                    // (saveSceneAndAnnotations p m)
-                |_-> m
-
-            let m =
-                let view =
-                    match m.viewerMode with
-                    | ViewerMode.Standard    -> m.navigation.camera.view
-                    | ViewerMode.Instrument  -> m.scene.viewPlans.instrumentCam
-                match (m.ctrlFlag, k) with
-                | true, Aardvark.Application.Keys.Z ->
-                    let drawing = DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing DrawingAction.Undo
-                    { m with drawing = drawing }
-                | true, Aardvark.Application.Keys.Y ->
-                    let drawing = DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing DrawingAction.Redo
-                    { m with drawing = drawing }
-                | _ -> m
+            // Ctrl+Z/Y/S are not handled here but in CtrlShortcut, sent by every page's body
 
             // comparison areas: resize the area just placed, Enter to finish
             let m =
@@ -2017,6 +2148,25 @@ module ViewerApp =
 
             match k with
             | Keyboard.Modifier -> { m with ctrlFlag = false }
+            | _ -> m
+        | CtrlShortcut (k, shift),_ ->
+            let view =
+                match m.viewerMode with
+                | ViewerMode.Standard    -> m.navigation.camera.view
+                | ViewerMode.Instrument  -> m.scene.viewPlans.instrumentCam
+            match k, m.scene.scenePath with
+            | Aardvark.Application.Keys.Z, _ when not shift ->
+                let drawing = DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing DrawingAction.Undo
+                { m with drawing = drawing }
+            // Ctrl+Y, and Ctrl+Shift+Z as on macOS and in many Windows apps
+            | Aardvark.Application.Keys.Y, _ | Aardvark.Application.Keys.Z, _ ->
+                let drawing = DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing DrawingAction.Redo
+                { m with drawing = drawing }
+            // ctrlFlag is left alone: Ctrl may still be held, and blur releases it otherwise
+            | Aardvark.Application.Keys.S, Some path ->
+                saveScene path m |> shortFeedback "scene saved"
+            | Aardvark.Application.Keys.S, None ->
+                m |> shortFeedback "please use \"save\" in the menu to save the scene"
             | _ -> m
         | SetInteraction t,_ ->
                 
@@ -2182,6 +2332,11 @@ module ViewerApp =
         | ResizeMainControl (a,id),_ -> 
             printfn "[main] resize %A" (a,id)
             updateFrustumAspect m a id
+        | MainViewBooted sceneName, _ ->
+            // a page that closes or reloads never says so: keep the newest few, screenshots skip
+            // the ones the render server no longer renders
+            let older = m.mainViewScenes |> List.filter (fun s -> s <> sceneName) |> List.truncate 15
+            { m with mainViewScenes = sceneName :: older }
         | ResizeInstrumentControl (a,id),_ -> 
             printfn "[instrument] resize %A" (a,id)
             updateFrustumAspect m a id
@@ -2360,6 +2515,7 @@ module ViewerApp =
                     m.renderingUrl 
                     m.numberOfSamples 
                     m.screenshotDirectory 
+                    m.mainViewScenes
                     m.scene.screenshotModel
                     msg
 
@@ -2603,8 +2759,14 @@ module ViewerApp =
         }
         |> Sg.noEvents
         |> Sg.trafo(trafo)
-    
-    let renderControlAttributes (id : string) (m: AdaptiveModel) = 
+
+    /// Ctrl/Shift held while focus leaves a render control are released elsewhere; that
+    /// KeyUp never arrives here, and a stale ctrlFlag/shiftFlag would keep picking armed.
+    let private releaseModifiersOnBlur : Attribute<ViewerAction> =
+        onEvent' "onblur" [] (fun _ ->
+            [KeyUp Aardvark.Application.Keys.LeftCtrl; KeyUp Aardvark.Application.Keys.LeftShift])
+
+    let renderControlAttributes (id : string) (m: AdaptiveModel) =
 
         let renderControlAtts (model: AdaptiveNavigationModel) =
             amap {
@@ -2656,8 +2818,17 @@ module ViewerApp =
                     let drawingAction = getDrawingActionForKey (m.interaction |> AVal.force) k
                     [KeyDown k; DrawingMessage drawingAction]
                 )
-                onKeyUp   (KeyUp)        
+                onKeyUp   (KeyUp)
+                releaseModifiersOnBlur
                 clazz "mainrendercontrol"
+                // from the boot script in viewRenderView, carrying the control's own id - its scene
+                // name on the render server, which screenshots of the main view ask for
+                onEvent "pro3dSceneBooted" [] (
+                    fun p ->
+                        match p with
+                        | [sceneName] -> MainViewBooted (Pickler.json.UnPickleOfString sceneName)
+                        | _ -> Nop
+                )
                 onEvent "resizeControl"  [] (
                     fun p -> 
                         match p with
@@ -2682,6 +2853,7 @@ module ViewerApp =
                 attribute "useMapping" "true"
                 onKeyDown (KeyDown)
                 onKeyUp (KeyUp)
+                releaseModifiersOnBlur
                 clazz "instrumentrendercontrol"
                 onEvent "resizeControl"  [] (
                     fun p -> 
@@ -2867,15 +3039,16 @@ module ViewerApp =
             else PRo3D.Core.Drawing.Sg.lines C4b.VRVisGreen 3.0 points)
         |> Sg.dynamic
 
-    // depthTested that occur in instrumentview + main renderview
-    let getDepthTested (frustum: aval<Frustum>) (view :aval<CameraView>) (observer : aval<ObserverSystem option>) (surfaceDepth : Option<OffscreenSurfaces.SurfaceDepth>) (id : string) (runtime : IRuntime) (m: AdaptiveModel) =
-        let annotations, discs = 
+    // depthTested that occur in instrumentview + main renderview, and the annotation fills -
+    // not drawn yet: the views draw them against their offscreen surfaces
+    // (ViewerUtils.offscreenScene), Snapshots with the stencil renderer
+    let getDepthTested (frustum: aval<Frustum>) (view :aval<CameraView>) (observer : aval<ObserverSystem option>) (id : string) (runtime : IRuntime) (m: AdaptiveModel) =
+        let annotations, discs, fills, maps =
             DrawingApp.view 
                 m.scene.config 
                 mdrawingConfig
                 observer
                 m.scene.referenceSystem.planet
-                surfaceDepth
                 view //m.navigation.camera.view 
                 frustum
                 runtime
@@ -2980,6 +3153,16 @@ module ViewerApp =
                 surfaceIntersection
                 vertexEdit
                 curtainSg
+                // Image Inspector markers: real geometry, depth-tested against the terrain. Built
+                // only while the (experimental) panel is open: closed, nothing is in the graph.
+                m.imageInspectorEnabled |> AVal.map (fun enabled ->
+                    if enabled then
+                        Sg.ofList [
+                            ImageInspector.hoverSg m.imageHover view
+                            ImageInspector.measureSg m.shadowMeasure m.scene.gisApp.projectedImageList.selectedImage view
+                        ]
+                    else Sg.empty)
+                |> Sg.dynamic
             ] |> Sg.ofList
 
         let heightValidationDiscs =
@@ -2997,14 +3180,16 @@ module ViewerApp =
             let camera = (view, frustum) ||> AVal.map2 Camera.create
             Gis.GisApp.viewGisEntities camera m.scene.gisApp |> Sg.noEvents
 
-        [
-            depthTested; 
-            heightValidationDiscs; 
-            sceneObjects; 
-            geologicSurfacesSg
-            gisEntities
-            ellipseDrawing
-        ] |> Sg.ofList
+        let sg =
+            [
+                depthTested;
+                heightValidationDiscs;
+                sceneObjects;
+                geologicSurfacesSg
+                gisEntities
+                ellipseDrawing
+            ] |> Sg.ofList
+        sg, fills, (maps >> Sg.map DrawingMessage)
 
     let viewInstrumentView (runtime : IRuntime) (id : string) (m: AdaptiveModel) = 
         let frustum = m.scene.viewPlans.instrumentFrustum
@@ -3013,31 +3198,14 @@ module ViewerApp =
 
         let ioverlayed = getOverlayed m m.scene.viewPlans.instrumentCam frustum
 
-        // The instrument page reports its size only on resize/focus events; until one arrives
-        // the control has the size its CSS gives it - half the instrument resolution
-        // (pageRouting's instrumentViewAttributes). The offscreen surfaces need a real size
-        // from the first frame, or they render at 1x1 and the view stays black.
-        let size =
-            (m.viewPortSizes |> AMap.tryFind id, ViewPlanApp.getInstrumentResolution m.scene.viewPlans)
-            ||> AVal.map2 (fun reported (hor, vert) ->
-                match reported with
-                | Some s when s.X > 1 && s.Y > 1 -> s
-                | _ -> V2i(max 1 (int (hor / 2u)), max 1 (int (vert / 2u))))
-        let offscreen =
-            ViewerUtils.offscreenView runtime dataSamples m.scene.surfacesModel.sgGrouped
-                m.scene.viewPlans.instrumentCam frustum size false true m
+        let grouped = ViewerUtils.createGroupedSgs runtime m.scene.surfacesModel.sgGrouped m.scene.viewPlans.instrumentCam false true m
+        let depthTested, fills, maps = getDepthTested frustum m.scene.viewPlans.instrumentCam observer id runtime m
 
-        let depthTested = getDepthTested frustum m.scene.viewPlans.instrumentCam observer (Some offscreen.surfaces) id runtime m
+        // instrument view control; surfaces offscreen per render client (#841)
+        let icmds (values : RenderClientValues) =
+            ViewerUtils.offscreenScene dataSamples grouped ioverlayed depthTested fills maps values
+            |> Sg.map ViewerMessage
 
-        // instrument view control
-        let icmds = ViewerUtils.renderCommands offscreen ioverlayed depthTested
-                        |> Aardvark.UI.RenderCommand.Ordered
-                        |> Sg.execute
-                        |> Sg.map ViewerMessage
-        
-        //onBoot "attachResize('__ID__')" (
-        //    DomNode.RenderControl((renderControlAttributes id m), cam, cmds, None)
-        //)
         onBoot "attachResize('__ID__')" (
             DomNode.RenderControl((instrumentControlAttributes id m), icam, icmds) //AttributeMap.Empty
         )
@@ -3099,24 +3267,21 @@ module ViewerApp =
 
         let overlayed = createOverlaySg m
 
-        // the surfaces, offscreen at the control's size: their depth texture is what the
-        // annotation fills are drawn against (#841)
-        let size = m.viewPortSizes |> AMap.tryFind id |> AVal.map (Option.defaultValue V2i.II)
-        let offscreen =
-            ViewerUtils.offscreenView runtime dataSamples m.scene.surfacesModel.sgGrouped
-                m.navigation.camera.view frustum size true false m
+        let grouped = ViewerUtils.createGroupedSgs runtime m.scene.surfacesModel.sgGrouped m.navigation.camera.view true false m
+        let depthTested, fills, maps =
+            getDepthTested frustum m.navigation.camera.view observer id runtime m //annotations + scaleBars
 
-        let depthTested =
-            getDepthTested frustum m.navigation.camera.view observer (Some offscreen.surfaces) id runtime m //annotations + scaleBars
-
-        //render OPCs in priority groups
-        let cmds  =
-            ViewerUtils.renderCommands offscreen overlayed depthTested
-            |> Aardvark.UI.RenderCommand.Ordered
-            |> Sg.execute
+        // OPCs in priority groups, offscreen per render client: their depth texture is what
+        // the annotation fills are drawn against (#841)
+        let cmds (values : RenderClientValues) =
+            ViewerUtils.offscreenScene dataSamples grouped overlayed depthTested fills maps values
             |> Sg.map ViewerMessage
-        onBoot "attachResize('__ID__')" (
-            DomNode.RenderControl((renderControlAttributes id m), cam, cmds)
+
+        // the control's id is its scene name on the render server; screenshots need it
+        onBoot "aardvark.processEvent('__ID__', 'pro3dSceneBooted', '__ID__')" (
+            onBoot "attachResize('__ID__')" (
+                DomNode.RenderControl((renderControlAttributes id m), cam, cmds)
+            )
         )
         
     let view (runtime : IRuntime) (m: AdaptiveModel) = //(localhost: string)

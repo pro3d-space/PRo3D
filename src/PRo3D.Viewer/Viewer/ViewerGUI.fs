@@ -2037,11 +2037,27 @@ module Gui =
               ]      
           ] |> UI.map SequencedBookmarkMessage
     
+    /// The page-body key handler's message on the annotation pages: Delete deletes the
+    /// selected annotations (one undo step), everything else is a Ctrl shortcut.
+    let annotationShortcut (k : Aardvark.Application.Keys) (shift : bool) : ViewerAction =
+        match k with
+        | Aardvark.Application.Keys.Delete -> ViewerAction.DrawingMessage DrawingAction.DeleteSelectedAnnotations
+        | _ -> CtrlShortcut (k, shift)
+
     //TODO refactor: two codes for resize attachments
     module Pages =
         let mutable renderViewportSizeId = System.Guid.NewGuid().ToString()
         let pageRouting viewerDependencies bodyAttributes (m : AdaptiveModel) viewInstrumentView viewRenderView (runtime : IRuntime) (request : IHttpRequest) =
-            
+            // Every dock panel is its own document: each page body carries the Ctrl+Z/Y/S
+            // handler so the shortcuts work in whichever panel has focus; the annotation pages
+            // also take Delete (docs/KeyboardShortcuts.md).
+            let ctrlShortcut : Attribute<ViewerAnimationAction> =
+                Events.onCtrlShortcut (fun k shift -> CtrlShortcut (k, shift)) |> ViewerUtils.mapAttribute ViewerMessage
+            let annotationShortcuts : Attribute<ViewerAnimationAction> =
+                Events.onCtrlShortcutOrDelete annotationShortcut |> ViewerUtils.mapAttribute ViewerMessage
+            let annotationBodyAttributes = annotationShortcuts :: bodyAttributes
+            let bodyAttributes = ctrlShortcut :: bodyAttributes
+
             match request.QueryParam "page" with
             | Some "instrumentview" ->
                 let id = System.Guid.NewGuid().ToString()
@@ -2065,7 +2081,7 @@ module Gui =
                       |> AttributeMap.mapAttributes (AttributeValue.map ViewerMessage)
 
                 require (viewerDependencies) (
-                    body [ style "background: #1B1C1E; width:100%; height:100%; overflow-y:auto; overflow-x:auto;"] [
+                    body [ ctrlShortcut; style "background: #1B1C1E; width:100%; height:100%; overflow-y:auto; overflow-x:auto;"] [
                       Incremental.div instrumentViewAttributes (
                         alist {
                             yield viewInstrumentView runtime id m 
@@ -2077,8 +2093,15 @@ module Gui =
             | Some "mapprojection" ->
                 // map projection panel (#772); gates itself to small bodies
                 require (viewerDependencies) (
-                    body [ style "background: #1B1C1E; width:100%; height:100%; overflow:hidden" ] [
+                    body [ ctrlShortcut; style "background: #1B1C1E; width:100%; height:100%; overflow:hidden" ] [
                         MapProjectionHost.view m |> UI.map ViewerMessage
+                    ]
+                )
+            | Some "imageinspector" ->
+                // selected projected image in 2D, hover-linked to 3D (docs/dev/shadowEstimation.md)
+                require (viewerDependencies) (
+                    body [ ctrlShortcut; style "background: #1B1C1E; width:100%; height:100%; overflow:hidden" ] [
+                        ImageInspector.view m |> UI.map ViewerMessage
                     ]
                 )
             | Some "render" -> 
@@ -2093,8 +2116,9 @@ module Gui =
                         onEvent "onfocus" ["{ X: $(document).width(), Y: $(document).height()  }"] (List.head >> Pickler.json.UnPickleOfString >> cb)
 
                     let renderViewAttributes : list<Attribute<ViewerAnimationAction>> = 
-                        [ 
+                        [
                         style "background: #1B1C1E; height:100%; width:100%"
+                        Events.onCtrlShortcutOrDelete annotationShortcut
                         Events.onClick (fun _ -> SwitchViewerMode ViewerMode.Standard)
                         onResize (fun s -> OnResize(s, renderViewportSizeId))
                         onFocus (fun s -> OnResize(s, renderViewportSizeId))
@@ -2174,7 +2198,7 @@ module Gui =
                         [SurfaceApp.surfaceUI m.scene.scenePath Config.colorPaletteStore m.scene.referenceSystem m.scene.surfacesModel |> UI.map SurfaceActions |> UI.map ViewerMessage]
                 )
             | Some "annotations" -> 
-                require (viewerDependencies) (body bodyAttributes [Annotations.annotationUI m
+                require (viewerDependencies) (body annotationBodyAttributes [Annotations.annotationUI m
                                                                         |> UI.map ViewerMessage])
             | Some "validation" -> 
                 require (viewerDependencies) (body bodyAttributes [HeightValidatorApp.viewUI m.heighValidation 
@@ -2229,6 +2253,11 @@ module Gui =
                             Incremental.div AttributeMap.empty (AList.ofAValSingle (Annotations.viewBulkAnnotationProperties m))
                         ]
 
+                        GuiEx.accordion "Supporting Profiles" "chart line" false [
+                            PRo3D.Core.Drawing.UI.viewSupportingProfiles m.drawing
+                            |> UI.map ViewerAction.DrawingMessage
+                        ]
+
                         GuiEx.accordion "Measurements" "Content" true [
                             Incremental.div AttributeMap.empty (AList.ofAValSingle results)                                        
                         ]
@@ -2243,7 +2272,7 @@ module Gui =
                             Incremental.div AttributeMap.empty (AList.ofAValSingle(Annotations.viewColorByCategory m))]
                     ]
 
-                require (viewerDependencies) (body bodyAttributes (blurg() |> List.map (UI.map ViewerMessage)))
+                require (viewerDependencies) (body annotationBodyAttributes (blurg() |> List.map (UI.map ViewerMessage)))
             | Some "config" ->
                 require (viewerDependencies) (body bodyAttributes [Config.configUI m |> UI.map ViewerMessage])
             | Some "viewplanner" -> 
@@ -2301,7 +2330,7 @@ module Gui =
             | None ->
                 require (viewerDependencies) (
                     onBoot (sprintf "document.title = '%s'" Config.title) (
-                        body [] [
+                        body [ ctrlShortcut ] [
                             TopMenu.getTopMenu m
                             |> UI.map ViewerMessage
                             div [clazz "dockingMainDings"] [

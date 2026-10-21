@@ -72,6 +72,7 @@
     <Compile Include="Viewer\Shaders.fs" />
     <Compile Include="Viewer\SunShadowMap.fs" />
     <Compile Include="Viewer\MapProjectionHost.fs" />
+    <Compile Include="Viewer\ImageInspector.fs" />
     <Compile Include="Viewer\Viewer-Utils.fs" />
     <Compile Include="Viewer\SurfaceEffectHarness.fs" />
     <Compile Include="SceneBodySync.fs" />

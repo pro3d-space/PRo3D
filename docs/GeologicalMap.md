@@ -170,7 +170,7 @@ places for it, spread over its area, and shows the code at the one facing the ca
 of units facing away are hidden. Units without a label have no code (they are hatched).
 
 Unlike outlines, the units are only drawn in views that render their surfaces offscreen (main
-and instrument view); [Snapshots](../ai/AUTOMATION.md) and the [map projection view](MapProjectionView.md) do not show them yet.
+and instrument view, and [screenshots](Screenshots.md) of them at any size); [Snapshots](../ai/AUTOMATION.md) and the [map projection view](MapProjectionView.md) do not show them yet.
 
 ## Where it is stored
 
@@ -185,7 +185,6 @@ maps; contacts and label points stay ordinary annotations there.
   a sphere and correct on any body where each ray from the centre meets the surface once
   (Dimorphos, Didymos, Mars). Bodies with overhanging shapes (67P) are not supported.
 - Map scenes need the scene body set (annotations in body-fixed coordinates).
-- Screenshots at a size other than the window's show the units misaligned (to be fixed).
 - Maps are not shown in the map projection view or in Snapshots, and cannot be exported to
   GeoPackage yet.
 

@@ -190,10 +190,10 @@ The one list of what is missing or wrong, for later handling. The user doc's
 [Limitations](../GeologicalMap.md#limitations) links here.
 
 **Output**
-- Server screenshots (`/rendering/screenshot`, Screenshot panel) at a size other than the
-  window's: units misaligned. Fix after #842 is in develop: render the maps in its per-client
-  offscreen scene (`RenderClientValues`) and extend the screenshot comparison of
-  `annotation-fill.spec.ts` to maps.
+- Server screenshots (`/rendering/screenshot`, Screenshot panel) at another size: the units are
+  drawn per render client against its own surface depth (`ViewerUtils.offscreenScene`, checked
+  by `geological-map.spec.ts` at 2x wide and 1.5x), but the unit codes keep the live view's
+  on-screen size (`TextView` is the live camera and viewport).
 - Not drawn in the map projection view (`PRo3D.MapProjection`) or Snapshots.
 - No GeoPackage export.
 

@@ -34,6 +34,7 @@ module CommandLine =
         Log.line @"--remoteApi                         enables PRo3D REST API"
         Log.line @"--enableProvenance                  enabled provenance tracking feature."
         Log.line @"--defaultSpiceKernel                path to a custom SPICE kernel to be loaded at startup."
+        Log.line @"--screenshotDirectory [path]        folder the Screenshots panel saves into; default: the PRo3D AppData folder"
         
         Log.line @"--snap [path\snapshot.json]         path to a snapshot file containing camera views (old format)"
         Log.line @""
@@ -75,6 +76,8 @@ module CommandLine =
 
             let disablePreviewIntersections = argv |> hasFlag "disablePreviewIntersections"
 
+            let screenshotDirectory = parseArg "--screenshotDirectory" argv
+
             Log.line "[Arguments] Server mode: %s" (b2str server)
             Log.line "[Arguments] Using linear magnification filtering%s" (b2str magFilter)
             Log.line "[Arguments] Show exploration centre%s" (b2str showExplorationCentre)
@@ -107,5 +110,6 @@ module CommandLine =
                 defaultSpiceKernelPath   = spiceKernelPath
                 loadScene                = loadScene
                 allowPreviewIntersections = not disablePreviewIntersections
+                screenshotDirectory      = screenshotDirectory
             }
             args

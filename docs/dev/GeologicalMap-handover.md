@@ -44,9 +44,8 @@ All known gaps are listed once, in
 [GeologicalMap-architecture.md](GeologicalMap-architecture.md#known-limitations-and-open-gaps).
 Next steps for this PR:
 
-1. #842 lands separately; then merge `develop` into this branch and render the maps in the
-   per-client offscreen scene (server screenshots), with a screenshot test for maps.
-2. Mark ready, request review.
+1. Mark ready, request review. (#842 is in develop and merged here; the maps render per
+   render client, so server screenshots of any size show them.)
 
 ### Video of the story
 

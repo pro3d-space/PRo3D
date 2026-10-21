@@ -1,7 +1,8 @@
-import { test, expect, Page } from "@playwright/test";
+import { test, expect, Page, BrowserContext } from "@playwright/test";
 import { fixture } from "../src/pro3d";
 import { awaitIdle, annotationCount, clickTool, drawingScene, openDrawingViewer, pick, selectByOption, settled, tool } from "../src/drawing";
 import { PNG } from "pngjs";
+import { mismatch, renderClient, serverShot, shotsFor } from "../src/server-shot";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -59,6 +60,19 @@ function changedFraction(a: PNG, b: PNG, x0: number, y0: number, x1: number, y1:
     return changed / total;
 }
 
+/** Fraction of pixels in the rectangle within `tol` of the colour. */
+function colourFraction(p: PNG, rgb: [number, number, number], x0: number, y0: number, x1: number, y1: number, tol = 6) {
+    let n = 0;
+    let total = 0;
+    for (let y = y0; y < y1; y++)
+        for (let x = x0; x < x1; x++) {
+            const i = (y * p.width + x) * 4;
+            if (Math.abs(p.data[i] - rgb[0]) <= tol && Math.abs(p.data[i + 1] - rgb[1]) <= tol && Math.abs(p.data[i + 2] - rgb[2]) <= tol) n++;
+            total++;
+        }
+    return n / total;
+}
+
 test("a filled polygon tints the terrain inside its outline, bulge included", async ({ browser }) => {
     test.skip(!fs.existsSync(fixture.sceneTemplate), "set PRO3D_TEST_DATA");
 
@@ -78,8 +92,9 @@ test("a filled polygon tints the terrain inside its outline, bulge included", as
 
         const before = await settled(render, "2-before.png", save);
 
-        // a square of picks around the centre of the view, then Enter closes the polygon
         const vp = render.viewportSize() ?? { width: 1600, height: 900 };
+
+        // a square of picks around the centre of the view, then Enter closes the polygon
         const cx = Math.round(vp.width / 2);
         const cy = Math.round(vp.height / 2);
         const r = 120;
@@ -108,6 +123,43 @@ test("a filled polygon tints the terrain inside its outline, bulge included", as
         const outside = changedFraction(a, b, cx + r + 30, cy - 40, cx + r + 90, cy + 40);
         console.log(`outside the outline: ${(outside * 100).toFixed(1)}% of pixels changed`);
         expect(outside, "nothing outside the outline is tinted").toBeLessThan(0.05);
+
+        // Server screenshots of other sizes and aspect ratios show the same picture: surfaces,
+        // fill and outline where the live view has them. Taken last, after every live-view
+        // check, so a screenshot cannot influence those.
+        const client = await renderClient(render);
+        expect(client, "the render control's element id").not.toBe("");
+        const control = await render.evaluate(() => {
+            const rc = document.querySelector("img.rendercontrol")!.getBoundingClientRect();
+            return { width: Math.round(rc.width), height: Math.round(rc.height) };
+        });
+        for (const s of shotsFor(control.width, control.height)) {
+            const png = await serverShot(context, app, client, s);
+            save(`4-server-${s.name}.png`, png);
+            const shot = PNG.sync.read(png);
+            expect([shot.width, shot.height], `screenshot ${s.name} has the requested size`).toEqual([s.w, s.h]);
+            const sIn = mismatch(b, shot, cx - inner, cy - inner, cx + inner, cy + inner);
+            const sOut = mismatch(b, shot, cx + r + 30, cy - 40, cx + r + 90, cy + 40);
+            console.log(`server ${s.name} ${s.w}x${s.h}: ${(sIn * 100).toFixed(1)}% of the fill and ${(sOut * 100).toFixed(1)}% of the band outside differ from the live view`);
+            expect(sIn, `${s.name}: the fill as in the live view`).toBeLessThan(0.1);
+            expect(sOut, `${s.name}: outside the outline as in the live view`).toBeLessThan(0.1);
+        }
+
+        // a screenshot's background is the requested one wherever there is no surface - the
+        // offscreen copy blends over the target's clear colour instead of replacing it
+        {
+            const s: Shot = { name: "background", w: control.width, h: control.height, samples: 4 };
+            const plain = PNG.sync.read(await serverShot(context, app, client, s));
+            const png = await serverShot(context, app, client, s, "&background=[1.0,0.0,1.0,1.0]");
+            save(`6-server-background.png`, png);
+            const magenta = PNG.sync.read(png);
+            const sky = colourFraction(plain, [0, 0, 0], 0, 0, s.w, s.h, 2);
+            const pink = colourFraction(magenta, [255, 0, 255], 0, 0, s.w, s.h);
+            console.log(`server background: ${(sky * 100).toFixed(1)}% black by default, ${(pink * 100).toFixed(1)}% magenta when asked`);
+            expect(sky, "a screenshot with the default background has black sky, not the viewer's #222222").toBeGreaterThan(0.01);
+            expect(Math.abs(pink - sky), "the requested background shows where the default one did").toBeLessThan(0.01);
+        }
+
     } finally {
         await context.close();
         await app.stop();
