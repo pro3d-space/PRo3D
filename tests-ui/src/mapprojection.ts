@@ -1,4 +1,4 @@
-// Launcher for the standalone map projection app (PRo3D.MapProjection.exe, #772).
+// Launcher for the standalone map projection app (PRo3D.MapProjection.Standalone.exe, #772).
 import { spawn, ChildProcess } from "child_process";
 import * as fs from "fs";
 import * as http from "http";
@@ -7,7 +7,7 @@ import * as path from "path";
 
 export const mapExe =
     process.env.PRO3D_MAP_EXE ??
-    path.join(__dirname, "..", "..", "bin", "Release", "net9.0", "PRo3D.MapProjection.exe");
+    path.join(__dirname, "..", "..", "bin", "Release", "net9.0", "PRo3D.MapProjection.Standalone.exe");
 
 export interface MapApp {
     url: string;
@@ -46,7 +46,7 @@ async function freePort(): Promise<number> {
     });
 }
 
-/** Start PRo3D.MapProjection.exe in --server mode on `opcs` and wait until it serves. A free port
+/** Start PRo3D.MapProjection.Standalone.exe in --server mode on `opcs` and wait until it serves. A free port
  *  per launch: a fixed one collides with a previous app still shutting down. */
 export async function launchMap(opcs: string[], extraArgs: string[] = [], fixedPort?: number): Promise<MapApp> {
     const port = fixedPort ?? (await freePort());

@@ -1,13 +1,15 @@
 # Map Projection View
 
-Synopsis: a panel showing a small body's OPC surfaces as a 2D map, **equirectangular** or
-**polar stereographic**, with a lat/lon graticule. It runs standalone too.
+Synopsis: a panel showing a body's OPC surfaces as a 2D map, **equirectangular** or
+**polar stereographic**, with a lat/lon graticule, the data footprints and the 3D view's
+camera. It runs standalone too.
 Issue: [#772](https://github.com/pro3d-space/PRo3D/issues/772).
 Interacts with: [LatLon Shader](LatLon-Shader.md), [Scene Body](SceneBody.md), [Window Layouts](WindowLayouts.md).
 
 > **Phases 1, 1.5 and 2.** OPC surfaces with their primary texture, the graticule, pan and zoom,
-> a map-space LoD decider, and annotations (lines, fills, points, ellipses). Not yet: annotation
-> labels, dip-and-strike glyphs, picking or cursor readout, OBJ meshes, planets.
+> a map-space LoD decider, annotations (lines, fills, points, ellipses), and — for planets —
+> footprints, a camera marker and *Zoom to data*. Not yet: annotation labels, dip-and-strike
+> glyphs, picking or cursor readout, OBJ meshes.
 
 ## Using it
 
@@ -21,8 +23,9 @@ Interacts with: [LatLon Shader](LatLon-Shader.md), [Scene Body](SceneBody.md), [
 - **Standalone:**
 
   ```
-  PRo3D.MapProjection.exe --opc <dir> [--opc <dir> ...] [--annotations <file> ...]
-                          [--frame DIMORPHOS_SHM] [--planet Dimorphos] [--port 4330] [--server]
+  PRo3D.MapProjection.Standalone.exe --opc <dir> [--opc <dir> ...] [--annotations <file> ...]
+                          [--frame DIMORPHOS_SHM] [--planet Dimorphos] [--camera x,y,z]
+                          [--port 4330] [--server]
   ```
 
   `--opc` takes an OPC directory (its patch hierarchies are found below it) or a single
@@ -34,13 +37,63 @@ Interacts with: [LatLon Shader](LatLon-Shader.md), [Scene Body](SceneBody.md), [
 |---|---|
 | *Equirectangular / Polar north / Polar south* | Switches the projection and resets the view |
 | Left-drag | Pan (grab and drag: the map point under the pointer follows it) |
-| Mouse wheel | Zoom about the pointer (1× to 512×) |
+| Mouse wheel | Zoom about the pointer (1× to 32768×) |
+| *Zoom to data* | Centres and zooms on the surfaces, with a margin |
+| *Follow cursor* | The map centres on what the 3D view's cursor is over |
 | *Reset view* | Whole map, zoom 1 |
 
-The panel only draws for **small bodies** (`CooTransformation.isSmallBody`: Phobos, Deimos,
-Didymos, Dimorphos). For any other planet it shows a hint and creates **no render control**.
-There is then no render task, no patch loading and no shader compile, so a Mars session
-pays nothing, even with the panel in its layout.
+`--camera` and `--cursor` mark body-fixed positions in the standalone app, the way PRo3D marks its
+3D view and its cursor.
+
+### Follow cursor
+
+With *Follow cursor* on, the map centres on the 3D view's **preview cursor** -- the hit point of
+the pick that also feeds the *Cursor* panel. Moving the mouse over the terrain moves the map under
+it, which is what makes the map usable next to the 3D view on a planet, where the data is a speck
+in a 360-degree map.
+
+Three things follow from where that hit point comes from:
+
+- **It updates only while picking** -- Ctrl held, or Direct Tool Mode with a tool armed -- because
+  that is when PRo3D runs the preview pick. While you fly the camera around, the map holds the
+  centre it last followed to; it does not jump home. The panel reads that pick, it does not cause
+  one, so nothing about picking changes for anyone who never opens the map.
+- **Taking over keeps the view.** Switching the toggle off, or grabbing the map with the mouse,
+  adopts the centre the map is showing and stops following, so nothing jumps.
+- **The wheel keeps following** and only changes the zoom: while the centre belongs to the cursor,
+  zooming about the pointer would fight it.
+
+The cursor is drawn as a green marker whenever there is a hit, whether or not the map is following,
+next to the orange camera marker. On a planet both markers are usually the only things you can see
+until you zoom in (see *Planets* above).
+
+Cost: re-centring is one frame per pick and independent of how many surfaces the scene has --
+measured at 4, 24 and 43 Jezero surfaces, the map delivered one frame per centre change with a
+worst gap of about 50 ms, i.e. it is input-bound. A map that is not being moved renders nothing at
+all, and a panel whose tab is not selected does no work in the first place (`plans/mapFollowCursor.md`
+records both measurements).
+
+The panel draws for **any body the scene is referenced to**, planets included. Without a body
+it shows a hint and creates **no render control**: no render task, no patch loading, no shader
+compile. Since it is a panel one opens, a session that never opens it pays nothing either way.
+
+### Planets
+
+A planet is mostly a question of scale, not of correctness. A Jezero OPC tile is 2.7 km across,
+which on Mars (1° ≈ 59.3 km) is **0.045°**: on a whole-planet map in a 1024-pixel panel that is
+**0.13 pixels**, and the whole 118-surface mosaic is about a pixel. Nothing is broken when such a
+map looks empty — the data is simply far below one pixel. Three things make it usable:
+
+- **Footprints.** Every surface gets a rectangle where its data is, never smaller than
+  `MapSg.footprintMinPixels` (9 px), so you can see *that* there is data and where.
+- **The camera marker.** An orange crosshair with a gap, at the 3D view's camera position, at a
+  constant size on screen. On a planet this is what tells you where you are looking.
+- ***Zoom to data*** and a maximum zoom of 32768 (0.6 m/pixel on Mars, where the float32 body
+  positions are worth about 0.2 m — still under a pixel).
+
+Precision is not the limit here: the map only needs longitude and latitude, and 0.2 m at Mars
+radius is 0.01 arcseconds. The `float32` caveat below still applies to what the *shader* does
+with positions, not to where the map puts them.
 
 In PRo3D the panel follows the scene's **planet**, which requires a body-fixed scene
 (docs/SceneBody.md). A scene observing Dimorphos in `J2000` has planet `None`: its world axes
@@ -76,7 +129,7 @@ bound to the scene body, or unbound surfaces inheriting it.
 | [`src/PRo3D.MapProjection/MapSg.fs`](../src/PRo3D.MapProjection/MapSg.fs) | Scene graphs. **The single composition the panel and the tests share** |
 | [`src/PRo3D.MapProjection/MapAnnotations.fs`](../src/PRo3D.MapProjection/MapAnnotations.fs) | Annotations on the map: PRo3D's packed annotation buffers with the map shader stages; loading annotation files for the standalone app |
 | [`src/PRo3D.MapProjection/MapProjectionApp.fs`](../src/PRo3D.MapProjection/MapProjectionApp.fs) | Model update (pan, zoom, projection), view, and `app` for standalone use |
-| [`src/PRo3D.MapProjection/Program.fs`](../src/PRo3D.MapProjection/Program.fs) | `PRo3D.MapProjection.exe` |
+| [`src/PRo3D.MapProjection.Standalone/Program.fs`](../src/PRo3D.MapProjection.Standalone/Program.fs) | `PRo3D.MapProjection.Standalone.exe` |
 | [`src/PRo3D.Viewer/Viewer/MapProjectionHost.fs`](../src/PRo3D.Viewer/Viewer/MapProjectionHost.fs) | Everything the viewer knows about the panel: which surfaces it draws and where they sit |
 
 ### Rendering
@@ -257,5 +310,5 @@ A render control only renders on change, so these are costs while something move
   - labels;
   - chord densification: on the CPU, or with tessellation isolines, which set their subdivision
     level per segment at runtime.
-- **Planets:** a per-patch double anchor, the LoD decider, planetographic/west-positive
+- **Planets, deeper:** a per-patch double anchor, planetographic/west-positive
   conventions.
