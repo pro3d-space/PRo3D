@@ -202,6 +202,9 @@ module ViewerApp =
             getDnsPlaneSize     = fun (x:AdaptiveViewConfigModel) -> x.dnsPlaneSize.value
             getOffset           = fun (x:AdaptiveViewConfigModel) -> AVal.constant(0.1)//x.offset.value
             getPickingTolerance = fun (x:AdaptiveViewConfigModel) -> x.pickingTolerance.value
+            getFillReach        = fun (x:AdaptiveViewConfigModel) ->
+                                      (x.fillReachAuto, x.fillReach.value) ||> AVal.map2 (fun auto metres ->
+                                          if auto then FillReach.Auto else FillReach.Metres metres)
         }
 
     let navConf : Navigation.smallConfig<ViewConfigModel, ReferenceSystem> =
@@ -1990,7 +1993,9 @@ module ViewerApp =
 
             // the layout belongs to the user, not the scene; a fresh Golden Layout model would also
             // reset the version its browser channel compares against and swallow the next change
-            { initialModel with recent = m.recent; layout = m.layout } |> ViewerIO.loadRoverData
+            // nor do the render controls on screen belong to it: they do not boot again
+            { initialModel with recent = m.recent; layout = m.layout; mainViewScenes = m.mainViewScenes }
+            |> ViewerIO.loadRoverData
 
         | KeyDown k, _ ->
             let m =
@@ -2271,6 +2276,11 @@ module ViewerApp =
         | ResizeMainControl (a,id),_ -> 
             printfn "[main] resize %A" (a,id)
             updateFrustumAspect m a id
+        | MainViewBooted sceneName, _ ->
+            // a page that closes or reloads never says so: keep the newest few, screenshots skip
+            // the ones the render server no longer renders
+            let older = m.mainViewScenes |> List.filter (fun s -> s <> sceneName) |> List.truncate 15
+            { m with mainViewScenes = sceneName :: older }
         | ResizeInstrumentControl (a,id),_ -> 
             printfn "[instrument] resize %A" (a,id)
             updateFrustumAspect m a id
@@ -2449,6 +2459,7 @@ module ViewerApp =
                     m.renderingUrl 
                     m.numberOfSamples 
                     m.screenshotDirectory 
+                    m.mainViewScenes
                     m.scene.screenshotModel
                     msg
 
@@ -2754,6 +2765,14 @@ module ViewerApp =
                 onKeyUp   (KeyUp)
                 releaseModifiersOnBlur
                 clazz "mainrendercontrol"
+                // from the boot script in viewRenderView, carrying the control's own id - its scene
+                // name on the render server, which screenshots of the main view ask for
+                onEvent "pro3dSceneBooted" [] (
+                    fun p ->
+                        match p with
+                        | [sceneName] -> MainViewBooted (Pickler.json.UnPickleOfString sceneName)
+                        | _ -> Nop
+                )
                 onEvent "resizeControl"  [] (
                     fun p -> 
                         match p with
@@ -2964,13 +2983,16 @@ module ViewerApp =
             else PRo3D.Core.Drawing.Sg.lines C4b.VRVisGreen 3.0 points)
         |> Sg.dynamic
 
-    // depthTested that occur in instrumentview + main renderview
+    // depthTested that occur in instrumentview + main renderview, and the annotation fills -
+    // not drawn yet: the views draw them against their offscreen surfaces
+    // (ViewerUtils.offscreenScene), Snapshots with the stencil renderer
     let getDepthTested (frustum: aval<Frustum>) (view :aval<CameraView>) (observer : aval<ObserverSystem option>) (id : string) (runtime : IRuntime) (m: AdaptiveModel) =
-        let annotations, discs = 
+        let annotations, discs, fills =
             DrawingApp.view 
                 m.scene.config 
                 mdrawingConfig
                 observer
+                m.scene.referenceSystem.planet
                 view //m.navigation.camera.view 
                 frustum
                 runtime
@@ -3098,14 +3120,16 @@ module ViewerApp =
             let camera = (view, frustum) ||> AVal.map2 Camera.create
             Gis.GisApp.viewGisEntities camera m.scene.gisApp |> Sg.noEvents
 
-        [
-            depthTested; 
-            heightValidationDiscs; 
-            sceneObjects; 
-            geologicSurfacesSg
-            gisEntities
-            ellipseDrawing
-        ] |> Sg.ofList
+        let sg =
+            [
+                depthTested;
+                heightValidationDiscs;
+                sceneObjects;
+                geologicSurfacesSg
+                gisEntities
+                ellipseDrawing
+            ] |> Sg.ofList
+        sg, fills
 
     let viewInstrumentView (runtime : IRuntime) (id : string) (m: AdaptiveModel) = 
         let frustum = m.scene.viewPlans.instrumentFrustum
@@ -3113,18 +3137,15 @@ module ViewerApp =
         let icam = AVal.map2 Camera.create (m.scene.viewPlans.instrumentCam) m.scene.viewPlans.instrumentFrustum
 
         let ioverlayed = getOverlayed m m.scene.viewPlans.instrumentCam frustum
-       
-        let depthTested = getDepthTested frustum m.scene.viewPlans.instrumentCam observer id runtime m
 
-        // instrument view control
-        let icmds = ViewerUtils.renderCommands m.scene.surfacesModel.sgGrouped ioverlayed depthTested m.scene.viewPlans.instrumentCam false true runtime m // m.scene.surfacesModel.sgGrouped overlayed discs m
-                        |> Aardvark.UI.RenderCommand.Ordered
-                        |> Sg.execute
-                        |> Sg.map ViewerMessage
-        
-        //onBoot "attachResize('__ID__')" (
-        //    DomNode.RenderControl((renderControlAttributes id m), cam, cmds, None)
-        //)
+        let grouped = ViewerUtils.createGroupedSgs runtime m.scene.surfacesModel.sgGrouped m.scene.viewPlans.instrumentCam false true m
+        let depthTested, fills = getDepthTested frustum m.scene.viewPlans.instrumentCam observer id runtime m
+
+        // instrument view control; surfaces offscreen per render client (#841)
+        let icmds (values : RenderClientValues) =
+            ViewerUtils.offscreenScene dataSamples grouped ioverlayed depthTested fills values
+            |> Sg.map ViewerMessage
+
         onBoot "attachResize('__ID__')" (
             DomNode.RenderControl((instrumentControlAttributes id m), icam, icmds) //AttributeMap.Empty
         )
@@ -3186,24 +3207,21 @@ module ViewerApp =
 
         let overlayed = createOverlaySg m
 
-        let depthTested = 
+        let grouped = ViewerUtils.createGroupedSgs runtime m.scene.surfacesModel.sgGrouped m.navigation.camera.view true false m
+        let depthTested, fills =
             getDepthTested frustum m.navigation.camera.view observer id runtime m //annotations + scaleBars
 
-        //render OPCs in priority groups
-        let cmds  = 
-            ViewerUtils.renderCommands 
-                m.scene.surfacesModel.sgGrouped 
-                overlayed depthTested 
-                m.navigation.camera.view 
-                true 
-                false 
-                runtime 
-                m
-            |> Aardvark.UI.RenderCommand.Ordered
-            |> Sg.execute
+        // OPCs in priority groups, offscreen per render client: their depth texture is what
+        // the annotation fills are drawn against (#841)
+        let cmds (values : RenderClientValues) =
+            ViewerUtils.offscreenScene dataSamples grouped overlayed depthTested fills values
             |> Sg.map ViewerMessage
-        onBoot "attachResize('__ID__')" (
-            DomNode.RenderControl((renderControlAttributes id m), cam, cmds)
+
+        // the control's id is its scene name on the render server; screenshots need it
+        onBoot "aardvark.processEvent('__ID__', 'pro3dSceneBooted', '__ID__')" (
+            onBoot "attachResize('__ID__')" (
+                DomNode.RenderControl((renderControlAttributes id m), cam, cmds)
+            )
         )
         
     let view (runtime : IRuntime) (m: AdaptiveModel) = //(localhost: string)

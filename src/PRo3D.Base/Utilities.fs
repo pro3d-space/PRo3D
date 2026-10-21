@@ -1589,6 +1589,14 @@ module ScreenshotUtilities =
             (downloadClientStatisticsAsync baseAddress httpClient CancellationToken.None)
                 .GetAwaiter().GetResult()
 
+        /// The scene a screenshot of the main view must ask the render server for: the first of
+        /// `candidates` (the main view's render controls, newest first) that the server still
+        /// renders. The server lists every live render control - the main view, the instrument
+        /// view, each page and iframe showing one - in no particular order, so its list alone
+        /// cannot say which is the main view. None: no main view is live.
+        let tryChooseScene (candidates : list<string>) (live : list<ClientStatistics>) =
+            candidates |> List.tryFind (fun c -> live |> List.exists (fun s -> s.name = c))
+
         let getScreenshotUrl baseAddress clientStatistic width height =                                
 
             let screenshot = sprintf "%s/rendering/screenshot/%s?w=%d&h=%d&samples=4" baseAddress clientStatistic.name width height

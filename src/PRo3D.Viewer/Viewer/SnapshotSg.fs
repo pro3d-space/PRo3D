@@ -118,6 +118,10 @@ module SnapshotSg =
                     if (not calcDepth) then yield RenderCommand.ClearDepth 1.0
                     yield RenderCommand.Render sg
                     
+                // Snapshots render surfaces directly (no offscreen depth texture), so their fills
+                // use the stencil renderer (PackedRendering.packedFillRender), which counts in the
+                // stencil: start it from zero, whatever selection outlines left behind (#841)
+                yield RenderCommand.ClearStencil 0
                 yield RenderCommand.Render depthTested
                 if (not calcDepth) then 
                     yield RenderCommand.ClearDepth 1.0
@@ -134,8 +138,12 @@ module SnapshotSg =
 
         let overlayed = ViewerApp.createOverlaySg m
 
-        let depthTested = 
-            ViewerApp.getDepthTested frustum m.navigation.camera.view observer id runtime m //annotations + scaleBars
+        // Snapshots render surfaces directly, so their fills use the stencil renderer, in the
+        // same scene graph as the annotations (its passes run ahead of theirs)
+        let depthTested =
+            let sg, fills = ViewerApp.getDepthTested frustum m.navigation.camera.view observer id runtime m //annotations + scaleBars
+            Sg.ofList [ sg; PackedRendering.packedFillRender fills |> Sg.noEvents ]
+
 
         let camera = AVal.map2 (fun v f -> Camera.create v f) m.navigation.camera.view m.frustum 
         let sg = createSceneGraph m.scene.surfacesModel.sgGrouped 
