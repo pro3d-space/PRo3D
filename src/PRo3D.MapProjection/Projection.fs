@@ -115,6 +115,48 @@ module Projection =
         let scale = V3d(2.0 * pixelsPerUnit / size.X, 2.0 * pixelsPerUnit / size.Y, 1.0)
         Trafo3d.Translation(-center.X, -center.Y, 0.0) * Trafo3d.Scale scale
 
+    /// Map units one pixel covers, for anything drawn at a constant size on screen
+    /// (the camera marker, the minimum size of a data footprint).
+    let unitsPerPixel (kind : MapProjectionKind) (maxColatitude : float) (zoom : float) (viewport : V2i) =
+        let e = extent kind maxColatitude
+        let size = V2d(float (max 1 viewport.X), float (max 1 viewport.Y))
+        1.0 / (zoom * min (size.X / e.Size.X) (size.Y / e.Size.Y))
+
+    /// Map-space box around body-centred positions -- a bounding box's corners, a camera.
+    /// On the equirectangular map the longitudes are unwrapped relative to the first position,
+    /// so a footprint sitting on the +-180 degree meridian stays one small box instead of
+    /// spanning the whole map. None when there is nothing to bound.
+    let mapBoxOf (kind : MapProjectionKind) (positions : seq<V3d>) : Option<Box2d> =
+        let mutable box = Box2d.Invalid
+        let mutable lon0 = nan
+        for p in positions do
+            let ll = lonLatR p
+            if ll.Z > 0.0 then
+                let lon =
+                    if kind <> MapProjectionKind.Equirectangular then ll.X
+                    elif Double.IsNaN lon0 then
+                        lon0 <- ll.X
+                        ll.X
+                    else lon0 + wrapPi (ll.X - lon0)
+                box <- box.ExtendedBy(forward kind lon ll.Y)
+        if box.IsInvalid then None else Some box
+
+    /// Centre and zoom that fit `box` into the viewport, using `fill` of the shorter side
+    /// (0.8 leaves a margin around the data). Never zooms out past the whole map.
+    let fitBox (kind : MapProjectionKind) (maxColatitude : float) (viewport : V2i) (fill : float) (maxZoom : float) (box : Box2d) =
+        let e = extent kind maxColatitude
+        let size = V2d(float (max 1 viewport.X), float (max 1 viewport.Y))
+        let baseScale = min (size.X / e.Size.X) (size.Y / e.Size.Y)
+        // a point (or a footprint far below one pixel) has no extent to fit: go to maxZoom
+        let needed =
+            let s = box.Size
+            if s.X <= 0.0 && s.Y <= 0.0 then infinity
+            else
+                let byX = if s.X > 0.0 then size.X / s.X else infinity
+                let byY = if s.Y > 0.0 then size.Y / s.Y else infinity
+                min byX byY
+        let zoom = clamp 1.0 maxZoom (fill * needed / baseScale)
+        box.Center, zoom
     /// Map-space position under a pixel (origin top left, pixel centres at +0.5).
     let pixelToMap (viewProj : Trafo3d) (viewport : V2i) (pixel : V2d) =
         let ndc = V3d(2.0 * pixel.X / float viewport.X - 1.0, 1.0 - 2.0 * pixel.Y / float viewport.Y, 0.0)

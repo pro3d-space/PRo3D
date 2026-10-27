@@ -48,7 +48,7 @@ For a rendering feature, climb from cheap to expensive, each rung green before t
 4. **Benchmark** (`Tests.dll --bench-...`, reusing `SurfaceEffectBenchmark.Bench`): a tool,
    not a test.
 5. **Playwright**: the panel in the real app. A feature that can run standalone
-   (`PRo3D.MapProjection.exe --server`) gets a spec against the standalone app, plus one
+   (`PRo3D.MapProjection.Standalone.exe --server`) gets a spec against the standalone app, plus one
    check that PRo3D's page shows the same thing.
 
 ## Playwright (`tests-ui/`) — drive the real app

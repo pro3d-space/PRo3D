@@ -102,6 +102,7 @@ let run () : int =
                         kind          = AVal.constant kind
                         viewProj      = AVal.constant (Projection.viewProj kind Projection.defaultMaxColatitude V2d.Zero 1.0 size)
                         maxColatitude = AVal.constant Projection.defaultMaxColatitude
+                        unitsPerPixel = AVal.constant 1.0
                         radiusRange   = AVal.constant (Projection.radiusRange maxR)
                     }
                 let surface : MapSg.MapSurface =
@@ -145,13 +146,14 @@ let run () : int =
                         kind          = AVal.constant kind
                         viewProj      = AVal.constant viewProj
                         maxColatitude = AVal.constant Projection.defaultMaxColatitude
+                        unitsPerPixel = AVal.constant 1.0
                         radiusRange   = AVal.constant (Projection.radiusRange maxR)
                     }
                 let surface : MapSg.MapSurface =
                     { hierarchies = hierarchies; placement = AVal.constant Trafo3d.Identity; visible = AVal.constant true }
                 let sw = Stopwatch.StartNew()
                 let sg =
-                    MapAnnotations.mapWithAnnotations cfg view (ASet.single surface) inputs
+                    MapAnnotations.mapWithAnnotations cfg view MapSg.MapMarkers.none (ASet.single surface) inputs
                     |> Sg.uniform "ViewportSize" (AVal.constant size)
                     |> Sg.viewTrafo (AVal.constant Trafo3d.Identity)
                     |> Sg.projTrafo (AVal.constant Trafo3d.Identity)

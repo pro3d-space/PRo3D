@@ -91,5 +91,5 @@ module MapAnnotations =
         |> MapSg.withMapUniforms view
 
     /// The whole map: surfaces, graticule, annotations.
-    let mapWithAnnotations (cfg : OpcSg.Config) (view : MapSg.MapView) (surfaces : aset<MapSg.MapSurface>) (inputs : AnnotationInputs) : ISg =
-        Sg.ofList [ MapSg.map cfg view surfaces; sg inputs view ]
+    let mapWithAnnotations (cfg : OpcSg.Config) (view : MapSg.MapView) (markers : MapSg.MapMarkers) (surfaces : aset<MapSg.MapSurface>) (inputs : AnnotationInputs) : ISg =
+        Sg.ofList [ MapSg.map cfg view markers surfaces; sg inputs view ]
