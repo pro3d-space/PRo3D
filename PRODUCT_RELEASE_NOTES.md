@@ -1,3 +1,15 @@
+## 6.4.0-prerelease001
+First prerelease of the 6.4 line. Collects the work merged into `develop` since `6.3.0`, together with everything released as `6.3.1` to `6.3.5`.
+
+- Annotations: **fills lie on the terrain.** A filled annotation no longer z-fights with the relief inside its outline: each fill is a closed prism around its triangulation, drawn in a single pass against the surface depth (about 0.12 ms per frame for 10,000 fills). The new viewer setting *Fill Reach (m)* is *auto* by default (#841, docs/AnnotationFill.md)
+- Annotations: **supporting profiles for lineaments and craters.** *Properties → Supporting Profiles* generates Sky-projected profiles across a polyline (by spacing or by count) and through an ellipse (compass directions or the major/minor axes). New *Craters* and *Lineaments* export presets write each parent annotation together with its profiles. Toolbar toggles can create the profiles as soon as a polyline or ellipse is finished (#833, docs/SupportingProfiles.md)
+- GIS: **Image Inspector**, a new dock panel. It shows the selected projected image in 2D, linked both ways to the 3D view, and measures crater depth and boulder height from shadows: click the rim or the boulder's shadow tip, then the end of the shadow. The second point is triangulated from the camera ray and the sun ray at the image's time. The measurement itself is not saved yet; only the scale bars are (#839, docs/ImageInspector.md, docs/ShadowMeasurement.md)
+- Surfaces: **surface comparison works again.** It had been disconnected since 2021, and every action only logged `Message not handled`. Area placement, T to flip the two surfaces (with the area tool active), and the drawing of areas and differences are back. Crashes on unresolved or still-loading surfaces and on identical surfaces are fixed (#827, #829, docs/SurfaceComparison.md)
+- Surfaces: **the LatLon grid draws over projected images**, unlit, so it stays readable in shadow and on the night side. The footprint border is solid red and stays visible over the yellow equator; the cursor draws on top of everything (#847, docs/LatLon-Shader.md)
+- Export: **`groundDistance` is right on Dimorphos.** It was 0 on every row for spherical-convention bodies (#830)
+- Keyboard: **Ctrl+Z / Ctrl+Y / Ctrl+S work from every dock panel**, not only from the focused 3D view, and Ctrl no longer sticks when it is released outside the view. **Ctrl+Shift+Z redoes** (Cmd+Shift+Z on macOS). **Delete removes the selected annotation** from the annotation pages and the 3D view (docs/KeyboardShortcuts.md, docs/AnnotationDeletion.md)
+- From the 6.3 patch releases, now also in this line: the map projection view for planets, which follows the 3D cursor; Earth surfaces rotating around the local up; the cross-section curtain without an image; the busy indicator; ellipse and fracture CSV export with surface statistics; and the GIS camera following its source body through mission time (see 6.3.1 – 6.3.5 below)
+
 ## 6.3.5
 The GIS camera follows its camera source body through mission time.
 
