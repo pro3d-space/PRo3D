@@ -1,3 +1,11 @@
+## 6.4.0-prerelease002
+Adds geological maps, an experimental first version.
+
+- Annotations: **geological maps from contacts and label points**, the way they are built in GIS with the *contacts and points* method (QGIS Mappy). Draw the contacts between units as ordinary annotations in a group (polylines, polygons, lines or ellipses) and place a point with a unit code in each unit; PRo3D derives the units, polygons with holes, and draws them in their legend colours on the terrain, over a whole small body such as Dimorphos with no map projection involved. Contact points snap onto existing contacts within 10 pixels, overshooting ends are trimmed, and the panel lists open ends and conflicting labels. The new *Assign unit* tool (paint brush) assigns a unit by click or drag, Alt+click picks one up, and every assignment is one undo step (#843, docs/GeologicalMap.md)
+- Geological maps are **experimental**: the *Geological Maps* panel opens behind a notice, and until *Open anyway* is pressed nothing is drawn or computed. Units are computed as seen from the body's centre, so bodies with overhangs (67P) are not supported; a map needs the scene body set; maps are not shown in the map projection view or in Snapshots and cannot be exported to GeoPackage yet
+- Annotations files saved with 6.4.0-prerelease002 still open in earlier versions: maps and unit assignments are stored under new keys they skip
+- UI: an on-screen message is no longer cleared early by the timer of the message before it
+
 ## 6.4.0-prerelease001
 First prerelease of the 6.4 line. Collects the work merged into `develop` since `6.3.0`, together with everything released as `6.3.1` to `6.3.5`.
 
