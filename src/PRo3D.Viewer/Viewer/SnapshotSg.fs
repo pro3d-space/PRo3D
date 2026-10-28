@@ -141,7 +141,8 @@ module SnapshotSg =
         // Snapshots render surfaces directly, so their fills use the stencil renderer, in the
         // same scene graph as the annotations (its passes run ahead of theirs)
         let depthTested =
-            let sg, fills = ViewerApp.getDepthTested frustum m.navigation.camera.view observer id runtime m //annotations + scaleBars
+            // no geological maps: they need a surface depth texture (docs/GeologicalMap.md)
+            let sg, fills, _ = ViewerApp.getDepthTested frustum m.navigation.camera.view observer id runtime m //annotations + scaleBars
             Sg.ofList [ sg; PackedRendering.packedFillRender fills |> Sg.noEvents ]
 
 

@@ -23,6 +23,7 @@
     <Compile Include="AnnotationExportTest.fs" />
     <Compile Include="EllipseExportTest.fs" />
     <Compile Include="ColorByCategoryPersistenceTest.fs" />
+    <Compile Include="GeologicalMapPersistenceTests.fs" />
     <Compile Include="TransformationScalingTest.fs" />
     <Compile Include="ColorByCategoryColorTest.fs" />
     <Compile Include="SpiceTests.fs" />
@@ -46,6 +47,8 @@
     <Compile Include="PolygonFillTests.fs" />
     <Compile Include="FillVolumeTests.fs" />
     <Compile Include="RegionOpsTests.fs" />
+    <Compile Include="ContactTopologyTests.fs" />
+    <Compile Include="MapShellTests.fs" />
     <Compile Include="RegionFixtureTests.fs" />
     <Compile Include="AnnotationRegionOpsTests.fs" />
     <None Include="data\regions\seed-basic.region" />
@@ -86,12 +89,14 @@
     <Compile Include="Features\Section22_SupportingProfiles.fs" />
     <Compile Include="Features\WindowLayoutTests.fs" />
     <Compile Include="Features\FootprintSceneFixture.fs" />
+    <Compile Include="Features\GeologicalMapShowcase.fs" />
     <Compile Include="Pro3DToolTests.fs" />
     <Compile Include="MbiSidecarTest.fs" />
     <Compile Include="Features\SnapshotSunLightingTest.fs" />
     <!-- after Features\TestHelpers.fs: these drive the real DrawingApp through the Draw harness -->
     <Compile Include="AdaptiveNestingTests.fs" />
     <Compile Include="VertexEditingTests.fs" />
+    <Compile Include="GeologicalMapDrawingTests.fs" />
     <Compile Include="SurfaceEffectSwitchTest.fs" />
     <Compile Include="MapProjectionRenderTest.fs" />
     <Compile Include="FillRenderTest.fs" />

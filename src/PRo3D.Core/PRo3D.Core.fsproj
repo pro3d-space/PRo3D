@@ -41,6 +41,8 @@
     <Compile Include="SceneObjects-Model.g.fs" />
     <Compile Include="Bookmark-Model.fs" />
     <Compile Include="Bookmark-Model.g.fs" />
+    <Compile Include="GeologicalMap-Model.fs" />
+    <Compile Include="GeologicalMap-Model.g.fs" />
     <Compile Include="Groups-Model.fs" />
     <Compile Include="Groups-Model.g.fs" />
     <Compile Include="ScaleBars-Model.fs" />
@@ -86,6 +88,7 @@
     <Compile Include="Drawing\Drawing.Sg.fs" />
     <Compile Include="Drawing\Drawing.IO.fs" />
     <Compile Include="Drawing\PackedRendering.fs" />
+    <Compile Include="Drawing\GeologicalMapApp.fs" />
     <Compile Include="Drawing\EllipseConstruction.fs" />
     <Compile Include="Drawing\EllipseAnnotation.fs" />
     <Compile Include="Drawing\SupportingProfiles.fs" />

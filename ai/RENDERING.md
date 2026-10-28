@@ -158,7 +158,6 @@ The main and instrument views render their surfaces **offscreen** (`OffscreenSur
 - Instrument view: verified by screenshot (headless probe, `fillProblem` scene) that surfaces show; fills there not checked separately.
 
 - Memory while the camera moves (2026-10-20, Dimorphos, 60 identical orbit/zoom cycles): GPU memory levels off on this branch and on develop, this branch ~90 MB higher (the offscreen targets); private bytes swing with GC but do not grow on either.
-- The closing edge of Sky-projected polygon outlines is not drawn — confirmed on develop too, unrelated to fills.
 
 ### Annotation fills — against the surface depth (#841)
 
