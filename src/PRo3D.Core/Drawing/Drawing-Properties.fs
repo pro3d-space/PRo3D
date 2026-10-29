@@ -32,6 +32,8 @@ module AnnotationProperties =
     | SetShowFill     of bool
     | ChangeFillColor of ColorPicker.Action
     | SetFillAlpha    of Numeric.Action
+    /// label points of a geological map (#843); empty clears
+    | SetGeoUnit      of string
         
     let update (referenceSystem : ReferenceSystem) (model : Annotation) (act : Action) =
         match act with
@@ -88,11 +90,18 @@ module AnnotationProperties =
             { model with fillColor = ColorPicker.update model.fillColor a }
         | SetFillAlpha a ->
             { model with fillAlpha = Numeric.update model.fillAlpha a }
+        | SetGeoUnit u ->
+            let u = u.Trim()
+            { model with geoUnit = if String.IsNullOrEmpty u then None else Some u }
 
 
     let fillTooltip      = "Fill the interior. Closed geometries only"
     let fillColorTooltip = "Fill colour, defaults to the outline colour"
     let fillAlphaTooltip = "Fill opacity, 0 to 1"
+    let geoUnitTooltip   = "Geological map: the unit code this point assigns to the map unit it lies in (points only)"
+
+    let private geoUnitText (model : AdaptiveAnnotation) =
+        model.geoUnit |> AVal.map (Option.defaultValue "")
 
     let view (paletteFile : string) (model : AdaptiveAnnotation) =
 
@@ -112,6 +121,7 @@ module AnnotationProperties =
                 Html.row "Fill:"        [GuiEx.iconCheckBoxSet model.showFill SetShowFill |> UI.wrapToolTip DataPosition.Bottom fillTooltip ]
                 Html.row "Fill Color:"  [ColorPicker.viewAdvanced ColorPicker.defaultPalette paletteFile "pro3dFill" true model.fillColor |> UI.map ChangeFillColor |> UI.wrapToolTip DataPosition.Bottom fillColorTooltip ]
                 Html.row "Fill Alpha:"  [Numeric.view' [InputBox] model.fillAlpha |> UI.map SetFillAlpha |> UI.wrapToolTip DataPosition.Bottom fillAlphaTooltip ]
+                Html.row "Geo Unit:"    [Html.SemUi.textBox (geoUnitText model) SetGeoUnit |> UI.wrapToolTip DataPosition.Bottom geoUnitTooltip ]
                 Html.row "Dip Angle:"   [Numeric.view' [InputBox] model.manualDipAngle |> UI.map SetManualDippingAngle]
                 Html.row "Dip Azimuth:" [Numeric.view' [InputBox] model.manualDipAzimuth |> UI.map SetManualDippingAzimuth]
                 Html.row "Cross Section:" [button [clazz "ui button tiny"; onClick (fun _ -> CreateCrossSection)] [text "Create"]]

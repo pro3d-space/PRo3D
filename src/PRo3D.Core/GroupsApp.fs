@@ -169,6 +169,17 @@ module GroupsApp =
 
         { tree with key = Guid.NewGuid(); subNodes = subNodes }
 
+    /// repairGroupNodesGuid, also returning old key -> new key, for whatever refers to groups
+    /// by key (geological maps, #843). A key that occurred twice maps to its first group.
+    let repairGroupNodesGuidMapped (tree : Node) : Node * Map<Guid, Guid> =
+        let mutable mapping = Map.empty
+        let rec repair (n : Node) =
+            let key = Guid.NewGuid()
+            if not (Map.containsKey n.key mapping) then mapping <- Map.add n.key key mapping
+            { n with key = key; subNodes = n.subNodes |> IndexList.map repair }
+        let repaired = repair tree
+        repaired, mapping
+
     // add one child to children of active group ... maybe move to active group
     let addLeafToActiveGroup (leaf:Leaf) (select:bool) model=
         let treeSelection =  

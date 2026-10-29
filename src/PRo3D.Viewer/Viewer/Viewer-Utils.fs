@@ -1578,7 +1578,8 @@ module ViewerUtils =
         let previewPickingEnabled =
             (m.scene.config.showPreviewIntersection, m.interaction)
             ||> AVal.map2 (fun showIt interaction ->
-                showIt || interaction = Interactions.EditAnnotation)
+                // drawing: the snapping feedback of geological maps follows the cursor (#843)
+                showIt || interaction = Interactions.EditAnnotation || interaction = Interactions.DrawAnnotation)
 
         let vpVisible = isViewPlanVisible m
         let selected = m.scene.surfacesModel.surfaces.singleSelectLeaf
@@ -1980,6 +1981,8 @@ module ViewerUtils =
         (overlayed   : ISg<ViewerAction>)
         (depthTested : ISg<ViewerAction>)
         (fills       : PackedRendering.FillGeometry)
+        /// drawn against this client's surface depth too: the geological maps (#843)
+        (onSurfaces  : OffscreenSurfaces.SurfaceDepth -> ISg<ViewerAction>)
         (values      : RenderClientValues) : ISg<ViewerAction> =
 
         let runtime = values.runtime
@@ -2004,6 +2007,7 @@ module ViewerUtils =
                 |> Sg.noEvents
                 |> Sg.fillMode (AVal.constant FillMode.Fill)
                 |> Sg.cullMode (AVal.constant CullMode.None)
+                onSurfaces surfaceDepth
             ]
 
         alist {

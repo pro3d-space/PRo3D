@@ -74,14 +74,9 @@ module DrawingApp =
                     | Some projectedPoint -> yield projectedPoint ]
             { startPoint = a; endPoint = b; points = IndexList.ofList points }
 
-    /// Whether an annotation's segments form a closed ring.
-    ///
-    /// `closePolyline` appends one extra segment joining the last point back to the first, so a
-    /// ring has exactly as many segments as points where an open chain has one fewer. Derived from
-    /// the counts rather than from `geometry`, because that is the invariant the segment indices
-    /// actually rest on.
+    /// Whether an annotation's segments form a closed ring (Annotation.hasClosingSegment).
     let private hasClosingSegment (pointCount : int) (segmentCount : int) =
-        segmentCount >= pointCount
+        Annotation.hasClosingSegment pointCount segmentCount
 
     /// The segments invalidated by moving control point `pointIndex`.
     ///
@@ -156,19 +151,34 @@ module DrawingApp =
             let a = { a with dnsResults = points |> DipAndStrike.calculateDipAndStrikeResults up north }
             { a with results = Some (Calculations.calculateAnnotationResults a up north planet) }
 
-    let closePolyline (a:Annotation) =
+    /// The surface sampler of the working annotation's last click, keyed by its annotation. A
+    /// polygon is finished by Enter (`Finish`), which carries no sampler, yet its closing edge
+    /// must be draped with the same projection, surface and frame as its other edges. Not model
+    /// state: a function has no equality and is never persisted. Cleared when the annotation is
+    /// finished or dropped, so it keeps nothing alive (the viewer's hit function holds the model
+    /// it was built from) beyond the drawing.
+    let mutable private workingSampler : Option<Guid * (V3d -> Option<V3d>)> = None
+
+    /// Closes a polygon. Sky/Viewpoint: one more segment, sampled onto the surface like the
+    /// others (with `samplePoint`; straight without one). It is stored first -> last, as it
+    /// always was (#821): older releases and `segmentEndpoints` read it that way.
+    let closePolyline (samplingDistance : float) (samplePoint : Option<V3d -> Option<V3d>>) (a:Annotation) =
         let firstP = a.points.[0]
         let lastP = a.points.[(a.points.Count-1)]
         match a.projection with
         | Projection.Viewpoint | Projection.Sky ->
-            let dir = lastP - firstP
-            let points = [
-                    for s in 0 .. PRo3D.Config.sampleCount do
-                        yield firstP + dir * (float s / float PRo3D.Config.sampleCount) // world space
-                ]
-            let newSegment = { startPoint = firstP; endPoint = lastP; points = IndexList.ofList points }
+            let newSegment =
+                match samplePoint with
+                | Some samplePoint -> resampleSegment samplingDistance samplePoint firstP lastP
+                | None ->
+                    let dir = lastP - firstP
+                    let points = [
+                            for s in 0 .. PRo3D.Config.sampleCount do
+                                yield firstP + dir * (float s / float PRo3D.Config.sampleCount) // world space
+                        ]
+                    { startPoint = firstP; endPoint = lastP; points = IndexList.ofList points }
             { a with segments = IndexList.add newSegment a.segments }
-        | _ -> 
+        | _ ->
             { a with points = a.points |> IndexList.add firstP }
     
     let getFinishedAnnotation up north planet (referenceSystem : Option<SpiceReferenceSystem>) (sampleSurface : Option<V3d -> Option<V3d>>)  (view:CameraView) (model : DrawingModel) =
@@ -176,7 +186,13 @@ module DrawingApp =
         | Some w ->  
             let w = 
                 match w.geometry with
-                | Geometry.Polygon -> closePolyline w
+                | Geometry.Polygon ->
+                    let sampler =
+                        match sampleSurface, workingSampler with
+                        | Some s, _ -> Some s
+                        | None, Some (key, s) when key = w.key -> Some s
+                        | None, _ -> None
+                    closePolyline model.samplingDistance sampler w
                 | Geometry.TT -> 
                     { 
                         w with 
@@ -252,8 +268,17 @@ module DrawingApp =
     /// annotation it added, if any.
     let finishAndAppend up north planet (referenceSystem : Option<SpiceReferenceSystem>) (sampleSurface : Option<V3d -> Option<V3d>>) (view:CameraView) (model : DrawingModel) : DrawingModel * Option<Annotation> =
 
-        match getFinishedAnnotation up north planet referenceSystem sampleSurface view model with
+        let finished = getFinishedAnnotation up north planet referenceSystem sampleSurface view model
+        // the sampler (it holds the viewer model) is not kept past the annotation it drew
+        workingSampler <- None
+        match finished with
         | Some a ->
+            // a point drawn into the active geological map's group, with a legend unit
+            // active, is that unit's label point (#843)
+            let a =
+                match a.geometry, GeologicalMapApp.activeUnitFor model.annotations.activeGroup.id model.geologicalMaps with
+                | Geometry.Point, Some u -> { a with geoUnit = Some u.code }
+                | _ -> a
             let groups = model.annotations |> GroupsApp.addLeafToActiveGroup (Leaf.Annotations a) true
             { model with working = None; annotations = groups }, Some a
         | None ->
@@ -309,7 +334,8 @@ module DrawingApp =
         //          | _ -> ""
         //let working' = { working with text = text }
         let model = { model with working = Some working }
-        
+        workingSampler <- Some (working.key, samplePoint)
+
         match (working.geometry, (working.points |> IndexList.count)) with
         | Geometry.Point, 1 -> 
             Log.line "Picked single point at: %A" (working.points |> IndexList.tryFirst).Value
@@ -562,6 +588,7 @@ module DrawingApp =
             | Send ->                                                      
                 model
             | ClearWorking ->
+                workingSampler <- None
                 { model with working = None }
             | DrawingAction.Clear ->
                 let before = model.annotations
@@ -904,6 +931,114 @@ module DrawingApp =
                     model.annotations.flat |> Leaf.toAnnotations |> HashMap.toList |> List.map snd
                 { model with
                     colorByCategory = ColorByCategory.update annotations model.colorByCategory msg }
+            // experimental and closed: a stale panel changes nothing (the one gate)
+            | GeologicalMapMessage msg
+                when not model.geologicalMaps.enabled && (match msg with GeologicalMapAction.SetEnabled _ -> false | _ -> true) ->
+                model
+            | GeologicalMapMessage msg ->
+                let maps = GeologicalMapApp.update model.geologicalMaps msg
+                match msg with
+                | GeologicalMapAction.AssignToSelected ->
+                    // the active unit of the active map, onto the selected points of that map's group
+                    match GeologicalMapApp.activeMapUnit model.geologicalMaps with
+                    | Some (map, u) ->
+                        let before = model.annotations
+                        let inMap = GeologicalMapApp.leafIdsOf before.rootGroup map.sourceGroup |> HashSet.ofArray
+                        let selected =
+                            let ids = model.annotations.selectedLeaves |> HashSet.map (fun s -> s.id)
+                            let ids =
+                                match model.annotations.singleSelectLeaf with
+                                | Some id -> HashSet.add id ids
+                                | None -> ids
+                            ids |> HashSet.filter (fun id -> HashSet.contains id inMap)
+                        // label points only: a unit on a contact would mean nothing
+                        let flat =
+                            selected |> HashSet.fold (fun flat id ->
+                                match HashMap.tryFind id flat with
+                                | Some (Leaf.Annotations a) when a.geometry = Geometry.Point ->
+                                    HashMap.add id (Leaf.Annotations (GeologicalMapApp.withUnit u.code a)) flat
+                                | _ -> flat) before.flat
+                        if flat = before.flat then
+                            Log.warn "[GeologicalMap] assign: no point annotation of the active map's group selected"
+                            { model with geologicalMaps = maps }
+                        else
+                            let after = { before with flat = flat }
+                            { model with annotations = after; geologicalMaps = maps }
+                            |> pushUndo (SnapshotDelta(before, after))
+                    | None ->
+                        Log.warn "[GeologicalMap] assign: no active unit in the active map"
+                        { model with geologicalMaps = maps }
+                | GeologicalMapAction.SetUnitCode (mapKey, unitId, code) ->
+                    let code = code.Trim()
+                    match GeologicalMapApp.tryFindUnit model.geologicalMaps unitId with
+                    | Some (map, u) when map.key = mapKey && code <> "" && code <> u.code
+                                         && not (GeologicalMapApp.codeInUse map code) ->
+                        // the map's label points follow the rename, so their units stay put. Not an
+                        // undo step: the legend is not on the undo stack, and undoing only the label
+                        // points would leave them with a code the legend no longer has
+                        let before = model.annotations
+                        let leaves = GeologicalMapApp.leafIdsOf before.rootGroup map.sourceGroup
+                        let flat =
+                            leaves |> Array.fold (fun flat id ->
+                                match HashMap.tryFind id flat with
+                                | Some (Leaf.Annotations a) when a.geoUnit = Some u.code ->
+                                    let text = if a.text = u.code then code else a.text
+                                    HashMap.add id (Leaf.Annotations { a with geoUnit = Some code; text = text }) flat
+                                | _ -> flat) before.flat
+                        { model with annotations = { before with flat = flat }; geologicalMaps = maps }
+                    | Some (map, _) when GeologicalMapApp.codeInUse map code ->
+                        Log.warn "[GeologicalMap] code '%s' is already used by another unit of '%s'" code map.name
+                        model
+                    | _ -> { model with geologicalMaps = maps }
+                | GeologicalMapAction.AssignAt (mapKey, labels, position) ->
+                    let unit =
+                        model.geologicalMaps.activeUnit
+                        |> Option.bind (GeologicalMapApp.tryFindUnit model.geologicalMaps)
+                        |> Option.filter (fun (map, _) -> map.key = mapKey)
+                    match unit with
+                    | Some (map, u) ->
+                        let before = model.annotations
+                        let after =
+                            match labels with
+                            | [] ->
+                                // a unit without a label point gets one where it was clicked
+                                match GeologicalMapApp.tryGroupPath before.rootGroup map.sourceGroup with
+                                | Some (path, _) ->
+                                    let point = GeologicalMapApp.labelPoint u.code position
+                                    GroupsApp.addLeaves path (IndexList.single (Leaf.Annotations point)) before
+                                | None ->
+                                    Log.warn "[GeologicalMap] the map's group is gone"
+                                    before
+                            | ls ->
+                                let flat =
+                                    ls |> List.fold (fun flat id ->
+                                        match HashMap.tryFind id flat with
+                                        | Some (Leaf.Annotations a) when a.geoUnit <> Some u.code ->
+                                            HashMap.add id (Leaf.Annotations (GeologicalMapApp.withUnit u.code a)) flat
+                                        | _ -> flat) before.flat
+                                { before with flat = flat }
+                        // painting over a unit that already has it changes nothing
+                        if obj.ReferenceEquals(after.flat, before.flat) then
+                            { model with geologicalMaps = maps }
+                        else
+                            { model with annotations = after; geologicalMaps = maps }
+                            |> pushUndo (SnapshotDelta(before, after))
+                    | None ->
+                        Log.warn "[GeologicalMap] assign: no active unit in this map"
+                        { model with geologicalMaps = maps }
+                | GeologicalMapAction.SetActive _
+                | GeologicalMapAction.NewMap _ ->
+                    // the active map's group becomes the active annotation group, so what is
+                    // drawn next - contacts, label points - lands in the map
+                    let groupKey = GeologicalMapsModel.tryActive maps |> Option.map (fun m -> m.sourceGroup)
+                    let annotations =
+                        match groupKey |> Option.bind (GeologicalMapApp.tryGroupPath model.annotations.rootGroup) with
+                        | Some (path, node) ->
+                            GroupsApp.update model.annotations (GroupsAppAction.SetActiveGroup(node.key, path, node.name))
+                        | None -> model.annotations
+                    { model with geologicalMaps = maps; annotations = annotations }
+                | _ ->
+                    { model with geologicalMaps = maps }
             | FlyToAnnotation msg ->               
                 model        
 
@@ -987,7 +1122,17 @@ module DrawingApp =
                     let annos = DrawingUtilities.IO.loadAnnotationsFromFile p
                     Log.line "[Drawing] Merging annotations"                
                     let merged = GroupsApp.union model.annotations annos.annotations
-                    { model with annotations = merged }
+                    // the file's geological maps come along: their groups were renewed on load
+                    // and arrive with the union. Maps and legend entries get new ids: the unit
+                    // lookups go by id across all maps (the same file twice, a re-import)
+                    let maps =
+                        let imported =
+                            annos.geologicalMaps.maps |> IndexList.map (fun m ->
+                                { m with
+                                    key   = Guid.NewGuid()
+                                    units = m.units |> IndexList.map (fun u -> { u with id = Guid.NewGuid() }) })
+                        { model.geologicalMaps with maps = IndexList.append model.geologicalMaps.maps imported }
+                    { model with annotations = merged; geologicalMaps = maps }
                 | None ->
                     model
             | ExportAsAnnotations path ->
@@ -1124,11 +1269,16 @@ module DrawingApp =
         /// true only in Interactions.EditAnnotation - gates the control point handles, which are
         /// both drawn and pickable only while the user is actually editing.
         (vertexEditingAllowed : aval<bool>)
+        /// the Assign unit tool of the geological maps (#843)
+        (assignGate       : GeologicalMapApp.AssignGate)
+        /// the draw tool and the cursor's surface point, for snapping feedback (#843)
+        (drawState        : GeologicalMapApp.DrawState)
         (model            : AdaptiveDrawingModel)
         /// overlay, depth-tested, and the fills - not rendered here: how they are drawn depends on
         /// the view (against its offscreen surface depth, PackedRendering.DeferredFills, which
-        /// exists per render client; or PackedRendering.packedFillRender, the stencil renderer)
-        : ISg<DrawingAction> * ISg<DrawingAction> * PackedRendering.FillGeometry =
+        /// exists per render client; or PackedRendering.packedFillRender, the stencil renderer) -
+        /// and the geological maps, drawn against a render client's surface depth
+        : ISg<DrawingAction> * ISg<DrawingAction> * PackedRendering.FillGeometry * (OffscreenSurfaces.SurfaceDepth -> ISg<DrawingAction>) =
         // order is irrelevant for rendering. change list to set,
         // since set provides more degrees of freedom for the compiler           
         let annoSet = 
@@ -1288,6 +1438,22 @@ module DrawingApp =
                 PackedRendering.packedVertexHandleRender hoveredVertex grabbedVertex viewport handleGeometry
                 |> Sg.noEvents
 
+            // geological map units (#843): like the fills, drawn by the view against its surface
+            // depth - per render client, so a screenshot gets them at its own size
+            let geologicalMaps (surfaceDepth : OffscreenSurfaces.SurfaceDepth) =
+                GeologicalMapApp.render runtime surfaceDepth planet fillReach assignGate
+                    { drawState with drawingLine = (drawState.drawingLine, model.geometry) ||> AVal.map2 (fun on g -> on && GeologicalMapApp.isLineTool g) }
+                    // the view's own field of view, in degrees (what invariantScale expects)
+                    { camera = view; near = config.nearPlane; hfov = frustum |> AVal.map Frustum.horizontalFieldOfViewInDegrees; viewport = viewport }
+                    // the line being drawn, for the split preview
+                    (model.working |> AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption |> AVal.bind (function
+                        | Some (a : AdaptiveAnnotation) ->
+                            (a.geometry, a.points.Content) ||> AVal.map2 (fun g ps ->
+                                if GeologicalMapApp.isLineTool g then IndexList.toArray ps else [||])
+                        | None -> AVal.constant [||]))
+                    model.annotations model.geologicalMaps viewMatrix
+                |> Sg.map DrawingAction.GeologicalMapMessage
+
             let overlay =
                 Sg.ofList [
                     // brush model.hoverPosition;
@@ -1305,7 +1471,7 @@ module DrawingApp =
                 PackedRendering.fastDns config model.dnsColorLegend (annoSet |> ASet.map ((fun (g, (s,t)) -> g,s))) view
                 |> Sg.noEvents
 
-            (overlay, depthTest, fillGeometry)
+            (overlay, depthTest, fillGeometry, geologicalMaps)
 
         else
             Log.startTimed "[Drawing] creating finished annotation geometry"
@@ -1349,6 +1515,7 @@ module DrawingApp =
                 annoSet 
                 |> ASet.map(fun (_,(a,t)) -> Sg.finishedAnnotationDiscs a config model.dnsColorLegend view |> Sg.trafo t) |> Sg.set
 
-            (overlay, depthTest, fills)
+            // no maps here: this branch is PRo3D.Snapshots', which has no surface depth
+            (overlay, depthTest, fills, (fun (_ : OffscreenSurfaces.SurfaceDepth) -> Sg.empty))
 
             

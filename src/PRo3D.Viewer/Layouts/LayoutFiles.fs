@@ -31,6 +31,7 @@ module LayoutPanels =
         { id = "scalebars";          title = "ScaleBars" }
         { id = "sceneobjects";       title = "Scene Objects" }
         { id = "geologicSurf";       title = "Geologic Surfaces" }
+        { id = "geomaps";            title = "Geological Maps" }
         { id = "config";             title = "Config" }
         { id = "bookmarks";          title = "Bookmarks" }
         { id = "sequencedBookmarks"; title = "Seq. Bookmarks" }

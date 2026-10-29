@@ -721,6 +721,9 @@ type Annotation = {
     fillColor  : ColorInput
     fillAlpha  : NumericInput
 
+    /// The geological unit a label point assigns to the map unit it lies in (#843,
+    /// docs/GeologicalMap.md): a GeoUnit.code. None for every other annotation.
+    geoUnit    : Option<string>
     /// set on profiles generated from another annotation (supporting profiles, #833)
     profileOf  : Option<ProfileLink>
 }
@@ -815,6 +818,7 @@ with
                 showFill             = false
                 fillColor            = color
                 fillAlpha            = Annotation.initialFillAlpha
+                geoUnit              = None
                 profileOf            = None
             }
         }
@@ -883,6 +887,7 @@ with
                 showFill             = false
                 fillColor            = color
                 fillAlpha            = Annotation.initialFillAlpha
+                geoUnit              = None
                 profileOf            = None
             }
         }
@@ -951,6 +956,7 @@ with
                 showFill             = false
                 fillColor            = color
                 fillAlpha            = Annotation.initialFillAlpha
+                geoUnit              = None
                 profileOf            = None
             }
         }
@@ -1022,6 +1028,7 @@ with
                 showFill             = false
                 fillColor            = color
                 fillAlpha            = Annotation.initialFillAlpha
+                geoUnit              = None
                 profileOf            = None
             }
         }
@@ -1094,6 +1101,7 @@ with
                 showFill             = false
                 fillColor            = color
                 fillAlpha            = Annotation.initialFillAlpha
+                geoUnit              = None
                 profileOf            = None
             }
         }
@@ -1150,6 +1158,8 @@ with
             let! showFill  = Json.tryRead "showFill"
             let! fillColor = Json.tryRead "fillColor"
             let! fillAlpha = Json.tryRead "fillAlpha"
+            // optional, no version bump (#843)
+            let! geoUnit   = Json.tryRead "geoUnit"
 
             // optional, no version bump: older releases skip the key (#833). Read raw and
             // deserialised inside a try: a link from a later version, or a damaged one, is
@@ -1200,6 +1210,7 @@ with
                 fillAlpha            =
                     { Annotation.initialFillAlpha with
                         value = fillAlpha |> Option.defaultValue Annotation.initialFillAlpha.value }
+                geoUnit              = geoUnit
                 profileOf            = profileOf
             }
         }
@@ -1274,6 +1285,9 @@ with
             do! Json.write "showFill"  x.showFill
             do! Json.write "fillColor" (x.fillColor.c.ToString())
             do! Json.write "fillAlpha" x.fillAlpha.value
+            match x.geoUnit with
+            | Some u -> do! Json.write "geoUnit" u
+            | None -> ()
 
             match x.profileOf with
             | Some link -> do! Json.write "profileOf" link
@@ -1364,26 +1378,36 @@ module Annotation =
             showFill             = false
             fillColor            = color
             fillAlpha            = Annotation.initialFillAlpha
+            geoUnit              = None
             profileOf            = None
         }
 
     let initial =
         make Projection.Viewpoint None Geometry.Polyline None { c = C4b.Magenta } Initial.thickness ""
 
-    let retrievePoints (a : Annotation) =
-        let points = 
-            if a.segments.Count = 0 then
-                a.points |> IndexList.toSeq
-            else
-                a.segments 
-                |> IndexList.toSeq 
-                |> Seq.map(fun x -> 
-                    seq {
-                        yield x.startPoint
-                        yield! (x.points |> IndexList.toSeq)
-                        yield x.endPoint
-                    }
-                ) 
-                |> Seq.concat
+    /// Whether an annotation's segments form a closed ring. `closePolyline` appends one segment
+    /// joining the last point back to the first, so a ring has as many segments as points, an
+    /// open chain one fewer. Derived from the counts rather than from `geometry`, because that
+    /// is the invariant the segment indices rest on.
+    let hasClosingSegment (pointCount : int) (segmentCount : int) =
+        segmentCount >= pointCount
 
-        points |> Seq.toList
+    /// Whether segment `i` (`startPoint` -> `endPoint`) is a ring's closing segment as
+    /// `closePolyline` stores it: first -> last (#821), so it is read backwards to walk the ring.
+    /// The endpoints are checked too: a closing segment stored last -> first is left as it is.
+    let isReversedClosingSegment (points : IndexList<V3d>) (segmentCount : int) (i : int) (startPoint : V3d) (endPoint : V3d) =
+        hasClosingSegment points.Count segmentCount && i = segmentCount - 1
+        && IndexList.tryFirst points = Some startPoint && IndexList.tryLast points = Some endPoint
+
+    /// The sampled line in drawing order: each segment's start, samples and end - a ring's
+    /// closing segment backwards, so the line runs last point -> first point.
+    let retrievePoints (a : Annotation) =
+        if a.segments.Count = 0 then
+            a.points |> IndexList.toList
+        else
+            a.segments
+            |> IndexList.toList
+            |> List.indexed
+            |> List.collect (fun (i, x) ->
+                let ps = [ yield x.startPoint; yield! x.points |> IndexList.toSeq; yield x.endPoint ]
+                if isReversedClosingSegment a.points a.segments.Count i x.startPoint x.endPoint then List.rev ps else ps)
