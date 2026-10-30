@@ -370,8 +370,14 @@ module Sg =
         let patchHierarchies = 
             scene.patchHierarchies
             |> Seq.map Prinziple.register
-            |> Seq.map (fun x -> 
-                PatchHierarchy.load Serialization.binarySerializer.Pickle Serialization.binarySerializer.UnPickle (OpcPaths x)
+            |> Seq.map (fun x ->
+                // PatchHierarchy.load rewrites an unreadable hierarchy.cache, which must not happen in a read-only surface archive
+                let pickle =
+                    if SurfaceArchive.isInArchive x then
+                        fun _ -> failwithf "[Surface.Sg] the hierarchy.cache of %s is unreadable and is not rewritten in a read-only surface archive." x
+                    else
+                        Serialization.binarySerializer.Pickle
+                PatchHierarchy.load pickle Serialization.binarySerializer.UnPickle (OpcPaths x)
             )
             |> Seq.toArray
 
@@ -636,8 +642,9 @@ module Sg =
             surfaces
             |> IndexList.toList
             |> List.filter(fun s ->
-                let dirExists = Directory.Exists s.importPath
-                if dirExists |> not then 
+                // also (re)opens the surface archive of a packed surface, e.g. on scene load
+                let dirExists = Files.surfaceFolderExists s.importPath
+                if dirExists |> not then
                     Log.error "[Surface.Sg] could not find %s" s.importPath
                 dirExists
             )

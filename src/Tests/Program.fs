@@ -77,6 +77,9 @@ let allTests (parameters : TestUtils.TestParameters) : Test =
         // *.opc.json sidecars; the fixture-backed case self-skips without the data
         OpcSidecarTests.tests()
 
+        // surfaces packed into stored zip archives; the real-OPC cases self-skip without the test data
+        SurfaceArchiveTests.tests()
+
         // Kernel-swap count matters: the native DeInit does not fully clear CSPICE's
         // binary-kernel (DAF) state, so handles go stale after repeated metakernel swaps
         // (SPICE(DAFNOSUCHHANDLE) on SPK/CK reads; text-kernel frames keep working).

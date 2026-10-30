@@ -106,7 +106,49 @@ module SurfaceUtils =
             highlightAlways       = false
         }
 
-    module ObjectFiles =        
+    /// creates a surface from an opened surface archive; its name is the archive's file name
+    let mkFromArchive (maxTriangleSize : float) (archive : SurfaceArchive.SurfaceArchive) =
+        let s = mk SurfaceType.SurfaceOPC MeshLoaderType.Unkown maxTriangleSize archive.surfacePath
+        { s with
+            name     = archive.name
+            opcNames = archive.opcNames
+            opcPaths = archive.opcNames |> Files.expandNamesToPaths archive.surfacePath
+        }
+
+    /// Creates OPC surfaces from surface folders and surface archives (*.opc, *.zip). Returns the
+    /// surfaces and the problems to report to the user. Zips without an OPC are only reported if
+    /// the user chose them (`chosenPaths`), discovery skips them silently.
+    let mkFromPaths (maxTriangleSize : float) (chosenPaths : list<string>) (paths : list<string>) : list<Surface> * list<string> =
+        let isChosen (p : string) =
+            chosenPaths |> List.exists (fun c -> String.Equals(Path.GetFullPath c, Path.GetFullPath p, StringComparison.OrdinalIgnoreCase))
+
+        let results =
+            paths |> List.map (fun p ->
+                if SurfaceArchive.isArchiveFile p then
+                    match SurfaceArchive.tryOpen p with
+                    | Result.Ok archive ->
+                        Some (mkFromArchive maxTriangleSize archive), archive.warnings
+                    | Result.Error (SurfaceArchive.NotASurfaceArchive msg) when not (isChosen p) ->
+                        Log.line "[SurfaceUtils] skipping %s" msg
+                        None, []
+                    | Result.Error e ->
+                        None, [ SurfaceArchive.ArchiveError.message e ]
+                // isZippedOpcFolder: legacy OPCs zipped one by one, registered per OPC in Surface.Sg
+                elif Files.isSurfaceFolder p || Files.isZippedOpcFolder p then
+                    match SurfaceArchive.tryFindCapturingRoot p with
+                    | Some root ->
+                        None, [ $"{Path.GetFileName p}: cannot be read while the surface archive {root} is loaded (same name prefix)." ]
+                    | None ->
+                        Some (mk SurfaceType.SurfaceOPC MeshLoaderType.Unkown maxTriangleSize p), []
+                else
+                    None, []
+            )
+
+        let messages = results |> List.collect snd
+        messages |> List.iter (Log.warn "[SurfaceUtils] %s")
+        (results |> List.choose fst), messages
+
+    module ObjectFiles =
         open Aardvark.Geometry
         open Aardvark.Data.Wavefront
         
@@ -768,8 +810,7 @@ module SurfaceUtils =
              |> Seq.mapi parseLayer
         
         let read (path:string) =
-            let doc = new XmlDocument() in doc.Load path
-            doc |> layers
+            Prinziple.readXmlDoc path |> layers
                                             
 module SurfaceApp =
 
@@ -931,7 +972,10 @@ module SurfaceApp =
                 else                
                     let path = Files.getSurfaceFolder sf scenePath
                     match path with
-                    | Some p ->          
+                    | _ when SurfaceArchive.isInArchive sf.importPath ->
+                        Log.warn "[RebuildKdTrees] %s is a read-only surface archive. Build its KdTrees before packing it." sf.name
+                        model
+                    | Some p ->
                         Log.startTimed "[RebuildKdTrees] loading patch hierarchy"
                         let hs =
                             Directory.EnumerateDirectories(p) |> Seq.toArray |> Array.choose (fun p ->
@@ -1314,7 +1358,7 @@ module SurfaceApp =
                                 let isobj = Path.GetExtension path = ".obj"
                                 //
                                 //  yield i 
-                                if (((Directory.Exists path) |> not || (path |> Files.isSurfaceFolder |> not)) && (isobj |> not)) || ( isobj && (File.Exists path) |> not ) then
+                                if ((path |> Files.isSurfaceFolder |> not) && (isobj |> not)) || ( isobj && (File.Exists path) |> not ) then
                                     yield i [
                                         clazz "exclamation red icon"
                                         //Dialogs.onChooseDirectory key ChangeImportDirectory;

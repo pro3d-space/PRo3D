@@ -20,7 +20,7 @@ module MapProjectionHost =
     /// and missing data have none).
     let private hierarchiesOf (importPath : string) (names : list<string>) =
         Files.expandNamesToPaths importPath names
-        |> List.filter (fun d -> Directory.Exists(Path.Combine(d, "Patches")))
+        |> List.filter (fun d -> Aardvark.Data.Opc.Prinziple.directoryExists(Path.Combine(d, "Patches"))) // may lie in a surface archive
         |> List.toArray
 
     let inputs (m : AdaptiveModel) : PRo3D.MapProjection.MapInputs =

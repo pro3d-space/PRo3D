@@ -28,6 +28,11 @@ Key types:
 
 Surfaces are organized hierarchically through the shared groups mechanism, so much of "surface management" is really `GroupsApp`.
 
+**Packed surfaces** (`src/PRo3D.Core/Surface/SurfaceArchive.fs`, [docs/PackedSurfaces.md](../docs/PackedSurfaces.md)): a surface can also be a stored (uncompressed) zip, `<Name>.opc` or `<Name>.zip`. `SurfaceArchive.tryOpen` registers it with Prinziple (Aardvark.Data.Opc) at the root `<dir>\<Name>`, so a packed `<Name>/` folder appears at the **virtual** `importPath` `<dir>\<Name>\<Name>`. That virtual path is what `Surface.importPath`/`opcPaths` hold and what scenes store; `Files.surfaceFolderExists` reopens the archive on scene load. Rules for code touching surface data:
+- Read OPC/surface files through `Prinziple.*` (`fileExists`, `directoryExists`, `getDirectories`, `openRead`, `readXmlDoc`), never `File`/`Directory` — those miss archive content. `SurfaceArchive.directoryExists` also covers the archive root itself.
+- Archives are read-only: check `SurfaceArchive.isInArchive` before writing caches, KdTrees or copies (`KdTrees.loadKdTrees'` and `PatchHierarchy.load` in `Surface.Sg` already do).
+- Prinziple maps roots by plain string prefix and does not fall back to disk below a root; `tryOpen` therefore refuses an archive next to a folder with the same name (or name prefix).
+
 ---
 
 ## Groups (the shared hierarchy)

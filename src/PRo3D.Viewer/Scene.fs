@@ -132,13 +132,18 @@ module SceneLoader =
                    primaryTexture = textures |> IndexList.tryFirst
                    opcxPath = Some path
                }
-           match Serialization.fileExists p with
-           | Some path->        
-               loadOpcX path
-           | None ->
-               match Directory.EnumerateFiles(s.importPath, "*.opcx") |> Seq.toList with
-               | [singleOpcX] -> loadOpcX singleOpcX
+           // Prinziple: the surface folder may lie in a surface archive
+           if Prinziple.fileExists p then
+               loadOpcX p
+           elif SurfaceArchive.directoryExists s.importPath then
+               let opcxs =
+                   Prinziple.getFiles false s.importPath
+                   |> Array.filter (fun f -> String.Equals(Path.GetExtension f, ".opcx", StringComparison.OrdinalIgnoreCase))
+               match opcxs with
+               | [| singleOpcX |] -> loadOpcX singleOpcX
                | _ -> s
+           else
+               s
         )
 
     let addGeologicSurfaces (m:Model) = 

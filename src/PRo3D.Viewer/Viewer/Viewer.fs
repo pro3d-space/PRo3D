@@ -83,6 +83,12 @@ module UserFeedback =
     let queueFeedback fb m =
         { m with scene = { m.scene with feedbackThreads = ThreadPool.add fb.id (fb |> createWorker) m.scene.feedbackThreads }}
 
+    /// shows problems found while importing surfaces, e.g. surface archives that cannot be loaded
+    let queueSurfaceProblems (problems : list<string>) m =
+        match problems with
+        | [] -> m
+        | _ -> m |> queueFeedback (create 10000 (problems |> String.concat "  |  "))
+
 module ViewerApp =         
     let dataSamples = 4
 
@@ -1336,45 +1342,43 @@ module ViewerApp =
             match sl with
             | [] -> m
             | paths ->
-                let surfaces = 
-                    paths 
-                    |> List.filter (fun x -> Files.isSurfaceFolder x || Files.isZippedOpcFolder x)
-                    |> List.map (SurfaceUtils.mk SurfaceType.SurfaceOPC MeshLoaderType.Unkown m.scene.config.importTriangleSize.value)
-                    |> IndexList.ofList
+                let surfaces, problems =
+                    SurfaceUtils.mkFromPaths m.scene.config.importTriangleSize.value paths paths
 
-                let m = SceneLoader.import' runtime signature surfaces m 
+                let m = SceneLoader.import' runtime signature (IndexList.ofList surfaces) m
                 m
                 |> ViewerIO.loadLastFootPrint
-                |> updateSceneWithNewSurface    
+                |> updateSceneWithNewSurface
+                |> UserFeedback.queueSurfaceProblems problems
         | DiscoverAndImportOpcs sl,_ -> 
             //"" |> UpdateUserFeedback |> ViewerAction |> mailbox.Post
             match sl with
             | [] -> m
             | paths ->
                 //"Import OPCs..." |> UpdateUserFeedback |> ViewerAction |> mailbox.Post
-                let selectedPaths = paths |> List.choose Files.tryDirectoryExists
-                let surfacePaths = 
+                // folders, and surface archives (*.opc, *.zip) chosen directly
+                let selectedPaths =
+                    paths |> List.filter (fun p -> Directory.Exists p || SurfaceArchive.isArchiveFile p)
+                let surfacePaths =
                     selectedPaths
-                    |> List.map Files.superDiscoveryMultipleSurfaceFolder
-                    |> List.concat
+                    |> List.collect Files.superDiscoveryMultipleSurfaceFolder
 
-                let surfaces = 
-                    surfacePaths 
-                    |> List.filter (fun x -> Files.isSurfaceFolder x || Files.isZippedOpcFolder x)
-                    |> List.map (SurfaceUtils.mk SurfaceType.SurfaceOPC MeshLoaderType.Unkown m.scene.config.importTriangleSize.value)
-                    |> IndexList.ofList
+                let surfaces, problems =
+                    SurfaceUtils.mkFromPaths m.scene.config.importTriangleSize.value selectedPaths surfacePaths
+                let surfaces = surfaces |> IndexList.ofList
 
                     
                 //gale crater hook
                 let surfaces = GaleCrater.hack surfaces
                 let surfaces = Jezero.hack surfaces
 
-                let m = SceneLoader.import' runtime signature surfaces m 
+                let m = SceneLoader.import' runtime signature surfaces m
                 //updateSceneWithNewSurface m
                 m
                 |> ViewerIO.loadLastFootPrint
                 |> updateSceneWithNewSurface
-        | ImportDiscoveredSurfacesThreads sl,_ -> 
+                |> UserFeedback.queueSurfaceProblems problems
+        | ImportDiscoveredSurfacesThreads sl,_ ->
             if sl.Length > 0 then
                 let feedback = {
                     id      = System.Guid.NewGuid().ToString()

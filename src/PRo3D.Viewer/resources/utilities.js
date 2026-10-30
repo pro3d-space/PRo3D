@@ -89,3 +89,42 @@ function startBusyIndicator(id, thresholdMs) {
 			.then(function () { inFlight = false; });
 	}, 200);
 }
+
+// --- dropping surfaces ---------------------------------------------------------------
+//
+// Dropping surface folders or packed surfaces (*.opc, *.zip) onto a page imports them. The
+// paths are sent as an 'onchoose' event, the same event the "Import OPCs" dialog sends,
+// so Dialogs.onChooseFiles on the element with this id receives them. Without this
+// handler Electron would navigate the page to the dropped file. See docs/PackedSurfaces.md.
+
+function attachSurfaceDrop(id) {
+	function hasFiles(e) {
+		return e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types, 'Files') >= 0;
+	}
+
+	// Electron >= 32 removed File.path; webUtils is the replacement
+	function pathOf(file) {
+		try {
+			var electron = top.aardvark && top.aardvark.electron;
+			if (electron && electron.webUtils) { return electron.webUtils.getPathForFile(file); }
+		} catch (err) { console.warn('[surface drop] webUtils failed', err); }
+		return file.path || '';
+	}
+
+	document.addEventListener('dragover', function (e) {
+		if (!hasFiles(e)) { return; }
+		e.preventDefault();
+		e.dataTransfer.dropEffect = 'copy';
+	});
+
+	document.addEventListener('drop', function (e) {
+		if (!hasFiles(e)) { return; }
+		e.preventDefault();
+		var paths = [];
+		for (var i = 0; i < e.dataTransfer.files.length; i++) {
+			var p = pathOf(e.dataTransfer.files[i]);
+			if (p) { paths.push(p); }
+		}
+		if (paths.length > 0) { aardvark.processEvent(id, 'onchoose', paths); }
+	});
+}

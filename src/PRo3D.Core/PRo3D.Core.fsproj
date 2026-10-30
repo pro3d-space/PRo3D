@@ -21,6 +21,7 @@
     <NoWarn>0686</NoWarn>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Surface\SurfaceArchive.fs" />
     <Compile Include="KdTrees.fs" />
     <Compile Include="KdIntersection.fs" />
     <Compile Include="AardvarkUIReworks.fs" />
