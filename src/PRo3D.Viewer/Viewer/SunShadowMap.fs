@@ -46,6 +46,8 @@ module SunShadowMap =
             /// Base shadow bias in normalized shadow-map depth (a world-space distance
             /// divided by the light frustum's depth range); slope-scaled in the shader.
             bias          : aval<float>
+            /// Frees the shadow map (when it was ever created) and the dummy texture.
+            release       : unit -> unit
         }
 
     let private shadowMapSize = V2i(4096, 4096)
@@ -66,7 +68,7 @@ module SunShadowMap =
     /// Direction towards the sun in scene space (v1: one sun for the whole scene), from
     /// the first surface that has a body: explicitly bound, or inheriting the scene body
     /// (#758). A half-bound surface (entity without frame) has none and is skipped.
-    let private sunDirection (m : AdaptiveModel) : aval<Option<V3d>> =
+    let private spiceSunDirection (m : AdaptiveModel) : aval<Option<V3d>> =
         // bindings and scene body only - not the observation time
         (Gis.GisApp.sceneBodyAdaptive m.scene.gisApp,
          m.scene.gisApp.gisSurfaces.Content,
@@ -80,6 +82,14 @@ module SunShadowMap =
         |> AVal.bind (function
             | Some surfaceId -> Gis.GisApp.getSunDirection m.scene.gisApp surfaceId
             | None -> AVal.constant None)
+
+    /// The shadow pass's sun: a sun given directly (Gis.SunOverride) as is -- no surface
+    /// needs a body -- otherwise SPICE's.
+    let private sunDirection (m : AdaptiveModel) : aval<Option<V3d>> =
+        Gis.SunOverride.direction
+        |> AVal.bind (function
+            | Some d -> AVal.constant (Some (Vec.normalize d))
+            | None -> spiceSunDirection m)
 
     /// The same placement the main render applies to a surface (viewSingleSurfaceSg):
     /// fullTrafo * preTransform, with the flipZ / sketchFab variants. Replicated here
@@ -262,22 +272,44 @@ module SunShadowMap =
                         | Some (_, _, range) when range > 0.0 -> 0.03 / range
                         | _ -> 0.0))
 
-        { texture = texture; lightViewProj = lightViewProj; bias = bias }
+        let release () =
+            if pass.IsValueCreated then
+                let (_, depth) = pass.Value
+                depth.Release()
+            match dummy with
+            | :? IBackendTexture as t -> t.Dispose()
+            | _ -> ()
 
-    /// One handle per process: the runtime is a singleton in both the viewer and
-    /// PRo3D.Snapshots, and createGroupedSgs may be re-executed on layout changes --
-    /// re-creating render tasks there would leak them.
-    let private cache = System.Collections.Concurrent.ConcurrentDictionary<IRuntime, Handle>()
+        { texture = texture; lightViewProj = lightViewProj; bias = bias; release = release }
+
+    /// One handle per viewer model: createGroupedSgs may be re-executed on layout changes,
+    /// and re-creating render tasks there would leak them. Keyed by the model, not the
+    /// runtime: a pass reads one model's surfaces and sun, so a second model on the same
+    /// runtime (the headless renderers of PRo3D.SceneRender, several per test process)
+    /// must not get the first one's shadows. The viewer and PRo3D.Snapshots have a
+    /// single model, so for them this is one handle per process as before.
+    let private cache = System.Runtime.CompilerServices.ConditionalWeakTable<AdaptiveModel, Handle>()
 
     /// Fail-soft: a broken shadow pass must never take the whole render view down with
     /// it. On any error the feature degrades to "no shadows" (dummy map, no light
     /// matrix) and says so loudly.
     let get (runtime : IRuntime) (m : AdaptiveModel) : Handle =
-        cache.GetOrAdd(runtime, fun runtime ->
+        cache.GetValue(m, fun m ->
             try
                 createHandle runtime m
             with e ->
                 Log.error "[SunShadowMap] shadow pass disabled, creation failed: %A" e
                 { texture = AVal.constant (createDummyTexture runtime)
                   lightViewProj = AVal.constant None
-                  bias = AVal.constant 0.0 })
+                  bias = AVal.constant 0.0
+                  release = ignore })
+
+    /// Frees `m`'s shadow pass, for hosts that retire a viewer model before the process
+    /// ends (PRo3D.SceneRender's renderers on Dispose). Only after the render tasks that
+    /// sample it are disposed.
+    let release (m : AdaptiveModel) =
+        match cache.TryGetValue m with
+        | true, handle ->
+            cache.Remove m |> ignore
+            handle.release ()
+        | _ -> ()

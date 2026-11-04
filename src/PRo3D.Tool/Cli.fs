@@ -296,3 +296,32 @@ type RenderBookmarksOptions =
         [<Option("list", HelpText = "Only list the scene's bookmarks (name and GUID) and exit")>]
         list : bool
     }
+
+/// Options for the `render-view` verb.
+///
+/// The cameras, OPCs and sun come from the --job file; these options override its top
+/// level (a view's own values win), see docs/Pro3DTool-RenderView.md.
+[<Verb("render-view", HelpText = "Render OPCs without a scene file from explicitly given cameras (location, forward, up, horizontal FOV), each OPC placed by a transformation, optionally lit by a given sun. Input is a JSON job file, e.g. written by scripts/render-view-job.py from SPICE.")>]
+type RenderViewOptions =
+    {
+        [<Option("job", Required = true, HelpText = "JSON job file: opcs, views (cameras, sun), size. See docs/Pro3DTool-RenderView.md.")>]
+        job : string
+
+        [<Option("views", HelpText = "Render only these views: names with * and ? wildcards (quote them in a shell), space separated. Default: every view.")>]
+        views : seq<string>
+
+        [<Option("out", HelpText = "Output directory (default: the job's 'out', else <job name>-renders beside the job file)")>]
+        out : string
+
+        [<Option("width", HelpText = "Image width in pixels, over the job's top level (default 1920)")>]
+        width : Option<int>
+
+        [<Option("height", HelpText = "Image height in pixels, over the job's top level (default 1080)")>]
+        height : Option<int>
+
+        [<Option("lod-level", HelpText = "Fix the OPC level of detail (0 = root patch), over the job's top level. See render-bookmarks.")>]
+        lodLevel : Option<int>
+
+        [<Option("no-sun", HelpText = "Ignore every view's sun: render without sun lighting")>]
+        noSun : bool
+    }

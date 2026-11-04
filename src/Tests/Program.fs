@@ -59,6 +59,8 @@ let allTests (parameters : TestUtils.TestParameters) : Test =
         PRo3D.Tests.SurfaceEffectSwitchTest.tests()
         // pro3d-tool render-bookmarks (#871); the rendering part self-skips without GPU/data
         PRo3D.Tests.SceneRenderTests.tests()
+        // pro3d-tool render-view (#878); the rendering part self-skips without GPU/data
+        PRo3D.Tests.RenderViewTests.tests()
         // map projection view (#772): Dimorphos OPC rendered headless; self-skips without GPU/data
         MapProjectionRenderTest.tests()
         FillRenderTest.tests()

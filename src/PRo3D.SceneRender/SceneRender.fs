@@ -54,7 +54,7 @@ module Bookmarks =
 
     /// `*` and `?` match any run of characters and any one character; everything else
     /// is literal. Case-sensitive, like the names in the bookmark panel.
-    let private wildcard (pattern : string) : Regex =
+    let internal wildcard (pattern : string) : Regex =
         let body = Regex.Escape(pattern).Replace(@"\*", ".*").Replace(@"\?", ".")
         Regex("^" + body + "$")
 
@@ -121,16 +121,15 @@ module Host =
         | Some _ -> ()
         | None -> PRo3D.Core.Surface.Sg.hackRunner <- Some (runtime.CreateLoadRunner 1)
 
-/// A `.pro3d` scene opened headlessly, rendered as the viewer renders it (surfaces,
-/// annotations, overlays: the snapshot scene graph, SnapshotSg.viewRenderView) from
-/// its bookmarks.
-///
-/// The scene is loaded and driven through the viewer's own update function; a bookmark
-/// puts the camera where clicking it in the bookmark panel ends up. OPC patches load
-/// synchronously, so every image is complete when Render returns -- no settle time.
+/// The headless viewer both renderers share: a viewer model driven through the viewer's
+/// own update function, the snapshot scene graph (SnapshotSg.viewRenderView: surfaces,
+/// annotations, overlays) and offscreen targets. `load` builds the starting model from
+/// a fresh one; OPC patches load synchronously, so every image is complete when Render
+/// returns -- no settle time.
 ///
 /// Not thread-safe; render from the thread that owns the GL runtime.
-type SceneRenderer(runtime : IRuntime, signature : IFramebufferSignature, scenePath : string) =
+type ViewerRenderer(runtime : IRuntime, signature : IFramebufferSignature,
+                    load : (Model -> ViewerAction -> Model) -> Model -> Model) =
 
     do Host.init ()
     do Host.ensureLoadRunner runtime
@@ -145,9 +144,6 @@ type SceneRenderer(runtime : IRuntime, signature : IFramebufferSignature, sceneP
         ViewerApp.updateViewer runtime signature sendQueue mailbox m msg
 
     let loaded =
-        let path = Path.GetFullPath scenePath
-        if not (File.Exists path) then
-            raise (FileNotFoundException(sprintf "no scene at %s" path, path))
         let fresh =
             Viewer.initial mailbox StartupArgs.initArgs "" signature.Samples (Path.GetTempPath())
                            ViewerLenses._animator "scene-render"
@@ -155,13 +151,8 @@ type SceneRenderer(runtime : IRuntime, signature : IFramebufferSignature, sceneP
         // synchronously, like PRo3D.Snapshots, so a single frame is a complete image.
         let previous = PRo3D.Core.Surface.Sg.useAsyncLoading
         PRo3D.Core.Surface.Sg.useAsyncLoading <- false
-        let m =
-            try update fresh (ViewerAction.LoadScene path)
-            finally PRo3D.Core.Surface.Sg.useAsyncLoading <- previous
-        // LoadScene logs a failure and hands back the model it was given
-        match m.scene.scenePath with
-        | Some _ -> m
-        | None -> failwithf "could not load scene %s (see the log)" path
+        try load update fresh
+        finally PRo3D.Core.Surface.Sg.useAsyncLoading <- previous
 
     let mutable current = loaded
 
@@ -198,27 +189,93 @@ type SceneRenderer(runtime : IRuntime, signature : IFramebufferSignature, sceneP
             target <- Some (size, color, depth, resolved, fbo)
             color, resolved, fbo
 
-    /// Opens the scene with a signature like PRo3D.Snapshots' (RGBA8, depth-stencil, 8x MSAA).
-    new(runtime : IRuntime, scenePath : string) =
-        new SceneRenderer(runtime, PRo3D.SimulatedViews.SnapshotFramebuffer.createSignature runtime, scenePath)
+    /// The viewport id ResizeMainControl messages use.
+    member x.ViewportId = viewportId
 
-    member x.ScenePath = Path.GetFullPath scenePath
-
-    /// The scene's plain bookmarks, in bookmark-panel order.
-    member x.Bookmarks : list<Bookmark> = Bookmarks.ofGroups loaded.scene.bookmarks
+    /// The model `load` produced.
+    member x.Loaded : Model = loaded
 
     /// The viewer model as last rendered.
     member x.Model : Model = current
 
-    /// Renders the scene as seen from `bookmark`.
-    member x.Render(bookmark : Bookmark, settings : RenderSettings) : PixImage<byte> =
-        if settings.size.X <= 0 || settings.size.Y <= 0 then
-            invalidArg (nameof settings) (sprintf "image size must be positive, got %A" settings.size)
-        match settings.lodLevel with
-        | Some level when level < 0 -> invalidArg (nameof settings) (sprintf "LoD level must be >= 0, got %d" level)
+    /// The viewer's update function.
+    member x.Update (m : Model) (msg : ViewerAction) : Model = update m msg
+
+    /// Renders the model `prepare` makes of the current one. `sun`: the direction for
+    /// Gis.SunOverride (None: SPICE's, if any); whether it lights is the model's lighting mode.
+    member x.Render(prepare : Model -> Model, size : V2i, lodLevel : Option<int>, sun : Option<V3d>) : PixImage<byte> =
+        if size.X <= 0 || size.Y <= 0 then
+            invalidArg (nameof size) (sprintf "image size must be positive, got %A" size)
+        match lodLevel with
+        | Some level when level < 0 -> invalidArg (nameof lodLevel) (sprintf "LoD level must be >= 0, got %d" level)
         | _ -> ()
 
-        let m =
+        let m = prepare current
+        current <- m
+
+        transact (fun () ->
+            adaptive.Update m
+            viewportSize.Value <- size
+            PRo3D.Core.Surface.LodOverride.fixedLevel.Value <- lodLevel
+            PRo3D.Core.Gis.SunOverride.direction.Value <- sun
+        )
+
+        let color, resolved, fbo = targetFor size
+        clear.Run(RenderToken.Empty, fbo)
+        task.Run(RenderToken.Empty, fbo)
+        runtime.ResolveMultisamples(color.GetOutputView(), resolved)
+        runtime.Download(resolved).ToPixImage<byte>()
+
+    interface IDisposable with
+        member x.Dispose() =
+            // the overrides are process-wide; leave the viewer's own behaviour behind
+            transact (fun () ->
+                PRo3D.Core.Surface.LodOverride.fixedLevel.Value <- None
+                PRo3D.Core.Gis.SunOverride.direction.Value <- None)
+            disposeTarget ()
+            clear.Dispose()
+            task.Dispose()
+            // its shadow pass is this model's alone (SunShadowMap is keyed by model)
+            SunShadowMap.release adaptive
+            cts.Cancel()
+            sendQueue.Dispose()
+            cts.Dispose()
+
+/// A `.pro3d` scene opened headlessly, rendered as the viewer renders it from its
+/// bookmarks. The scene is loaded and driven through the viewer's own update function;
+/// a bookmark puts the camera where clicking it in the bookmark panel ends up.
+///
+/// Not thread-safe; render from the thread that owns the GL runtime.
+type SceneRenderer(runtime : IRuntime, signature : IFramebufferSignature, scenePath : string) =
+
+    let path = Path.GetFullPath scenePath
+
+    do if not (File.Exists path) then
+        raise (FileNotFoundException(sprintf "no scene at %s" path, path))
+
+    let core =
+        new ViewerRenderer(runtime, signature, fun update fresh ->
+            let m = update fresh (ViewerAction.LoadScene path)
+            // LoadScene logs a failure and hands back the model it was given
+            match m.scene.scenePath with
+            | Some _ -> m
+            | None -> failwithf "could not load scene %s (see the log)" path)
+
+    /// Opens the scene with a signature like PRo3D.Snapshots' (RGBA8, depth-stencil, 8x MSAA).
+    new(runtime : IRuntime, scenePath : string) =
+        new SceneRenderer(runtime, PRo3D.SimulatedViews.SnapshotFramebuffer.createSignature runtime, scenePath)
+
+    member x.ScenePath = path
+
+    /// The scene's plain bookmarks, in bookmark-panel order.
+    member x.Bookmarks : list<Bookmark> = Bookmarks.ofGroups core.Loaded.scene.bookmarks
+
+    /// The viewer model as last rendered.
+    member x.Model : Model = core.Model
+
+    /// Renders the scene as seen from `bookmark`.
+    member x.Render(bookmark : Bookmark, settings : RenderSettings) : PixImage<byte> =
+        let prepare (current : Model) =
             // Where clicking the bookmark ends up. The viewer's UpdateCam does not move the
             // camera itself (Viewer.fs keeps the old navigation) but starts a fly-to
             // animation, which only a window's clock drives: set its end state directly,
@@ -232,28 +289,8 @@ type SceneRenderer(runtime : IRuntime, signature : IFramebufferSignature, sceneP
                             exploreCenter  = bookmark.exploreCenter
                             navigationMode = bookmark.navigationMode
                             updatePerFrame = (bookmark.navigationMode = NavigationMode.MapView) } }
-            update m (ViewerAction.ResizeMainControl (settings.size, viewportId))
-        current <- m
-
-        transact (fun () ->
-            adaptive.Update m
-            viewportSize.Value <- settings.size
-            PRo3D.Core.Surface.LodOverride.fixedLevel.Value <- settings.lodLevel
-        )
-
-        let color, resolved, fbo = targetFor settings.size
-        clear.Run(RenderToken.Empty, fbo)
-        task.Run(RenderToken.Empty, fbo)
-        runtime.ResolveMultisamples(color.GetOutputView(), resolved)
-        runtime.Download(resolved).ToPixImage<byte>()
+            core.Update m (ViewerAction.ResizeMainControl (settings.size, core.ViewportId))
+        core.Render(prepare, settings.size, settings.lodLevel, None)
 
     interface IDisposable with
-        member x.Dispose() =
-            // the override is process-wide; leave the viewer's level of detail behind
-            transact (fun () -> PRo3D.Core.Surface.LodOverride.fixedLevel.Value <- None)
-            disposeTarget ()
-            clear.Dispose()
-            task.Dispose()
-            cts.Cancel()
-            sendQueue.Dispose()
-            cts.Dispose()
+        member x.Dispose() = (core :> IDisposable).Dispose()

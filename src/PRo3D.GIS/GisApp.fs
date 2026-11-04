@@ -24,8 +24,26 @@ open Aardvark.SceneGraph
 open PRo3D.Extensions
 open PRo3D.Extensions.FSharp
 
+/// A sun direction given directly instead of computed by SPICE, for headless rendering
+/// of OPCs without a scene body (pro3d-tool render-view, docs/Pro3DTool-RenderView.md).
+///
+/// `Some d`: d (towards the sun, in the frame the surfaces are rendered in) is the sun
+/// direction of every surface, and surfaces without a SPICE body get sun shading and
+/// shadows like surfaces with one. The lighting mode still decides whether the sun is
+/// used at all. `None` (the default) leaves everything to SPICE.
+///
+/// Process-wide and not persisted, like LodOverride: no scene ever carries it.
+module SunOverride =
+
+    let direction : cval<Option<V3d>> = cval None
+
+    /// What surfaces without a SPICE body are observed as while the override is set: the
+    /// body name only gates whether a surface gets sun data (Viewer-Utils observedBody).
+    [<Literal>]
+    let BodyName = "SUN-OVERRIDE"
+
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
-module GisApp = 
+module GisApp =
     type GisLenses<'viewer> = 
         {
             surfacesModel   : Lens<'viewer, SurfaceModel>
@@ -1156,29 +1174,36 @@ module GisApp =
     /// Mars in IAU_MARS). None while the lighting mode is Off, where nothing reads it:
     /// every surface of a scene body inherits a reference system (#758), and a SPICE query
     /// per surface and time step is neither free nor quiet without an ephemeris kernel.
+    /// SunOverride.direction, when set, replaces the SPICE computation for every surface.
     let getSunDirection (m: AdaptiveGisApp) (s : SurfaceId) =
-        let observer = m.defaultObservationInfo.observer 
+        let observer = m.defaultObservationInfo.observer
         let time = m.defaultObservationInfo.time.date
         let targetReferenceFrame = m.defaultObservationInfo.referenceFrame
         let lit =
             m.projectedImageList.lightingMode
             |> AVal.map (fun mode -> mode <> PRo3D.ImageMapping.LightingMode.Off)
-        (lit, getSpiceReferenceSystemAdaptive m s)
-        ||> AVal.map2 (fun lit r -> if lit then r else None)
-        |> AVal.bind (function
-            | None -> AVal.constant None
-            | Some r -> 
-                (observer, targetReferenceFrame, time) |||> AVal.map3 (fun observer targetReferenceFrame time ->
-                    match observer, targetReferenceFrame with
-                    | Some observer, Some targetReferenceFrame ->
-                        let bodyPos = CooTransformation.transformBody r.body (Some r.referenceFrame) observer targetReferenceFrame time
-                        let sunPos = CooTransformation.transformBody (EntitySpiceName "SUN") (Some r.referenceFrame) observer targetReferenceFrame time
-                        match sunPos, bodyPos with
-                        | Some sunPos, Some bodyPos -> sunPos.position - bodyPos.position |> Vec.normalize |> Some
+        let spice =
+            (lit, getSpiceReferenceSystemAdaptive m s)
+            ||> AVal.map2 (fun lit r -> if lit then r else None)
+            |> AVal.bind (function
+                | None -> AVal.constant None
+                | Some r -> 
+                    (observer, targetReferenceFrame, time) |||> AVal.map3 (fun observer targetReferenceFrame time ->
+                        match observer, targetReferenceFrame with
+                        | Some observer, Some targetReferenceFrame ->
+                            let bodyPos = CooTransformation.transformBody r.body (Some r.referenceFrame) observer targetReferenceFrame time
+                            let sunPos = CooTransformation.transformBody (EntitySpiceName "SUN") (Some r.referenceFrame) observer targetReferenceFrame time
+                            match sunPos, bodyPos with
+                            | Some sunPos, Some bodyPos -> sunPos.position - bodyPos.position |> Vec.normalize |> Some
+                            | _ -> None
                         | _ -> None
-                    | _ -> None
-                )
-        )
+                    )
+            )
+        SunOverride.direction
+        |> AVal.bind (function
+            | Some d -> lit |> AVal.map (fun lit -> if lit then Some (Vec.normalize d) else None)
+            | None -> spice)
+
         
     let getObserver (v : ObservationInfo) =
         match v.observer, v.referenceFrame with

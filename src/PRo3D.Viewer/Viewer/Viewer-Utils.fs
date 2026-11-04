@@ -248,9 +248,16 @@ module ViewerUtils =
 
         
     /// The SPICE body a surface is observed as (Sg.applyBody); None without a SPICE
-    /// reference system. Also gates whether the surface gets projection data at all.
+    /// reference system. Also gates whether the surface gets projection data at all --
+    /// so while a sun direction is given directly (Gis.SunOverride), a surface without a
+    /// body is observed as SunOverride.BodyName and gets sun shading and shadows too.
     let observedBody (observedSystem : aval<Option<SpiceReferenceSystem>>) : aval<Option<string>> =
-        observedSystem |> AVal.map (function None -> None | Some o -> Some o.body.Value)
+        (observedSystem, Gis.SunOverride.direction)
+        ||> AVal.map2 (fun observed sun ->
+            match observed, sun with
+            | Some o, _ -> Some o.body.Value
+            | None, Some _ -> Some Gis.SunOverride.BodyName
+            | None, None -> None)
 
     /// Distance-to-home filtering is on only when there is a home position to filter
     /// against. Feeds the FilterByDistance uniform and the surface-effect variant switch.

@@ -99,6 +99,7 @@
     <Compile Include="GeologicalMapDrawingTests.fs" />
     <Compile Include="SurfaceEffectSwitchTest.fs" />
     <Compile Include="SceneRenderTests.fs" />
+    <Compile Include="RenderViewTests.fs" />
     <Compile Include="MapProjectionRenderTest.fs" />
     <Compile Include="FillRenderTest.fs" />
     <Compile Include="SlowProfileExportTest.fs" />

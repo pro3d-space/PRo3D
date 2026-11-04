@@ -17,6 +17,8 @@
     <None Include="paket.references" />
     <Compile Include="SceneRender.fs" />
     <Compile Include="RenderJob.fs" />
+    <Compile Include="OpcRender.fs" />
+    <Compile Include="ViewJob.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\PRo3D.Base\PRo3D.Base.fsproj" />
