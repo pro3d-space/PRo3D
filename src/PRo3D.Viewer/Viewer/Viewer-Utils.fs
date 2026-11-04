@@ -436,6 +436,7 @@ module ViewerUtils =
                     )
                     |> Sg.noEvents
                     |> Sg.uniform "selected"      (isSelected) // isSelected
+                    |> Sg.uniform "SurfaceTextureEnabled" surf.textureEnabled
                     |> Sg.uniform "selectionColor" (AVal.constant (C4b (200uy,200uy,255uy,255uy)))
                     //|> addAttributeFalsecolorMappingParameters surf
                     |> addDepthMappingParameters fp
@@ -868,9 +869,43 @@ module ViewerUtils =
                 addressV WrapMode.Wrap
             }
        
+        type UniformScope with
+            /// Surface.textureEnabled: false replaces the texture by untexturedAlbedo
+            member x.SurfaceTextureEnabled : bool = x?SurfaceTextureEnabled
+            member x.UntexturedSunLit : bool = x?SunLightEnabled
+
+        /// Untextured surfaces (Surface.textureEnabled = false), surface-colour band: the
+        /// texture becomes a uniform light grey, so only the lighting below shows the shape.
+        let untexturedSurface (v : Vertex) =
+            fragment {
+                let mutable c = v.c
+                if not uniform.SurfaceTextureEnabled then
+                    c <- V4f(0.7f, 0.7f, 0.7f, 1.0f)
+                return c
+            }
+
+        /// Untextured surfaces without sun lighting, lighting band: a fixed light at the
+        /// camera (from upper left) over the face normal from screen-space derivatives of
+        /// the view-space position -- view space per the precision rules, and no geometry
+        /// stage needed. One return on purpose (#719, FShade#39).
+        let untexturedHeadlight (v : Vertex) =
+            fragment {
+                let mutable c = v.c
+                if not uniform.SurfaceTextureEnabled && not uniform.UntexturedSunLit then
+                    let p = v.vp.XYZ
+                    let n0 = Vec.cross (ddx p) (ddy p) |> Vec.normalize
+                    let toCam = -p |> Vec.normalize
+                    let n = if Vec.dot n0 toCam < 0.0f then -n0 else n0
+                    let l = V3f(-0.4f, 0.5f, 0.77f) |> Vec.normalize
+                    let ambient = 0.15f
+                    let i = ambient + (1.0f - ambient) * (Vec.dot n l |> max 0.0f)
+                    c <- V4f(v.c.XYZ * i, v.c.W)
+                return c
+            }
+
         let textureOrLightingIfPossible (v : Vertex) =
             fragment {
-                if uniform.HasDiffuseColorTexture then
+                if uniform.HasDiffuseColorTexture && uniform.SurfaceTextureEnabled then
                     let texColor = diffuseSampler.Sample(v.tc,-1.0f) // TODO: to why is -1 being used here as lod offset?
                     return texColor
                 else
@@ -1111,9 +1146,9 @@ module ViewerUtils =
             Shader.stableTrafo      |> toEffect
             Shader.triangleSizeFilter  |> toEffect
 
+            // samples the texture only while Surface.textureEnabled; no stage after it may
+            // sample again, or unticking Texture does nothing on OBJs
             Shader.textureOrLightingIfPossible |> toEffect
-
-            PRo3D.Base.OPCFilter.improvedDiffuseTextureAndColor |> toEffect
             Shader.mapColorAdaption  |> toEffect
             PRo3D.Base.Shader.mapRadiometry |> toEffect
             Shader.fixAlpha          |> toEffect
@@ -1288,6 +1323,7 @@ module ViewerUtils =
 
             Shader.fixAlpha |> toEffect
             PRo3D.Base.OPCFilter.improvedDiffuseTexture |> toEffect
+            Shader.untexturedSurface |> toEffect
             PRo3D.Base.OPCFilter.markPatchBorders |> toEffect
 
 
@@ -1330,6 +1366,8 @@ module ViewerUtils =
             PRo3D.SPICE.Shaders.solarShadingLS |> toEffect
             // Cast shadows (LightingMode.SunShadow); per-patch gated, no-op otherwise.
             PRo3D.SPICE.Shaders.terrainSunShadow |> toEffect
+            // untextured surfaces without the sun: a camera light instead
+            Shader.untexturedHeadlight |> toEffect
 
             // -- 3. overlays: drawn on the terrain, not part of it. After lighting so they stay
             // readable in shadow and on the night side; bottom -> top, each paints over the
