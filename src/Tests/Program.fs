@@ -57,6 +57,8 @@ let allTests (parameters : TestUtils.TestParameters) : Test =
         MapProjectionShaderTest.tests()
         MapProjectionAnnotationFixture.tests()
         PRo3D.Tests.SurfaceEffectSwitchTest.tests()
+        // pro3d-tool render-bookmarks (#871); the rendering part self-skips without GPU/data
+        PRo3D.Tests.SceneRenderTests.tests()
         // map projection view (#772): Dimorphos OPC rendered headless; self-skips without GPU/data
         MapProjectionRenderTest.tests()
         FillRenderTest.tests()
