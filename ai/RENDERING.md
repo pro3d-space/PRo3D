@@ -59,7 +59,7 @@ This is a hard rule for any new geometry/shader work. The full statement and the
 
 ### Shaders & Effects
 
-PRo3D mixes Aardvark `DefaultSurfaces` with custom FShade effects. Notable PRo3D-specific ones: false-color/transfer-function shading for scalar layers (see [DOMAIN.md](DOMAIN.md#transformations--false-color)), multitexturing, outline/selection via stencil modes, and contour-line shading (`docs/Contour-Lines.md`, `docs/Feature-Multitexture.md`).
+PRo3D mixes Aardvark `DefaultSurfaces` with custom FShade effects. Notable PRo3D-specific ones: false-color/transfer-function shading for scalar layers (see [DOMAIN.md](DOMAIN.md#transformations--false-color)), multitexturing, outline/selection via stencil modes, contour-line shading, and untextured grey surfaces shaded by the light alone (`docs/Contour-Lines.md`, `docs/Feature-Multitexture.md`, `docs/UntexturedSurfaces.md`).
 
 ### OPC surface effect variants (#719)
 

@@ -104,6 +104,7 @@ module SurfaceUtils =
 
             highlightSelected     = true
             highlightAlways       = false
+            textureEnabled        = true
         }
 
     module ObjectFiles =        
