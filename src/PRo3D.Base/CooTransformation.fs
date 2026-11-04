@@ -513,15 +513,21 @@ module CooTransformation =
             | Some fp, Some fq -> Some (Vec.distance fp fq)
             | _ -> None
 
+    /// The value PRo3D shows as a point's height - see `HeightReference` for what it
+    /// means per body. On a body this is `SphericalCoo.altitude` and `up` is ignored.
+    /// In a local frame (Planet.None/.JPL/.ENU) it is the coordinate along the
+    /// reference system's `up`: `p . up`. (This used to be the component-wise product
+    /// `p * up`, read as `.Z` or `.Length` depending on the caller - two different
+    /// numbers, the latter folding negative heights onto positive ones.)
     let tryGetHeight (p : V3d) (up : V3d) (planet : Planet) : double option =
         match planet with
-        | Planet.None | Planet.JPL | Planet.ENU -> Some (p * up).Length
+        | Planet.None | Planet.JPL | Planet.ENU ->
+            if up.LengthSquared > 0.0 then Some (Vec.dot p up.Normalized) else None
         | _ -> tryGetLatLonAlt planet p |> Option.map (fun sc -> sc.altitude)
 
+    /// Same value as `tryGetHeight`; kept for its callers.
     let tryGetAltitude (p : V3d) (up : V3d) (planet : Planet) : double option =
-        match planet with
-        | Planet.None | Planet.JPL | Planet.ENU -> Some (p * up).Z
-        | _ -> tryGetLatLonAlt planet p |> Option.map (fun sc -> sc.altitude)
+        tryGetHeight p up planet
 
     let tryGetElevation (planet : Planet) (p : V3d) : double option =
         tryGetLatLonAlt planet p |> Option.map (fun sc -> sc.altitude)
@@ -614,6 +620,99 @@ module CooTransformation =
         match planetFromString (bodyName.Trim()) with
         | Some planet -> tryGetXYZFromLatLonAlt sc planet
         | None        -> tryGetXYZFromLatLonAltPlanet sc bodyName
+
+    /// What the "altitude" PRo3D shows actually is, in words, for labels and tooltips.
+    /// Documented in docs/HeightReference.md - keep the two in sync.
+    ///
+    /// PRo3D computes no gravity potential, so none of these is an elevation above an
+    /// equipotential surface (geoid/areoid). Potential-based values only come from OPC
+    /// attribute layers (`Elevation`, `Potential`, `Gravity`, ...), which are the data's.
+    module HeightReference =
+
+        /// Appended to every explanation: the one thing users keep assuming.
+        let notElevation =
+            "Purely geometric: PRo3D computes no gravity potential, so this is not an elevation above \
+             an equipotential surface (geoid/areoid). Potential-based heights come only from OPC layers \
+             such as 'Elevation' (e.g. from the DART shape models), shown as surface attributes."
+
+        /// Short row label for the height of a point on `planet`, without colon or unit.
+        let label (planet : Planet) =
+            match getConvention planet with
+            | Planetographic -> "Height above spheroid"
+            | Spherical _    -> "Radius from centre"
+            | Ellipsoidal _  -> "Height above ellipsoid"
+            | NonPlanetary   -> "Height along up"
+
+        /// The noun for derived values (annotation "Avg ...", "... delta"): on a body whose
+        /// value is a radius it says so.
+        let noun (planet : Planet) =
+            match getConvention planet with
+            | Spherical _ -> "radius"
+            | _           -> "height"
+
+        /// Tooltip for `label planet`.
+        let description (planet : Planet) =
+            let what =
+                match getConvention planet with
+                | Planetographic ->
+                    sprintf "Height above the reference spheroid of %A, measured along the spheroid normal \
+                             (SPICE recpgr; equatorial and polar radius from the loaded SPICE PCK). \
+                             0 m is on the spheroid, not on the terrain." planet
+                | Spherical r ->
+                    sprintf "Distance from the centre of %A (SPICE reclat, planetocentric). Not a height \
+                             above any surface: on the ground it equals the local radius \
+                             (mean radius %.1f m)." planet r
+                | Ellipsoidal radii ->
+                    sprintf "Height above the tri-axial reference ellipsoid of %A (radii %.1f, %.1f, %.1f m), \
+                             measured radially from the centre." planet radii.X radii.Y radii.Z
+                | NonPlanetary ->
+                    "No body is set: the coordinate along the reference system's up vector, from the \
+                     scene origin."
+            what + " " + notElevation
+
+        /// For places that cannot know the body (static tooltips, column help).
+        let generic =
+            "Measured against the scene's body: height above the reference spheroid (SPICE recpgr) on \
+             Mars, Earth, Moon, Phobos, Deimos and Didymos; distance from the body centre on Dimorphos \
+             (SPICE reclat); the coordinate along the reference system's up without a body. \
+             The Coordinate System panel names the convention in use. " + notElevation
+
+        /// For measurements that take the reference system's up as "vertical" (slope, dip,
+        /// thickness, vertical/horizontal distance).
+        let upNote =
+            "\"Vertical\" here is the reference system's up (Coordinate System panel: radial or \
+             spheroid normal), not the local direction of gravity. On small, fast-rotating bodies \
+             the two can differ considerably; a gravity-based up is planned (#867)."
+
+        /// Tooltip for an OPC attribute layer, by its name in the patch (`Elevation.aara` ->
+        /// "Elevation"). These values are the data producer's; PRo3D only interpolates them.
+        let layerDescription (layer : string) =
+            let fromData =
+                sprintf "OPC layer '%s', as stored by the data producer (for HERA: derived from the DART \
+                         shape models). PRo3D does not compute it, only interpolates it at this point." layer
+            let what =
+                match layer.Trim().ToLowerInvariant() with
+                | "elevation" ->
+                    Some "Height the shape-model export derives from the gravitational potential, i.e. \
+                          relative to an equipotential reference (density, rotation and level 0 as defined \
+                          by the producer). Not the geometric height PRo3D shows next to lat/lon."
+                | "potential" ->
+                    Some "Gravitational (+ rotational) potential at the surface, per the producer's model."
+                | "gravity" ->
+                    Some "Surface acceleration vector (gravity + rotation), per the producer's model."
+                | "magnitude" ->
+                    Some "Magnitude of the 'Gravity' vector."
+                | "slope" ->
+                    Some "Slope of the producer's model, presumably the angle between the surface normal and \
+                          the local gravity vector - so it can differ from an annotation's slope, which \
+                          PRo3D measures against the reference system's up."
+                | "lonlatrad" ->
+                    Some "Longitude and latitude in gradians (0..400, 0..200 from the south pole) and the \
+                          radius from the body centre in metres."
+                | _ -> None
+            match what with
+            | Some w -> w + " " + fromData
+            | None   -> fromData
 
     module SphericalCoo =
         let toV3d (spherical : SphericalCoo) =

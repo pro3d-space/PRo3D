@@ -224,9 +224,16 @@ module Gui =
                     CooTransformation.tryGetLatLonAlt b a.Location
                 ) cv m.planet
 
+            // the reference system's up, never the camera's: in a local frame the value is
+            // the coordinate along that up, and must not change when the view tilts
             let altitude =
-                AVal.map2 (fun (a : CameraView) b ->
-                    CooTransformation.tryGetAltitude a.Location a.Up b) cv m.planet
+                AVal.map3 (fun (a : CameraView) b up ->
+                    CooTransformation.tryGetHeight a.Location up b) cv m.planet m.up.value
+
+            // the HUD ignores the mouse, so no tooltip: the label itself has to say what
+            // the number is (docs/HeightReference.md)
+            let altLabel =
+                m.planet |> AVal.map (fun p -> CooTransformation.HeightReference.label p + ": ")
 
             let formatCoo (project : CooTransformation.SphericalCoo -> string) =
                 spericalc |> AVal.map (function
@@ -284,7 +291,7 @@ module Gui =
                     //    td[style style'][Incremental.text alt]
                     //]
                     tr [] [
-                        td [style style'] [text "Altitude: "]
+                        td [style style'] [Incremental.text altLabel]
                         td [style style'] [Incremental.text alt2]
                     ]
                     tr [] [
@@ -1628,7 +1635,7 @@ module Gui =
         let viewAnnotationResults (model : AdaptiveModel) =
             let view = (fun leaf ->
                 match leaf with
-                  | AdaptiveAnnotations ann -> AnnotationProperties.viewResults ann model.scene.referenceSystem.up.value
+                  | AdaptiveAnnotations ann -> AnnotationProperties.viewResults ann model.scene.referenceSystem.up.value model.scene.referenceSystem.planet
                   | _ -> div [style "font-style:italic"] [ text "no annotation selected" ])
             
             model.drawing.annotations |> GroupsApp.viewSelected view AnnotationMessage
@@ -1811,10 +1818,16 @@ module Gui =
                                     // raw convention, matching the Coordinate System panel
                                     yield Html.row "Latitude:"  [text (sprintf "%s deg" (sc.latitude.ToString("0.00000")))]
                                     yield Html.row "Longitude:" [text (sprintf "%s deg" (sc.longitude.ToString("0.00000")))]
-                                    yield Html.row "Altitude:"  [text (sprintf "%s m"   (sc.altitude.ToString("0.00")))]
+                                    // plain title, not UI.wrapToolTip: this table re-renders on
+                                    // every mouse move and a Semantic popup would boot each time
+                                    yield Html.row (CooTransformation.HeightReference.label planet + ":") [
+                                        span [ attribute "title" (CooTransformation.HeightReference.description planet) ]
+                                             [ text (sprintf "%s m" (sc.altitude.ToString("0.00"))) ] ]
                                 | None -> ()
                                 for a : SampledAttribute in hit.attributes do
-                                    yield Html.row (a.name + ":") [text (formatValues a.values)]
+                                    yield Html.row (a.name + ":") [
+                                        span [ attribute "title" (CooTransformation.HeightReference.layerDescription a.name) ]
+                                             [ text (formatValues a.values) ] ]
                             ]
                             if hit.attributes.IsEmpty then
                                 // either the surface ships no *.aara layers at all, or the hit

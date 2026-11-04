@@ -87,6 +87,14 @@ module AnnotationExport =
     [<Literal>]
     let LatLonAltSourceColumn = "latLonAltSource"
 
+    /// What `alt` means, per `latLonAltSource` token: written into GeoJSON exports and
+    /// shown as the tooltip of the geographic options, so file and UI say the same.
+    let altDefinition (planet : Planet) =
+        "alt depends on latLonAltSource. "
+        + "spice_*: " + CooTransformation.HeightReference.label planet + " - "
+        + CooTransformation.HeightReference.description planet
+        + " aara_file: the radius from the body centre stored in the OPC's LonLatRad layer (metres), on every body."
+
     /// Which routine `CooTransformation.tryGetLatLonAlt` runs for this body.
     let private spiceSourceToken (planet : Planet) =
         match CooTransformation.getConvention planet with
@@ -597,7 +605,9 @@ module AnnotationExport =
             match format with
             | ExportFormat.GeoJson ->
                 let body =
-                    if wantsGeographic settings.coordinates then Some (string planet) else None
+                    if wantsGeographic settings.coordinates then
+                        Some (string planet, altDefinition planet)
+                    else None
                 ExportWriters.writeGeoJson path body records
             | _ ->
                 ExportWriters.writeCsv path (schemaFor settings records) records

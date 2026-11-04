@@ -84,7 +84,7 @@ Planetary coordinate frames and the up/north directions everything else is expre
 Key types & functions:
 - **`Planet`** — `Earth` | `Mars` | `Moon` | `Phobos` | `Deimos` | `Didymos` | `Dimorphos` | `JPL` | `ENU` | `None`.
 - **`ReferenceSystem`** — `origin : V3d`, `north`/`up` (as `V3dInput` for UI editing), a north-offset angle, `planet`, visibility/size, and a selectable scale chart.
-- **`SphericalCoo`** — longitude/latitude/altitude (+ radian flag).
+- **`SphericalCoo`** — longitude/latitude/altitude (+ radian flag). `altitude` is geometric and its meaning depends on the body (spheroid height, or radius from the centre on Dimorphos). PRo3D has no gravity potential. UI text for it comes from `CooTransformation.HeightReference`, so never label it "elevation". See `docs/HeightReference.md`.
 - **`CooTransformation`** — conversions `getLatLonAlt`, `getXYZFromLatLonAlt`, `getUpVector`, `getAltitude`/`getElevation'`/`getHeight`, and lifecycle `initCooTrafo`/`deInitCooTrafo`. These wrap the native `CooTransformation` library and are **thread-locked**; they require initialization at startup (done in `Program.fs`).
 - `Planet.inferCoordinateSystem` / `suggestedSystem` heuristically infer the planet from a point's distance from origin.
 

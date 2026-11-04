@@ -184,8 +184,14 @@ module ReferenceSystemApp =
                     Html.row "N-Offset:"    [Numeric.view' [InputBox] model.noffset |> UI.map SetNOffset ]
                     Html.row "Longitude:"   [Incremental.text (formatCoo (fun x -> x.longitude))]
                     Html.row "Latitude:"    [Incremental.text (formatCoo (fun x -> x.latitude))]
-                    Html.row "Altitude:"    [Incremental.text (formatCoo (fun x -> x.altitude))]
-                    Html.row "Convention:"  [Incremental.text conventionLabel]
+                    UI.rowWithTipA
+                        (model.planet |> AVal.map (fun p -> CooTransformation.HeightReference.label p + ":"))
+                        (model.planet |> AVal.map CooTransformation.HeightReference.description)
+                        [Incremental.text (formatCoo (fun x -> x.altitude))]
+                    UI.rowWithTipA
+                        (AVal.constant "Convention:")
+                        (model.planet |> AVal.map CooTransformation.HeightReference.description)
+                        [Incremental.text conventionLabel]
                     Html.row "Visible:"     [GuiEx.iconCheckBox model.isVisible ToggleVisible ]
                     Html.row "Textsize:"    [Numeric.view' [NumericInputType.InputBox] model.textsize |> UI.map SetTextsize ]  
                     Html.row "Textcolor:"   [ColorPicker.view model.textcolor |> UI.map SetTextColor ]

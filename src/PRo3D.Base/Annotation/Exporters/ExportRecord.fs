@@ -204,8 +204,9 @@ module ExportWriters =
 
     /// Writes a spec-shaped `FeatureCollection`. `planet` (when the export is
     /// geographic) is carried as a collection-level property, as the QGIS
-    /// exporter did.
-    let writeGeoJson (path : string) (planet : Option<string>) (records : seq<ExportRecord>) : unit =
+    /// exporter did. `altDefinition` says in words what the third coordinate is
+    /// (docs/HeightReference.md) - the file is read without PRo3D at hand.
+    let writeGeoJson (path : string) (planet : Option<string * string>) (records : seq<ExportRecord>) : unit =
         let features = records |> Seq.map feature |> Seq.toList
 
         let collection =
@@ -213,7 +214,10 @@ module ExportWriters =
                 yield "type", Encode.string "FeatureCollection"
                 yield "features", Encode.list features
                 match planet with
-                | Some p -> yield "properties", Encode.object [ "planet", Encode.string p ]
+                | Some (p, altDefinition) ->
+                    yield "properties", Encode.object [
+                        "planet", Encode.string p
+                        "altDefinition", Encode.string altDefinition ]
                 | None   -> ()
             ]
 

@@ -140,7 +140,9 @@ columns.
 east-positive, as `CooTransformation` returns it.
 
 `lat_deg`, `lon_deg` and `alt_m` are derived via SPICE from the intersection point, not read
-from the shape model. A body with no known coordinate convention leaves these three columns
+from the shape model. `alt_m` is geometric and depends on the body: height above the
+reference spheroid, or on Dimorphos the radius from the centre - see
+[HeightReference.md](HeightReference.md). It is not the potential-based `Elevation` layer. A body with no known coordinate convention leaves these three columns
 empty.
 
 For the shape model's own values, use its attribute columns instead: `Elevation`, and the radius

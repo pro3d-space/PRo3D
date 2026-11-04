@@ -198,9 +198,11 @@ module AnnotationFields =
         | AnnotationField.ColorHex          -> "Colour (#RRGGBB, for GIS styling)"
         | AnnotationField.Visible           -> "Visible"
         | AnnotationField.PointCount        -> "Point count"
-        | AnnotationField.Height            -> "Height (m)"
-        | AnnotationField.HeightDelta       -> "Height delta (m)"
-        | AnnotationField.AvgAltitude       -> "Avg altitude (m)"
+        // "height" per docs/HeightReference.md - a radius on Dimorphos; the column ids
+        // (height, heightDelta, avgAltitude) stay as they are for existing readers
+        | AnnotationField.Height            -> "Height range, max - min (m)"
+        | AnnotationField.HeightDelta       -> "Height delta, last - first (m)"
+        | AnnotationField.AvgAltitude       -> "Avg height (m)"
         | AnnotationField.Length            -> "Length, straight (m)"
         | AnnotationField.WayLength         -> "Length, total along surface (m)"
         | AnnotationField.Bearing           -> "Bearing (deg)"
@@ -226,6 +228,35 @@ module AnnotationFields =
         | AnnotationField.ProfileStation    -> "Profile station along the parent (m)"
         | _                                 -> sprintf "%A" field
 
+    /// Tooltip of a field's checkbox, where the label alone does not say what is measured
+    /// against what. Empty when the label is enough.
+    let description (field : AnnotationField) =
+        let height = CooTransformation.HeightReference.generic
+        let up     = CooTransformation.HeightReference.upNote
+        match field with
+        | AnnotationField.Height ->
+            "Column 'height': largest minus smallest height of the annotation's points. " + height
+        | AnnotationField.HeightDelta ->
+            "Column 'heightDelta': absolute difference between the last and the first point's height. " + height
+        | AnnotationField.AvgAltitude ->
+            "Column 'avgAltitude' (name kept for compatibility): mean height of the annotation's points. " + height
+        | AnnotationField.Slope ->
+            "Inclination of the straight line from the first to the last point, from horizontal. " + up
+        | AnnotationField.VerticalDelta ->
+            "First to last point, the component along up. " + up
+        | AnnotationField.HorizontalDelta ->
+            "First to last point, the component perpendicular to up. " + up
+        | AnnotationField.TrueThickness ->
+            "Distance to the fitted dip-and-strike plane, perpendicular to the plane. " + up
+        | AnnotationField.VerticalThickness ->
+            "Distance to the fitted dip-and-strike plane, measured along up. " + up
+        | AnnotationField.DipAngle
+        | AnnotationField.DipAzimuth
+        | AnnotationField.StrikeAzimuth
+        | AnnotationField.ManualDipAngle ->
+            "Dip and strike of the plane fitted through the points. " + up
+        | _ -> ""
+
     let pointColumnName (field : PointField) =
         match field with
         | PointField.Index              -> "pointIndex"
@@ -247,8 +278,21 @@ module AnnotationFields =
         | PointField.CumulativeDistance -> "Cumulative distance, through 3D (m)"
         | PointField.GroundDistance     -> "Ground distance, height ignored (m)"
         | PointField.Cartesian          -> "Cartesian x / y / z"
-        | PointField.Geographic         -> "Geographic lat / lon / alt"
+        | PointField.Geographic         -> "Geographic lat / lon / alt (alt: see tooltip)"
         | _                             -> sprintf "%A" field
+
+    /// Tooltip of a point field's checkbox; empty when the label is enough.
+    let pointDescription (field : PointField) =
+        match field with
+        | PointField.Geographic ->
+            "Column 'alt' is not an elevation. With source SPICE: " + CooTransformation.HeightReference.generic
+            + " With source File (.aara): the radius from the body centre, on every body. \
+               The latLonAltSource column records which one each row got."
+        | PointField.GroundDistance ->
+            "Distance with the height difference removed, summed step by step: both points flattened \
+             onto the reference spheroid; on Dimorphos measured on the sphere through each step. \
+             Geometric, not along an equipotential surface."
+        | _ -> ""
 
     // ------------------------------------------------------------ values ---
 
