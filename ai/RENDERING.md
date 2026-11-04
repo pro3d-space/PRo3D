@@ -113,7 +113,7 @@ Entry points:
 
 Flow:
 1. Filter to active + visible surfaces.
-2. For each surface, get its KdTree(s) from the cache (loading lazily if needed).
+2. For each surface, get its KdTree(s) from the cache (loading lazily if needed). A lazy KdTree is loaded **once per process**, keyed by its file (`DebugKdTreesX.loadObjectSet`, #874): the `HashMap` caches callers thread through are per-caller copies, and the hover pick (background thread) and click picks (update thread) used to each load a cold patch and drop the other's copy. `DebugKdTreesX.clearLoaded` forgets them (surface removed, KdTrees rebuilt).
 3. Transform the ray into the surface's local space (accounting for `preTransform`, pivot rotation, scale, and any SPICE/observation transform).
 4. Reject via transformed bounding boxes, then intersect with `ConcreteKdIntersectionTree.Intersect` (from `Aardvark.Geometry.Intersection`), applying a triangle filter.
 5. Return the closest hit (`t`, triangle, surface reference).

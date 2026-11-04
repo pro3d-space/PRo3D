@@ -123,29 +123,49 @@ module DebugKdTreesX =
         
         loadTriangles' kd.affine kd.objectSetPath 
 
-    let loadObjectSet (cache : HashMap<string, ConcreteKdIntersectionTree>) (lvl0Tree : Level0KdTree) =             
+    /// Lazy KdTrees with their triangles, loaded once per file for the whole process (#874).
+    /// The callers' `HashMap` caches are copies threaded through by value: the hover pick
+    /// (background thread) and click picks (update thread) each loaded a cold patch into their
+    /// own copy, the last write-back dropped the other's, and `Picking` kept a copy only on a
+    /// hit - so the same patch was read again and again, seconds each. The `Lazy` makes
+    /// concurrent first uses wait for one load instead of starting their own.
+    let private loadedLazyKdTrees =
+        System.Collections.Concurrent.ConcurrentDictionary<string, Lazy<ConcreteKdIntersectionTree>>()
+
+    let private loadLazyKdTree (kd : LazyKdTree) =
+        let load () =
+            let tree = KdTrees.loadKdtree kd.kdtreePath
+            Log.startTimed "loading kd tree: %s" kd.kdtreePath
+            let triangles = kd |> loadTriangles
+            Log.stop()
+            tree.KdIntersectionTree.ObjectSet <- triangles
+            tree
+        let entry = loadedLazyKdTrees.GetOrAdd(kd.kdtreePath, fun _ -> lazy (load ()))
+        try entry.Value
+        with _ ->
+            // a failed load is not kept: the next pick tries again
+            loadedLazyKdTrees.TryRemove(System.Collections.Generic.KeyValuePair(kd.kdtreePath, entry)) |> ignore
+            reraise ()
+
+    /// Forgets every loaded lazy KdTree: after a surface is removed, or its KdTrees rebuilt.
+    let clearLoaded () = loadedLazyKdTrees.Clear()
+
+    let loadObjectSet (cache : HashMap<string, ConcreteKdIntersectionTree>) (lvl0Tree : Level0KdTree) =
         match lvl0Tree with
-        | Aardvark.VRVis.Opc.KdTrees.InCoreKdTree kd -> 
+        | Aardvark.VRVis.Opc.KdTrees.InCoreKdTree kd ->
           kd.kdTree, cache
-        | Aardvark.VRVis.Opc.KdTrees.LazyKdTree kd ->             
+        | Aardvark.VRVis.Opc.KdTrees.LazyKdTree kd ->
             let kdTree, cache =
                 match kd.kdTree with
                 | Some k -> k, cache
-                | None -> 
+                | None ->
                     let key = (kd.boundingBox.ToString())
                     let tree = cache |> HashMap.tryFind key
                     match tree with
-                    | Some t ->                 
+                    | Some t ->
                         t, cache
-                    | None ->                                     
-                        //Log.line "cache miss %A- loading kdtree" kd.boundingBox
-                    
-                        let mutable tree = KdTrees.loadKdtree kd.kdtreePath
-                        Log.startTimed "loading kd tree: %s" kd.kdtreePath
-                        let triangles = kd |> loadTriangles
-                        Log.stop()
-                        
-                        tree.KdIntersectionTree.ObjectSet <- triangles                                                            
+                    | None ->
+                        let tree = loadLazyKdTree kd
                         tree, (HashMap.add key tree cache)
             kdTree, cache
 

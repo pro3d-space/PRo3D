@@ -175,6 +175,39 @@ let tests (parameters : TestUtils.TestParameters) =
                         Expect.isTrue (tri.[c] >= 0 && tri.[c] < vertexCount) "index should be inside the position grid"
         }
 
+        test "a lazy KdTree loads once, from many threads and fresh caches (#874)" {
+            let opcBasePath = require "Dimorphos OPC (HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos)" opcBasePath'
+
+            let hierarchies = loadHierarchies opcBasePath
+            let kdTreeMap =
+                KdTrees.loadKdTrees hierarchies.[0] Trafo3d.Identity ViewerModality.XYZ
+                    Serialization.binarySerializer false true DebugKdTreesX.loadTriangles' false
+            let lazyTree =
+                kdTreeMap |> HashMap.toSeq |> Seq.tryPick (fun (_, t) ->
+                    match t with
+                    | Level0KdTree.LazyKdTree kd when kd.kdTree.IsNone -> Some t
+                    | _ -> None)
+            match lazyTree with
+            | None -> failtest "no lazily loaded KdTree in the Dimorphos OPC"
+            | Some tree ->
+                DebugKdTreesX.clearLoaded ()
+                // the hover pick and a click pick race on a cold patch, each with its own copy
+                // of the cache: both must get the one tree, not load their own
+                let trees =
+                    Array.init 8 (fun _ -> async { return DebugKdTreesX.loadObjectSet HashMap.empty tree |> fst })
+                    |> Async.Parallel
+                    |> Async.RunSynchronously
+                for t in trees do
+                    Expect.isTrue (obj.ReferenceEquals(t, trees.[0])) "every thread gets the same loaded tree"
+                Expect.isNotNull trees.[0].KdIntersectionTree.ObjectSet "the triangles are attached"
+                // a cache that was thrown away (a pick that missed) does not load it again
+                let again = DebugKdTreesX.loadObjectSet HashMap.empty tree |> fst
+                Expect.isTrue (obj.ReferenceEquals(again, trees.[0])) "a fresh cache finds the loaded tree"
+                DebugKdTreesX.clearLoaded ()
+                let reloaded = DebugKdTreesX.loadObjectSet HashMap.empty tree |> fst
+                Expect.isFalse (obj.ReferenceEquals(reloaded, trees.[0])) "clearLoaded forgets it"
+        }
+
         test "aara header round trip" {
             let opcBasePath = require "Dimorphos OPC (HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos)" opcBasePath'
 
