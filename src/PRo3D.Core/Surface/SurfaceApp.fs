@@ -912,8 +912,10 @@ module SurfaceApp =
             // per-patch attribute layers and triangle mappings are keyed by path, so drop
             // them rather than let them outlive the surface they belong to
             ProfileAttributeExtraction.clearCaches ()
+            DebugKdTreesX.clearLoaded ()
             { model with surfaces = groups; sgSurfaces = sg'} |> SurfaceModel.triggerSgGrouping
-        | RebuildKdTrees id ->                
+        | RebuildKdTrees id ->
+            DebugKdTreesX.clearLoaded ()
             let surf = id |> SurfaceModel.getSurface model
             match surf with
             | Some (Leaf.Surfaces sf) ->                    
