@@ -74,7 +74,7 @@ module CrossSectionApp =
                 Html.row "Clipping:"          [ GuiEx.iconCheckBox model.clippingEnabled ToggleClippingEnabled ]
                 Html.row "Curtain:"           [ GuiEx.iconCheckBox model.curtainEnabled ToggleCurtainEnabled ]
                 UI.rowWithTip "Absolute Height:"
-                    ("On: down to a fixed height. Off: fixed depth below the surface. " + CooTransformation.HeightReference.generic)
+                    "On: down to a fixed height - spheroid height, radius on Dimorphos; needs a body. Off: fixed depth below the surface."
                     [ GuiEx.iconCheckBox model.curtainAbsoluteMode ToggleCurtainAbsoluteMode ]
                 Html.row "Image:"      [
                     // The path can also be typed/pasted, in case the native dialog is unavailable.

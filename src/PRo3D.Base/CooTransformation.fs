@@ -676,7 +676,7 @@ module CooTransformation =
                 | "gravity"   -> "Surface acceleration vector. "
                 | "magnitude" -> "|Gravity|. "
                 | "slope"     -> "Slope of the shape model, not PRo3D's. "
-                | "lonlatrad" -> "Lon, lat in gradians; radius in m. "
+                | "lonlatrad" -> "Lon, lat (degrees; gradians in older exports); radius in m. "
                 | _           -> ""
             what + "From the OPC data (shape model), not computed by PRo3D."
 

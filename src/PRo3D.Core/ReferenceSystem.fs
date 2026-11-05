@@ -167,6 +167,18 @@ module ReferenceSystemApp =
                     | Some sc -> (project sc).ToString("0.00")
                     | None    -> "conversion failed (set planet)")
 
+            // tryGetHeight, not the lat/lon/alt above: without a body it is the
+            // coordinate along up, which lat/lon/alt cannot give
+            let heightText =
+                adaptive {
+                    let! pos = model.origin
+                    let! planet = model.planet
+                    let! up = model.up.value
+                    match CooTransformation.tryGetHeight pos up planet with
+                    | Some h -> return h.ToString("0.00")
+                    | None   -> return "conversion failed (set planet)"
+                }
+
             let conventionLabel =
                 model.planet |> AVal.map (fun p ->
                     match CooTransformation.getConvention p with
@@ -187,7 +199,7 @@ module ReferenceSystemApp =
                     UI.rowWithTipA
                         (model.planet |> AVal.map (fun p -> CooTransformation.HeightReference.label p + ":"))
                         (model.planet |> AVal.map CooTransformation.HeightReference.description)
-                        [Incremental.text (formatCoo (fun x -> x.altitude))]
+                        [Incremental.text heightText]
                     UI.rowWithTipA
                         (AVal.constant "Convention:")
                         (model.planet |> AVal.map CooTransformation.HeightReference.description)

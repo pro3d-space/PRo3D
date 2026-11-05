@@ -206,7 +206,7 @@ module ExportWriters =
     /// geographic) is carried as a collection-level property, as the QGIS
     /// exporter did. `altDefinition` says in words what the third coordinate is
     /// (docs/HeightReference.md) - the file is read without PRo3D at hand.
-    let writeGeoJson (path : string) (planet : Option<string * string>) (records : seq<ExportRecord>) : unit =
+    let writeGeoJson (path : string) (planet : Option<string * Option<string>>) (records : seq<ExportRecord>) : unit =
         let features = records |> Seq.map feature |> Seq.toList
 
         let collection =
@@ -216,8 +216,10 @@ module ExportWriters =
                 match planet with
                 | Some (p, altDefinition) ->
                     yield "properties", Encode.object [
-                        "planet", Encode.string p
-                        "altDefinition", Encode.string altDefinition ]
+                        yield "planet", Encode.string p
+                        match altDefinition with
+                        | Some d -> yield "altDefinition", Encode.string d
+                        | None   -> () ]
                 | None   -> ()
             ]
 

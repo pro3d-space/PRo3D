@@ -1821,12 +1821,12 @@ module Gui =
                                     // plain title, not UI.wrapToolTip: this table re-renders on
                                     // every mouse move and a Semantic popup would boot each time
                                     yield Html.row (CooTransformation.HeightReference.label planet + ":") [
-                                        span [ attribute "title" (CooTransformation.HeightReference.description planet) ]
+                                        span [ if UI.enabletoolTips then yield attribute "title" (CooTransformation.HeightReference.description planet) ]
                                              [ text (sprintf "%s m" (sc.altitude.ToString("0.00"))) ] ]
                                 | None -> ()
                                 for a : SampledAttribute in hit.attributes do
                                     yield Html.row (a.name + ":") [
-                                        span [ attribute "title" (CooTransformation.HeightReference.layerDescription a.name) ]
+                                        span [ if UI.enabletoolTips then yield attribute "title" (CooTransformation.HeightReference.layerDescription a.name) ]
                                              [ text (formatValues a.values) ] ]
                             ]
                             if hit.attributes.IsEmpty then
