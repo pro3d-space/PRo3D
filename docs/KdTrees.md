@@ -30,7 +30,16 @@ The bounding box, kdtree tuples are stored in .cache files to prevent this step 
 
 Recently i tried to make this quite robust, if however the cache file cannot be loaded or is invalid, the loading code can be used to create a new cache file. If the surface is loaded from a readonly file system or another problem appears this fails and is ignored (see [here](https://github.com/aardvark-platform/OpcViewer/blob/7fdf368e1e59a2c33c0cc7e5ca3e20b8c18a42a0/src/OPCViewer.Base/KdTrees.fs#L307)).
 
-Once a lazy KdTree has been loaded (the tree plus its triangles), PRo3D keeps it for the rest of the session and every pick uses that copy: the hover pick, a click, Sky sampling and the exporters share it, and a patch is read from disk once ([#874](https://github.com/pro3d-space/PRo3D/issues/874)). Before, the same patch could be loaded again and again, seconds each, and clicks arriving during such a load were lost. Removing a surface or rebuilding its KdTrees drops the loaded trees; the next pick loads them again.
+Once a lazy KdTree has been loaded (the tree plus its triangles), PRo3D keeps it and every pick uses that copy: the hover pick, a click, Sky sampling and the exporters share it, and a patch is read from disk once ([#874](https://github.com/pro3d-space/PRo3D/issues/874)). Before, the same patch could be loaded again and again, seconds each, and clicks arriving during such a load were lost. Removing a surface or rebuilding its KdTrees drops the loaded trees; the next pick loads them again.
+
+Loaded trees are also dropped so that memory stays bounded; a dropped tree is loaded again by the next pick that needs it:
+
+| rule | default | environment variable |
+|---|---|---|
+| unused for this long | 10 minutes | `PRO3D_KDTREE_IDLE_MINUTES` |
+| all loaded trees together over this (estimated: triangles plus the tree file's size); the least recently used go first | 2048 MB | `PRO3D_KDTREE_BUDGET_MB` |
+
+The tree just loaded is always kept, even if it alone is over the budget. The log says when trees are dropped (`[KdTree] dropped …`).
 
 ## Create KdTrees for an OPC hierarchy.
 

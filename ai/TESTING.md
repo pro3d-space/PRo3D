@@ -160,8 +160,11 @@ is the shape to copy.
 - **Don't pace picking with fixed sleeps.** The first pick on a patch loads its
   KdTree from disk (~4.5 s each), later ones hit the cache in milliseconds. PRo3D
   ignores input while it intersects, so a click sent too early is silently
-  dropped and the annotation never completes. Wait for the log to go quiet
-  (`drawing.ts:awaitIdle`).
+  dropped and the annotation never completes. Wait on `GET /activity`
+  (`src/activity.ts`, docs/Activity.md): `untilIdle(app)` before a click, and
+  after Ctrl goes down `untilArmed(app, true)` - a click sent before the keydown
+  has armed the tool is taken as navigation. `drawing.ts:awaitIdle` (log quiet
+  for 4 s) is the older, slower stand-in.
 - **Address tool-strip buttons by `title`, not by icon.** `wrapToolTip` puts the
   tooltip on the button div itself, and icons repeat (`mouse pointer` is both
   *Select annotation* and *Select surface*). This needs tooltips on: a viewer

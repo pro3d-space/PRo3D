@@ -327,7 +327,7 @@ module GeologicalMapApp =
             | Some (c, tol, b) when tol = s.tolerance && c = s.contacts -> b
             | _ ->
                 let sw = Diagnostics.Stopwatch.StartNew()
-                let network = ContactTopology.build center s.tolerance s.contacts
+                let network = Activity.track "geological map" (fun () -> ContactTopology.build center s.tolerance s.contacts)
                 Log.line "[GeologicalMap] %d contacts: %d faces, %d open ends in %.1f ms"
                     s.contacts.Length network.faces.Length network.openEnds.Length sw.Elapsed.TotalMilliseconds
                 let b = { network = network; samples = s.contacts |> Array.collect (fun c -> c.points)

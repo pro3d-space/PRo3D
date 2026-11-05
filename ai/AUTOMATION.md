@@ -48,7 +48,7 @@ Route groups under `/api`:
 | `/api/queries/findAnnotation`, `/queryAnnotationAsJson`, `/queryAnnotationAsObj` | Run [queries](DOMAIN.md#queries) against surfaces and return JSON/OBJ |
 | `/api/annotations/%s/points` | Per-annotation point data |
 
-The viewer also serves `/websocket` (UI updates), `/crash.txt`, and `/minilog.txt`. A separate **remote-control** app (`RemoteControlApp.fs`) exposes `POST /shots` and `POST /platformshots` for screenshot/platform-shot capture (`Program.fs:446`).
+The viewer also serves `/websocket` (UI updates), `/crash.txt`, `/minilog.txt`, `/busy` (the busy pill's source, docs/BusyIndicator.md) and `/activity` (counted running work, update queue and tool arming for automation that waits before its next input, docs/Activity.md) - the last two top level, without `-remoteApi`, and lock-free. A separate **remote-control** app (`RemoteControlApp.fs`) exposes `POST /shots` and `POST /platformshots` for screenshot/platform-shot capture (`Program.fs:446`).
 
 ---
 

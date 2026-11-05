@@ -175,7 +175,7 @@ let tests (parameters : TestUtils.TestParameters) =
                         Expect.isTrue (tri.[c] >= 0 && tri.[c] < vertexCount) "index should be inside the position grid"
         }
 
-        test "a lazy KdTree loads once, from many threads and fresh caches (#874)" {
+        testSequenced <| test "a lazy KdTree loads once, from many threads and fresh caches (#874)" {
             let opcBasePath = require "Dimorphos OPC (HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos)" opcBasePath'
 
             let hierarchies = loadHierarchies opcBasePath
@@ -206,6 +206,54 @@ let tests (parameters : TestUtils.TestParameters) =
                 DebugKdTreesX.clearLoaded ()
                 let reloaded = DebugKdTreesX.loadObjectSet HashMap.empty tree |> fst
                 Expect.isFalse (obj.ReferenceEquals(reloaded, trees.[0])) "clearLoaded forgets it"
+        }
+
+        testSequenced <| test "loaded lazy KdTrees are dropped when idle or over the budget (#874)" {
+            let opcBasePath = require "Dimorphos OPC (HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos)" opcBasePath'
+
+            let hierarchies = loadHierarchies opcBasePath
+            let kdTreeMap =
+                KdTrees.loadKdTrees hierarchies.[0] Trafo3d.Identity ViewerModality.XYZ
+                    Serialization.binarySerializer false true DebugKdTreesX.loadTriangles' false
+            let lazyTrees =
+                kdTreeMap |> HashMap.toArray |> Array.choose (fun (_, t) ->
+                    match t with
+                    | Level0KdTree.LazyKdTree kd when kd.kdTree.IsNone -> Some t
+                    | _ -> None)
+            if lazyTrees.Length < 2 then failtest "fewer than two lazily loaded KdTrees in the Dimorphos OPC"
+            let a, b = lazyTrees.[0], lazyTrees.[1]
+            let load t = DebugKdTreesX.loadObjectSet HashMap.empty t |> fst
+            let budget, idle = DebugKdTreesX.budgetBytes, DebugKdTreesX.maxIdle
+            try
+                DebugKdTreesX.clearLoaded ()
+
+                // over the budget: loading b drops a, the least recently used, but keeps b
+                DebugKdTreesX.budgetBytes <- 1L
+                let a1 = load a
+                let b1 = load b
+                Expect.equal (DebugKdTreesX.loadedCount ()) 1 "only the tree just loaded stays"
+                Expect.isTrue (obj.ReferenceEquals(load b, b1)) "the tree just loaded is kept"
+                Expect.isFalse (obj.ReferenceEquals(load a, a1)) "the older tree was dropped and loads again"
+
+                // within the budget and in use: both stay
+                DebugKdTreesX.budgetBytes <- budget
+                DebugKdTreesX.clearLoaded ()
+                let a2 = load a
+                let _ = load b
+                DebugKdTreesX.evictLoaded ()
+                Expect.equal (DebugKdTreesX.loadedCount ()) 2 "nothing is dropped within the budget"
+                Expect.isTrue (obj.ReferenceEquals(load a, a2)) "a used tree is kept"
+
+                // idle: dropped
+                DebugKdTreesX.maxIdle <- TimeSpan.Zero
+                System.Threading.Thread.Sleep 10
+                DebugKdTreesX.evictLoaded ()
+                Expect.equal (DebugKdTreesX.loadedCount ()) 0 "idle trees are dropped"
+                Expect.isFalse (obj.ReferenceEquals(load a, a2)) "a dropped tree loads again"
+            finally
+                DebugKdTreesX.budgetBytes <- budget
+                DebugKdTreesX.maxIdle <- idle
+                DebugKdTreesX.clearLoaded ()
         }
 
         test "aara header round trip" {
