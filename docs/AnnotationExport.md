@@ -284,6 +284,11 @@ above the spheroid; `reclat` and the `LonLatRad` layer both give a **radial dist
 the body centre**. The same column therefore holds different quantities depending on the
 body and the source — which is what the provenance column is for.
 
+None of these is an elevation above an equipotential surface: PRo3D computes no gravity
+potential. The potential-based height is the `surface_Elevation` column, when the OPC ships
+that layer. GeoJSON exports say what `alt` is in a collection-level `properties.altDefinition`,
+next to `planet`. See [HeightReference.md](HeightReference.md).
+
 #### The `latLonAltSource` column
 
 Written into every record whose geographic columns are written, and **only** then, so a

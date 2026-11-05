@@ -198,9 +198,11 @@ module AnnotationFields =
         | AnnotationField.ColorHex          -> "Colour (#RRGGBB, for GIS styling)"
         | AnnotationField.Visible           -> "Visible"
         | AnnotationField.PointCount        -> "Point count"
-        | AnnotationField.Height            -> "Height (m)"
-        | AnnotationField.HeightDelta       -> "Height delta (m)"
-        | AnnotationField.AvgAltitude       -> "Avg altitude (m)"
+        // "height" per docs/HeightReference.md - a radius on Dimorphos; the column ids
+        // (height, heightDelta, avgAltitude) stay as they are for existing readers
+        | AnnotationField.Height            -> "Height range, max - min (m)"
+        | AnnotationField.HeightDelta       -> "Height delta, last - first (m)"
+        | AnnotationField.AvgAltitude       -> "Avg height (m)"
         | AnnotationField.Length            -> "Length, straight (m)"
         | AnnotationField.WayLength         -> "Length, total along surface (m)"
         | AnnotationField.Bearing           -> "Bearing (deg)"
@@ -226,6 +228,25 @@ module AnnotationFields =
         | AnnotationField.ProfileStation    -> "Profile station along the parent (m)"
         | _                                 -> sprintf "%A" field
 
+    /// Tooltip of a field's checkbox, where the label alone does not say what is measured
+    /// against what. Empty when the label is enough.
+    let description (field : AnnotationField) =
+        let height = CooTransformation.HeightReference.generic
+        let up     = CooTransformation.HeightReference.upNote
+        match field with
+        | AnnotationField.Height            -> "Max - min height. " + height
+        | AnnotationField.HeightDelta       -> "|last - first| height. " + height
+        | AnnotationField.AvgAltitude       -> "Mean height (column avgAltitude). " + height
+        | AnnotationField.Slope
+        | AnnotationField.VerticalDelta
+        | AnnotationField.HorizontalDelta
+        | AnnotationField.VerticalThickness
+        | AnnotationField.DipAngle
+        | AnnotationField.DipAzimuth
+        | AnnotationField.StrikeAzimuth
+        | AnnotationField.ManualDipAngle    -> up
+        | _ -> ""
+
     let pointColumnName (field : PointField) =
         match field with
         | PointField.Index              -> "pointIndex"
@@ -247,8 +268,17 @@ module AnnotationFields =
         | PointField.CumulativeDistance -> "Cumulative distance, through 3D (m)"
         | PointField.GroundDistance     -> "Ground distance, height ignored (m)"
         | PointField.Cartesian          -> "Cartesian x / y / z"
-        | PointField.Geographic         -> "Geographic lat / lon / alt"
+        | PointField.Geographic         -> "Geographic lat / lon / alt (alt: see tooltip)"
         | _                             -> sprintf "%A" field
+
+    /// Tooltip of a point field's checkbox; empty when the label is enough.
+    let pointDescription (field : PointField) =
+        match field with
+        | PointField.Geographic ->
+            "alt: SPICE = spheroid height (radius on Dimorphos); .aara = radius. See latLonAltSource. "
+            + CooTransformation.HeightReference.notElevation
+        | PointField.GroundDistance -> "Distance with the height difference removed."
+        | _ -> ""
 
     // ------------------------------------------------------------ values ---
 

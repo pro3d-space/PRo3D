@@ -27,9 +27,10 @@ module ColorByCategory =
         | ColorCategoryAttribute.Bearing           -> "Bearing"
         | ColorCategoryAttribute.Length            -> "Length"
         | ColorCategoryAttribute.WayLength         -> "Way length"
-        | ColorCategoryAttribute.Height            -> "Height"
-        | ColorCategoryAttribute.HeightDelta       -> "Height delta"
-        | ColorCategoryAttribute.AvgAltitude       -> "Avg altitude"
+        // "height" as in docs/HeightReference.md - a radius on Dimorphos, see the tooltip
+        | ColorCategoryAttribute.Height            -> "Height range (max - min)"
+        | ColorCategoryAttribute.HeightDelta       -> "Height delta (last - first)"
+        | ColorCategoryAttribute.AvgAltitude       -> "Avg height"
         | ColorCategoryAttribute.Area              -> "Area"
         | ColorCategoryAttribute.Thickness         -> "Line thickness"
         | ColorCategoryAttribute.DipAngle          -> "Dip angle"
@@ -52,7 +53,8 @@ module ColorByCategory =
         | ColorCategoryAttribute.SurfaceName ->
             "The surface the annotation was drawn on."
         | ColorCategoryAttribute.Slope ->
-            "Inclination of the straight line from the first to the last point, in degrees from horizontal (-90 to 90)."
+            "Inclination of the straight line from the first to the last point, in degrees from horizontal (-90 to 90). "
+            + CooTransformation.HeightReference.upNote
         | ColorCategoryAttribute.Bearing ->
             "Compass direction of the straight line from the first to the last point (0 deg = north, clockwise). It is colored non-directional (0-180 deg), i.e. -v = v."
         | ColorCategoryAttribute.Length ->
@@ -60,17 +62,21 @@ module ColorByCategory =
         | ColorCategoryAttribute.WayLength ->
             "Distance along the annotation, summed segment by segment, in meters. For an ellipse this is its perimeter."
         | ColorCategoryAttribute.Height ->
-            "Difference in altitude between the highest and the lowest point, in meters."
+            "Max - min height of the points (m). "
+            + CooTransformation.HeightReference.generic
         | ColorCategoryAttribute.HeightDelta ->
-            "Difference in altitude between the first and the last point, in meters. Unlike Height this ignores the points in between."
+            "|last - first| height (m). "
+            + CooTransformation.HeightReference.generic
         | ColorCategoryAttribute.AvgAltitude ->
-            "Mean altitude over all points of the annotation, in meters."
+            "Mean height of the points (m). "
+            + CooTransformation.HeightReference.generic
         | ColorCategoryAttribute.Area ->
             "Polygons and ellipses: Enclosed area in square meters."
         | ColorCategoryAttribute.Thickness ->
             "Display setting: The line width the annotation is drawn with."
         | ColorCategoryAttribute.DipAngle ->
-            "DnS: Angle between the fitted plane and horizontal, 0 to 90 degrees."
+            "DnS: Angle between the fitted plane and horizontal, 0 to 90 degrees. "
+            + CooTransformation.HeightReference.upNote
         | ColorCategoryAttribute.DipAzimuth ->
             "DnS: Compass direction the fitted plane dip (0 deg = north, clockwise). It is colored directional (0-360 deg)."
         | ColorCategoryAttribute.StrikeAzimuth ->

@@ -92,6 +92,14 @@ module RemoteApi =
                                     ]
                                 ]
                         |]
+                    // what the third coordinate is (docs/HeightReference.md); a new key, so
+                    // existing clients are unaffected
+                    "properties", Encode.object [
+                        yield "planet", Encode.string (string planet)
+                        match PRo3D.Base.Annotation.AnnotationExport.altDefinition planet with
+                        | Some d -> yield "altDefinition", Encode.string d
+                        | None   -> ()
+                    ]
                 ]
 
             let toJson (planet : Base.Planet) (annotations : list<Annotation>) =

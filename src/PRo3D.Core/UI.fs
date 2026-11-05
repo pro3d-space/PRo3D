@@ -39,6 +39,28 @@ module UI =
         else
             dom
 
+    /// `Html.row` whose label carries a plain `title` tooltip (honours -notooltips). Plain
+    /// title rather than `wrapToolTip`'s popup, so it also works in tables that re-render.
+    let rowWithTip (label : string) (tip : string) (content : list<DomNode<'msg>>) : DomNode<'msg> =
+        tr [] [
+            td [ yield clazz "collapsing"; if enabletoolTips then yield attribute "title" tip ] [ text label ]
+            td [ clazz "right aligned" ] content
+        ]
+
+    /// `rowWithTip` with a label and tooltip that change, e.g. with the scene's body.
+    let rowWithTipA (label : aval<string>) (tip : aval<string>) (content : list<DomNode<'msg>>) : DomNode<'msg> =
+        let attributes =
+            amap {
+                yield clazz "collapsing"
+                if enabletoolTips then
+                    let! t = tip
+                    yield attribute "title" t
+            } |> AttributeMap.ofAMap
+        tr [] [
+            Incremental.td attributes (AList.ofList [ Incremental.text label ])
+            td [ clazz "right aligned" ] content
+        ]
+
     let dropDownWithEmptyText
                    (values : alist<'a>)(selected : aval<Option<'a>>)
                    (change : Option<'a> -> 'msg) (f : 'a ->string) 

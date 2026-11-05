@@ -73,7 +73,9 @@ module CrossSectionApp =
                 ]
                 Html.row "Clipping:"          [ GuiEx.iconCheckBox model.clippingEnabled ToggleClippingEnabled ]
                 Html.row "Curtain:"           [ GuiEx.iconCheckBox model.curtainEnabled ToggleCurtainEnabled ]
-                Html.row "Absolute Altitude:" [ GuiEx.iconCheckBox model.curtainAbsoluteMode ToggleCurtainAbsoluteMode ]
+                UI.rowWithTip "Absolute Height:"
+                    "On: down to a fixed height - spheroid height, radius on Dimorphos; needs a body. Off: fixed depth below the surface."
+                    [ GuiEx.iconCheckBox model.curtainAbsoluteMode ToggleCurtainAbsoluteMode ]
                 Html.row "Image:"      [
                     // The path can also be typed/pasted, in case the native dialog is unavailable.
                     Incremental.input (AttributeMap.ofAMap (amap {
@@ -94,7 +96,8 @@ module CrossSectionApp =
                     button [clazz "ui icon button"; onClick (fun _ -> SetCurtainTexturePath "")] [
                         i [clazz "remove icon red"] [] ] |> UI.wrapToolTip DataPosition.Bottom "Remove image"
                 ]
-                Html.row "Depth / Alt (m):" [
+                UI.rowWithTip "Depth / Height (m):"
+                    "Off: depth below the surface. On: height of the curtain bottom." [
                     Incremental.div AttributeMap.empty (
                         alist {
                             let! abs = model.curtainAbsoluteMode
@@ -105,7 +108,9 @@ module CrossSectionApp =
                         }
                     )
                 ]
-                Html.row "Tex Start Alt (m):" [Numeric.view' [InputBox] model.curtainTextureStartAltitude |> UI.map SetCurtainTextureStartAltitude]
+                UI.rowWithTip "Tex Start Height (m):"
+                    "Height of the image's top edge (Absolute Height on)."
+                    [Numeric.view' [InputBox] model.curtainTextureStartAltitude |> UI.map SetCurtainTextureStartAltitude]
                 Html.row "Tex Depth (m):" [Numeric.view' [InputBox] model.curtainTextureDepth |> UI.map SetCurtainTextureDepth]
                 Html.row "Base Color:" [ColorPicker.view model.curtainBaseColor |> UI.map ChangeCurtainBaseColor]
             ]
