@@ -2,6 +2,9 @@
 
 Shows what PRo3D is doing while it is too busy to draw anything.
 
+For automation that needs to know when PRo3D has settled, use `/activity`
+([Activity.md](Activity.md)) - `/busy` is the pill's source and keeps one slot per kind.
+
 Synopsis: a small pill at the bottom of the window during long-blocking operations
 Status: Released
 Interacts with: nothing — it observes, it does not participate

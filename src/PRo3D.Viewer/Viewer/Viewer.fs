@@ -2744,7 +2744,13 @@ module ViewerApp =
         (mailbox   : MessagingMailbox) 
         (m         : Model) 
         (msg       : ViewerAnimationAction) =
-        let newModel = updateInternal runtime signature sendQueue mailbox m msg 
+        // counted for GET /activity; the armed state is what a client waits for before a
+        // tool click (docs/Activity.md)
+        let newModel =
+            Activity.update (fun () ->
+                let newModel = updateInternal runtime signature sendQueue mailbox m msg
+                Activity.setArmed (toolArmed newModel)
+                newModel)
         if enableProvenance then
             ProvenanceApp.track m newModel msg
         else

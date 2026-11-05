@@ -140,10 +140,13 @@ module DebugKdTreesX =
                     | None ->                                     
                         //Log.line "cache miss %A- loading kdtree" kd.boundingBox
                     
-                        let mutable tree = KdTrees.loadKdtree kd.kdtreePath
-                        Log.startTimed "loading kd tree: %s" kd.kdtreePath
-                        let triangles = kd |> loadTriangles
-                        Log.stop()
+                        let tree, triangles =
+                            Activity.track "kdtree" (fun () ->
+                                let tree = KdTrees.loadKdtree kd.kdtreePath
+                                Log.startTimed "loading kd tree: %s" kd.kdtreePath
+                                let triangles = kd |> loadTriangles
+                                Log.stop()
+                                tree, triangles)
                         
                         tree.KdIntersectionTree.ObjectSet <- triangles                                                            
                         tree, (HashMap.add key tree cache)

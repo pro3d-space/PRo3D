@@ -248,7 +248,8 @@ let main argv =
         // main app
         //use form = new Form(Width = 1280, Height = 800)
         let cts = new CancellationTokenSource()
-        let messagingMailbox = MailboxProcessor.Start(Viewer.initMessageLoop cts, cts.Token)    
+        let messagingMailbox = MailboxProcessor.Start(Viewer.initMessageLoop cts, cts.Token)
+        Activity.registerQueue (fun () -> messagingMailbox.CurrentQueueLength)
 
        // let minervaMailbox = MailboxProcessor.Start(PRo3D.Minerva.App.messagingMailbox cts, cts.Token)
     
@@ -403,6 +404,11 @@ let main argv =
                 // thread is wedged. See docs/BusyIndicator.md.
                 http.route "/busy" >=> http.mimeType "application/json" >=> http.request (fun _ ->
                     http.ok (Busy.toJson ()))
+
+                // Everything in flight, counted, for automation deciding when to send the next
+                // input (docs/Activity.md). Lock-free like /busy; /busy stays the pill's source.
+                http.route "/activity" >=> http.mimeType "application/json" >=> http.request (fun _ ->
+                    http.ok (Activity.toJson ()))
 
                 http.route "/crash.txt" >=> http.mimeType "text/plain" >=> http.sendFile logFilePath
 
