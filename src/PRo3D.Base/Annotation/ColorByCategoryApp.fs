@@ -62,13 +62,13 @@ module ColorByCategory =
         | ColorCategoryAttribute.WayLength ->
             "Distance along the annotation, summed segment by segment, in meters. For an ellipse this is its perimeter."
         | ColorCategoryAttribute.Height ->
-            "Difference in height between the highest and the lowest point, in meters. "
+            "Max - min height of the points (m). "
             + CooTransformation.HeightReference.generic
         | ColorCategoryAttribute.HeightDelta ->
-            "Difference in height between the first and the last point, in meters. Unlike Height range this ignores the points in between. "
+            "|last - first| height (m). "
             + CooTransformation.HeightReference.generic
         | ColorCategoryAttribute.AvgAltitude ->
-            "Mean height over all points of the annotation, in meters. "
+            "Mean height of the points (m). "
             + CooTransformation.HeightReference.generic
         | ColorCategoryAttribute.Area ->
             "Polygons and ellipses: Enclosed area in square meters."

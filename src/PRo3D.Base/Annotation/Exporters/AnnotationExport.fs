@@ -90,10 +90,8 @@ module AnnotationExport =
     /// What `alt` means, per `latLonAltSource` token: written into GeoJSON exports and
     /// shown as the tooltip of the geographic options, so file and UI say the same.
     let altDefinition (planet : Planet) =
-        "alt depends on latLonAltSource. "
-        + "spice_*: " + CooTransformation.HeightReference.label planet + " - "
-        + CooTransformation.HeightReference.description planet
-        + " aara_file: the radius from the body centre stored in the OPC's LonLatRad layer (metres), on every body."
+        "alt by latLonAltSource: spice_* = " + CooTransformation.HeightReference.description planet
+        + " aara_file = radius from centre (m)."
 
     /// Which routine `CooTransformation.tryGetLatLonAlt` runs for this body.
     let private spiceSourceToken (planet : Planet) =

@@ -167,7 +167,7 @@ module AnnotationProperties =
         UI.rowWithTipA
             (planet |> AVal.map (fun p -> label (CooTransformation.HeightReference.noun p)))
             (planet |> AVal.map (fun p ->
-                explain (CooTransformation.HeightReference.noun p) + " Per point: "
+                explain (CooTransformation.HeightReference.noun p) + " "
                 + CooTransformation.HeightReference.description p))
             content
 
@@ -206,31 +206,31 @@ module AnnotationProperties =
 
                 yield Html.row "PrintPosition:"         [button [clazz "ui button tiny"; onClick (fun _ -> PrintPosition )] [i [clazz "ui icon print"] []]]
                 yield heightRow planet (sprintf "Max - min %s:")
-                        (sprintf "Difference between the largest and the smallest %s of the annotation's points.")
+                        (sprintf "Max - min %s of the points.")
                         [Incremental.text (height  |> AVal.map  (fun d -> sprintf "%.4f m" (d)))]
                 yield heightRow planet (sprintf "Last - first %s:")
-                        (sprintf "Absolute difference between the %s of the last and the first point; ignores the points in between.")
+                        (sprintf "|last - first| %s.")
                         [Incremental.text (heightD |> AVal.map  (fun d -> sprintf "%.4f m" (d)))]
                 yield heightRow planet (sprintf "Avg %s:")
-                        (sprintf "Mean %s over the annotation's points (a point annotation: its single point).")
+                        (sprintf "Mean %s of the points.")
                         [Incremental.text (alt     |> AVal.map  (fun d -> sprintf "%.4f m" (d)))]
                 yield Html.row "Length:"                [Incremental.text (length  |> AVal.map  (fun d -> sprintf "%.4f m" (d)))]
                 yield Html.row "WayLength:"             [Incremental.text (wLength |> AVal.map  (fun d -> sprintf "%.4f m" (d)))]
                 yield Html.row "Bearing:"               [Incremental.text (bearing |> AVal.map  (fun d -> sprintf "%.4f deg" (d)))]
                 yield UI.rowWithTip "Slope:"
-                        ("Inclination of the straight line from the first to the last point, in degrees from horizontal. " + upTip)
+                        ("First to last point, from horizontal. " + upTip)
                         [Incremental.text (slope   |> AVal.map  (fun d -> sprintf "%.4f deg" (d)))]
                 yield UI.rowWithTip "Vertical Distance:"
-                        ("First to last point, the component along up. " + upTip)
+                        ("First to last point, along up. " + upTip)
                         [Incremental.text (vertDist  |> AVal.map  (fun d -> sprintf "%.4f m" (d)))]
                 yield UI.rowWithTip "Horizontal Distance:"
-                        ("First to last point, the component perpendicular to up. " + upTip)
+                        ("First to last point, across up. " + upTip)
                         [Incremental.text (horDist   |> AVal.map  (fun d -> sprintf "%.4f m" (d)))]
                 yield UI.rowWithTip "True Thickness:"
-                        ("Distance to the fitted dip-and-strike plane, perpendicular to the plane. " + upTip)
+                        "Distance to the fitted plane."
                         [Incremental.text (trueThickness |> AVal.map  (fun d -> sprintf "%.4f m" (d)))]
                 yield UI.rowWithTip "Vertical Thickness:"
-                        ("Distance to the fitted dip-and-strike plane, measured along up. " + upTip)
+                        ("Distance to the fitted plane along up. " + upTip)
                         [Incremental.text (verticalThickness |> AVal.map  (fun d -> sprintf "%.4f m" (d)))]
                 yield Html.row "Area:"                  [Incremental.text (area |> AVal.map  (fun d -> sprintf "%.4f m\xB2" (d)))]
             ]

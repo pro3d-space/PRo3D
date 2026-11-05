@@ -393,15 +393,7 @@ module AnnotationExportApp =
                                             AnnotationExportSettings.latLonAltSourceLabel
                                             model.latLonAltSource SetLatLonAltSource ]
                                     |> UI.wrapToolTip DataPosition.Bottom
-                                        "This information is stored in the exported file. The two sources \
-                                         disagree about alt: SPICE gives the body's convention (height above \
-                                         the spheroid; on Dimorphos the radius from the centre), \"File (.aara)\" \
-                                         always the radius from the centre. Neither is an elevation above an \
-                                         equipotential surface. \"File (.aara)\" \
-                                         is only available if the OPC data contains an .aara file. A \
-                                         per-annotation export samples at the bounding-box centre, which \
-                                         may lie off the surface — where it does, the row falls back to \
-                                         SPICE and the latLonAltSource column records that."
+                                        "SPICE: alt = spheroid height (radius on Dimorphos). File (.aara): alt = radius; needs .aara data, falls back to SPICE off the surface. Recorded per row in latLonAltSource."
                             ]
                             granularityHint model
                         ]

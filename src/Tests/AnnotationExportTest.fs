@@ -426,8 +426,9 @@ let tests () =
                 for planet in Enum.GetValues(typeof<Planet>) |> Seq.cast<Planet> do
                     let l = CooTransformation.HeightReference.label planet
                     Expect.isFalse (l.ToLowerInvariant().Contains "elevation") (sprintf "%A: %s" planet l)
-                    Expect.stringContains (CooTransformation.HeightReference.description planet)
-                        "no gravity potential" (sprintf "%A tooltip says it is geometric" planet)
+                    if CooTransformation.getConvention planet <> CooTransformation.NonPlanetary then
+                        Expect.stringContains (CooTransformation.HeightReference.description planet)
+                            "not an elevation" (sprintf "%A tooltip says it is geometric" planet)
                 Expect.equal (CooTransformation.HeightReference.label Planet.Mars) "Height above spheroid" "Mars"
             }
         ]
