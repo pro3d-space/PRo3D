@@ -235,6 +235,37 @@ module ViewerApp =
 
     let mutable cache = HashMap.Empty
 
+    /// On the first import into a scene that observes no body: the body the imported OPCs'
+    /// metadata names for sure (OpcMetadata.bodyOf), if PRo3D knows it, becomes the scene body
+    /// -- the planet and the GIS observing it in its fixed frame, as picking the planet does
+    /// (#894, docs/SceneBody.md). Nothing is set when no OPC names a body, or when two name
+    /// different ones.
+    let private withBodyFromOpcMetadata (m : Model) : Model =
+        let bodies =
+            m.scene.surfacesModel.surfaces.flat
+            |> HashMap.toList
+            |> List.choose (fun (_, leaf) ->
+                match leaf with
+                | Leaf.Surfaces s ->
+                    s.opcxPath
+                    |> Option.bind (fun opcx -> OpcMetadata.bodyOf opcx (OpcMetadata.tryReadForOpcxCached opcx))
+                    |> Option.bind (fun (name, source) ->
+                        PRo3D.Base.Gis.SceneBody.tryPlanet (EntitySpiceName name)
+                        |> Option.filter (fun p -> (PRo3D.Base.Gis.SceneBody.trySpice p).IsSome)
+                        |> Option.map (fun planet -> planet, source))
+                | _ -> None)
+        match bodies |> List.map fst |> List.distinct with
+        | [ planet ] ->
+            let source = bodies |> List.tryHead |> Option.map snd |> Option.defaultValue ""
+            Log.line "[SceneBody] first import: %A from %s" planet source
+            m
+            |> SceneBodySync.setPlanet planet
+            |> logScreen 5000 (sprintf "Scene body set to %A, from %s" planet source)
+        | [] -> m
+        | several ->
+            Log.warn "[SceneBody] first import: the OPCs name different bodies %A, none set" several
+            m
+
     let updateSceneWithNewSurface (m: Model) =
         let sgSurfaces = 
             m.scene.surfacesModel.sgSurfaces 
@@ -252,6 +283,11 @@ module ViewerApp =
             // useful default viewpoint after 2nd import
             match m.scene.firstImport with                  
             | true -> 
+                // an empty scene takes the body its first OPCs name for sure (#894)
+                let m =
+                    match m.scene.gisApp.defaultObservationInfo.observer with
+                    | None -> withBodyFromOpcMetadata m
+                    | Some _ -> m
                 // A scene body the GIS already observes was declared, not guessed: do not
                 // second-guess it from the data's radius, only place the cross (#758).
                 let refAction =
