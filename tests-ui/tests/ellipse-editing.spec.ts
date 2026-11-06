@@ -73,34 +73,62 @@ async function annotationPointCounts(context: BrowserContext, app: Pro3d): Promi
     }
 }
 
+type HandleColor = "major" | "minor" | "hover";
+
 /**
- * The edit handles in `withHandles`: blobs of handle white (VertexHandleShader: pure white
- * when neither hovered nor grabbed) that are not in `without`, the same view before Edit
- * annotation was switched on. The difference is what makes this safe on a bright terrain:
- * a saturated pixel of the texture is in both frames.
+ * Which handle colour a pixel is, if any (VertexHandleShader / EllipseEditColors): the major
+ * axis ends magenta C4b(240, 80, 240), the minor cyan C4b(40, 200, 255), and hover yellow
+ * V4f(1, 0.85, 0.1) - the hover is only updated by moves over the annotations, so the last
+ * handle touched can stay yellow after the cursor has left.
  */
-function handleBlobs(without: Buffer, withHandles: Buffer): Array<Px & { area: number }> {
+function handleColor(r: number, g: number, b: number): HandleColor | undefined {
+    if (r > 180 && b > 180 && g < 150) return "major";
+    if (b > 200 && g > 150 && r < 120) return "minor";
+    if (r > 230 && g > 180 && b < 90) return "hover";
+    return undefined;
+}
+
+/**
+ * The edit handles in `withHandles`: blobs of a handle colour that are not in `without`, the
+ * same view before Edit annotation was switched on. The difference is what makes this safe on
+ * a bright terrain: a saturated pixel of the texture is in both frames.
+ *
+ * The axis guides are drawn in the same colours, 2 px wide, and run into their handles. An
+ * erosion by 2 px removes them and keeps the discs (radius thickness + 6 px).
+ */
+function handleBlobs(without: Buffer, withHandles: Buffer): Array<Px & { area: number; color: HandleColor }> {
     const a = PNG.sync.read(without);
     const b = PNG.sync.read(withHandles);
     const w = b.width, h = b.height;
-    const mask = new Uint8Array(w * h);
+    const COLORS: HandleColor[] = ["major", "minor", "hover"];
+    const raw = new Uint8Array(w * h); // 0 = none, else 1 + index into COLORS
     for (let i = 0; i < w * h; i++) {
         const j = i * 4;
-        const r = b.data[j], g = b.data[j + 1], bl = b.data[j + 2];
-        // white, or hover yellow V4f(1, 0.85, 0.1): the hover is only updated by moves over the
-        // annotations, so the last handle touched can stay yellow after the cursor has left
-        const white = (r > 230 && g > 230 && bl > 230) || (r > 230 && g > 180 && bl < 90);
+        const c = handleColor(b.data[j], b.data[j + 1], b.data[j + 2]);
         const changed =
             Math.abs(b.data[j] - a.data[j]) + Math.abs(b.data[j + 1] - a.data[j + 1]) +
             Math.abs(b.data[j + 2] - a.data[j + 2]) > 60;
-        if (white && changed) mask[i] = 1;
+        if (c && changed) raw[i] = 1 + COLORS.indexOf(c);
     }
-    const blobs: Array<Px & { area: number }> = [];
+    const R = 2;
+    const mask = new Uint8Array(w * h);
+    for (let y = R; y < h - R; y++)
+        for (let x = R; x < w - R; x++) {
+            const v = raw[y * w + x];
+            if (!v) continue;
+            let all = true;
+            for (let dy = -R; dy <= R && all; dy++)
+                for (let dx = -R; dx <= R && all; dx++)
+                    if (!raw[(y + dy) * w + x + dx]) all = false;
+            if (all) mask[y * w + x] = v;
+        }
+    const blobs: Array<Px & { area: number; color: HandleColor }> = [];
     const stack: number[] = [];
     for (let start = 0; start < w * h; start++) {
-        if (mask[start] !== 1) continue;
+        const v = mask[start];
+        if (!v) continue;
         let sx = 0, sy = 0, n = 0;
-        mask[start] = 2;
+        mask[start] = 0;
         stack.push(start);
         while (stack.length) {
             const i = stack.pop()!;
@@ -111,26 +139,33 @@ function handleBlobs(without: Buffer, withHandles: Buffer): Array<Px & { area: n
                     const nx = x + dx, ny = y + dy;
                     if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
                     const k = ny * w + nx;
-                    if (mask[k] === 1) { mask[k] = 2; stack.push(k); }
+                    if (mask[k] === v) { mask[k] = 0; stack.push(k); }
                 }
         }
-        if (n >= 10) blobs.push({ x: sx / n, y: sy / n, area: n });
+        // an eroded disc is ~100 px; anything far smaller is a highlight, not a handle
+        if (n >= 30) blobs.push({ x: sx / n, y: sy / n, area: n, color: COLORS[v - 1] });
     }
-    // The selected outline's white core runs through every handle and is white in both
-    // frames, so the difference cuts each disc into two halves. Pieces closer than a handle's
-    // radius (thickness + 6 px) belong to the same disc.
-    const merged: Array<Px & { area: number }> = [];
-    for (const b of blobs.sort((p, q) => q.area - p.area)) {
-        const m = merged.find((x) => Math.hypot(x.x - b.x, x.y - b.y) < 10);
-        if (m) {
-            const n = m.area + b.area;
-            m.x = (m.x * m.area + b.x * b.area) / n;
-            m.y = (m.y * m.area + b.y * b.area) / n;
-            m.area = n;
-        } else merged.push({ ...b });
+    return blobs;
+}
+
+/** Whether most of the pixels along `p`-`q` (ends left out) have handle colour `color`, give
+ *  or take 2 px: an axis guide is drawn there. */
+function guideAlong(png: Buffer, p: Px, q: Px, color: HandleColor): boolean {
+    const img = PNG.sync.read(png);
+    let hits = 0, samples = 0;
+    for (let k = 3; k <= 17; k++) {
+        const t = k / 20;
+        const cx = p.x + t * (q.x - p.x), cy = p.y + t * (q.y - p.y);
+        samples++;
+        search: for (let dy = -2; dy <= 2; dy++)
+            for (let dx = -2; dx <= 2; dx++) {
+                const x = Math.round(cx) + dx, y = Math.round(cy) + dy;
+                if (x < 0 || y < 0 || x >= img.width || y >= img.height) continue;
+                const i = (img.width * y + x) * 4;
+                if (handleColor(img.data[i], img.data[i + 1], img.data[i + 2]) === color) { hits++; break search; }
+            }
     }
-    // a whole handle is ~150 px; anything far smaller is a highlight, not a handle
-    return merged.filter((b) => b.area >= 60);
+    return hits >= 0.8 * samples;
 }
 
 /** Whether the pixel at `p` (or one within 3 px) is handle-grabbed green, V4f(0.2, 0.8, 0.2). */
@@ -309,10 +344,12 @@ test("an AxisEllipse is reshaped by dragging its axis ends, and Ctrl+Z restores 
             const shot = await settled(render, `${name}.png`, save);
             const blobs = handleBlobs(reference, shot);
             console.log(`${name}: handles ${JSON.stringify(blobs)}`);
-            return blobs;
+            return { blobs, shot };
         };
 
-        const handles = await findHandles(drawn.shot, "02-handles");
+        const found = await findHandles(drawn.shot, "02-handles");
+        const handles = found.blobs;
+        const handlesFrame = found.shot;
         expect(handles.length, "four handles: two ends per axis").toBe(4);
         const nearest = (p: Px) =>
             handles.reduce((best, h) => (dist(h, p) < dist(best, p) ? h : best), handles[0]);
@@ -322,6 +359,17 @@ test("an AxisEllipse is reshaped by dragging its axis ends, and Ctrl+Z restores 
         expect(dist(nearest(majorB), majorB), "a handle on the second major end").toBeLessThan(8);
         const minorHandles = handles.filter((h) => dist(h, majorA) > 20 && dist(h, majorB) > 20);
         expect(minorHandles.length, "the other two sit off the major axis").toBe(2);
+        // the two axes tell themselves apart: handles and guides in their axis colour
+        const majorHandles = [nearest(majorA), nearest(majorB)];
+        for (const h of majorHandles)
+            expect(["major", "hover"], "a major end is magenta").toContain(h.color);
+        for (const h of minorHandles)
+            expect(["minor", "hover"], "a minor end is cyan").toContain(h.color);
+        const handlesShot = PNG.sync.write(PNG.sync.read(handlesFrame));
+        expect(guideAlong(handlesFrame, majorHandles[0], majorHandles[1], "major"),
+            "a magenta guide runs along the major axis").toBe(true);
+        expect(guideAlong(handlesFrame, minorHandles[0], minorHandles[1], "minor"),
+            "a cyan guide runs along the minor axis").toBe(true);
 
         // --- 1. pull the second major end out by 35 % of the axis -------------------------
         const grab = nearest(majorB);
@@ -372,7 +420,7 @@ test("an AxisEllipse is reshaped by dragging its axis ends, and Ctrl+Z restores 
         expect(redDistance(undone.shot, majorB), "undo: through the picked end again").toBeLessThan(8);
 
         // --- 3. widen it by a minor end ----------------------------------------------------
-        const again = await findHandles(undone.shot, "06-handles-again");
+        const again = (await findHandles(undone.shot, "06-handles-again")).blobs;
         expect(again.length, "four handles again after the undo").toBe(4);
         const centre: Px = { x: (majorA.x + majorB.x) / 2, y: (majorA.y + majorB.y) / 2 };
         const minorGrab = again

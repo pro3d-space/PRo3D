@@ -3056,6 +3056,41 @@ module ViewerApp =
             if points.Length < 2 then Sg.empty
             else PRo3D.Core.Drawing.Sg.lines C4b.VRVisGreen 3.0 points)
         |> Sg.dynamic
+        // a straight line between surface points runs through the terrain between them; drawn
+        // over everything, like the handles it connects
+        |> Sg.depthTest (AVal.constant DepthTest.None)
+        |> Sg.pass PackedRendering.ellipseAxisGuidePass
+
+    /// While a three-point ellipse is edited, its major and minor axes drawn through it in the
+    /// colours of their handles (PackedRendering.EllipseEditColors), so it is plain which handle
+    /// does what. Not depth tested, like the handles: the fitted plane runs partly under the
+    /// terrain, and a guide that dips in and out says nothing. They show the stored shape and
+    /// stay put during a grab, next to the green preview of the axis being dragged.
+    let private ellipseAxisGuides (m : AdaptiveModel) =
+        // built outside the custom: a node created inside it and read with its token goes stale
+        let editingAllowed = allowVertexEditing m
+        let axes =
+            AVal.custom (fun t ->
+                let editing  = editingAllowed.GetValue t
+                match (if editing then m.drawing.annotations.singleSelectLeaf.GetValue t else None) with
+                | Some id ->
+                    match m.drawing.annotations.flat.Content.GetValue t |> HashMap.tryFind id with
+                    | Some (AdaptiveAnnotations ann) when not (Geometry.isVertexEditable (ann.geometry.GetValue t)) ->
+                        let h = PackedRendering.editHandles ann t
+                        if h.Length = 4 then [| (PackedRendering.EllipseEditColors.major, [| h.[0]; h.[1] |])
+                                                (PackedRendering.EllipseEditColors.minor, [| h.[2]; h.[3] |]) |]
+                        else [||]
+                    | _ -> [||]
+                | None -> [||])
+
+        axes
+        |> AVal.map (fun axes ->
+            axes
+            |> Array.map (fun (color, points) -> PRo3D.Core.Drawing.Sg.lines color 2.0 points)
+            |> Sg.ofArray)
+        |> Sg.dynamic
+        |> Sg.depthTest (AVal.constant DepthTest.None)
+        |> Sg.pass PackedRendering.ellipseAxisGuidePass
 
     // depthTested that occur in instrumentview + main renderview, and the annotation fills -
     // not drawn yet: the views draw them against their offscreen surfaces
@@ -3140,7 +3175,7 @@ module ViewerApp =
             |> Sg.noEvents
 
         let vertexEdit =
-            vertexEditPreview m
+            Sg.ofList [ vertexEditPreview m; ellipseAxisGuides m ]
             |> Sg.noEvents
 
         let ellipseDrawing = 

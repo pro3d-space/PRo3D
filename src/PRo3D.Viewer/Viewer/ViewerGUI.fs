@@ -1009,8 +1009,24 @@ module Gui =
         /// As interactionText, but also reflects whether a control point is currently in hand.
         /// Click-to-grab has no drag affordance to feel out, so the hint line is most of what makes
         /// the gesture discoverable.
-        let interactionTextWithState (directToolMode : bool) (i : Interactions) (grabbed : bool) =
+        ///
+        /// `ellipse` is the stored shape when the annotation being edited is a three-point ellipse:
+        /// its four handles do different things, so the line names them by the colours they are
+        /// drawn in (EllipseEditColors) and gives the axis lengths they change. `grabbedIndex` is
+        /// the handle in hand, or -1.
+        let interactionTextWithState (directToolMode : bool) (i : Interactions) (grabbedIndex : int) (ellipse : Option<EllipticAnnotationResult>) =
             let click = clickGesture directToolMode
+            let grabbed = grabbedIndex >= 0
+            let colors = PackedRendering.EllipseEditColors.majorName, PackedRendering.EllipseEditColors.minorName
+            match i, ellipse with
+            | Interactions.EditAnnotation, Some r ->
+                let major = 2.0 * r.semiMajorAxis.Length
+                let minor = 2.0 * r.semiMinorAxis.Length
+                match grabbedIndex with
+                | 0 | 1 -> sprintf "%s to drop this end of the major axis (%.2f m) - the opposite end stays, the minor axis keeps its length; ESC to cancel" click major
+                | 2 | 3 -> sprintf "%s to set the minor axis (%.2f m) - it stays at right angles to the major axis; ESC to cancel" click minor
+                | _ -> sprintf "%s an axis end to move it: %s = major axis (%.2f m), %s = minor axis (%.2f m)" click (fst colors) major (snd colors) minor
+            | _ ->
             match i with
             | Interactions.EditAnnotation when grabbed -> sprintf "%s to drop the point, ESC to cancel" click
             | Interactions.EditAnnotation -> sprintf "%s a vertex of the selected annotation to move it" click
@@ -1135,13 +1151,34 @@ module Gui =
             // Ctrl-click hint for the selected tool, flowing straight on after that tool's
             // settings. It is prose about the tool the strip has selected, so it belongs
             // with the tool's settings rather than on the main row.
+            // the stored shape of the annotation being edited, when it is an editable ellipse
+            let editedEllipse =
+                adaptive {
+                    let! interaction = m.interaction
+                    if interaction <> Interactions.EditAnnotation then return None else
+                    match! m.drawing.annotations.singleSelectLeaf with
+                    | None -> return None
+                    | Some id ->
+                        match! AMap.tryFind id m.drawing.annotations.flat with
+                        | Some (AdaptiveAnnotations ann) ->
+                            let! geometry   = ann.geometry
+                            let! projection = ann.projection
+                            let! elliptic   = ann.ellipticResults
+                            return if EllipseEdit.isEditable geometry projection elliptic then elliptic else None
+                        | _ -> return None
+                }
+
             let hint =
                 div [clazz "item topmenu"; style "font-style:italic"] [
                     Incremental.text (
-                        AVal.map3 interactionTextWithState
-                            m.directToolMode
-                            m.interaction
-                            (m.drawing.vertexGrab |> AVal.map Option.isSome))
+                        adaptive {
+                            let! direct      = m.directToolMode
+                            let! interaction = m.interaction
+                            let! grab        = m.drawing.vertexGrab
+                            let! ellipse     = editedEllipse
+                            let grabbedIndex = match grab with Some g -> g.pointIndex | None -> -1
+                            return interactionTextWithState direct interaction grabbedIndex ellipse
+                        })
                 ]
 
             // The row itself is untinted. To wash it in a toned down version of the active

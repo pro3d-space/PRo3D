@@ -15,9 +15,11 @@ removing points build on the same machinery and are not implemented yet — see
 
 1. Choose **Edit Annotation** (the green move icon) in the [tool strip](ToolStrip.md) on the right edge of the main view.
 2. Select an annotation — Ctrl+click it in the 3D view, or pick it in the annotation tree. Its
-   control points appear as white discs.
+   control points appear as white discs (a three-point ellipse: magenta major-axis and cyan
+   minor-axis ends, see [EllipseAnnotations.md](EllipseAnnotations.md#editing-an-ellipse)).
 3. **Ctrl+click a handle** to pick it up. It turns green, and a green line runs from the cursor to
-   its two neighbours showing where the annotation would go.
+   its two neighbours showing where the annotation would go. The line is drawn over the terrain,
+   since a straight line between surface points runs partly under it.
 4. Move the cursor over the surface. The point follows the 3D cursor's live surface hit.
 5. **Ctrl+click again** to put it down. The annotation's length, area and dip/strike are
    recomputed.

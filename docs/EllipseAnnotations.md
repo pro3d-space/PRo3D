@@ -46,7 +46,19 @@ drop it:
 | a major-axis end | the opposite end stays put; the axis turns and stretches to the drop. The minor length is kept. |
 | a minor-axis end | the major axis stays put; the minor length becomes the drop's distance from it. |
 
+**Telling the axes apart.** The major-axis ends are drawn **magenta** and the minor-axis ends
+**cyan**, and a thin guide line in the same colour runs along each axis through the ellipse, so
+it is plain which handle does what before anything is picked up. The hint line next to the tool
+settings says it in words, with the current full axis lengths ("Ctrl+click an axis end to move
+it: magenta = major axis (120.32 m), cyan = minor axis (70.00 m)"), and while a handle is in
+hand it says what the drop will do to which axis. Hovered handles turn yellow and the grabbed
+one green, as for polylines. The colours are `PackedRendering.EllipseEditColors`, chosen away
+from the handle palette and from red and orange, the usual annotation colours.
+
 While a handle is in hand, a green line runs from the opposite end of the same axis to the cursor.
+The guides, that line and the handles are drawn over the terrain (no depth test), in passes after
+the main one (`ellipseAxisGuidePass`, then `vertexHandlePass`): the fitted plane and a straight
+line between surface points both run partly under the surface.
 On drop the outline is re-sampled and draped, and the stored shape (centre, semi-axes, long-axis
 azimuth), dip and strike and the measurements are recomputed. One drop is one undo entry. A minor
 end dragged out past the major length makes that axis the major one; the handles follow.
@@ -84,7 +96,9 @@ undo, refused drops. `tests-ui/tests/ellipse-editing.spec.ts` does it in the vie
 Dimorphos OPC: it finds the four handles in the render, picks a major end up (it must turn
 green), pulls it out by 35 % and reads the outline back with the same ellipse fit as the drawing
 spec (`tests-ui/src/ellipse-fit.ts`): major axis longer by about that much, minor width kept,
-opposite end in place. Then Ctrl+Z, and the same for a minor end.
+opposite end in place. Then Ctrl+Z, and the same for a minor end. It also checks the colours:
+the handles on the picked major ends are magenta, the other two cyan, and a guide of each colour
+runs between its pair.
 
 ## Known limitation
 
