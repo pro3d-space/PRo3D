@@ -8,6 +8,113 @@ open System.Text.Json.Nodes
 open Aardvark.Base
 open PRo3D.Core
 
+/// Total readers for job files: every failure is an Error naming the field.
+module internal JsonRead =
+
+
+    let sequence (xs : list<Result<'a, string>>) : Result<list<'a>, string> =
+        List.foldBack (fun x acc ->
+            match x, acc with
+            | Ok v, Ok vs -> Ok (v :: vs)
+            | Result.Error e, _ | _, Result.Error e -> Result.Error e) xs (Ok [])
+
+    let str (field : string) (n : JsonNode) : Result<string, string> =
+        match n with
+        | :? JsonValue as v ->
+            match v.TryGetValue<string>() with
+            | true, s -> Ok s
+            | _ -> Result.Error (sprintf "'%s' must be a string" field)
+        | _ -> Result.Error (sprintf "'%s' must be a string" field)
+
+    let int' (field : string) (n : JsonNode) : Result<int, string> =
+        match n with
+        | :? JsonValue as v ->
+            match v.TryGetValue<int>() with
+            | true, i -> Ok i
+            | _ -> Result.Error (sprintf "'%s' must be an integer" field)
+        | _ -> Result.Error (sprintf "'%s' must be an integer" field)
+
+    /// A list of strings; a single string is accepted as a list of one.
+    let strings (field : string) (n : JsonNode) : Result<list<string>, string> =
+        match n with
+        | :? JsonArray as a ->
+            a |> Seq.mapi (fun i x ->
+                    match x with
+                    | null -> Result.Error (sprintf "'%s'[%d] is null" field i)
+                    | x -> str (sprintf "%s[%d]" field i) x)
+              |> List.ofSeq |> sequence
+        | n -> str field n |> Result.map List.singleton
+
+    let field (o : JsonObject) (name : string) (read : string -> JsonNode -> Result<'a, string>) : Result<Option<'a>, string> =
+        match o.TryGetPropertyValue name with
+        | true, null -> Ok None
+        | true, n -> read name n |> Result.map Some
+        | _ -> Ok None
+
+    /// Misspelt keys would otherwise be ignored and the default silently used.
+    let onlyKnown (where : string) (known : list<string>) (o : JsonObject) : Result<unit, string> =
+        let unknown = o |> Seq.map (fun kv -> kv.Key) |> Seq.filter (fun k -> List.contains k known |> not) |> List.ofSeq
+        match unknown with
+        | [] -> Ok ()
+        | ks -> Result.Error (sprintf "unknown key%s %s in %s (known: %s)"
+                                (if ks.Length > 1 then "s" else "")
+                                (ks |> List.map (sprintf "'%s'") |> String.concat ", ")
+                                where (String.concat ", " known))
+
+
+    let float' (field : string) (n : JsonNode) : Result<float, string> =
+        match n with
+        | :? JsonValue as v ->
+            match v.TryGetValue<double>() with
+            | true, f when Double.IsFinite f -> Ok f
+            | true, _ -> Result.Error (sprintf "'%s' must be a finite number" field)
+            | _ -> Result.Error (sprintf "'%s' must be a number" field)
+        | _ -> Result.Error (sprintf "'%s' must be a number" field)
+
+    let bool' (field : string) (n : JsonNode) : Result<bool, string> =
+        match n with
+        | :? JsonValue as v ->
+            match v.TryGetValue<bool>() with
+            | true, b -> Ok b
+            | _ -> Result.Error (sprintf "'%s' must be true or false" field)
+        | _ -> Result.Error (sprintf "'%s' must be true or false" field)
+
+    /// Exactly `count` numbers.
+    let floats (count : int) (field : string) (n : JsonNode) : Result<float[], string> =
+        match n with
+        | :? JsonArray as a when a.Count = count ->
+            a |> Seq.mapi (fun i x ->
+                    match x with
+                    | null -> Result.Error (sprintf "'%s'[%d] is null" field i)
+                    | x -> float' (sprintf "%s[%d]" field i) x)
+              |> List.ofSeq |> sequence |> Result.map Array.ofList
+        | _ -> Result.Error (sprintf "'%s' must be an array of %d numbers" field count)
+
+    /// [x, y, z]
+    let vec3 (field : string) (n : JsonNode) : Result<V3d, string> =
+        floats 3 field n |> Result.map (fun a -> V3d(a.[0], a.[1], a.[2]))
+
+    /// 16 numbers, row-major: the first four are the matrix's first row.
+    let m44 (field : string) (n : JsonNode) : Result<M44d, string> =
+        floats 16 field n |> Result.map M44d
+
+    /// An object node, or an error saying what `where` must be.
+    let object' (where : string) (n : JsonNode) : Result<JsonObject, string> =
+        match n with
+        | :? JsonObject as o -> Ok o
+        | _ -> Result.Error (sprintf "%s must be an object" where)
+
+    /// Parses JSON text that must hold an object; comments and trailing commas allowed.
+    let parseObject (json : string) : Result<JsonObject, string> =
+        let node =
+            try Ok (JsonNode.Parse(json, documentOptions = JsonDocumentOptions(CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true)))
+            with e -> Result.Error (sprintf "not valid JSON: %s" e.Message)
+        match node with
+        | Ok (:? JsonObject as o) -> Ok o
+        | Ok _ -> Result.Error "the job file must hold a JSON object"
+        | Result.Error e -> Result.Error e
+
+
 /// One round of images: these bookmarks with these settings. A job with several passes
 /// renders e.g. the same bookmarks at several fixed levels of detail.
 type RenderPass =
@@ -62,59 +169,10 @@ and PassFile =
 
 module JobFile =
 
+    open JsonRead
+
     let empty : JobFile =
         { scene = None; out = None; bookmarks = None; width = None; height = None; lodLevel = None; passes = None }
-
-    // ---- reading: total, every failure is an Error naming the field ---------------
-
-    let private sequence (xs : list<Result<'a, string>>) : Result<list<'a>, string> =
-        List.foldBack (fun x acc ->
-            match x, acc with
-            | Ok v, Ok vs -> Ok (v :: vs)
-            | Result.Error e, _ | _, Result.Error e -> Result.Error e) xs (Ok [])
-
-    let private str (field : string) (n : JsonNode) : Result<string, string> =
-        match n with
-        | :? JsonValue as v ->
-            match v.TryGetValue<string>() with
-            | true, s -> Ok s
-            | _ -> Result.Error (sprintf "'%s' must be a string" field)
-        | _ -> Result.Error (sprintf "'%s' must be a string" field)
-
-    let private int' (field : string) (n : JsonNode) : Result<int, string> =
-        match n with
-        | :? JsonValue as v ->
-            match v.TryGetValue<int>() with
-            | true, i -> Ok i
-            | _ -> Result.Error (sprintf "'%s' must be an integer" field)
-        | _ -> Result.Error (sprintf "'%s' must be an integer" field)
-
-    /// A list of strings; a single string is accepted as a list of one.
-    let private strings (field : string) (n : JsonNode) : Result<list<string>, string> =
-        match n with
-        | :? JsonArray as a ->
-            a |> Seq.mapi (fun i x ->
-                    match x with
-                    | null -> Result.Error (sprintf "'%s'[%d] is null" field i)
-                    | x -> str (sprintf "%s[%d]" field i) x)
-              |> List.ofSeq |> sequence
-        | n -> str field n |> Result.map List.singleton
-
-    let private field (o : JsonObject) (name : string) (read : string -> JsonNode -> Result<'a, string>) : Result<Option<'a>, string> =
-        match o.TryGetPropertyValue name with
-        | true, null -> Ok None
-        | true, n -> read name n |> Result.map Some
-        | _ -> Ok None
-
-    /// Misspelt keys would otherwise be ignored and the default silently used.
-    let private onlyKnown (where : string) (known : list<string>) (o : JsonObject) : Result<unit, string> =
-        let unknown = o |> Seq.map (fun kv -> kv.Key) |> Seq.filter (fun k -> List.contains k known |> not) |> List.ofSeq
-        match unknown with
-        | [] -> Ok ()
-        | ks -> Result.Error (sprintf "unknown key%s %s in %s (known: %s)"
-                                (if ks.Length > 1 then "s" else "")
-                                (ks |> List.map (sprintf "'%s'") |> String.concat ", ")
-                                where (String.concat ", " known))
 
     let private passKeys = [ "bookmarks"; "width"; "height"; "lodLevel"; "suffix" ]
     let private jobKeys  = [ "scene"; "out"; "bookmarks"; "width"; "height"; "lodLevel"; "passes" ]
