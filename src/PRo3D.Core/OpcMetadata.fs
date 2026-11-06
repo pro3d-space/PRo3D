@@ -290,6 +290,43 @@ module OpcMetadata =
                 |> Option.defaultValue fileName
             { product = product; modelName = modelName; version = mapVersion; source = "fits-header"; credit = credit }
 
+    /// The body an OPC shows, as far as its metadata says so for sure (#894): the DSK
+    /// summary's body (BDS-derived OPCs, "402 (DEIMOS)"), the FITS header's TARGET, or a
+    /// product name following the PDS SPC convention `<body>_<g|l>_<gsd>mm_spc_...`
+    /// ("dimorphos_l_0050mm_spc_obj_0897s26313_v004"), or the earlier DART one with the body
+    /// code after the product type ("g_01960mm_spc_dtm_dimo_..._v003": dimo, didy). Returns the
+    /// body name and where it came from.
+    let bodyOf (opcxPath : string) (metadata : Option<OpcMetadata>) : Option<string * string> =
+        let fileName =
+            let n = Path.GetFileNameWithoutExtension opcxPath
+            if n.EndsWith(".opc", StringComparison.OrdinalIgnoreCase) then n.Substring(0, n.Length - 4) else n
+        let fromDsk =
+            metadata
+            |> Option.bind (fun m -> m.dskSummary)
+            |> Option.bind (fun d -> d.body)
+            |> Option.bind (fun b ->
+                // "402 (DEIMOS)": the name in parentheses, else the whole entry
+                match tryGroup @"\(([^)]+)\)" b with
+                | Some name -> nonEmpty name
+                | None -> nonEmpty b)
+            |> Option.map (fun b -> b, "the DSK summary")
+        let fromFits =
+            metadata
+            |> Option.bind (fun m -> Map.tryFind "TARGET" m.fitsHeader)
+            |> Option.bind nonEmpty
+            |> Option.map (fun t -> t, "the FITS header's TARGET")
+        // PDS: "dimorphos_l_0050mm_spc_obj_0897s26313_v004"; the earlier DART deliveries put
+        // a four-letter body code after the product type: "g_01960mm_spc_dtm_dimo_0000n00000_v003"
+        let fromName =
+            match tryGroup @"^([a-z]+)_[gl]_\d+mm_spc_" fileName with
+            | Some b -> Some (b, sprintf "the product name %s" fileName)
+            | None ->
+                match tryGroup @"^[gl]_\d+mm_spc_[a-z]{3}_([a-z]{4})_" fileName |> Option.map (fun c -> c.ToLowerInvariant()) with
+                | Some "dimo" -> Some ("Dimorphos", sprintf "the product name %s" fileName)
+                | Some "didy" -> Some ("Didymos", sprintf "the product name %s" fileName)
+                | _ -> None
+        [ fromDsk; fromFits; fromName ] |> List.tryPick id
+
     // The Surfaces panel's Source section reads the sidecar while it is drawn; a sidecar does
     // not change during a session.
     let private cache = System.Collections.Concurrent.ConcurrentDictionary<string, Option<OpcMetadata>>()

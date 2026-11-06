@@ -290,8 +290,60 @@ let opcxAttributeLayerTests () =
         }
     ]
 
+/// The body an OPC shows, for setting the scene body on first import (#894).
+let bodyTests () =
+    let dsk = """
+    {
+        "product_information": { "product_type": "opc" },
+        "DskBrief": "DSKBRIEF Program; Ver. 3.0.0\n\nBody:                               402 (DEIMOS)\n  Reference frame:                  IAU_DEIMOS\n"
+    }
+    """
+    let fits = """
+    {
+        "fits2mbi": { "fits_header": [ { "TARGET": { "value": "DIMORPHOS", "comment": "Target object" } } ] }
+    }
+    """
+    testList "body" [
+        test "the DSK summary's body" {
+            let md = OpcMetadata.ofJsonString "inline" dsk
+            Expect.equal (OpcMetadata.bodyOf "x/deimos_k005_tho_v02.opcx" (Some md) |> Option.map fst) (Some "DEIMOS") "DEIMOS"
+        }
+        test "the FITS header's TARGET" {
+            let md = OpcMetadata.ofJsonString "inline" fits
+            match OpcMetadata.bodyOf "x/anything.opcx" (Some md) with
+            | Some (body, source) ->
+                Expect.equal body "DIMORPHOS" "body"
+                Expect.stringContains source "TARGET" "source named"
+            | None -> failtest "no body"
+        }
+        test "the PDS product name" {
+            Expect.equal (OpcMetadata.bodyOf "x/dimorphos_l_0050mm_spc_obj_0897s26313_v004.opcx" None |> Option.map fst) (Some "dimorphos") "local v004"
+            Expect.equal (OpcMetadata.bodyOf "x/didymos_g_1165mm_spc_alb_0000n00000_v003.opcx" None |> Option.map fst) (Some "didymos") "Didymos v003"
+        }
+        test "the earlier DART names with a body code" {
+            Expect.equal (OpcMetadata.bodyOf "x/g_01960mm_spc_dtm_dimo_0000n00000_v003.opcx" None |> Option.map fst) (Some "Dimorphos") "dimo"
+            Expect.equal (OpcMetadata.bodyOf "x/g_01165mm_spc_obj_didy_0000n00000_v003.opcx" None |> Option.map fst) (Some "Didymos") "didy"
+            Expect.isNone (OpcMetadata.bodyOf "x/g_01165mm_spc_obj_xxxx_0000n00000_v003.opcx" None) "unknown code"
+        }
+        test "no body without certainty" {
+            Expect.isNone (OpcMetadata.bodyOf "x/Dimorphos.opcx" None) "a folder-like name is not enough"
+            Expect.isNone (OpcMetadata.bodyOf "x/meshed-poisson.gpc.opcx" None) "nothing to go on"
+            Expect.isNone (OpcMetadata.bodyOf "x/Oxia_02_04.opcx" (Some (OpcMetadata.ofJsonString "inline" "{}"))) "rover data"
+        }
+        test "the DSK summary beats the product name" {
+            let md = OpcMetadata.ofJsonString "inline" dsk
+            Expect.equal (OpcMetadata.bodyOf "x/dimorphos_g_0243mm_spc_dtm_0000n00000_v004.opcx" (Some md) |> Option.map fst) (Some "DEIMOS") "product states it"
+        }
+        test "the names map to PRo3D's bodies" {
+            for name, planet in [ "DIMORPHOS", PRo3D.Base.Planet.Dimorphos; "dimorphos", PRo3D.Base.Planet.Dimorphos
+                                  "Didymos", PRo3D.Base.Planet.Didymos; "DEIMOS", PRo3D.Base.Planet.Deimos ] do
+                Expect.equal (PRo3D.Base.Gis.SceneBody.tryPlanet (PRo3D.Base.Gis.EntitySpiceName name)) (Some planet) name
+        }
+    ]
+
 let tests () =
     testList "OpcSidecar" [
         opcJsonTests()
+        bodyTests()
         opcxAttributeLayerTests()
     ]
