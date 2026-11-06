@@ -22,9 +22,10 @@ import * as path from "path";
  *  - **C, behind**: on a sphere of 120 m, within 20 deg of the far side. Every line of
  *    sight to them crosses the body's centre plane within ~31 m of the centre, so the body
  *    hides them all.
- * A Ctrl+drag over the whole view must select exactly B. Every hidden annotation costs the
- * full ray cap, so this is also the worst case for the occlusion rays; the viewer logs the
- * cost (`[BoxSelection] ... visibility rays, ... ms`) and the spec prints it.
+ * A Ctrl+drag over the whole view must select exactly B. A hidden annotation is tested at
+ * every sample up to the ray cap (32) before it counts as hidden, so the 4000 hidden ones are
+ * the expensive part; the viewer logs the cost (`[BoxSelection] ... visibility rays, ... ms`)
+ * and the spec prints it.
  *
  * PRO3D_BOX_SCALE multiplies the set sizes (default 1: 2000 + 1000 + 2000 polylines). The
  * selection is read per set from the annotations list, which also has to open at that size.
@@ -446,14 +447,19 @@ test("box selection: thousands of annotations, occlusion by the body, gestures",
         const clickBusy = watchBusy(app);
         await ctrlClick(render, ex, ey);
         const clicked = await readWhen(reader, panel, (s) => s.single || s.total > 0, 60_000);
-        console.log(`[box-selection] busy during the click: ${JSON.stringify([...(await clickBusy.stop())])}`);
+        const clickBusySeen = await clickBusy.stop();
+        console.log(`[box-selection] busy during the click: ${JSON.stringify([...clickBusySeen])}`);
+        // the click's occlusion ray loads cold KdTree patches: seconds, so the pill must say so
+        expect(clickBusySeen.has("picking"), "busy indicator reports the click's pick").toBe(true);
         expect(clicked.s.single || clicked.s.total > 0, `Ctrl+click at (${ex},${ey}) on a line edge selects it`).toBe(true);
         await render.waitForTimeout(1500);
         save("1-click-edge.png", await render.screenshot());
         const later = await reader.read();
         expect(later.single || later.total > 0, "and it stays selected after the release").toBe(true);
 
-        // 2. Ctrl+drag over the whole view: exactly the B set, none of the hidden ones
+        // 2. Ctrl+drag over the whole view: exactly the B set, none of the hidden ones. It stops
+        // at x 0.88 to stay clear of the tool strip on the right edge; B (within 40 deg of the
+        // view axis at 120 m, seen from 350 m) is drawn well inside that, see annotations.png
         const boxBusy = watchBusy(app);
         await ctrlDrag(render, at(0.02, 0.03), at(0.88, 0.97));
         const all = await readWhen(reader, panel, (s) => s.total >= SETS.B.count, 300_000);
@@ -498,6 +504,8 @@ test("box selection: thousands of annotations, occlusion by the body, gestures",
         await render.waitForTimeout(600);
         await render.mouse.move(...at(0.1, 0.12), { steps: 5 });
         await render.waitForTimeout(500);
+        // this very gesture has to be live, or "hidden" and "unchanged" below pass vacuously
+        expect(await rectangleShown(render), "rectangle shown before Ctrl is released").toBe(true);
         await render.keyboard.up("Control");
         await render.waitForTimeout(800);
         const shownAfterRelease = await rectangleShown(render);

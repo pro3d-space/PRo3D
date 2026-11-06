@@ -379,7 +379,7 @@ What counts as long-running is not just the obvious imports and exports. Anythin
 cross into one of these is:
 
 - **ray casting against surfaces** — the first ray into a patch loads its KdTree from disk
-  (1–5 s per patch on Dimorphos), and a ray per object adds up (box selection: 69,000 rays at
+  (1–5 s per patch on Dimorphos), and a ray per object adds up (box selection: 129,000 rays at
   5,000 annotations);
 - **work per annotation / per surface / per patch**, which is cheap at test-fixture sizes
   and seconds at real scene sizes — measure at thousands, not at five;

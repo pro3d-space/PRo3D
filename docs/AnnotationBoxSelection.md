@@ -190,11 +190,13 @@ In order, it checks that:
 - releasing Ctrl mid-drag hides the rectangle at once and changes nothing;
 - a Ctrl+drag over empty space clears the selection.
 
-It prints the viewer's own measurement (`[BoxSelection] ... visibility rays, ... ms`). Every
-hidden annotation costs the full ray budget, so this is the worst case. Measured at 5000
-annotations, the box took 10.5 s: 69,000 rays at about 26 microseconds each (1.8 s), plus about
-8.8 s loading the six KdTree patches the rays touch for the first time. Picking loads the same
-patches lazily too, so a later box costs only the rays.
+It prints the viewer's own measurement (`[BoxSelection] ... visibility rays, ... ms`). A
+hidden annotation is tested at every sample up to the ray budget before it counts as hidden,
+so the hidden ones dominate. Measured at 5000
+annotations: 129,000 rays (4000 hidden x 32, plus one per visible annotation) took about
+1.3 s, roughly 10 microseconds each. The first box also loads the KdTree patches the rays
+touch: four here, 3 to 9 s in all depending on the disk cache. Picking loads the same patches
+lazily too, so a later box costs only the rays.
 
 While it runs, the busy indicator reads `selecting annotations` ([BusyIndicator](BusyIndicator.md)),
 and the spec checks that `/busy` reports it.

@@ -303,6 +303,17 @@ let private occlusionTests =
             Expect.equal (occludedHits orthoViewProj fullScreen [ l ]) (Set.singleton l.key) "the visible half selects it"
         }
 
+        test "TC-22.4 the ray budget reaches the last sample: a visible last vertex is found" {
+            // 80 buried vertices, densely sampled, then one above the terrain: the spread over
+            // the samples must include the very last one
+            let l =
+                anno Geometry.Polyline [
+                    for i in 0 .. 79 -> V3d(-9.0 + 0.2 * float i, 0.0, -1.0)
+                    yield V3d(7.0, 0.0, 1.0)
+                ]
+            Expect.equal (occludedHits orthoViewProj fullScreen [ l ]) (Set.singleton l.key) "the visible last vertex selects it"
+        }
+
         test "TC-22.5 a click on the visible part of a partly buried annotation finds a visible point" {
             let l = halfBuried ()
             let visible = visibleOver terrainPlane orthoViewProj

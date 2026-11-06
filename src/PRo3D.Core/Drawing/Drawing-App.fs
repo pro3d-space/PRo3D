@@ -570,13 +570,19 @@ module DrawingApp =
 
         // every k-th sample, so the ray budget covers the whole part inside the box rather than
         // running out on its first, possibly hidden, stretch
+        // - spread from the first to the last sample, so a visible end is never skipped
         let anyVisible () =
-            let stride = max 1 ((buffer.Count + maxVisibilityRaysPerAnnotation - 1) / maxVisibilityRaysPerAnnotation)
-            let mutable i = 0
+            let n = buffer.Count
+            let budget = maxVisibilityRaysPerAnnotation
+            let sampleAt j =
+                if n <= budget then j
+                else int (round (float j * float (n - 1) / float (budget - 1)))
+            let count = min n budget
+            let mutable j = 0
             let mutable found = false
-            while not found && i < buffer.Count do
-                found <- isVisible buffer.[i]
-                i <- i + stride
+            while not found && j < count do
+                found <- isVisible buffer.[sampleAt j]
+                j <- j + 1
             found
 
         let mutable result = []

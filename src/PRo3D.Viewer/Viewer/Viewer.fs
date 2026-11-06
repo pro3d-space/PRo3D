@@ -2600,7 +2600,9 @@ module ViewerApp =
             // the click's occlusion check casts a ray, so a cold patch loads its KdTree
             | ViewerAction.DrawingMessage (DrawingAction.PickAnnotation _) -> Some "picking"
             // one ray per sample, up to 32 per annotation, plus cold KdTree loads: seconds
-            // with thousands of annotations (docs/AnnotationBoxSelection.md)
+            // with thousands of annotations (docs/AnnotationBoxSelection.md). Sent on every
+            // pointerup on the render control, camera drags included; without a box it costs
+            // one write of the busy cell and never reaches the pill's threshold.
             | ViewerAction.BoxSelectEnd _                    -> Some "selecting annotations"
             | ViewerAction.ImportSurface _
             | ViewerAction.DiscoverAndImportOpcs _
