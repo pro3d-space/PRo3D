@@ -83,6 +83,19 @@ module UserFeedback =
     let queueFeedback fb m =
         { m with scene = { m.scene with feedbackThreads = ThreadPool.add fb.id (fb |> createWorker) m.scene.feedbackThreads }}
 
+    /// As queueFeedback, shown `delayMs` later: for a message raised while another worker's
+    /// text may still be on its way, e.g. the import's "Importing OPCs..." (#898). The newest
+    /// text wins, so the later one has to arrive last.
+    let queueFeedbackAfter (delayMs : int) fb m =
+        let worker =
+            proclist {
+                do! Proc.Sleep delayMs
+                yield UpdateUserFeedback fb.text
+                do! Proc.Sleep fb.timeout
+                yield ThreadsDone fb.id
+            }
+        { m with scene = { m.scene with feedbackThreads = ThreadPool.add fb.id worker m.scene.feedbackThreads }}
+
 module ViewerApp =         
     let dataSamples = 4
 
@@ -235,12 +248,46 @@ module ViewerApp =
 
     let mutable cache = HashMap.Empty
 
+    /// When the scene body became a small body (Phobos, Deimos, Didymos, Dimorphos), the main
+    /// view switches to MapView, the top-down north-up view these bodies are navigated in
+    /// (#898, docs/MapView.md). Only on a change of body and only from another mode; scene load
+    /// and bookmarks restore their saved mode without coming here. Returns whether it switched.
+    ///
+    /// `overview`: also move the camera out to an overview of the body -- same direction from
+    /// the centre, 3.5 body radii out -- for a freshly imported OPC, whose import framing puts
+    /// the camera at a corner of its bounding box, tens of metres above a small body.
+    let private withMapViewForSmallBody (overview : bool) (planetBefore : Planet) (m : Model) : Model * bool =
+        let planet = m.scene.referenceSystem.planet
+        if planet <> planetBefore
+           && CooTransformation.isSmallBody planet
+           && m.navigation.navigationMode <> NavigationMode.MapView then
+            let navigation =
+                let location = m.navigation.camera.view.Location
+                match overview, CooTransformation.tryGetBodyRadius planet location with
+                | true, Some radius when location.Length > 0.0 && location.Length < 3.5 * radius ->
+                    let view = CameraView.lookAt (location.Normalized * (3.5 * radius)) V3d.Zero m.navigation.camera.view.Up
+                    { m.navigation with camera = { m.navigation.camera with view = view } }
+                | _ -> m.navigation
+            let nav, _ =
+                Navigation.update m.scene.config m.scene.referenceSystem navConf m.userPreferences true None
+                    navigation (Navigation.Action.SetNavigationMode NavigationMode.MapView) (mouseScheme m)
+            Log.line "[SceneBody] %A is a small body: MapView" planet
+            ({ m with navigation = nav } |> Optic.set _animationView nav.camera.view), true
+        else m, false
+
+    /// A scene body change by the user (top bar, GIS view): MapView for a small body, said in
+    /// the top-right notice (#898).
+    let private afterSceneBodyChange (planetBefore : Planet) (m : Model) : Model =
+        match withMapViewForSmallBody false planetBefore m with
+        | m, true -> m |> logScreen 5000 (sprintf "Scene body %A: switched to MapView" m.scene.referenceSystem.planet)
+        | m, false -> m
+
     /// On the first import into a scene that observes no body: the body the imported OPCs'
     /// metadata names for sure (OpcMetadata.bodyOf), if PRo3D knows it, becomes the scene body
     /// -- the planet and the GIS observing it in its fixed frame, as picking the planet does
     /// (#894, docs/SceneBody.md). Nothing is set when no OPC names a body, or when two name
-    /// different ones.
-    let private withBodyFromOpcMetadata (m : Model) : Model =
+    /// different ones. Returns what to tell the user.
+    let private withBodyFromOpcMetadata (m : Model) : Model * Option<string> =
         let bodies =
             m.scene.surfacesModel.surfaces.flat
             |> HashMap.toList
@@ -258,13 +305,11 @@ module ViewerApp =
         | [ planet ] ->
             let source = bodies |> List.tryHead |> Option.map snd |> Option.defaultValue ""
             Log.line "[SceneBody] first import: %A from %s" planet source
-            m
-            |> SceneBodySync.setPlanet planet
-            |> logScreen 5000 (sprintf "Scene body set to %A, from %s" planet source)
-        | [] -> m
+            SceneBodySync.setPlanet planet m, Some (sprintf "Scene body set to %A, from %s" planet source)
+        | [] -> m, None
         | several ->
             Log.warn "[SceneBody] first import: the OPCs name different bodies %A, none set" several
-            m
+            m, None
 
     let updateSceneWithNewSurface (m: Model) =
         let sgSurfaces = 
@@ -284,10 +329,11 @@ module ViewerApp =
             match m.scene.firstImport with                  
             | true -> 
                 // an empty scene takes the body its first OPCs name for sure (#894)
-                let m =
+                let planetBefore = m.scene.referenceSystem.planet
+                let m, bodyMessage =
                     match m.scene.gisApp.defaultObservationInfo.observer with
                     | None -> withBodyFromOpcMetadata m
-                    | Some _ -> m
+                    | Some _ -> m, None
                 // A scene body the GIS already observes was declared, not guessed: do not
                 // second-guess it from the data's radius, only place the cross (#758).
                 let refAction =
@@ -306,9 +352,22 @@ module ViewerApp =
                     navigation = navigation'
                     scene = { m.scene with referenceSystem = refSystem'; firstImport = false }
                 } 
-                |> SceneLoader.updateCameraUp 
+                |> SceneLoader.updateCameraUp
                 |> lookAtBoundingBox v.globalBB
-            | _-> m     
+                // a small body found above: MapView, after the camera is placed on the data (#898)
+                |> fun m ->
+                    let m, mapView =
+                        match bodyMessage with
+                        | Some _ -> withMapViewForSmallBody true planetBefore m
+                        | None -> m, false
+                    // shown after the import's own "Importing OPCs..." notice, which it would
+                    // otherwise race with
+                    let say text = m |> UserFeedback.queueFeedbackAfter 500 (UserFeedback.create 6000 text)
+                    match bodyMessage, mapView with
+                    | Some text, true -> say (text + " - switched to MapView")
+                    | Some text, false -> say text
+                    | None, _ -> m
+            | _-> m          
         | None -> m
 
     let isGrabbed (model: Model) =
@@ -2294,10 +2353,13 @@ module ViewerApp =
             { m with interaction = t; drawing = drawing } //|> UserFeedback.queueFeedback feedback
         | ReferenceSystemMessage a,_ ->                                
             // the planet is the scene body: picking it also points the GIS at that body (#758)
+            let planetBefore = m.scene.referenceSystem.planet
             m |> SceneLoader.withCameraSkyFollowing (fun m ->
                 match a with
                 | ReferenceSystemAction.SetPlanet planet -> SceneBodySync.setPlanet planet m
                 | _ -> SceneBodySync.applyReferenceSystemAction a m)
+            // a small body: MapView (#898)
+            |> afterSceneBodyChange planetBefore
         | ConfigPropertiesMessage a,_ -> 
             //Log.line "config message %A" a
             let c' = ConfigProperties.update m.scene.config a
@@ -2783,7 +2845,10 @@ module ViewerApp =
             match msg with
             | Gis.GisAppAction.ObservationInfoMessage (Gis.ObservationInfoAction.SetObserver _)
             | Gis.GisAppAction.ObservationInfoMessage (Gis.ObservationInfoAction.SetReferenceFrame _) ->
+                let planetBefore = m.scene.referenceSystem.planet
                 m |> SceneLoader.withCameraSkyFollowing SceneBodySync.followObservation
+                // a small body: MapView (#898)
+                |> afterSceneBodyChange planetBefore
             | _ -> m
         | unknownAction, _ ->
             Log.line "[Viewer] Message not handled: %s" (string unknownAction)

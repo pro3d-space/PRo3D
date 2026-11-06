@@ -91,7 +91,8 @@ says for sure which body it is. In order:
 
 Only bodies PRo3D has a planet for count (Mars, Earth, Moon, Phobos, Deimos, Didymos,
 Dimorphos). A message says what was set and from what, e.g. *Scene body set to Dimorphos, from
-the FITS header's TARGET*. OPCs that name no body, such as rover data or a mesh called
+the FITS header's TARGET - switched to MapView*: a small body also switches the main view to
+[MapView](MapView.md) (#898), as picking one in the top bar or the GIS view does. OPCs that name no body, such as rover data or a mesh called
 `Dimorphos`, keep the radius check above; when the OPCs of one import name different bodies,
 nothing is set.
 

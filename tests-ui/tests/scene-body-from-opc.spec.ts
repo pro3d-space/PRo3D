@@ -1,5 +1,5 @@
 import { test, expect, Page } from "@playwright/test";
-import { fixture, launchPro3d } from "../src/pro3d";
+import { fixture, launchPro3d, surfaceShadersReady } from "../src/pro3d";
 import { overlayPlanet } from "../src/viewer";
 import * as fs from "fs";
 import * as path from "path";
@@ -63,11 +63,27 @@ for (const c of cases) {
 
             await importOpc(main, c.opc!);
             await expect
-                .poll(() => overlayPlanet(render), { timeout: 240_000, intervals: [2000], message: "the scene body" })
+                .poll(() => overlayPlanet(render), { timeout: 240_000, intervals: [500], message: "the scene body" })
                 .toBe("Dimorphos");
+            // the notice comes half a second after the body and stays 6 s; on a cold first run the
+            // viewer is busy after the import (kd-trees, shaders), so it can arrive later
+            await expect
+                .poll(() => render.evaluate(() => document.body.innerText), { timeout: 60_000, intervals: [200] })
+                .toContain("Scene body set to Dimorphos");
             const text = await render.evaluate(() => document.body.innerText);
             console.log("message:", (text.match(/Scene body set to[^\n]*/) ?? ["(none)"])[0]);
             expect(text, "the message says what and why").toContain(`Scene body set to Dimorphos, from ${c.source}`);
+            // a small body: MapView, said in the same notice (#898)
+            expect(text, "and that the view switched").toContain("switched to MapView");
+            const mapActive = await render.evaluate(() => {
+                const icon = Array.from(document.querySelectorAll("i")).find((i) => i.className.trim() === "map icon");
+                return icon?.closest(".pro3d-tool")?.classList.contains("active") ?? false;
+            });
+            expect(mapActive, "MapView is the navigation mode").toBe(true);
+            // the surface streams in after the import; the shot is for looking at the MapView framing
+            await surfaceShadersReady(render);
+            await render.waitForTimeout(15_000);
+            await render.screenshot({ path: path.join(__dirname, "..", "artifacts", `scene-body-from-opc-${c.source.replace(/[^a-z]+/gi, "-")}.png`) });
         } finally {
             await context.close();
             await app.stop();
