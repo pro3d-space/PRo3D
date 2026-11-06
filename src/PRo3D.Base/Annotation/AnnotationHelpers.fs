@@ -343,17 +343,17 @@ module DipAndStrike =
         let north = north |> Vec.normalize
         
         //apply dip azimuth rotation
-        let dipDirection = 
+        let horizontalDipDirection = 
             north 
             |> Trafo3d.Rotation(up, ((-annotation.manualDipAzimuth.value).RadiansFromDegrees())).Forward.TransformDir
             |> Vec.normalize
         
         //strike
-        let strikeDirection = dipDirection.Cross(up) |> Vec.normalize
+        let strikeDirection = horizontalDipDirection.Cross(up) |> Vec.normalize
 
         //apply dip angle rotation along negative strike direction because dipping angles can only dip down
         let dipDirection = 
-            dipDirection
+            horizontalDipDirection
             |> Trafo3d.Rotation(-strikeDirection, ((annotation.manualDipAngle.value).RadiansFromDegrees())).Forward.TransformDir
             |> Vec.normalize
     
@@ -375,7 +375,9 @@ module DipAndStrike =
             dipAngle        = alpha
             dipDirection    = dipDirection
             strikeDirection = strikeDirection
-            dipAzimuth      = Calculations.computeAzimuth dipDirection north up
+            // from the horizontal direction: at a dip of 90 degrees the tilted one points
+            // straight down and has no azimuth (NaN, #834)
+            dipAzimuth      = Calculations.computeAzimuth horizontalDipDirection north up
             strikeAzimuth   = Calculations.computeAzimuth strikeDirection north up
             centerOfMass    = p0
             error           = 

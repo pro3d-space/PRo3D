@@ -112,10 +112,12 @@ module GeoJSONExport =
   
         let encode (bytes : byte[]) = Convert.ToBase64String(bytes);
 
+        // one annotation that cannot be exported (unsupported geometry, a non-finite
+        // coordinate) is left out and logged; it must not fail the others (#834)
         let lines =
             annotations
-            |> List.map (fun annotation -> 
-
+            |> List.choose (fun annotation -> 
+              try
                 let geometry = annotationToGeoJsonGeometry isSelected None annotation
 
                 let feature = 
@@ -147,8 +149,11 @@ module GeoJSONExport =
                             ("geometryHash", pickler.ComputeHash(geometry).Hash |> encode  |> Json.String)
                         ]
                 }
+                |> Json.serialize |> Json.formatWith JsonFormattingOptions.SingleLine |> Some
+              with e ->
+                Log.warn "[GeoJSON] annotation %A (%A) left out of %s: %s" annotation.key annotation.geometry path e.Message
+                None
             )
-            |> List.map (Json.serialize >> Json.formatWith JsonFormattingOptions.SingleLine)
             |> List.toArray
 
         File.writeAllLines path lines
