@@ -17,7 +17,7 @@ dotnet tool install PRo3D.Tool --global
 | `unproject` | Converts image pixel coordinates to body-fixed surface coordinates on a shape model. Requires SPICE kernels; no GPU. |
 | `simulate-image` | Renders a simulated instrument image of a body at a SPICE time: Lommel-Seeliger sun lighting, procedural micro-structure, cast shadows, optional de-shaded texture albedo. Requires SPICE kernels and a GPU. |
 | `render-bookmarks` | Opens a `.pro3d` scene headlessly and renders its camera bookmarks to PNGs as the viewer shows them; batches via a JSON job file; can fix the OPC level of detail. Requires a GPU. |
-| `render-view` | Renders OPCs without a scene file from explicitly given cameras, each OPC placed by a transformation, optionally lit by a given sun; input is a JSON job file. No SPICE needed. Requires a GPU. |
+| `render-view` | Renders OPCs without a scene file from explicitly given cameras, each OPC placed by a transformation, optionally lit by a given sun; input is a JSON job file, e.g. HERA AFC-1 views written from SPICE by [`scripts/render-view-job.py`](https://github.com/pro3d-space/PRo3D/blob/main/scripts/render-view-job.py). The tool itself needs no SPICE. Requires a GPU. |
 
 ```
 pro3d-tool kdtree --help

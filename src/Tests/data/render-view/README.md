@@ -21,7 +21,6 @@ Used by `src/Tests/RenderViewTests.fs`.
 
   It uses constant albedo, so its non-black pixels are the body's silhouette.
 
-simulate-image draws AFC-1 with a hardcoded field of view of 5.5306897°
-(`InstrumentProjection.fovs`). That is 0.56% wider than the instrument kernel's 5.5°,
-which `getfov` gives the job. The silhouette test therefore renders with simulate-image's
-value to compare like with like, and checks the IK value separately.
+Both the job and simulate-image use AFC-1's 5.5° field of view from the instrument kernel.
+The reference was re-rendered when simulate-image's hardcoded 5.5307° was corrected (#801),
+so the silhouette test also checks that both draw the body at the same size.

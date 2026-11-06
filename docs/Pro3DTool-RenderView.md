@@ -7,7 +7,7 @@ same sun shading and shadows. Everything comes from a JSON job file; the tool it
 no SPICE.
 
 The motivating case is Dimorphos (and Didymos) seen from HERA's AFC-1. The job file for
-it is written by [`scripts/render-view-job.py`](#the-spice-job-generator) from SPICE.
+it is written by [`scripts/render-view-job.py`](../scripts/render-view-job.py) from SPICE (see [The SPICE job generator](#the-spice-job-generator)).
 
 ```
 pro3d-tool render-view --job job.json
@@ -37,8 +37,9 @@ image is rendered.
 ## Job file
 
 ```jsonc
-// illustration: the test fixture's view (2027-03-21T17:00) and Didymos as placed at
-// 2027-02-25T10:30 -- a real job with both bodies has a single epoch
+// illustration: the test fixture's view (2027-03-21T17:00, pinned kernels) and Didymos as
+// placed at 2027-02-25T10:30 with Planning v182_20261020_001 -- a real job with both bodies
+// has a single epoch and one kernel set
 {
   "coordinatesAreIn": "DIMORPHOS_FIXED, metres",   // a label, see below
   "out": "renders",                                // relative to the job file
@@ -47,8 +48,8 @@ image is rendered.
     { "path": "Didymos",
       "trafo": [ 0.9993, -0.0300,  0.0200, 1151.03,     // 2027-02-25T10:30: Didymos on
                  0.0309,  0.9985, -0.0451,    0.0,      // DIMORPHOS_FIXED's +X axis,
-                -0.0186,  0.0457,  0.9988,    0.0,      // 1.15 km away
-                 0,       0,       0,         1 ],
+                -0.0186,  0.0457,  0.9988,    0.0,      // 1.15 km away (DIMORPHOS_FIXED's +X
+                 0,       0,       0,         1 ],  // points at Didymos by definition)
       "textured": false }
   ],
   "width": 1020, "height": 1020, "lodLevel": null, // defaults for every view
@@ -101,7 +102,7 @@ the depth buffer is spent on the scene even at kilometres of distance.
 
 ## The SPICE job generator
 
-`scripts/render-view-job.py` (needs spiceypy) writes a job for HERA AFC-1 views of
+[`scripts/render-view-job.py`](../scripts/render-view-job.py) (needs spiceypy) writes a job for HERA AFC-1 views of
 Dimorphos, in `DIMORPHOS_FIXED`, metres:
 
 ```
@@ -148,41 +149,28 @@ Camera **position** is HERA's in both cases. AFC-1's place on the bus is metres 
 
 ## Validation
 
-![render-view against simulate-image and comet-toolbox](images/render-view-validation.png)
-
-*Left:* render-view, untextured and unlit, with simulate-image's silhouette in yellow.
-*Middle:* render-view sun-lit, with simulate-image's lit region in yellow. *Right:*
-render-view against comet-toolbox's lit outline, before alignment.
-
-**Against simulate-image**, Dimorphos at 2027-03-21T17:00 (pinned kernels, untextured):
+**Against simulate-image**, Dimorphos at 2027-03-21T17:00 (pinned kernels, untextured, 1020 px):
 
 | | |
 |---|---|
-| silhouette IoU | **0.989** |
-| centroid offset | **0.0 px** (1020 px frame) |
-| lit-region IoU (25% of max) | 0.94 |
+| silhouette IoU | **0.988** |
+| centroid offset | **0.1 px** |
+| silhouette area, render-view / simulate-image | 1.012 (radius +0.5 px: render-view's 8× MSAA counts partly covered edge pixels) |
+| lit-region IoU (25% of max) | 0.96 |
 
-These numbers are with simulate-image's field of view. With the job's own 5.5°, the body
-comes out **1.12% larger in area**. simulate-image hardcodes AFC-1's FOV as 5.5306897°
-(`InstrumentProjection.fovs`), 0.56% wider than the instrument kernel's 5.5°; this is the
-known #801 discrepancy. The level of detail makes no difference at this range.
+Both use AFC-1's 5.5° field of view from the instrument kernel (`hera_afc_v06.ti`). Until
+#801, simulate-image used a hardcoded 5.5307°, which made the body 1.1% smaller in area.
+The level of detail makes no difference at this range.
 
 Shading differs by design: the viewer uses Lommel-Seeliger with no ambient term, plus its
 shadow acne; simulate-image uses Lommel-Seeliger with Lambert and ambient. So lit regions
-are compared, not grey levels. The automated test,
-`src/Tests/RenderViewTests.fs`, covers all of the above with a checked-in job and reference
-(`src/Tests/data/render-view`). It needs no SPICE.
+are compared, not grey levels. The automated test, `src/Tests/RenderViewTests.fs`, covers
+all of the above with a checked-in job and reference (`src/Tests/data/render-view`). It
+needs no SPICE.
 
-**Against comet-toolbox**, 2027-02-25T10:30, with comet-toolbox's own kernels
-(`hera_plan_v182_20260805_001.tm`) and its screenshot as the reference:
-
-| centroid-aligned lit-region IoU (15% of max) | |
-|---|---|
-| render-view vs comet-toolbox | **0.933** |
-| simulate-image vs comet-toolbox | 0.958 |
-| render-view vs simulate-image (not aligned) | 0.960, centroids 0.2 px apart |
-
-Orientation and shape agree: same elongation, same tilt, the crater on the same limb.
+**Against comet-toolbox**, eight epochs with the dashboard's own kernels: see below.
+Orientation and shape agree (same elongation, same tilt, the crater on the same limb); the
+position depends on the pointing.
 
 #### Both pointings, eight epochs
 
@@ -199,7 +187,7 @@ Setup:
 - Renders: untextured, with Didymos placed as well.
 - Lit regions (above DN 25) are compared as they are, not re-centred.
 
-Reproduce with `scripts/compare-render-view-toolbox.py`.
+Reproduce with [`scripts/compare-render-view-toolbox.py`](../scripts/compare-render-view-toolbox.py).
 
 | Epoch (UTC) | IoU, `instrument` | IoU, `spacecraft` | centroid offset, `instrument` / `spacecraft` | silhouette IoU vs DSK ray-cast |
 |---|---|---|---|---|

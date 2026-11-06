@@ -22,9 +22,6 @@ let private fixtureDir = Path.Combine(__SOURCE_DIRECTORY__, "data", "render-view
 let private fixtureJob = Path.Combine(fixtureDir, "afc1_20270321T170000.json")
 let private reference  = Path.Combine(fixtureDir, "simulate-image_afc1_20270321T170000.png")
 
-/// simulate-image's hardcoded AFC-1 field of view (InstrumentProjection.fovs), 0.56%
-/// wider than the instrument kernel's 5.5 deg the job carries
-let private simulateImageFov = 5.5306897076421
 
 /// relative OPC paths resolve against an existing directory: "." is one
 let private parse (json : string) = ViewJob.parse (Path.GetTempPath()) json
@@ -85,6 +82,18 @@ let private jobTests =
             let f = ViewCamera.frustum { camera with fov = 90.0 } (V2i(200, 100)) (1.0, 10.0)
             Expect.floatClose Accuracy.high f.right 1.0 "tan 45 deg across the width"
             Expect.floatClose Accuracy.high f.top 0.5 "the height follows the aspect"
+        }
+
+        test "simulate-image's AFC frusta have the instrument kernel's 5.5 deg field (#801)" {
+            // hera_afc_v06.ti: FOV_REF_ANGLE = FOV_CROSS_ANGLE = 2.75 deg half-angles
+            let frusta = PRo3D.SPICE.InstrumentProjection.instruments 1.0 10.0
+            for name in [ "HERA_AFC-1"; "HERA_AFC-2" ] do
+                match Map.tryFind name frusta with
+                | None -> failtestf "no frustum for %s" name
+                | Some f ->
+                    let tan = Math.Tan(Conversion.RadiansFromDegrees 2.75)
+                    Expect.floatClose Accuracy.high f.right tan (sprintf "%s: 2.75 deg to the right edge" name)
+                    Expect.floatClose Accuracy.high f.top tan (sprintf "%s: 2.75 deg to the top edge" name)
         }
 
         test "the camera's up is made orthogonal to forward, and odd cameras are refused" {
@@ -213,25 +222,26 @@ let private renderTests =
             let refSilhouette = mask 1 ref
 
             use renderer = new OpcRenderer(runtime, signature, [ opc ])
-            let likeForLike = { view.camera with fov = simulateImageFov }
+            // the job's field of view is the IK's 5.5 deg, and so is simulate-image's
+            Expect.floatClose Accuracy.high view.camera.fov 5.5 "the job carries the IK's AFC-1 field of view"
 
             // geometry: unlit (the untextured headlight shades the whole disk)
-            let unlit = renderer.Render(likeForLike, None, view.settings)
+            let unlit = renderer.Render(view.camera, None, view.settings)
             Expect.equal unlit.Size (V2i(1020, 1020)) "AFC's size"
             let silhouette = mask 1 unlit
             Expect.isGreaterThan (iou silhouette refSilhouette) 0.98 "the same silhouette as simulate-image"
             Expect.isLessThan (Vec.distance (centroid silhouette) (centroid refSilhouette)) 1.0 "in the same place, to a pixel"
-
-            // the job's own field of view is the IK's 5.5 deg: the body comes out larger by
-            // simulate-image's 0.56% FOV excess, squared for the area
-            let ik = mask 1 (renderer.Render(view.camera, None, view.settings))
-            let expected = (simulateImageFov / 5.5) ** 2.0
-            Expect.floatClose { absolute = 0.004; relative = 0.0 } (float (count ik) / float (count silhouette)) expected
-                "the IK field of view scales the body by simulate-image's FOV excess"
+            // the same size, to a pixel on the radius. Not tighter: render-view's 8x MSAA
+            // counts partly covered edge pixels (about half a pixel all round, +1.2% area
+            // here) and simulate-image does not, which is as large as a 0.56% field-of-view
+            // error at this size. The field of view itself is pinned by the frusta test.
+            let radius (n : int) = sqrt (float n / Math.PI)
+            Expect.isLessThan (abs (radius (count silhouette) - radius (count refSilhouette))) 1.0
+                "the same size as simulate-image's, to a pixel on the radius"
 
             // sun: the lit region where simulate-image has it (the shading models differ:
             // viewer Lommel-Seeliger vs simulate-image's LS + Lambert with ambient)
-            let lit = renderer.Render(likeForLike, view.sun, view.settings)
+            let lit = renderer.Render(view.camera, view.sun, view.settings)
             Expect.isGreaterThan (iou (litMask 0.25 lit) (litMask 0.25 ref)) 0.9 "the lit region matches simulate-image's"
             // the untextured headlight and a low-phase sun look alike, but not the same
             Expect.isGreaterThan (differs unlit lit) 0.005 "sun lighting changes the image"

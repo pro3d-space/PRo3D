@@ -150,7 +150,7 @@ to the header's own description ("Target position vector").
 Even negated, the vector is measured from **Didymos**, while `TARGET` says
 `Dimorphos`. Dimorphos sits ~1.05 km from Didymos, and the COP standoff is
 ~8.2 km, so the boresight implied by `TRG_POS` is **7.0° away** from where the
-camera actually points — more than the AFC's whole 5.53° field of view. Fixing
+camera actually points — more than the AFC's whole 5.5° field of view. Fixing
 issues 5 and 6 alone therefore still misses the body.
 
 For image `2027-03-01/HERA_AFC_2317_20270301_040000_COP` the delivery's own
