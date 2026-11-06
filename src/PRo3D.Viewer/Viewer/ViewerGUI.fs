@@ -759,6 +759,13 @@ module Gui =
                                             text "Import SBMT Annotations"
                                         ]
 
+                                        // polygon CSVs in the body-fixed frame (docs/PolygonCsvImport.md):
+                                        // opens the import window, which has the options and the file dialog
+                                        div [ clazz "ui item";
+                                            onClick (fun _ -> PolygonImportMessage PolygonImportAction.ShowImportWindow) ] [
+                                            text "Import Polygons (*.csv)..."
+                                        ]
+
                                         let jsImportTraverseDialog = "top.aardvark.dialog.showOpenDialog({title:'Import Traverse files' , filters: [{ name: 'Traverses (*.json)', extensions: ['json']},], properties: ['openFile', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
 
                                         div [ clazz "ui item"; Dialogs.onChooseFiles ImportTraverse; clientEvent "onclick" jsImportTraverseDialog ] [
@@ -1765,6 +1772,95 @@ module Gui =
             AnnotationExportApp.viewModal state m.annotationExport
             |> UI.map AnnotationExportMessage
 
+    module PolygonImport =
+
+        let private jsOpenPolygonCsv =
+            "top.aardvark.dialog.showOpenDialog({title:'Import polygons (CSV)', filters: [{ name: 'Polygon tables', extensions: ['csv', 'txt', 'tsv']}, { name: 'All files', extensions: ['*']}], properties: ['openFile', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+
+        /// Tick box and label on one line, with a tooltip on the label. The label is a plain
+        /// span (iconCheckBox is an icon, not an <input>, so an HTML <label> cannot target it);
+        /// it gets the same click action, so clicking the text toggles too.
+        let private checkBox (label : string) (tip : string) (isSet : aval<bool>) (action : ViewerAction) =
+            div [ style "display:flex; align-items:center; gap:6px; padding:4px 0" ] [
+                GuiEx.iconCheckBox isSet action
+                span [ style "line-height:1.2; cursor:pointer; user-select:none"; attribute "title" tip
+                       onClick (fun _ -> action) ] [ text label ]
+            ]
+
+        let private spacingInput (model : aval<PolygonImportModel>) =
+            // only what the input shows: ticking the other boxes must not touch it
+            let state = model |> AVal.map (fun p -> p.options.spacing, p.options.drapeEdges)
+            let attributes =
+                amap {
+                    let! spacing, drape = state
+                    yield attribute "type" "number"
+                    yield attribute "min" (string PolygonCsvImporter.ImportOptions.minSpacing)
+                    yield attribute "step" "0.1"
+                    yield attribute "value" (spacing.ToString(Globalization.CultureInfo.InvariantCulture))
+                    yield style "width:90px; color:black"
+                    if not drape then yield attribute "disabled" "disabled"
+                    yield onChange (fun v ->
+                        match Double.TryParse(v, Globalization.NumberStyles.Float, Globalization.CultureInfo.InvariantCulture) with
+                        | true, f -> PolygonImportMessage (PolygonImportAction.SetSpacing f)
+                        | _ -> NoAction "")
+                } |> AttributeMap.ofAMap
+            Incremental.input attributes
+
+        let private view (model : aval<PolygonImportModel>) =
+            let snap  = model |> AVal.map (fun p -> p.options.snapVertices)
+            let drape = model |> AVal.map (fun p -> p.options.drapeEdges)
+            let dns   = model |> AVal.map (fun p -> p.options.dipAndStrike)
+            require GuiEx.semui (
+                div [ clazz "ui inverted segment"; style "min-width:420px; max-width:520px; padding:0; margin:0" ] [
+                    div [ clazz "ui inverted header"
+                          style "margin:0; padding:12px; border-bottom:1px solid rgba(255,255,255,0.15)" ] [
+                        text "Import polygons (CSV)"
+                    ]
+                    div [ style "padding:10px 12px" ] [
+                        div [ style "opacity:0.8; padding-bottom:8px" ] [
+                            text "One row per vertex: polygon_id, x, y, z in metres, body-fixed frame of the scene. See docs/PolygonCsvImport.md."
+                        ]
+                        checkBox "Snap vertices to the surface"
+                            "Move every vertex onto the active surfaces along the sky (local up, as the Sky projection): nearer hit of the ray down and the ray up."
+                            snap (PolygonImportMessage PolygonImportAction.ToggleSnapVertices)
+                        checkBox "Sky-project in-between points along the edges"
+                            "Add points along every edge and drop them onto the surface, like a polygon drawn with sky projection. Without this, edges are straight lines."
+                            drape (PolygonImportMessage PolygonImportAction.ToggleDrapeEdges)
+                        div [ style "display:flex; align-items:center; gap:8px; padding:4px 0 0 24px" ] [
+                            span [] [ text "spacing" ]
+                            spacingInput model
+                            span [] [ text (sprintf "m (at least %g)" PolygonCsvImporter.ImportOptions.minSpacing) ]
+                        ]
+                        checkBox "Compute dip & strike"
+                            "Fit a plane to each polygon's vertices, as for a drawn polygon (dip & strike panel, colour by dip). A regression per polygon: slow for many thousands."
+                            dns (PolygonImportMessage PolygonImportAction.ToggleDipAndStrike)
+                    ]
+                    div [ style "display:flex; gap:8px; justify-content:flex-end; padding:10px 12px; border-top:1px solid rgba(255,255,255,0.15)" ] [
+                        button [ clazz "ui button"; onClick (fun _ -> PolygonImportMessage PolygonImportAction.HideImportWindow) ] [ text "Cancel" ]
+                        button [ clazz "ui primary button"
+                                 Dialogs.onChooseFiles (PolygonImportAction.ImportFiles >> PolygonImportMessage)
+                                 clientEvent "onclick" jsOpenPolygonCsv ] [ text "Choose files..." ]
+                    ]
+                ]
+            )
+
+        /// Centred overlay like the export window; absent from the DOM while closed. Bound to
+        /// `isOpen` only, so changing an option updates the window instead of rebuilding it.
+        let importWindow (m : AdaptiveModel) =
+            let isOpen = m.polygonImport |> AVal.map (fun p -> p.isOpen)
+            Incremental.div AttributeMap.empty (
+                alist {
+                    let! isOpen = isOpen
+                    if isOpen then
+                        yield div [
+                            style "position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:20000; display:flex; align-items:center; justify-content:center"
+                            onClick (fun _ -> PolygonImportMessage PolygonImportAction.HideImportWindow)
+                        ] [
+                            onBoot "$('#__ID__').on('click', function(e) { e.stopPropagation(); });" (
+                                div [ style "display:flex" ] [ view m.polygonImport ])
+                        ]
+                })
+
     module Config =
 
         /// Read-out of the OPC per-vertex attribute layers under the 3D cursor.
@@ -2355,6 +2451,8 @@ module Gui =
                             // Overlay window; absent from the DOM while closed,
                             // so there is no JS modal state to keep in sync.
                             AnnotationExport.exportWindow m
+                            |> UI.map ViewerMessage
+                            PolygonImport.importWindow m
                             |> UI.map ViewerMessage
                             LayoutApp.UI.dialogs m.layout
                             |> UI.map (LayoutMessage >> ViewerMessage)

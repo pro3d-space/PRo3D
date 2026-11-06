@@ -29,6 +29,7 @@
     <Compile Include="SpiceTests.fs" />
     <Compile Include="HeraSpiceTests.fs" />
     <Compile Include="SbmtImportAlignmentTest.fs" />
+    <Compile Include="PolygonCsvImportTests.fs" />
     <None Include="data\AF2_0CO72A_250311T025652_1B.mbi.json" />
     <None Include="data\ASP_000000_270323T060000_2B.mbi.json" />
     <None Include="data\ASP_000000_270323T060000_2B_Vis_0.tif" />

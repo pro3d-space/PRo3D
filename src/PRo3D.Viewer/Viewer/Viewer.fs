@@ -1701,6 +1701,120 @@ module ViewerApp =
                 with
                 | e -> Log.error "[Viewer] %A" e; m
             | None -> m
+        | PolygonImportMessage (PolygonImportAction.ShowImportWindow),_ ->
+            { m with polygonImport = { m.polygonImport with isOpen = true } }
+        | PolygonImportMessage (PolygonImportAction.HideImportWindow),_ ->
+            { m with polygonImport = { m.polygonImport with isOpen = false } }
+        | PolygonImportMessage (PolygonImportAction.ToggleSnapVertices),_ ->
+            let o = m.polygonImport.options
+            { m with polygonImport = { m.polygonImport with options = { o with snapVertices = not o.snapVertices } } }
+        | PolygonImportMessage (PolygonImportAction.ToggleDrapeEdges),_ ->
+            let o = m.polygonImport.options
+            { m with polygonImport = { m.polygonImport with options = { o with drapeEdges = not o.drapeEdges } } }
+        | PolygonImportMessage (PolygonImportAction.ToggleDipAndStrike),_ ->
+            let o = m.polygonImport.options
+            { m with polygonImport = { m.polygonImport with options = { o with dipAndStrike = not o.dipAndStrike } } }
+        | PolygonImportMessage (PolygonImportAction.SetSpacing spacing),_ ->
+            let o = m.polygonImport.options
+            let spacing = if Double.IsFinite spacing then max PolygonCsvImporter.ImportOptions.minSpacing spacing else o.spacing
+            { m with polygonImport = { m.polygonImport with options = { o with spacing = spacing } } }
+        | PolygonImportMessage (PolygonImportAction.ImportFiles []),_ -> m
+        | PolygonImportMessage (PolygonImportAction.ImportFiles paths),_ ->
+            let options = m.polygonImport.options
+            let m = { m with polygonImport = { m.polygonImport with isOpen = false } }
+            // the whole import (all files) is one undo step
+            let before = m.drawing.annotations
+            let rs = m.scene.referenceSystem
+            let observerSystem = Gis.GisApp.getObserverSystem m.scene.gisApp
+            let observedSystem (v : SurfaceId) = Gis.GisApp.getSpiceReferenceSystem m.scene.gisApp v
+            let isTarget (l : Leaf) = l.active && l.visible
+
+            // The CSV is in the body frame of the surfaces. With a GIS observer set, surfaces are
+            // placed in the observer's frame by a SPICE transform; drawn annotations carry the
+            // surface's body frame (`referenceSystem`) and are placed the same way. Imported
+            // polygons do too: the body frame of the active, visible surfaces (the first, if they
+            // disagree), rays cast through the transform as picking does (`toLocal`).
+            let frame, frameNote =
+                match observerSystem with
+                | None -> None, ""
+                | Some _ ->
+                    let frames =
+                        m.scene.surfacesModel.surfaces.flat
+                        |> HashMap.toList
+                        |> List.choose (fun (id, l) -> if isTarget l then observedSystem id else None)
+                        |> List.distinct
+                    match frames with
+                    | [] -> None, ""
+                    | [ f ] -> Some f, ""
+                    | f :: _ ->
+                        let (EntitySpiceName n) = f.body
+                        Some f, sprintf " (surfaces in %d body frames; polygons placed in %s's, only its surfaces hit)" frames.Length n
+            let spiceTrafo =
+                match frame, observerSystem with
+                | Some observed, Some observer ->
+                    CooTransformation.transformBody observed.body (Some observed.referenceFrame) observer.body observer.referenceFrame observer.time
+                    |> Option.map (fun t -> t.Trafo)
+                    |> Option.defaultValue Trafo3d.Identity
+                | _ -> Trafo3d.Identity
+
+            /// ray in the body frame -> hit in the body frame
+            let cast =
+                let filter (id : Guid) (l : Leaf) (_ : SgSurface) =
+                    isTarget l && (frame.IsNone || observedSystem id = frame)
+                fun (origin : V3d) (dir : V3d) ->
+                    let ray = FastRay3d(spiceTrafo.Forward.TransformPos origin, spiceTrafo.Forward.TransformDir dir)
+                    match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) rs observedSystem observerSystem ray filter Picking.cache Config.diagnosticTimings with
+                    | Some hitInfo, c ->
+                        Picking.cache <- c
+                        ray.Ray.GetPointOnRay hitInfo.hit.RayHit.T |> spiceTrafo.Backward.TransformPos |> Some
+                    | None, c -> Picking.cache <- c; None
+
+            let importOne (m : Model) (path : string) =
+              let fileName = IO.Path.GetFileName path
+              try
+                match PolygonCsvImporter.parseFile path with
+                | Result.Error e ->
+                    Log.error "[PolygonImport] %s: %s" fileName e
+                    m, sprintf "%s: not imported (%s)" fileName e
+                | Result.Ok parsed ->
+                    for w in parsed.warnings do Log.warn "[PolygonImport] %s: %s" fileName w
+                    let built =
+                        PolygonCsvImporter.build rs.up.value rs.north.value rs.planet frame cast (PolygonCsvImporter.Sky.ofPlanet rs.planet) options parsed.polygons
+                    let annotations = built.annotations
+                    if annotations.IsEmpty then
+                        m, sprintf "%s: no polygons (%d rows skipped, see log)" fileName parsed.warnings.Length
+                    else
+                        let group, flat, lookup = PolygonCsvImporter.toGroup fileName annotations
+                        let m =
+                            m
+                            |> Optic.set _groups (m.drawing.annotations.rootGroup.subNodes |> IndexList.add group)
+                            |> Optic.set _lookUp (HashMap.union m.drawing.annotations.groupsLookup lookup)
+                            |> Optic.set _flat (HashMap.union m.drawing.annotations.flat flat)
+                        let text =
+                            sprintf "%s: %d polygons%s%s%s%s%s" fileName annotations.Length frameNote
+                                (if parsed.warnings.IsEmpty then "" else sprintf ", %d rows/polygons skipped (see log)" parsed.warnings.Length)
+                                (if built.missedVertices > 0 then sprintf ", %d vertices missed the surface and were left in place" built.missedVertices else "")
+                                (if built.missedSamples > 0 then sprintf ", %d in-between points missed the surface and were left out" built.missedSamples else "")
+                                (if built.coarsenedEdges > 0 then sprintf ", %d long edges sampled coarser (at most %d points per edge)" built.coarsenedEdges PolygonCsvImporter.ImportOptions.maxSamplesPerEdge else "")
+                        Log.line "[PolygonImport] %s" text
+                        m, text
+              with e ->
+                Log.error "[PolygonImport] %s: %A" fileName e
+                m, sprintf "%s: not imported (%s)" fileName e.Message
+
+            let m, messages =
+                paths |> List.fold (fun (m, msgs) path -> let m, t = importOne m path in m, t :: msgs) (m, [])
+            let m =
+                let after = m.drawing.annotations
+                if obj.ReferenceEquals(before, after) then m
+                else { m with drawing = m.drawing |> DrawingApp.pushUndo (SnapshotDelta(before, after)) }
+            let feedback = {
+                id      = Guid.NewGuid().ToString()
+                text    = messages |> List.rev |> String.concat "; "
+                timeout = 6000
+                msg     = ViewerAction.NoAction ""
+            }
+            m |> UserFeedback.queueFeedback feedback
         | ImportSurfaceTrafo sl,_ -> 
             match sl |> List.tryHead with
             | Some path ->
@@ -2703,6 +2817,7 @@ module ViewerApp =
             | ViewerAction.SaveScene _
             | ViewerAction.SaveAs _                          -> Some "scene file"
             | ViewerAction.AnnotationExportMessage _         -> Some "exporting annotations"
+            | ViewerAction.PolygonImportMessage (PolygonImportAction.ImportFiles _) -> Some "importing polygons"
             | ViewerAction.DrawingMessage
                 (DrawingAction.ColorByCategoryMessage
                     ColorByCategoryAction.ResampleSurface)   -> Some "sampling surface"

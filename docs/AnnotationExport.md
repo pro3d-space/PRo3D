@@ -588,7 +588,9 @@ kind (or narrow the scope) when that matters.
 
 ### Preparing for a later reimport
 
-There is no import path yet, but the export is shaped so one can be added:
+Per-point Cartesian CSV exports of polygons reimport through [Polygon CSV Import](./PolygonCsvImport.md)
+(`key` as the polygon id, `pointIndex` as the order). There is no general reimport yet, but
+the export is shaped so one can be added:
 
 - **`key` is always written**, whether or not it is ticked. It is the annotation's Guid and
   the only stable handle for matching a feature back to its annotation.

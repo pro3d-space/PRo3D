@@ -79,6 +79,7 @@ let allTests (parameters : TestUtils.TestParameters) : Test =
 
         // resolves its fixtures from PRO3D_TEST_DATA / --testdatasource; self-skips
         SbmtImportAlignmentTest.tests parameters
+        PolygonCsvImportTests.tests()
 
         ProjectedImageMetadataTest.tests()
         ProjectedImageStackTest.tests()
