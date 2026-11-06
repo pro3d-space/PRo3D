@@ -42,6 +42,16 @@ module AnnotationMetadataApp =
     let takesKeys (drawing : DrawingModel) =
         drawing.working.IsNone && not (selectedAnnotations drawing).IsEmpty
 
+    /// The message when a digit set the semantic instead of rating: which semantic, and why the
+    /// digit did not rate -- an annotation still being drawn, or none selected. 0 never rates.
+    let semanticMessage (semantic : string) (digit : int) (drawing : DrawingModel) : string =
+        let reason =
+            if digit < AnnotationMetadata.minConfidence || digit > AnnotationMetadata.maxConfidence then ""
+            elif drawing.working.IsSome then " - finish the annotation to rate it"
+            elif (selectedAnnotations drawing).IsEmpty then " - select an annotation to rate it"
+            else ""
+        sprintf "Semantic %s for the next annotation%s" semantic reason
+
     /// Replaces the given annotations in one undo step.
     let private replaceAll (drawing : DrawingModel) (updated : list<Annotation>) =
         match updated with

@@ -296,6 +296,15 @@ let private appTests =
             Expect.notEqual (model'.balloon |> Option.map (fun b -> b.id)) (model.balloon |> Option.map (fun b -> b.id)) "a new rating, new bubbles"
         }
 
+        test "TC-23.3 a digit that sets the semantic says why it did not rate" {
+            let a = polyline [ V3d.Zero; V3d.IOO ]
+            let msg = AnnotationMetadataApp.semanticMessage "Horizon2" 2
+            Expect.equal (msg (initDrawing ())) "Semantic Horizon2 for the next annotation - select an annotation to rate it" "nothing selected"
+            let drawing = { withSelected [ a ] (Some a.key) with working = Some (polyline [ V3d.Zero ]) }
+            Expect.equal (msg drawing) "Semantic Horizon2 for the next annotation - finish the annotation to rate it" "still drawing"
+            Expect.equal (AnnotationMetadataApp.semanticMessage "Horizon0" 0 drawing) "Semantic Horizon0 for the next annotation" "0 never rates"
+        }
+
         test "TC-23.3 confidence outside 1-4 is ignored" {
             let a = polyline [ V3d.Zero; V3d.IOO ]
             let drawing = withSelected [ a ] (Some a.key)

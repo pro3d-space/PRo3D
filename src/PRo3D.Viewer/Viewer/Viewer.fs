@@ -2109,15 +2109,17 @@ module ViewerApp =
                 // annotations instead, see metadataKeyAction)
                 | Aardvark.Application.Keys.D0 | Aardvark.Application.Keys.D1
                 | Aardvark.Application.Keys.D2 | Aardvark.Application.Keys.D3 ->
-                    let semantic =
+                    let semantic, digit =
                         match k with
-                        | Aardvark.Application.Keys.D0 -> Semantic.Horizon0
-                        | Aardvark.Application.Keys.D1 -> Semantic.Horizon1
-                        | Aardvark.Application.Keys.D2 -> Semantic.Horizon2
-                        | _ -> Semantic.Horizon3
+                        | Aardvark.Application.Keys.D0 -> Semantic.Horizon0, 0
+                        | Aardvark.Application.Keys.D1 -> Semantic.Horizon1, 1
+                        | Aardvark.Application.Keys.D2 -> Semantic.Horizon2, 2
+                        | _ -> Semantic.Horizon3, 3
                     let drawing =
                         DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue m.navigation.camera.view m.shiftFlag m.drawing (DrawingAction.SetSemantic semantic)
+                    // said on screen, as the same digits rate annotations at other times (#887)
                     { m with drawing = drawing }
+                    |> logScreen 2500 (AnnotationMetadataApp.semanticMessage (string semantic) digit m.drawing)
                 | Aardvark.Application.Keys.LeftShift -> 
                     let m = { m with shiftFlag = true}
                     Log.line "[Viewer] ShiftFlag %A" m.shiftFlag

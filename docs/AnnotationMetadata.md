@@ -26,8 +26,13 @@ bubbles of annotations out of view cannot be seen. Up to 20 bubbles are shown.
 
 The keys only rate while annotations are selected **and none is being drawn**. While an
 annotation is in progress (points placed, not yet finished), or with nothing selected,
-**0–3** set the semantic as before. With Ctrl held, 1–4 and C do neither. The **–**
-button in Properties removes a rating.
+**0–3** set the semantic as before, and a message says so and why the digit did not rate,
+e.g. *Semantic Horizon2 for the next annotation - finish the annotation to rate it*. A
+polyline is finished with Enter; a Line finishes at its second point. With Ctrl held, 1–4
+and C do neither. The **–** button in Properties removes a rating.
+
+A key pressed while PRo3D is still placing the last point (the first pick after loading a
+surface takes a few seconds) waits for it, and then rates the finished annotation.
 
 ### Confidence labels
 

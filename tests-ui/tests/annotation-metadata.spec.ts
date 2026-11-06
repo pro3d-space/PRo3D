@@ -90,6 +90,11 @@ test("projected images, confidence and comment reach Properties and the export",
         await render.mouse.move(700, 300);
         await render.waitForTimeout(500);
         expect(await focused(render), "the 3D view has focus").toContain("mainrendercontrol");
+        // 0 never rates: it sets the semantic, and says so
+        await render.keyboard.press("0");
+        await expect
+            .poll(() => render.evaluate(() => document.body.innerText), { timeout: 10_000 })
+            .toContain("Semantic Horizon0 for the next annotation");
         await render.keyboard.press("2");
         // one annotation: a bubble beside it says C2 (no message), then fades
         const bubble = render.locator(".annotation-rating-balloon").first();
