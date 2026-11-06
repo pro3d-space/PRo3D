@@ -1,0 +1,14 @@
+FSharp.Core
+
+Aardvark.Base
+Aardvark.Base.Incremental
+Aardvark.Base.FSharp
+
+Aardvark.Rendering
+Aardvark.SceneGraph
+Aardvark.Data.Opc
+Aardvark.GeoSpatial.Opc
+OPCViewer.Base
+
+Aardvark.UI.Primitives
+Adaptify.Core

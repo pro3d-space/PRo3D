@@ -98,6 +98,7 @@
     <Compile Include="VertexEditingTests.fs" />
     <Compile Include="GeologicalMapDrawingTests.fs" />
     <Compile Include="SurfaceEffectSwitchTest.fs" />
+    <Compile Include="SceneRenderTests.fs" />
     <Compile Include="MapProjectionRenderTest.fs" />
     <Compile Include="FillRenderTest.fs" />
     <Compile Include="SlowProfileExportTest.fs" />
@@ -114,6 +115,7 @@
     <ProjectReference Include="..\PRo3D.GIS\PRo3D.GIS.fsproj" />
     <ProjectReference Include="..\PRo3D.MapProjection\PRo3D.MapProjection.fsproj" />
     <ProjectReference Include="..\PRo3D.Tool\PRo3D.Tool.fsproj" />
+    <ProjectReference Include="..\PRo3D.SceneRender\PRo3D.SceneRender.fsproj" />
     <!-- Scene, SceneLoader and ViewerIO live in the viewer: needed by the TC-1 scene lifecycle tests -->
     <ProjectReference Include="..\PRo3D.Viewer\PRo3D.Viewer.fsproj" />
     <!-- Scene transitively exposes JR.InstrumentPlatforms types (view plans / rovers);

@@ -37,12 +37,14 @@
     <Compile Include="SimulateShaders.fs" />
     <Compile Include="SimulateImage.fs" />
     <Compile Include="SampleLayers.fs" />
+    <Compile Include="RenderBookmarks.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\PRo3D.Base\PRo3D.Base.fsproj" />
     <ProjectReference Include="..\PRo3D.Core\PRo3D.Core.fsproj" />
     <ProjectReference Include="..\PRo3D.GIS\PRo3D.GIS.fsproj" />
+    <ProjectReference Include="..\PRo3D.SceneRender\PRo3D.SceneRender.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

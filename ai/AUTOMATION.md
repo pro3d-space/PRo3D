@@ -57,6 +57,7 @@ The viewer also serves `/websocket` (UI updates), `/crash.txt`, `/minilog.txt`, 
 Two related mechanisms produce images without interactive use:
 
 - **In-viewer snapshots** — `Snapshot-Model.fs` (+ `ScreenshotModel`, `snapshotThreads` on the root model) define camera/surface state for batch capture. Sequenced bookmarks (see [DOMAIN.md](DOMAIN.md#bookmarks--sequenced-bookmarks)) can drive a sequence of snapshots / a panorama, rendering RGB and depth. Triggered interactively, via `--snap`/`--asnap`, or via the `/api/v2/*Snapshot` endpoints.
+- **`PRo3D.SceneRender`** (`src/PRo3D.SceneRender/`) — the in-process renderer: `SceneRenderer` opens a `.pro3d` headlessly through the viewer's update function and renders its plain bookmarks offscreen (synchronous patch loading, one frame per image); `JobFile`/`RenderJob` are the batch layer. Front end: `pro3d-tool render-bookmarks`. A fixed OPC level of detail goes through the process-wide `LodOverride.fixedLevel` (`Surface.Sg.fs`). Use it, not a new offscreen harness, for scene renders in tests. See `docs/Pro3DTool-RenderBookmarks.md`.
 - **`PRo3D.Snapshots`** (`src/PRo3D.Snapshots/`) — a standalone headless tool that reads snapshot JSON and renders many viewpoints without the full interactive UI. **`PRo3D.SimulatedViews`** supplies the realistic rover/instrument camera models (e.g. mission instruments) used to define those viewpoints, and underpins view planning.
 
 The snapshot file formats mirror the camera/surface model state, so they round-trip with the same Chiron codecs as scenes.
