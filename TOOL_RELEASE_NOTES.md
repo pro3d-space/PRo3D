@@ -1,3 +1,9 @@
+## 0.6.0
+- `render-bookmarks` — new verb: opens a `.pro3d` scene headlessly and renders its plain bookmarks to PNG as the viewer shows them. Select by name, `*` / `?` wildcards or GUID; a JSON job file can hold several passes; writes a `renders.json` manifest. `--lod-level n` fixes the OPC level of detail to depth `n`. See docs/Pro3DTool-RenderBookmarks.md
+- `render-view` — new verb: renders OPCs without a scene file, each placed by a 4×4 transformation, from explicitly given cameras (location, forward, up, horizontal field of view), optionally lit by a given sun position with or without cast shadows. Input is a JSON job; `scripts/render-view-job.py` (spiceypy) writes HERA AFC-1 jobs of Dimorphos and Didymos, with `--pointing instrument|spacecraft`. See docs/Pro3DTool-RenderView.md
+- Both verbs are built on the new `PRo3D.SceneRender` library, which can also be used in-process. pro3d-tool now references the viewer, so the package is larger (about 86 MB)
+- fix — `unproject` and the occlusion test of `sample-layers` missed triangles with edges below about 3.2e-4 file units, i.e. facets finer than about 30 cm in a shape model in kilometres (such as the 5 cm DART Dimorphos patch). See docs/KdTrees.md
+
 ## 0.5.0
 First release on NuGet since 0.2.0: 0.3.0 and 0.4.0 below were never published, so this is the first package containing `unproject`, `simulate-image` and the `kdtree` fixes.
 
