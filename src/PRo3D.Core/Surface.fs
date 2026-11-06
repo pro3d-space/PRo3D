@@ -171,8 +171,9 @@ module DebugKdTreesX =
         triangles + treeFile
 
     /// Drops loaded trees, oldest use first, while they are idle longer than `maxIdle` or the
-    /// loaded ones exceed `budgetBytes`. `keep` (the tree just loaded) stays, even if it alone is
-    /// over the budget. Runs on every load and once a minute; O(n log n) in the loaded trees.
+    /// loaded ones exceed `budgetBytes`. The budget never drops the most recently used tree, nor
+    /// `keep` (the tree just loaded): a tree larger than the whole budget stays while it is in use
+    /// and only goes when idle. Runs on every load and once a minute; O(n log n) in the loaded trees.
     let private evict (keep : string) =
         lock evictLock (fun () ->
             let now = Diagnostics.Stopwatch.GetTimestamp()
@@ -182,8 +183,11 @@ module DebugKdTreesX =
             let mutable held = 0L
             for e in loaded do held <- held + e.Value.Bytes
             let mutable dropped = 0
-            for e in loaded do
-                if e.Key <> keep && (now - e.Value.LastUse > idleTicks || held > budgetBytes) then
+            for i in 0 .. loaded.Length - 1 do
+                let e = loaded.[i]
+                let idle = now - e.Value.LastUse > idleTicks
+                let overBudget = held > budgetBytes && i < loaded.Length - 1
+                if e.Key <> keep && (idle || overBudget) then
                     if loadedLazyKdTrees.TryRemove e then
                         held <- held - e.Value.Bytes
                         dropped <- dropped + 1

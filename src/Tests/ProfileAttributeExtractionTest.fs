@@ -234,6 +234,9 @@ let tests (parameters : TestUtils.TestParameters) =
                 Expect.equal (DebugKdTreesX.loadedCount ()) 1 "only the tree just loaded stays"
                 Expect.isTrue (obj.ReferenceEquals(load b, b1)) "the tree just loaded is kept"
                 Expect.isFalse (obj.ReferenceEquals(load a, a1)) "the older tree was dropped and loads again"
+                // a tree over the whole budget stays while in use, also on the timer's pass
+                DebugKdTreesX.evictLoaded ()
+                Expect.equal (DebugKdTreesX.loadedCount ()) 1 "the most recently used tree survives the budget"
 
                 // within the budget and in use: both stay
                 DebugKdTreesX.budgetBytes <- budget

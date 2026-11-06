@@ -39,7 +39,7 @@ Loaded trees are also dropped so that memory stays bounded; a dropped tree is lo
 | unused for this long | 10 minutes | `PRO3D_KDTREE_IDLE_MINUTES` |
 | all loaded trees together over this (estimated: triangles plus the tree file's size); the least recently used go first | 2048 MB | `PRO3D_KDTREE_BUDGET_MB` |
 
-The tree just loaded is always kept, even if it alone is over the budget. The log says when trees are dropped (`[KdTree] dropped …`).
+The budget never drops the tree used last: a tree larger than the whole budget stays while you work on it (every other loaded tree is dropped to make room) and only goes once it has been idle. The log says when trees are dropped (`[KdTree] dropped …`).
 
 ## Create KdTrees for an OPC hierarchy.
 
