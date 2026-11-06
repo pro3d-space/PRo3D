@@ -11,6 +11,17 @@ icon, third in the navigation group).
 For the frame and camera state MapView shares with the other two modes, see
 [Camera & Navigation](Navigation.md).
 
+**Small bodies switch to MapView by themselves** ([#898](https://github.com/pro3d-space/PRo3D/issues/898)):
+when the scene body becomes Phobos, Deimos, Didymos or Dimorphos -- picked in the top bar,
+picked as the observed body in the GIS view, or found in the first imported OPC
+([SceneBody.md](SceneBody.md)) -- the main view switches to MapView, and the top-right notice
+says so (*Scene body Dimorphos: switched to MapView*). It does not switch when the body stays
+the same, when a scene is loaded or a bookmark played (they keep their saved mode), or for
+Mars, Earth and the Moon. Switch back with the tool strip as usual. After an import the camera
+also moves out to an overview -- the same direction from the body centre, 3.5 body radii out --
+since the import's own framing leaves it a few tens of metres above a small body; picking the
+body keeps the camera where it is.
+
 MapView needs a body: it is unavailable while the planet is `None`. The planet is the
 [scene body](SceneBody.md), so choosing the observed body in the GIS view enables MapView
 just as choosing the planet in the top bar does. A GIS scene observed in a frame other
