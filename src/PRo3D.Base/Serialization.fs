@@ -39,10 +39,22 @@ module Serialization =
     
     let writeToFile path (contents : string) =
         System.IO.File.WriteAllText(path, contents)
-    
+
+    /// Writes `contents` next to `path` first and only then replaces `path`, so a failing
+    /// write (disk full, permissions, crash) never leaves a truncated file behind: the old
+    /// file stays as it was. The temp file is removed on failure.
+    let writeToFileAtomic (path : string) (contents : string) =
+        let tmp = path + ".saving"
+        try
+            System.IO.File.WriteAllText(tmp, contents)
+            System.IO.File.Move(tmp, path, true)
+        with _ ->
+            try if System.IO.File.Exists tmp then System.IO.File.Delete tmp with _ -> ()
+            reraise ()
+
     let readFromFile path =
         System.IO.File.ReadAllText(path)
-    
+
     let saveJson path (d : 'a) =    
         let json =  jsonSerializer.PickleToString d
         writeToFile path json
@@ -66,6 +78,8 @@ module Serialization =
     module Chiron =
         let writeToFile path (contents : string) =
             System.IO.File.WriteAllText(path, contents)
+
+        let writeToFileAtomic path (contents : string) = writeToFileAtomic path contents
         
         let readFromFile path =
             System.IO.File.ReadAllText(path)  

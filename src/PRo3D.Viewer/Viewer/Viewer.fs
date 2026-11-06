@@ -627,12 +627,29 @@ module ViewerApp =
                 |> flyToMapProblem ps.[i].position
                 |> shortFeedback (sprintf "%d/%d: %s" (i + 1) ps.Length ps.[i].text)
 
-    /// Saves the scene and writes its window layout beside it. The layout sidecar can
-    /// never fail the save; if it could not be written the user is told.
+    /// Feedback that stays up long enough to be read: a save that lost something must not
+    /// pass by in a 3 s toast.
+    let private longFeedback (text: string) (m: Model) =
+        let feedback = {
+            id      = System.Guid.NewGuid().ToString()
+            text    = text
+            timeout = 20000
+            msg     = ViewerAction.NoAction ""
+        }
+        m |> UserFeedback.queueFeedback feedback
+
+    /// Saves the scene and writes its window layout beside it (#834). Never throws: on
+    /// failure nothing changed on disk or in the model and the user is told why; anything
+    /// that could be saved only partially is listed.
     let private saveScene (path : string) (m : Model) =
         match ViewerIO.saveEverythingWithLayout path m with
-        | m, None -> m
-        | m, Some _ -> m |> shortFeedback "Scene saved, but its window layout could not be stored beside it (see log)."
+        | Result.Ok (m, { problems = [] }) -> m
+        | Result.Ok (m, { problems = problems }) ->
+            let shown = problems |> List.truncate 3 |> String.concat "; "
+            let more = if problems.Length > 3 then sprintf " (+%d more, see log)" (problems.Length - 3) else ""
+            m |> longFeedback (sprintf "Scene saved, but not completely: %s%s" shown more)
+        | Result.Error e ->
+            m |> longFeedback (sprintf "SAVE FAILED, nothing was written: %s. Try Save As to another folder." e)
 
     /// A scene was opened: offer the window layout stored beside it (docs/WindowLayouts.md).
     let sceneOpened (m : Model) =

@@ -286,26 +286,43 @@ module BookmarkUtils =
                 with e ->
                     Log.line "[BookmarkUtils] Could not clean up old bookmark %s" filePath
 
-    /// updates the paths of all bookmarks and
-    /// saves bookmarks to file system
-    let saveSequencedBookmarks (basePath:string) 
-                               (bookmarks : SequencedBookmarks) =    
-        let bookmarks = loadAll bookmarks                               
-        let bookmarks = updatePaths basePath bookmarks
+    /// Moves all bookmarks to `basePath` and serializes every loaded one in memory, without
+    /// touching the file system (#834). Returns the bookmarks, the (path, json) files to write
+    /// and one message per bookmark that could not be serialized: such a bookmark is not
+    /// written (an existing file of it stays as it was) instead of failing the whole save.
+    let serializeSequencedBookmarks (basePath : string) (bookmarks : SequencedBookmarks) =
+        let bookmarks = loadAll bookmarks |> updatePaths basePath
+        let mutable files = []
+        let mutable problems = []
+        for guid, bm in bookmarks.bookmarks do
+            match bm with
+            | SequencedBookmarks.SequencedBookmark.LoadedBookmark bm ->
+                try
+                    let json = bm |> Json.serialize |> Json.formatWith JsonFormattingOptions.SingleLine
+                    files <- (bm.path, json) :: files
+                with e ->
+                    Log.error "[BookmarkUtils] could not serialize sequenced bookmark %s (%A): %s" bm.name guid e.Message
+                    problems <- sprintf "sequenced bookmark '%s': %s" bm.name e.Message :: problems
+            | SequencedBookmarks.SequencedBookmark.NotYetLoaded _ ->
+                () // no need to write bookmark if not loaded (no changes)
+        bookmarks, files, problems
+
+    /// Writes what `serializeSequencedBookmarks` produced: creates the folder or removes
+    /// files of deleted bookmarks, then writes each bookmark file atomically.
+    let writeSequencedBookmarks (basePath : string) (bookmarks : SequencedBookmarks) (files : list<string * string>) =
         if not (Directory.Exists basePath) then
             Directory.CreateDirectory basePath |> ignore
         else // if the folder exists, clean up and delete all old bookmarks
             cleanUpOldBookmarks basePath bookmarks
+        for (path, json) in files do
+            Serialization.Chiron.writeToFileAtomic path json
 
-        for guid, bm in bookmarks.bookmarks do
-            match bm with
-            | SequencedBookmarks.SequencedBookmark.LoadedBookmark bm ->
-                bm
-                |> Json.serialize
-                |> Json.formatWith JsonFormattingOptions.SingleLine
-                |> Serialization.Chiron.writeToFile bm.path
-            | SequencedBookmarks.SequencedBookmark.NotYetLoaded bm ->
-                () // no need to write bookmark if not loaded (no changes)
+    /// updates the paths of all bookmarks and
+    /// saves bookmarks to file system
+    let saveSequencedBookmarks (basePath:string)
+                               (bookmarks : SequencedBookmarks) =
+        let bookmarks, files, _ = serializeSequencedBookmarks basePath bookmarks
+        writeSequencedBookmarks basePath bookmarks files
         bookmarks
 
     let next (m : SequencedBookmarks) =

@@ -300,67 +300,136 @@ module ViewerIO =
 
         { sceneAsJson = sceneJson; drawingAsJson = drawingJson; version = "1" }
 
-    let saveEverything (path:string) (m:Model) =         
-        if path.IsEmptyOrNull() then m
+    /// Scene files must end in `.pro3d`: the Linux save dialog returns the name as typed, and
+    /// without the extension the bookmark folder `<dir>/<name>` IS the scene path, so the
+    /// folder is created first and the scene write then fails with "access denied" (#834).
+    let normalizeScenePath (path : string) =
+        if path.EndsWith(".pro3d", StringComparison.OrdinalIgnoreCase) then path
+        else path + ".pro3d"
+
+    /// What a save did. `problems` lists everything that was NOT written (each also logged);
+    /// empty means everything was saved.
+    type SaveOutcome =
+        {
+            path     : string
+            problems : list<string>
+        }
+
+    let private describeLeaf (l : Leaf) =
+        match l with
+        | Leaf.Annotations a ->
+            if String.IsNullOrWhiteSpace a.text then sprintf "annotation %A (%A)" a.geometry a.key
+            else sprintf "annotation '%s' (%A)" a.text a.key
+        | Leaf.Surfaces s  -> sprintf "surface '%s'" s.name
+        | Leaf.Bookmarks b -> sprintf "bookmark '%s'" b.name
+
+    let inline private trySerialize (x : ^a) =
+        try x |> Json.serialize |> Json.formatWith JsonFormattingOptions.Pretty |> Result.Ok
+        with e -> Result.Error e.Message
+
+    /// The leaves of `groups` that cannot be serialized on their own, with the reason.
+    let private unserializableLeaves (groups : GroupsModel) =
+        let mutable bad = []
+        for (id, leaf) in groups.flat do
+            match trySerialize leaf with
+            | Result.Ok _ -> ()
+            | Result.Error e -> bad <- (id, describeLeaf leaf, e) :: bad
+        bad
+
+    /// Last-resort isolation when serializing a document failed: drop exactly the leaves of
+    /// the given groups that cannot be serialized, report each, and keep everything else.
+    /// Only the written copy loses them - the model in memory stays complete.
+    let private withoutUnserializable (groups : GroupsModel) : GroupsModel * list<string> =
+        match unserializableLeaves groups with
+        | [] -> groups, []
+        | bad ->
+            let problems =
+                bad |> List.map (fun (_, name, e) ->
+                    Log.error "[Save] %s could not be saved and was left out of the file: %s" name e
+                    sprintf "%s was not saved: %s" name e)
+            let ids = bad |> List.fold (fun s (id, _, _) -> HashSet.add id s) HashSet.empty
+            GroupsApp.removeLeavesById ids groups, problems
+
+    /// Saves scene, annotations and sequenced bookmarks. Saving must never cost work (#834):
+    /// - everything is serialized in memory first; nothing is written if that fails
+    /// - a single object that cannot be serialized (e.g. a non-finite number that slipped
+    ///   past the NaN-safe writers) is left out and reported, the rest is saved
+    /// - every file is written to a temp file and then moved over the old one, so a failing
+    ///   write never truncates an existing scene
+    /// Error means nothing changed on disk or in the model, with the reason.
+    let saveEverything (path : string) (m : Model) : Result<Model * SaveOutcome, string> =
+        if String.IsNullOrWhiteSpace path then Result.Error "no file name given"
         else
-           //saving scene
-            let scenePaths = path |> ScenePaths.create             
-            let cameraState = m.navigation.camera.view            
-            let bookmarks = BookmarkUtils.saveSequencedBookmarks scenePaths.bookmarksFolder
-                                                                 m.scene.sequencedBookmarks
+            try
+                let path = normalizeScenePath path
+                let scenePaths = path |> ScenePaths.create
+                let mutable problems = []
 
-            let scene = { m.scene with scenePath      = Some scenePaths.scene; 
-                                       cameraView     = cameraState;
-                                       exploreCenter  = m.navigation.exploreCenter
-                                       navigationMode     = m.navigation.navigationMode
-                                       sequencedBookmarks = bookmarks
-                        }
-            {scene with sequencedBookmarks = BookmarkUtils.unloadBookmarks bookmarks}
-            |> Json.serialize 
-            |> Json.formatWith JsonFormattingOptions.Pretty
-            |> Serialization.Chiron.writeToFile scenePaths.scene
-            
-            //m.correlationPlot
-            //|> Json.serialize 
-            //|> Json.formatWith JsonFormattingOptions.Pretty
-            //|> Serialization.Chiron.writeToFile scenePaths.correlations
+                // sequenced bookmarks (in memory)
+                let bookmarks, bookmarkFiles, bookmarkProblems =
+                    BookmarkUtils.serializeSequencedBookmarks scenePaths.bookmarksFolder m.scene.sequencedBookmarks
+                problems <- bookmarkProblems @ problems
 
-            //saving annotations
-            let drawing =                 
-                scenePaths |> saveVersioned' m.drawing
-            
-            ////saving minerva session
-            //let minerva = 
-            //    try
-            //    MinervaApp.update 
-            //        m.navigation.camera.view
-            //        m.frustum
-            //        m.minervaModel
-            //        MinervaAction.Save
-            //    with e -> 
-            //        Log.warn "[Minerva] update failed, could not save, using old model: %A" e
-            //        m.minervaModel
+                // scene (in memory)
+                let scene = { m.scene with scenePath          = Some scenePaths.scene
+                                           cameraView         = m.navigation.camera.view
+                                           exploreCenter      = m.navigation.exploreCenter
+                                           navigationMode     = m.navigation.navigationMode
+                                           sequencedBookmarks = bookmarks }
+                let toWrite = { scene with sequencedBookmarks = BookmarkUtils.unloadBookmarks bookmarks }
+                let sceneJson =
+                    match trySerialize toWrite with
+                    | Result.Ok json -> json
+                    | Result.Error e ->
+                        Log.error "[Save] scene could not be serialized (%s), isolating the objects at fault" e
+                        let surfaces, p1 = withoutUnserializable toWrite.surfacesModel.surfaces
+                        let views,    p2 = withoutUnserializable toWrite.bookmarks
+                        problems <- List.rev (p1 @ p2) @ problems
+                        let toWrite' =
+                            { toWrite with
+                                surfacesModel = { toWrite.surfacesModel with surfaces = surfaces }
+                                bookmarks     = views }
+                        match trySerialize toWrite' with
+                        | Result.Ok json -> json
+                        | Result.Error e -> failwithf "the scene could not be serialized: %s" e
 
-            //saving correlations session                        
-            
-            { m with 
-                scene        = scene 
-                //correlationPlot = { m.correlationPlot with semanticApp = m.correlationPlot.semanticApp }
-                drawing      = drawing }
-                //minervaModel = minerva }
-            |> Model.stashAndSaveRecent path
+                // annotations (in memory)
+                let drawingJson =
+                    match trySerialize (Drawing.IO.toAnnotations m.drawing) with
+                    | Result.Ok json -> Some json
+                    | Result.Error e ->
+                        Log.error "[Save] annotations could not be serialized (%s), isolating the annotations at fault" e
+                        let annotations, p = withoutUnserializable m.drawing.annotations
+                        problems <- List.rev p @ problems
+                        match trySerialize (Drawing.IO.toAnnotations { m.drawing with annotations = annotations }) with
+                        | Result.Ok json -> Some json
+                        | Result.Error e ->
+                            Log.error "[Save] annotation file not written: %s" e
+                            problems <- sprintf "annotations were NOT saved (the previous annotation file is kept): %s" e :: problems
+                            None
+
+                // only now touch the disk
+                BookmarkUtils.writeSequencedBookmarks scenePaths.bookmarksFolder bookmarks bookmarkFiles
+                Serialization.Chiron.writeToFileAtomic scenePaths.scene sceneJson
+                drawingJson |> Option.iter (Serialization.writeToFileAtomic scenePaths.annotations)
+
+                let m = { m with scene = scene } |> Model.stashAndSaveRecent path
+                Result.Ok (m, { path = path; problems = List.rev problems })
+            with e ->
+                Log.error "[Save] saving %s failed: %A" path e
+                Result.Error e.Message
 
     /// `saveEverything`, then the window layout beside the scene (docs/WindowLayouts.md).
     /// The sidecar is written only once the scene is saved and cannot fail the save: a
-    /// failure is logged and returned for user feedback.
-    let saveEverythingWithLayout (path : string) (m : Model) : Model * Option<string> =
-        let m = saveEverything path m
-        match m.scene.scenePath with
-        | Some scenePath when not (path.IsEmptyOrNull()) ->
-            match SceneLayoutSidecar.tryWrite scenePath m.layout.current with
-            | Result.Ok () -> m, None
+    /// failure is reported like any other problem.
+    let saveEverythingWithLayout (path : string) (m : Model) : Result<Model * SaveOutcome, string> =
+        match saveEverything path m with
+        | Result.Ok (m, outcome) ->
+            match SceneLayoutSidecar.tryWrite outcome.path m.layout.current with
+            | Result.Ok () -> Result.Ok (m, outcome)
             | Result.Error e ->
-                Log.warn "[Layouts] scene saved, but not the layout beside it (%s): %s" (SceneLayoutSidecar.path scenePath) e
-                m, Some e
-        | _ -> m, None
+                Log.warn "[Layouts] scene saved, but not the layout beside it (%s): %s" (SceneLayoutSidecar.path outcome.path) e
+                let problem = sprintf "window layout not stored beside the scene: %s" e
+                Result.Ok (m, { outcome with problems = outcome.problems @ [problem] })
+        | Result.Error e -> Result.Error e
 
