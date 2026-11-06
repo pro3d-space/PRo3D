@@ -37,6 +37,7 @@ FRAME = "DIMORPHOS_FIXED"
 BODY = "DIMORPHOS"
 INSTRUMENT = "HERA_AFC-1"
 OBSERVER = "HERA"
+SPACECRAFT = "HERA_SPACECRAFT"
 
 
 def kernel_root(arg):
@@ -69,11 +70,32 @@ def horizontal_fov_deg(instrument):
     return 2.0 * math.degrees(math.acos(float(np.clip(np.dot(b, bsight), -1.0, 1.0))))
 
 
-def view_at(utc, fov, width, height, shadows):
+def nominal_mounting(et):
+    """The instrument's mounting on the spacecraft without its alignment: the signed axis
+    permutation nearest to pxform(INSTRUMENT -> SPACECRAFT). For HERA_AFC-1 the frames
+    kernel's TK angles are 0.118 / 0.129 / -0.068 deg, so this is the identity."""
+    m = np.asarray(sp.pxform(INSTRUMENT, SPACECRAFT, et))
+    n = np.round(m)
+    if not np.allclose(n @ n.T, np.eye(3)) or abs(abs(np.linalg.det(n)) - 1.0) > 1e-9:
+        sys.exit("%s is not near an axis-aligned mounting on %s" % (INSTRUMENT, SPACECRAFT))
+    return n
+
+
+def orientation(et, pointing):
+    """Instrument -> FRAME. `instrument`: the kernels' HERA_AFC-1 frame, alignment
+    included (what the camera sees). `spacecraft`: HERA_SPACECRAFT with the nominal
+    mounting, alignment left out -- for comparing with tools that render along the
+    spacecraft's axes (docs/Pro3DTool-RenderView.md, "Pointing")."""
+    if pointing == "spacecraft":
+        return np.asarray(sp.pxform(SPACECRAFT, FRAME, et)) @ nominal_mounting(et)
+    return np.asarray(sp.pxform(INSTRUMENT, FRAME, et))
+
+
+def view_at(utc, fov, width, height, shadows, pointing="instrument"):
     et = sp.str2et(utc)
     loc, _ = sp.spkpos(OBSERVER, et, FRAME, "NONE", BODY)
     sun, _ = sp.spkpos("SUN", et, FRAME, "NONE", BODY)
-    r = np.asarray(sp.pxform(INSTRUMENT, FRAME, et))
+    r = orientation(et, pointing)
     forward, up = r[:, 2], r[:, 0]
     name = "afc1_" + utc.replace("-", "").replace(":", "").split(".")[0]
     v = {
@@ -113,6 +135,10 @@ def main():
     ap.add_argument("--no-shadows", action="store_true", help="sun shading without cast shadows")
     ap.add_argument("--no-sun", action="store_true", help="leave the sun out: unlit renders")
     ap.add_argument("--untextured", action="store_true", help="render the OPCs without texture (plain grey): geometry-only, for silhouette comparisons")
+    ap.add_argument("--pointing", choices=["instrument", "spacecraft"], default="instrument",
+                    help="instrument (default): the HERA_AFC-1 frame, its alignment included; "
+                         "spacecraft: HERA_SPACECRAFT with the nominal mounting, alignment left out "
+                         "(about 0.15 deg for AFC-1) -- for comparing with renderers that do that")
     ap.add_argument("--kernel-root")
     ap.add_argument("--kernel", help="explicit metakernel (default <root>/mk/hera_plan.tm)")
     a = ap.parse_args()
@@ -139,13 +165,16 @@ def main():
 
     views = []
     for t in times:
-        v = view_at(t, fov, None, None, not a.no_shadows)
+        v = view_at(t, fov, None, None, not a.no_shadows, a.pointing)
         if a.no_sun:
             del v["sun"]
         views.append(v)
 
     job = {
-        "coordinatesAreIn": "%s, metres (SPICE %s, observer %s, instrument %s)" % (FRAME, os.path.basename(mk), OBSERVER, INSTRUMENT),
+        "coordinatesAreIn": "%s, metres (SPICE %s, observer %s, instrument %s%s)" % (
+            FRAME, os.path.basename(mk), OBSERVER, INSTRUMENT,
+            ", pointing along %s with the nominal mounting (alignment left out)" % SPACECRAFT
+            if a.pointing == "spacecraft" else ""),
         "opcs": opcs,
         "width": a.width,
         "height": a.height,

@@ -115,6 +115,7 @@ python scripts/render-view-job.py --opc <Dimorphos OPC> --didymos-opc <Didymos O
 | `--didymos-opc` | Also place Didymos, by `pxform(DIDYMOS_FIXED → DIMORPHOS_FIXED)` and its position. Didymos moves around Dimorphos, so a job with both bodies covers **one epoch**. |
 | `--width`, `--height` | 1020 × 1020, AFC's size. |
 | `--untextured`, `--no-shadows`, `--no-sun` | As in the job file. |
+| `--pointing` | `instrument` (default): the `HERA_AFC-1` frame. `spacecraft`: `HERA_SPACECRAFT` with the nominal mounting, the alignment left out. See *Pointing* below. |
 
 Conventions, the same as `pro3d-tool simulate-image --pointing ck` for HERA_AFC-1:
 - **Camera:** location is HERA relative to Dimorphos (no aberration correction).
@@ -128,6 +129,22 @@ Conventions, the same as `pro3d-tool simulate-image --pointing ck` for HERA_AFC-
 the pinned test set (`v182_20260527`), AFC-1 looks at Didymos on 2027-02-25 and at Dimorphos
 on 2027-03-21T17:00, but not at 14:00 or 20:00. In comet-toolbox's `v182_20260805`, it looks at
 Dimorphos on 2027-02-25. A view that comes out empty most likely points elsewhere.
+
+### Pointing
+
+The frames kernel (`fk/hera_v16.tf`) defines `HERA_AFC-1` relative to `HERA_SPACECRAFT`, rotated
+by AFC-1's measured alignment (`TKFRAME_-91110_ANGLES = (0.118, 0.129, -0.068)` degrees,
+axes 3, 2, 1). That puts the boresight **0.146°** off the spacecraft's +Z: about 10 px in a
+392 px frame, 26 px in 1020 px.
+
+- `--pointing instrument` (default) uses `HERA_AFC-1`, alignment included: where AFC-1
+  actually looks.
+- `--pointing spacecraft` uses `HERA_SPACECRAFT` with the nominal mounting (the nearest axis
+  permutation, here the identity). comet-toolbox's frames match this pointing; see
+  *Validation*. The job's `coordinatesAreIn` records the choice.
+
+Camera **position** is HERA's in both cases. AFC-1's place on the bus is metres away, under
+0.01° at these ranges.
 
 ## Validation
 
@@ -166,9 +183,46 @@ are compared, not grey levels. The automated test,
 | render-view vs simulate-image (not aligned) | 0.960, centroids 0.2 px apart |
 
 Orientation and shape agree: same elongation, same tilt, the crater on the same limb.
-comet-toolbox places the body about 0.18° from where the CK points AFC-1. It centres the
-target, as Cosmographia was found to do (0.146°; docs/ShapeModelCrosscheck.md on
-features/801). render-view and simulate-image both follow the CK.
+
+#### Both pointings, eight epochs
+
+![comet-toolbox against render-view with both pointings](images/render-view-toolbox-pointing.png)
+
+*Left:* comet-toolbox screenshot (<https://comet-toolbox.com/dashboard/hera/>). *Middle and
+right:* render-view with `--pointing instrument` and `--pointing spacecraft`. The yellow outline
+on every panel is comet-toolbox's lit region.
+
+Setup:
+- Kernels: Planning `v182_20261020_001`, the version the dashboard showed.
+- References: its screenshots, 392 px, the full 5.5° field. They are kept in
+  PRo3D.Resources.TestData under `HERA/comet-toolbox`, with attribution.
+- Renders: untextured, with Didymos placed as well.
+- Lit regions (above DN 25) are compared as they are, not re-centred.
+
+Reproduce with `scripts/compare-render-view-toolbox.py`.
+
+| Epoch (UTC) | IoU, `instrument` | IoU, `spacecraft` | centroid offset, `instrument` / `spacecraft` | silhouette IoU vs DSK ray-cast |
+|---|---|---|---|---|
+| 2027-02-18 11:00 | 0.82 | 0.94 | 9.8 / 2.0 px | 0.964 |
+| 2027-02-18 13:30 | 0.77 | 0.94 | 10.5 / 1.4 px | 0.972 |
+| 2027-02-25 10:30 | 0.68 | 0.93 | 12.9 / 2.6 px | 0.966 |
+| 2027-02-25 14:45 | 0.65 | 0.86 | 15.2 / 4.8 px | 0.968 |
+| 2027-03-11 01:00 | 0.41 | 0.78 | 11.3 / 1.6 px | 0.964 |
+| 2027-03-21 12:30 | 0.70 | 0.96 | 10.0 / 0.8 px | 0.968 |
+| 2027-03-24 03:00 (AFC-1 on Didymos) | 0.55 | 0.87 | 11.8 / 1.7 px | 0.928 |
+| 2027-03-25 03:00 | 0.31 | 0.65 | 15.3 / 6.0 px | 0.961 |
+
+- comet-toolbox's frames match `--pointing spacecraft`.
+- The difference between the two pointings is the AFC-1 alignment. Its Y and X angles
+  (0.129°, −0.068°) tilt the boresight by √(0.129² + 0.068²) = 0.146°, which is (9.2, 4.8) px
+  at 392 px. The roll about Z (0.118°) moves points by under 0.5 px at this size.
+- The shift is the same at the frame centre as in the corner. In the 03-24 view, Dimorphos
+  sits about 165 px from the centre and is shifted by (−5, +9) px.
+- The last column checks `--pointing instrument` against a spiceypy ray-cast of the kernels'
+  DSK, with no PRo3D code involved. Its centroids are within 1 px of render-view's.
+  Dimorphos is about 15 px across on 03-24.
+- With `--pointing spacecraft`, the remaining difference is near the terminator: the viewer's
+  shading darkens earlier, so the high-phase epochs (71°, 79°) score lowest.
 
 ## In process
 
