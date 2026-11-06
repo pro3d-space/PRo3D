@@ -127,6 +127,7 @@ PRo3D uses an **issue + feature-branch + PR** workflow (full details in [CONTRIB
 |---------|-------|-----|
 | Build fails: missing packages | Paket restore not run | `dotnet paket restore` |
 | Build fails: missing tools | Tools not restored | `dotnet tool restore` |
+| CI: `"dotnet paket restore" exited with code 137` | A redundant paket process SIGKILLed on the macOS runner | Pass `-p:PaketDisableGlobalRestore=true` after a global restore, never `PaketRestoreDisabled` — see [docs/Build-Deploy-System.md](docs/Build-Deploy-System.md#paket-restore-inside-msbuild-891) |
 | `*.g.fs` not found / type errors referencing `Adaptive*` types | Missing/stale `*.g.fs` (not checked in) | `adapt.cmd` / `adapt.sh`; if the model file itself is unchanged, `adapt.cmd --all` |
 | `adapt` fails: "Adaptify did not produce up-to-date output" | Adaptify could not type-check the models (it still exits 0) | Rerun that project with `--verbose` as the message says — see [docs/ModelTypes.md](docs/ModelTypes.md) |
 | Old scene fails to load | New field read with `Json.read` instead of `Json.tryRead` (no default), or a breaking change without a version bump | Use `Json.tryRead`+default for additive fields; add a `readN` + bump `current` for breaking changes |

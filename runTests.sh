@@ -5,4 +5,5 @@
 # Extra args are passed through to the Expecto runner.
 set -e
 bash "$(dirname "$0")/adapt.sh"
-dotnet run --project src/Tests/Tests.fsproj -c Release -- --skip-hera "$@"
+# adapt.sh ran the global paket restore, so skip the one msbuild forces per project (#891).
+dotnet run --project src/Tests/Tests.fsproj -c Release -p:PaketDisableGlobalRestore=true -- --skip-hera "$@"
