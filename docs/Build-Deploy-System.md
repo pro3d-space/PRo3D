@@ -171,3 +171,28 @@ separator, a case-sensitive file name, a GL driver difference) is caught when th
 `develop`, or by the nightly run — not on the PR itself. If a change is likely to be
 platform-sensitive, add the `ci: full-matrix` label before asking for a review. Nothing reaches a
 release branch without the full matrix having run on it.
+
+## Paket restore inside msbuild (#891)
+
+`Paket.Restore.targets` is supposed to skip `dotnet paket restore` when `paket.lock` matches the
+`projectsRestoredHash` in `paket-files/paket.restore.cached`. That works in msbuild's build pass, but
+in the **restore** pass (`msbuild -restore`, `dotnet build`, `dotnet run`, `dotnet test`) the targets
+force a global restore anyway, once per project in the reference graph, and in parallel. Every one of
+those starts a `dotnet paket` process that prints "The last full restore is still up to date" and
+exits. On the macos-15 (ARM) runners one of them was occasionally SIGKILLed a fraction of a second
+after starting (`"dotnet paket restore" exited with code 137`), which failed the job.
+
+So wherever a global restore has demonstrably already happened, the build passes
+`-p:PaketDisableGlobalRestore=true`:
+
+- `utilities/Adapt.fsx` runs `dotnet paket restore` once at the top and then passes it to every
+  per-project `msbuild -restore`.
+- `runTests.cmd` / `runTests.sh` run Adapt first, then pass it to `dotnet run`.
+- `Build.fs` passes it to every `DotNet.build` / `test` / `publish` (`skipGlobalPaketRestore`), but
+  only when the hash check above holds. When it does not hold, for example after a `git pull` that
+  changed `paket.lock` without running the build scripts, msbuild restores as before.
+
+This property skips **only** the global Exec. Paket's per-project step, which re-restores a project
+whose `paket.references` changed and hands its packages to NuGet as `PackageReference`s, still runs.
+Do not use `PaketRestoreDisabled=true` instead: it turns off that step too, NuGet then writes
+`project.assets.json` without any packages, and Adaptify silently finds no model types.
