@@ -766,6 +766,177 @@ type ProfileLink =
                 | None   -> ()
             }
 
+/// The shape model an annotation was drawn on (#887, docs/AnnotationMetadata.md). Captured
+/// from the surface when the annotation is finished and kept with it, so replacing the OPC
+/// later does not change what the annotation reports.
+type ShapeModelRef =
+    {
+        /// the surface's OPC product, e.g. FITS PRODNAME or the opcx file name
+        product   : string
+        /// name and version of the SPC model (FITS DATASRCV), when the OPC carries a FITS header
+        modelName : Option<string>
+        /// product version: FITS MAP_VER, or the `vNNN` of an SPC file name
+        version   : Option<string>
+        /// where `version` came from: "fits-header", "file-name" or "none"
+        source    : string
+        /// who made the model: as the product states it, else the archive's citation
+        /// (ShapeModelCredits)
+        credit    : Option<string>
+    }
+    with
+        static let version = 0
+
+        static member private readV0 =
+            json {
+                let! product   = Json.read "product"
+                let! modelName = Json.tryRead "modelName"
+                let! ver       = Json.tryRead "modelVersion"
+                let! source    = Json.tryRead "source"
+                let! credit    = Json.tryRead "credit"
+                return {
+                    product   = product
+                    modelName = modelName
+                    version   = ver
+                    source    = source |> Option.defaultValue "none"
+                    credit    = credit
+                }
+            }
+
+        static member FromJson(_ : ShapeModelRef) =
+            json {
+                let! v = Json.read "version"
+                match v with
+                | 0 -> return! ShapeModelRef.readV0
+                | _ -> return! v |> sprintf "don't know version %A of ShapeModelRef" |> Json.error
+            }
+
+        static member ToJson (x : ShapeModelRef) =
+            json {
+                do! Json.write "version" version
+                do! Json.write "product" x.product
+                match x.modelName with
+                | Some n -> do! Json.write "modelName" n
+                | None   -> ()
+                match x.version with
+                | Some v -> do! Json.write "modelVersion" v
+                | None   -> ()
+                do! Json.write "source" x.source
+                match x.credit with
+                | Some c -> do! Json.write "credit" c
+                | None   -> ()
+            }
+
+/// Who made a shape model, credited wherever the model is shown (#887,
+/// docs/AnnotationMetadata.md): the published citation of the archive the model comes from,
+/// for products the producer's sidecar does not credit itself. Only citations checked against
+/// the archive go in here.
+module ShapeModelCredits =
+
+    /// A product family (regex over the product name, e.g. dimorphos_g_0243mm_spc_dtm_0000n00000_v004,
+    /// or over the SPC model name, FITS DATASRCV) and the citation of its archive.
+    type Citation = { products : string; citation : string }
+
+    let citations : list<Citation> =
+        [
+            // PDS SBN, urn:nasa:pds:dart_shapemodel:data_derived_dimorphos_model_v004 -- the
+            // global DTM and the local models of the final pre-impact Dimorphos model (SPC
+            // model dalyErnst_dimorphos230530). Checked 2026-11-06.
+            {
+                products = @"^dimorphos_[gl]_.*_spc_.*_v004$|^dalyErnst_dimorphos230530$"
+                citation =
+                    "Daly, T., Barnouin, O., Ernst, C., Nair, H., Espiritu, R., Waller, D. (2023). "
+                    + "Derived data products for DART shapemodel: dimorphos_model_v004. "
+                    + "NASA Planetary Data System. doi:10.26007/0nss-vd15"
+            }
+        ]
+
+    /// The citation of the first family any of `names` belongs to.
+    let tryCredit (names : list<string>) : Option<string> =
+        citations
+        |> List.tryPick (fun c ->
+            let matches (n : string) =
+                not (String.IsNullOrWhiteSpace n)
+                && Text.RegularExpressions.Regex.IsMatch(n.Trim(), c.products, Text.RegularExpressions.RegexOptions.IgnoreCase)
+            if names |> List.exists matches then Some c.citation else None)
+
+/// A projected image that was painted under an annotation's points while it was traced
+/// (#887): per point, the top image of the projection stack that covers it and faces it.
+type ProjectedImageRef =
+    {
+        /// image file name, without directory
+        image      : string
+        instrument : string
+        /// observation time, UTC, ISO 8601
+        time       : string
+    }
+    with
+        static let version = 0
+
+        static member private readV0 =
+            json {
+                let! image      = Json.read "image"
+                let! instrument = Json.tryRead "instrument"
+                let! time       = Json.tryRead "time"
+                return {
+                    image      = image
+                    instrument = instrument |> Option.defaultValue ""
+                    time       = time |> Option.defaultValue ""
+                }
+            }
+
+        static member FromJson(_ : ProjectedImageRef) =
+            json {
+                let! v = Json.read "version"
+                match v with
+                | 0 -> return! ProjectedImageRef.readV0
+                | _ -> return! v |> sprintf "don't know version %A of ProjectedImageRef" |> Json.error
+            }
+
+        static member ToJson (x : ProjectedImageRef) =
+            json {
+                do! Json.write "version"    version
+                do! Json.write "image"      x.image
+                do! Json.write "instrument" x.instrument
+                do! Json.write "time"       x.time
+            }
+
+/// Provenance and quality of an annotation (#887, docs/AnnotationMetadata.md). Saved under
+/// the annotation's own keys "confidence", "comment", "shapeModel" and "projectedImagesUsed",
+/// which releases that do not know them skip.
+type AnnotationMetadata =
+    {
+        /// 1 (lowest) to 4 (highest), from the identification criteria; None = not rated
+        confidence          : Option<int>
+        comment             : string
+        shapeModel          : Option<ShapeModelRef>
+        /// in order of first appearance along the points, each image once
+        projectedImagesUsed : list<ProjectedImageRef>
+    }
+
+module AnnotationMetadata =
+    let empty =
+        {
+            confidence          = None
+            comment             = ""
+            shapeModel          = None
+            projectedImagesUsed = []
+        }
+
+    let minConfidence = 1
+    let maxConfidence = 4
+
+    /// None outside 1..4
+    let validConfidence (c : int) =
+        if c >= minConfidence && c <= maxConfidence then Some c else None
+
+    /// e.g. "dalyErnst_dimorphos230530 004 (dimorphos_g_0243mm_spc_dtm_0000n00000_v004)"
+    let describeShapeModel (sm : ShapeModelRef) =
+        let name = sm.modelName |> Option.defaultValue sm.product
+        let version = sm.version |> Option.map (fun v -> " " + v) |> Option.defaultValue ""
+        let product = if sm.modelName.IsSome then sprintf " (%s)" sm.product else ""
+        let source = if sm.source = "file-name" then ", version from file name" else ""
+        name + version + product + source
+
 [<ModelType>]
 type Annotation = {
     version        : int
@@ -819,6 +990,8 @@ type Annotation = {
     geoUnit    : Option<string>
     /// set on profiles generated from another annotation (supporting profiles, #833)
     profileOf  : Option<ProfileLink>
+    /// confidence, comment, shape model and projected images used (#887)
+    metadata   : AnnotationMetadata
 }
 with
     static member current = 5
@@ -913,6 +1086,7 @@ with
                 fillAlpha            = Annotation.initialFillAlpha
                 geoUnit              = None
                 profileOf            = None
+                metadata             = AnnotationMetadata.empty
             }
         }
 
@@ -982,6 +1156,7 @@ with
                 fillAlpha            = Annotation.initialFillAlpha
                 geoUnit              = None
                 profileOf            = None
+                metadata             = AnnotationMetadata.empty
             }
         }
 
@@ -1051,6 +1226,7 @@ with
                 fillAlpha            = Annotation.initialFillAlpha
                 geoUnit              = None
                 profileOf            = None
+                metadata             = AnnotationMetadata.empty
             }
         }
 
@@ -1123,6 +1299,7 @@ with
                 fillAlpha            = Annotation.initialFillAlpha
                 geoUnit              = None
                 profileOf            = None
+                metadata             = AnnotationMetadata.empty
             }
         }
 
@@ -1196,6 +1373,7 @@ with
                 fillAlpha            = Annotation.initialFillAlpha
                 geoUnit              = None
                 profileOf            = None
+                metadata             = AnnotationMetadata.empty
             }
         }
 
@@ -1266,6 +1444,36 @@ with
                         Log.warn "[Annotation] profileOf could not be read, dropped: %s" e.Message
                         None)
 
+            // optional, no version bump (#887): older releases skip these keys. The nested
+            // records are read raw and deserialised inside a try like profileOf above, so a
+            // damaged entry is dropped instead of failing the scene
+            let! (confidence : Option<int>) = Json.tryRead "confidence"
+            let! (comment : Option<string>) = Json.tryRead "comment"
+            let! (shapeModelJson : Option<Chiron.Json>) = Json.tryRead "shapeModel"
+            let! (imagesJson : Option<list<Chiron.Json>>) = Json.tryRead "projectedImagesUsed"
+            let shapeModel : Option<ShapeModelRef> =
+                shapeModelJson
+                |> Option.bind (fun j ->
+                    try Some (Json.deserialize j)
+                    with e ->
+                        Log.warn "[Annotation] shapeModel could not be read, dropped: %s" e.Message
+                        None)
+            let projectedImagesUsed : list<ProjectedImageRef> =
+                imagesJson
+                |> Option.defaultValue []
+                |> List.choose (fun j ->
+                    try Some (Json.deserialize j)
+                    with e ->
+                        Log.warn "[Annotation] projected image entry could not be read, dropped: %s" e.Message
+                        None)
+            let metadata =
+                {
+                    confidence          = confidence |> Option.bind AnnotationMetadata.validConfidence
+                    comment             = comment |> Option.defaultValue ""
+                    shapeModel          = shapeModel
+                    projectedImagesUsed = projectedImagesUsed
+                }
+
             return {
                 version          = Annotation.current
                 key              = key           |> Guid.Parse
@@ -1305,6 +1513,7 @@ with
                         value = fillAlpha |> Option.defaultValue Annotation.initialFillAlpha.value }
                 geoUnit              = geoUnit
                 profileOf            = profileOf
+                metadata             = metadata
             }
         }
 
@@ -1385,6 +1594,18 @@ with
             match x.profileOf with
             | Some link -> do! Json.write "profileOf" link
             | None      -> ()
+
+            // #887: written only when set, so unrated annotations keep their old shape
+            match x.metadata.confidence with
+            | Some c -> do! Json.write "confidence" c
+            | None   -> ()
+            if not (String.IsNullOrEmpty x.metadata.comment) then
+                do! Json.write "comment" x.metadata.comment
+            match x.metadata.shapeModel with
+            | Some sm -> do! Json.write "shapeModel" sm
+            | None    -> ()
+            if not x.metadata.projectedImagesUsed.IsEmpty then
+                do! Json.write "projectedImagesUsed" x.metadata.projectedImagesUsed
         }
 
 module Annotation =
@@ -1473,6 +1694,7 @@ module Annotation =
             fillAlpha            = Annotation.initialFillAlpha
             geoUnit              = None
             profileOf            = None
+            metadata             = AnnotationMetadata.empty
         }
 
     let initial =

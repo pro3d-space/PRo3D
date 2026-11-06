@@ -1339,7 +1339,7 @@ module Gui =
                     // --- reference systems & camera ---------------------------------------
                     tool "pro3d-coordinate-cross" "Place coordinate cross" Interactions.PlaceCoordinateSystem
                     tool "pro3d-surface-ref-sys" "Place an additional reference system on a surface" Interactions.PickSurfaceRefSys
-                    tool "bullseye"   "Pick the ArcBall orbit centre. Press 'C' to set the pivot point to the body center" Interactions.PickExploreCenter
+                    tool "bullseye"   "Pick the ArcBall orbit centre. Press 'C' (no annotation selected) to set the pivot point to the body center" Interactions.PickExploreCenter
                   ]
                 ]
             )
@@ -1789,6 +1789,9 @@ module Gui =
                 GuiEx.accordion "Curtain Settings" "Expand" false [
                     CrossSectionApp.viewCurtainSettings m.scene.crossSectionModel |> UI.map CrossSectionMessage
                 ]
+                GuiEx.accordion "Confidence & Comments" "comment outline" false [
+                    AnnotationMetadataApp.viewSettings m.annotationMetadata |> UI.map AnnotationMetadataMessage
+                ]
                 GuiEx.accordion "Dip&Strike ColorLegend" "paint brush" false [
                     Incremental.div AttributeMap.empty (AList.ofAValSingle(viewDnSColorLegendUI m))
                 ] 
@@ -2199,6 +2202,18 @@ module Gui =
                                 yield scalarsColorLegend m
                                 yield projectedColorLegend m
                                 yield selectionRectangle m
+                                // comment dialog floating next to the selected annotation (#887)
+                                let commentEditor = m.annotationMetadata |> AVal.map (fun s -> s.comment)
+                                let commentPosition =
+                                    adaptive {
+                                        match! commentEditor with
+                                        | None -> return None
+                                        | Some ed ->
+                                            let! view = m.navigation.camera.view
+                                            let! frustum = m.frustum
+                                            return AnnotationMetadataApp.screenPosition view frustum ed.anchor
+                                    }
+                                yield AnnotationMetadataApp.commentDialog commentEditor commentPosition (AnnotationMetadataMessage >> ViewerMessage)
                                 // navigation + interaction selector, overlaid on the right edge
                                 yield ToolStrip.view m |> UI.map ViewerMessage
                                 // axis gizmo, bottom-left corner: click an axis to look along it
