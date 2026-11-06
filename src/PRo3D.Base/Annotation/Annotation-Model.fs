@@ -45,7 +45,8 @@ module Geometry =
     ///
     /// The ellipse tools are excluded: once the ellipse is constructed, `getFinishedAnnotation`
     /// replaces their `points` with the sampled outline, so there are no control points left to
-    /// move. DnS and TT are excluded because their points carry a fitted plane's meaning rather
+    /// move. A three-point ellipse is edited by its axis ends instead, see `EllipseEdit`.
+    /// DnS and TT are excluded because their points carry a fitted plane's meaning rather
     /// than a free polyline's.
     let isVertexEditable (geometry : Geometry) =
         match geometry with
@@ -596,7 +597,99 @@ module EllipticAnnotationResult =
         geographical, shape
 
 
-module AnnotationResults =    
+/// Editing a finished three-point ellipse by its four axis ends (docs/EllipseAnnotations.md).
+///
+/// The construction plane is never re-fitted. It is the plane through the stored `center`,
+/// spanned by the stored semi-axes - the plane the ellipse was fitted in when it was drawn.
+/// A dropped handle is projected orthogonally onto it, and the ellipse is rebuilt there, so
+/// the shape only changes by what the user moved: there is no drift from edit to edit.
+///
+/// Handle order: 0 = center + semiMajorAxis, 1 = center - semiMajorAxis,
+/// 2 = center + semiMinorAxis, 3 = center - semiMinorAxis. A rebuild may swap which axis is
+/// the long one; handles are re-derived from the stored result on every grab, so that is fine.
+module EllipseEdit =
+
+    let private finite (v : V3d) = not v.AnyNaN && not v.AnyInfinity
+
+    /// center, semi-major, semi-minor and the plane normal, when the stored shape can define
+    /// a plane (no NaN from an old file, neither axis degenerate)
+    let tryFrame (r : EllipticAnnotationResult) : Option<V3d * V3d * V3d * V3d> =
+        let c, a, b = r.center, r.semiMajorAxis, r.semiMinorAxis
+        if not (finite c && finite a && finite b) then None
+        else
+            let n = Vec.cross a b
+            let scale = a.Length * b.Length
+            if scale <= 0.0 || n.Length <= 1e-9 * scale then None
+            else Some (c, a, b, n.Normalized)
+
+    /// the construction plane of a stored ellipse
+    let tryPlane (r : EllipticAnnotationResult) : Option<Plane3d> =
+        tryFrame r |> Option.map (fun (c, _, _, n) -> Plane3d(n, c))
+
+    /// The four axis ends on the construction plane, in handle order.
+    let tryPlaneHandles (r : EllipticAnnotationResult) : Option<V3d[]> =
+        tryFrame r |> Option.map (fun (c, a, b, _) -> [| c + a; c - a; c + b; c - b |])
+
+    /// Whether an annotation can be edited this way: a three-point ellipse drawn with the Sky
+    /// projection, whose stored shape defines a plane. Imported ellipses (Linear, undraped) and
+    /// ellipses saved before the shape was stored are left alone.
+    let isEditable (geometry : Geometry) (projection : Projection) (r : Option<EllipticAnnotationResult>) =
+        geometry = Geometry.AxisEllipse
+        && projection = Projection.Sky
+        && (match r with Some r -> (tryFrame r).IsSome | None -> false)
+
+    /// The handles where they are drawn and grabbed: each axis end replaced by the closest
+    /// point of the draped outline, so the handle sits on the terrain the outline sits on,
+    /// not on the (possibly buried or floating) plane. Falls back to the plane point when the
+    /// outline is empty. 4 x outline length distance tests; the outline has 200 points.
+    let handlesOnOutline (r : EllipticAnnotationResult) (outline : V3d[]) : V3d[] =
+        match tryPlaneHandles r with
+        | None -> [||]
+        | Some handles ->
+            if outline.Length = 0 then handles
+            else
+                handles |> Array.map (fun h ->
+                    let mutable best = outline.[0]
+                    let mutable bestD = (h - best).LengthSquared
+                    for i in 1 .. outline.Length - 1 do
+                        let d = (h - outline.[i]).LengthSquared
+                        if d < bestD then
+                            best <- outline.[i]
+                            bestD <- d
+                    best)
+
+    /// The three construction points (major end, major end, minor end - the clicks of the
+    /// AxisEllipse tool) on the construction plane after handle `index` is dropped at `drop`.
+    ///
+    /// Dragging a major end keeps the opposite end and the minor length; dragging a minor end
+    /// keeps the major axis and sets only the minor length (the drop's distance from the major
+    /// axis). `None` for an unknown handle or a drop that collapses an axis.
+    let tryMoveHandle (r : EllipticAnnotationResult) (index : int) (drop : V3d) : Option<V3d[]> =
+        match tryFrame r with
+        | None -> None
+        | Some (c, a, b, n) ->
+            let onPlane = drop - n * Vec.dot (drop - c) n
+            match index with
+            | 0 | 1 ->
+                let fixedEnd = if index = 0 then c - a else c + a
+                let center = (fixedEnd + onPlane) * 0.5
+                let major = onPlane - center
+                if major.Length <= 1e-9 * a.Length then None
+                else
+                    let minorDir =
+                        let d = (Vec.cross n major).Normalized
+                        if Vec.dot d b < 0.0 then -d else d
+                    Some [| center - major; center + major; center + minorDir * b.Length |]
+            | 2 | 3 ->
+                let aDir = a.Normalized
+                let v = onPlane - c
+                let perpendicular = v - aDir * Vec.dot v aDir
+                if perpendicular.Length <= 1e-9 * a.Length then None
+                else Some [| c - a; c + a; c + perpendicular |]
+            | _ -> None
+
+
+module AnnotationResults =
     
     let initial = 
         {

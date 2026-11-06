@@ -440,7 +440,13 @@ module ViewerApp =
                     | ViewerMode.Standard -> m.navigation.camera.view
                     | ViewerMode.Instrument -> m.scene.viewPlans.instrumentCam
 
-                let msg = DrawingAction.MoveVertex(grab.annotation, grab.pointIndex, p, hitFunction)
+                // an ellipse is always draped with the Sky projection (Geometry.allowedProjections),
+                // whatever the drawing toolbar is set to now
+                let sampler =
+                    match m.drawing.annotations.flat.TryFind grab.annotation with
+                    | Some (Leaf.Annotations a) when not (Geometry.isVertexEditable a.geometry) -> skyProjection m
+                    | _ -> hitFunction
+                let msg = DrawingAction.MoveVertex(grab.annotation, grab.pointIndex, p, sampler)
                 let drawing = DrawingApp.update m.scene.referenceSystem drawingConfig referenceSystem bc view m.shiftFlag m.drawing msg
 
                 // surfaceName is only ever advisory and nothing re-validates it, so a vertex may
@@ -3020,6 +3026,12 @@ module ViewerApp =
                 match m.drawing.vertexGrab.GetValue t, m.surfaceIntersection.GetValue t with
                 | Some grab, Some hit ->
                     match m.drawing.annotations.flat.Content.GetValue t |> HashMap.tryFind grab.annotation with
+                    | Some (AdaptiveAnnotations ann) when not (Geometry.isVertexEditable (ann.geometry.GetValue t)) ->
+                        // an ellipse axis end: from the end that stays (the opposite one of the same
+                        // axis) to the cursor - the axis being dragged out
+                        match PackedRendering.editHandles ann t |> Array.tryItem (grab.pointIndex ^^^ 1) with
+                        | Some opposite -> [| opposite; hit.hitPoint |]
+                        | None -> [||]
                     | Some (AdaptiveAnnotations ann) ->
                         let points = ann.points.Content.GetValue t
                         let count  = IndexList.count points

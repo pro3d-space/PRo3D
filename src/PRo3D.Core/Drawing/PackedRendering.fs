@@ -1268,6 +1268,22 @@ module PackedRendering =
         let renderOn runtime (surfaces : OffscreenSurfaces.SurfaceDepth) fills =
             render runtime fills surfaces.depth surfaces.size surfaces.viewTrafo surfaces.projTrafo
 
+    /// Where the edit handles of `anno` are, in handle-index order (the index GrabVertex and
+    /// MoveVertex receive); empty when it cannot be edited. Polyline-like: the clicked control
+    /// points. Three-point ellipse: its four axis ends, snapped to the draped outline
+    /// (`EllipseEdit`). The adaptive twin of `DrawingApp.editHandles`.
+    let editHandles (anno : AdaptiveAnnotation) (t : AdaptiveToken) : V3d[] =
+        let geometry = anno.geometry.GetValue(t)
+        if Geometry.isVertexEditable geometry then
+            anno.points.Content.GetValue(t) |> IndexList.toArray
+        else
+            let projection = anno.projection.GetValue(t)
+            let elliptic   = anno.ellipticResults.GetValue(t)
+            match elliptic with
+            | Some r when EllipseEdit.isEditable geometry projection elliptic ->
+                EllipseEdit.handlesOnOutline r (anno.points.Content.GetValue(t) |> IndexList.toArray)
+            | _ -> [||]
+
     /// Draggable control-point handles for one annotation - the one being edited.
     ///
     /// The object id written to alpha indexes the same `ordered` array lines and fills use, so a
@@ -1277,7 +1293,8 @@ module PackedRendering =
     ///
     /// Emits `anno.points` - the control points the user clicked - and deliberately not
     /// `Drawing.Sg.getPolylinePoints`, which returns the terrain-sampled polyline and would put a
-    /// handle on every sample.
+    /// handle on every sample. A three-point ellipse gets its four axis ends instead
+    /// (`EllipseEdit.handlesOnOutline`), since its points are the sampled outline.
     ///
     /// Returns bare geometry so the visible and pick passes can attach different shaders.
     let vertexHandles
@@ -1310,9 +1327,9 @@ module PackedRendering =
                 | Some oid ->
                     let (_, anno) = annos.[oid]
                     let visible   = anno.visible.GetValue(t)
-                    let geometry  = anno.geometry.GetValue(t)
+                    let handles   = if visible then editHandles anno t else [||]
 
-                    if visible && Geometry.isVertexEditable geometry then
+                    if handles.Length > 0 then
                         let pivot = anno.modelTrafo.GetValue(t)
                         pivotTrafo <- Some pivot
 
@@ -1327,7 +1344,7 @@ module PackedRendering =
                                V2f(-1.0f, -1.0f); V2f(1.0f, 1.0f); V2f(-1.0f, 1.0f) |]
 
                         let mutable i = 0
-                        for p in anno.points.Content.GetValue(t) do
+                        for p in handles do
                             let local = pivot.Backward.TransformPos p |> V3f
                             for c in quad do
                                 positions.Add local
@@ -1359,6 +1376,12 @@ module PackedRendering =
         |> Sg.vertexAttribute DefaultSemantic.Colors      (data |> AVal.map (fun d -> d.colors))
         |> Sg.uniform "MV" mv
 
+    /// The handles draw after everything in the main pass. Listing them after the lines in an
+    /// `Sg.ofSeq` does not order anything - the main pass sorts by pipeline state - and a selected
+    /// ellipse outline, a band wider than its line, covered all but a sliver of each handle.
+    /// One pass for the one handle draw.
+    let vertexHandlePass = RenderPass.after "vertex-handles" RenderPassOrder.Arbitrary RenderPass.main
+
     /// Visible pass for the vertex handles. `hovered` and `grabbed` are control point indices, or
     /// -1; the shader compares them per vertex the way SelectedId works for lines.
     let packedVertexHandleRender (hovered : aval<int>) (grabbed : aval<int>) (viewport : aval<V2i>) handles =
@@ -1374,6 +1397,7 @@ module PackedRendering =
         // outline. The pick pass makes the same choice, so what you see is what you can grab.
         |> Sg.depthTest (AVal.constant DepthTest.None)
         |> Sg.writeBuffers' (Set.ofList [WriteBuffer.Color DefaultSemantic.Colors])
+        |> Sg.pass vertexHandlePass
 
     /// Point sprites as bare geometry, positions `view`-transformed on the CPU. `points` adds the
     /// viewer's shader; the map projection view (#772) adds its own.
