@@ -20,8 +20,9 @@ Each render is compared with the reference by its lit region (pixels above DN 25
 kernels' own DSK, independent of PRo3D: unlit Dimorphos-only silhouettes, IoU and centroid
 offset. It is slow (tens of seconds per epoch).
 
-Writes <out>/results.json, <out>/pointing.png (one row per epoch, or --figure-epochs) and
-prints a Markdown table. See docs/Pro3DTool-RenderView.md, "Pointing".
+Writes <out>/results.json, <out>/pointing.png (one row per epoch, or --figure-epochs), with
+--raycast also <out>/raycast.png, and prints a Markdown table. See docs/Pro3DTool-RenderView.md,
+"Validation".
 """
 
 import argparse
@@ -104,8 +105,10 @@ def offset(a, b):
 
 
 def dsk_silhouette(utc, size, fov_deg):
-    """Which pixels of HERA_AFC-1 hit Dimorphos' DSK: sincpt per pixel over the body's
-    projected bounding box (the same ray-cast as pro3d_sim.dsk_render on features/801)."""
+    """Which pixels of HERA_AFC-1 hit Dimorphos' DSK: SPICE sincpt ("DSK/UNPRIORITIZED") per
+    pixel over the body's projected bounding box. The DSK is whatever the metakernel loads
+    (Planning v182: dsk/g_00243mm_spc_obj_dimo_0000n00000_v004.bds, the SPC shape model at
+    0.24 m). The same ray-cast as pro3d_sim.dsk_render on the #801 branches."""
     import spiceypy as sp
     et = sp.str2et(utc)
     half = np.tan(np.radians(fov_deg / 2.0))
@@ -185,6 +188,47 @@ def figure(rows, path, scale, pointings=POINTINGS):
     out.save(path)
 
 
+def raycast_figure(rows, path, tile_px=240):
+    """One tile per epoch, cropped around the body: render-view's unlit Dimorphos silhouette
+    (grey, magenta outline) with the DSK ray-cast's silhouette outlined in green on top. Every
+    tile shows the same angular size, so the bodies' sizes compare across epochs."""
+    magenta, green = (255, 60, 200), (60, 255, 90)
+    def box(m):
+        ys, xs = np.nonzero(m)
+        return (ys.min(), ys.max(), xs.min(), xs.max()) if ys.size else None
+    boxes = [box(r["sil"] | r["dsk"]) for r in rows]
+    half = max(max(b[1] - b[0], b[3] - b[2]) for b in boxes if b) * 0.65 + 4
+    gap, top, foot, cols = 16, 46, 24, 4
+    nrows = (len(rows) + cols - 1) // cols
+    out = Image.new("RGB", (cols * tile_px + (cols + 1) * gap, top + nrows * (tile_px + foot + gap) + 40), (18, 18, 22))
+    d = ImageDraw.Draw(out)
+    d.text((gap, 16), "render-view (--pointing instrument, unlit, OPC) against a SPICE sincpt ray-cast of the kernels' DSK",
+           fill=(230, 230, 230))
+    for k, (r, b) in enumerate(zip(rows, boxes)):
+        x, y = gap + (k % cols) * (tile_px + gap), top + (k // cols) * (tile_px + foot + gap)
+        size = r["sil"].shape[0]
+        cy, cx = ((b[0] + b[1]) / 2, (b[2] + b[3]) / 2) if b else (size / 2, size / 2)
+        y0, x0 = int(round(cy - half)), int(round(cx - half))
+        n = int(round(2 * half))
+        def crop(m):
+            c = np.zeros((n, n), m.dtype)
+            ys, xs = slice(max(0, y0), min(size, y0 + n)), slice(max(0, x0), min(size, x0 + n))
+            c[ys.start - y0:ys.stop - y0, xs.start - x0:xs.stop - x0] = m[ys, xs]
+            return c
+        sil, dsk = crop(r["sil"]), crop(r["dsk"])
+        im = np.stack([np.where(sil, 110, 0).astype(np.uint8)] * 3, -1)
+        im[outline(sil)] = magenta
+        im[outline(dsk)] = green
+        out.paste(Image.fromarray(im).resize((tile_px, tile_px), Image.NEAREST), (x, y))
+        res = r["result"]["raycast"]
+        d.text((x, y + tile_px + 4), "%s  IoU %.3f, %.1f px" % (
+            r["utc"][:16].replace("T", " "), res["silhouetteIou"], res["centroidOffsetPx"]), fill=(200, 200, 200))
+    y = top + nrows * (tile_px + foot + gap)
+    d.text((gap, y), "magenta: render-view silhouette (OPC); green: DSK ray-cast silhouette; every tile %.0f px of the %d px frame"
+           % (2 * half, rows[0]["sil"].shape[0]), fill=(200, 200, 200))
+    out.save(path)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--opc", required=True, help="Dimorphos OPC directory")
@@ -214,7 +258,8 @@ def main():
     didymos = os.path.abspath(a.didymos_opc) if a.didymos_opc else None
     out = os.path.abspath(a.out)
     os.makedirs(out, exist_ok=True)
-    tool = tool_command(a.tool)
+    # absolute: --raycast changes into the metakernel's folder below
+    tool = tool_command(os.path.abspath(a.tool) if a.tool else None)
 
     found = epochs(a.refs)
     if not found:
@@ -244,6 +289,7 @@ def main():
             sil = render(a, tool, stamp, utc, size, "instrument", out, None, False) > 5
             hit = dsk_silhouette(utc + "Z", size, 5.5)
             row["result"]["raycast"] = {"silhouetteIou": iou(sil, hit), "centroidOffsetPx": offset(sil, hit)}
+            row["sil"], row["dsk"] = sil, hit
         rows.append(row)
         results.append(row["result"])
         print("%s done" % utc, flush=True)
@@ -270,6 +316,10 @@ def main():
         shown = tuple(p for p in POINTINGS if p in a.figure_pointings.split(","))
         figure(chosen, os.path.join(out, "pointing.png"), a.figure_scale, shown or POINTINGS)
         print("\nfigure: %s" % os.path.join(out, "pointing.png"))
+        if a.raycast:
+            # every epoch: the DSK check is per epoch, not per figure selection
+            raycast_figure(rows, os.path.join(out, "raycast.png"))
+            print("figure: %s" % os.path.join(out, "raycast.png"))
     return 0
 
 

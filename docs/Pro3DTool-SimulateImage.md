@@ -284,7 +284,8 @@ Which instrument-frame axes become the image's right and up is a fixed table per
 `InstrumentProjection.specialTrafos` (`src/PRo3D.Base/InstrumentProjection.fs`). It is a signed
 swap of axes, i.e. a turn by a multiple of 90°, not a measured angle. The small measured
 misalignment of an instrument is in the frames kernel and comes in through the instrument
-frame itself (for AFC-1, 0.146°; see [render-view, Pointing](./Pro3DTool-RenderView.md#pointing)).
+frame itself (for AFC-1, 0.146° off the spacecraft's +Z; `fk/hera_v16.tf`,
+`TKFRAME_-91110_ANGLES`).
 
 | Instrument | image right | image up | boresight |
 |---|---|---|---|

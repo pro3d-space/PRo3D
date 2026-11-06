@@ -183,10 +183,30 @@ SPICE.
 
 ### Against the kernels' own shape model
 
-`--pointing instrument` silhouettes against a spiceypy ray-cast of the kernels' DSK, with no
-PRo3D code involved (`compare-render-view-toolbox.py --raycast`), same epochs: silhouette
-IoU 0.961–0.972, and 0.928 on 03-24, where Dimorphos is about 15 px across. The rest is the
-difference between the OPC and the DSK.
+![render-view silhouettes against a DSK ray-cast](images/render-view-dsk.png)
+
+An independent geometry check with no PRo3D code on the reference side: a ray-cast through
+SPICE (spiceypy `sincpt` with `DSK/UNPRIORITIZED`, one ray per pixel) of the shape model the
+kernels ship, `dsk/g_00243mm_spc_obj_dimo_0000n00000_v004.bds` (SPC, 0.24 m), loaded by the
+Planning v182 metakernel. The ray-cast is `dsk_silhouette` in
+[`scripts/compare-render-view-toolbox.py`](../scripts/compare-render-view-toolbox.py)
+(`--raycast`). It is compared with render-view's unlit Dimorphos silhouette at the same epochs,
+392 px, with `--pointing instrument`: both cameras then come from the `HERA_AFC-1` frame.
+
+| Epoch (UTC) | silhouette IoU | centroid offset |
+|---|---|---|
+| 2027-02-18 11:00 | 0.964 | 1.1 px |
+| 2027-02-18 13:30 | 0.972 | 0.6 px |
+| 2027-02-25 10:30 | 0.966 | 1.0 px |
+| 2027-02-25 14:45 | 0.968 | 0.9 px |
+| 2027-03-11 01:00 | 0.964 | 0.2 px |
+| 2027-03-21 12:30 | 0.968 | 0.3 px |
+| 2027-03-24 03:00 | 0.928 | 0.1 px |
+| 2027-03-25 03:00 | 0.961 | 0.2 px |
+
+The outlines differ by about a pixel along the limb: render-view draws the OPC
+(`Dimorphos_DRACO1_DRACO2_Earth`, 1.96 m), the ray-cast the finer DSK. On 03-24 Dimorphos is
+about 15 px across, so that pixel weighs more.
 
 ## In process
 
