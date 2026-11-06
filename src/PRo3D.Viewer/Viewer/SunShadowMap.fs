@@ -52,11 +52,6 @@ module SunShadowMap =
 
     let private shadowMapSize = V2i(4096, 4096)
 
-    /// Base shadow bias in texels of the shadow map (see the bias in createHandle). 1.5
-    /// removed the acne on Dimorphos at 71-79 deg phase without losing cast shadows
-    /// (measured against a DSK ray-cast; 1 texel left 0.3-0.5 %, 3 cm = 0.45 texel 19-27 %).
-    let private biasTexels = 1.5
-
     /// A 1x1 depth texture backing the shadow comparison sampler whenever no real map
     /// exists. Its CONTENTS are never read -- the shader's HasShadowMap gate is false in
     /// exactly the situations this texture is bound -- so it is deliberately left
@@ -282,7 +277,11 @@ module SunShadowMap =
                 | false -> AVal.constant 0.0
                 | true ->
                     let (camera, _) = pass.Value
-                    camera |> AVal.map (function
+                    // in texels from the viewer config (ViewConfigModel.shadowBias, default
+                    // 1.5: no acne on Dimorphos at 71-79 deg phase, cast shadows kept,
+                    // measured against a DSK ray-cast; 1 texel left 0.3-0.5 %, 3 cm 19-27 %)
+                    (camera, m.scene.config.shadowBias.value) ||> AVal.map2 (fun camera biasTexels ->
+                        match camera with
                         | Some (_, _, range, texel) when range > 0.0 -> biasTexels * texel / range
                         | _ -> 0.0))
 
