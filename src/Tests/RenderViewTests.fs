@@ -26,8 +26,11 @@ let private reference  = Path.Combine(fixtureDir, "simulate-image_afc1_20270321T
 /// relative OPC paths resolve against an existing directory: "." is one
 let private parse (json : string) = ViewJob.parse (Path.GetTempPath()) json
 
+/// a job file under a rooted path on every OS (C:\jobs is a relative path on Linux)
+let private jobFile = Path.Combine(Path.GetTempPath(), "jobs", "job.json")
+
 let private resolveText (json : string) =
-    parse json |> Result.bind (ViewJob.resolve ViewJob.noOverrides @"C:\jobs\job.json")
+    parse json |> Result.bind (ViewJob.resolve ViewJob.noOverrides jobFile)
 
 let private camera : ViewCamera = { location = V3d(0.0, -10.0, 0.0); forward = V3d.OIO; up = V3d.OOI; fov = 30.0 }
 
@@ -179,17 +182,17 @@ let private jobTests =
                          "sun": { "position": [0,0,1e9] } },
                        { "name": "b1", "location": [0,0,10], "forward": [0,0,-1], "up": [0,1,0], "fov": 30 } ] }"""
             let o = { ViewJob.noOverrides with height = Some 200; lodLevel = Some 3; noSun = true }
-            match parse json |> Result.bind (ViewJob.resolve o @"C:\jobs\job.json") with
+            match parse json |> Result.bind (ViewJob.resolve o jobFile) with
             | Result.Error e -> failtest e
             | Ok job ->
-                Expect.equal job.out @"C:\jobs\job-renders" "default output beside the job"
+                Expect.equal job.out (Path.Combine(Path.GetTempPath(), "jobs", "job-renders")) "default output beside the job"
                 Expect.equal (job.views |> List.map (fun v -> v.name, v.settings.size, v.settings.lodLevel, v.sun.IsSome))
                              [ "a1", V2i(100, 200), Some 3, false; "b1", V2i(640, 200), Some 3, false ]
                              "width from the view, height and LoD from the command line, no sun"
-            match parse json |> Result.bind (ViewJob.resolve { ViewJob.noOverrides with views = Some [ "b*" ] } @"C:\jobs\job.json") with
+            match parse json |> Result.bind (ViewJob.resolve { ViewJob.noOverrides with views = Some [ "b*" ] } jobFile) with
             | Ok job -> Expect.equal (job.views |> List.map (fun v -> v.name)) [ "b1" ] "a wildcard selects views"
             | Result.Error e -> failtest e
-            match parse json |> Result.bind (ViewJob.resolve { ViewJob.noOverrides with views = Some [ "c" ] } @"C:\jobs\job.json") with
+            match parse json |> Result.bind (ViewJob.resolve { ViewJob.noOverrides with views = Some [ "c" ] } jobFile) with
             | Ok _ -> failtest "a selection that matches nothing must fail"
             | Result.Error e -> Expect.stringContains e "'c'" "names the pattern"
         }
@@ -260,7 +263,20 @@ let private renderTests =
                 let lit image = count (litMask 0.25 image)
                 Expect.isLessThan (iou (litMask 0.25 front) (litMask 0.25 back)) 0.2 "the other side lights up"
                 Expect.isLessThan (lit back) (lit front) "seen from HERA, most of the lit side faces away"
-                Expect.isGreaterThan (differs front (render { sun with shadows = false })) 0.0005 "cast shadows change the image")
+                // no acne: at the fixture's low phase hardly anything casts a shadow, so the
+                // shadow pass must leave the sunlit side alone (a 3 cm bias, under half a
+                // shadow-map texel here, darkened 21 % of it by more than 10 %)
+                let unshadowed = render { sun with shadows = false }
+                Expect.isLessThan (differs front unshadowed) 0.0005 "no shadow acne on the sunlit side"
+                // a sun from the image's right at 85 deg phase: Dimorphos' crater rims cast
+                // shadows (measured 1.45e-4 of the frame, ~150 px; the body is ~20k px, and
+                // it is smooth at this OPC's 1.96 m)
+                let forward = Vec.normalize view.camera.forward
+                let right = Vec.cross forward view.camera.up |> Vec.normalize
+                let phase = Conversion.RadiansFromDegrees 85.0
+                let towardsSun = -forward * cos phase + right * sin phase
+                let side = { sun with position = renderer.Bounds.Center + towardsSun * Vec.length (sun.position - renderer.Bounds.Center) }
+                Expect.isGreaterThan (differs (render side) (render { side with shadows = false })) 0.00005 "cast shadows change the image")
             Expect.equal PRo3D.Core.Gis.SunOverride.direction.Value None "disposing resets the sun override"
             )
         }

@@ -52,6 +52,11 @@ module SunShadowMap =
 
     let private shadowMapSize = V2i(4096, 4096)
 
+    /// Base shadow bias in texels of the shadow map (see the bias in createHandle). 1.5
+    /// removed the acne on Dimorphos at 71-79 deg phase without losing cast shadows
+    /// (measured against a DSK ray-cast; 1 texel left 0.3-0.5 %, 3 cm = 0.45 texel 19-27 %).
+    let private biasTexels = 1.5
+
     /// A 1x1 depth texture backing the shadow comparison sampler whenever no real map
     /// exists. Its CONTENTS are never read -- the shader's HasShadowMap gate is false in
     /// exactly the situations this texture is bound -- so it is deliberately left
@@ -179,9 +184,10 @@ module SunShadowMap =
     /// box Z verbatim as near/far, but the camera sits outside the box looking down -Z,
     /// so near/far are the negated maximum/minimum -- same construction (and same trap)
     /// as pro3d-tool's renderSunShadowMap.
-    /// (view, proj, depth range in metres) -- the range is what turns a world-space
-    /// shadow bias into normalized shadow-map depth.
-    let private lightCamera (sunDir : aval<Option<V3d>>) (bounds : aval<Box3d>) : aval<Option<Trafo3d * Trafo3d * float>> =
+    /// (view, proj, depth range in metres, texel size in metres) -- the range turns a
+    /// world-space shadow bias into normalized shadow-map depth, the texel size is what
+    /// that bias has to cover.
+    let private lightCamera (sunDir : aval<Option<V3d>>) (bounds : aval<Box3d>) : aval<Option<Trafo3d * Trafo3d * float * float>> =
         (sunDir, bounds) ||> AVal.map2 (fun dir bb ->
             match dir with
             | Some dir when bb.IsValid && bb.Size.Length > 0.0 ->
@@ -195,7 +201,8 @@ module SunShadowMap =
                 let proj =
                     { Frustum.ortho vbox with near = -vbox.Max.Z; far = -vbox.Min.Z }
                     |> Frustum.projTrafo
-                Some (view, proj, vbox.Size.Z)
+                let texel = max (vbox.Size.X / float shadowMapSize.X) (vbox.Size.Y / float shadowMapSize.Y)
+                Some (view, proj, vbox.Size.Z, texel)
             | _ -> None)
 
     /// Everything the active shadow pass needs, created ON FIRST ACTIVATION only --
@@ -217,8 +224,8 @@ module SunShadowMap =
                 do! PRo3D.SPICE.Shaders.stableTrafo
                 do! DefaultSurfaces.constantColor C4f.White
             }
-            |> Sg.viewTrafo (camera |> AVal.map (function Some (v, _, _) -> v | None -> Trafo3d.Identity))
-            |> Sg.projTrafo (camera |> AVal.map (function Some (_, p, _) -> p | None -> Trafo3d.Identity))
+            |> Sg.viewTrafo (camera |> AVal.map (function Some (v, _, _, _) -> v | None -> Trafo3d.Identity))
+            |> Sg.projTrafo (camera |> AVal.map (function Some (_, p, _, _) -> p | None -> Trafo3d.Identity))
 
         let clearValues =
             clear {
@@ -250,7 +257,7 @@ module SunShadowMap =
                 | false -> AVal.constant None
                 | true ->
                     let (camera, _) = pass.Value
-                    camera |> AVal.map (Option.map (fun (view, proj, _) -> view * proj)))
+                    camera |> AVal.map (Option.map (fun (view, proj, _, _) -> view * proj)))
 
         let texture =
             active |> AVal.bind (function
@@ -261,15 +268,19 @@ module SunShadowMap =
                         | Some _ -> depth |> AVal.map (fun t -> t :> ITexture)
                         | None -> AVal.constant dummy))
 
-        // 3 cm of world-space base bias, normalized by the light frustum's actual depth
-        // range; the shader slope-scales it per fragment (terrainSunShadow)
+        // Base bias in shadow-map texels, normalized by the light frustum's actual depth
+        // range; the shader slope-scales it per fragment (terrainSunShadow). A fixed
+        // world-space bias cannot fit every scene: the map spans the scene's bounds, so a
+        // texel is 6.6 cm over Dimorphos alone and 40 cm with Didymos. The lookup samples
+        // one texel to each side (PCF), so the bias must exceed about a texel; 3 cm left
+        // 21 % of Dimorphos' sunlit side speckled with acne.
         let bias =
             active |> AVal.bind (function
                 | false -> AVal.constant 0.0
                 | true ->
                     let (camera, _) = pass.Value
                     camera |> AVal.map (function
-                        | Some (_, _, range) when range > 0.0 -> 0.03 / range
+                        | Some (_, _, range, texel) when range > 0.0 -> biasTexels * texel / range
                         | _ -> 0.0))
 
         let release () =
