@@ -133,6 +133,19 @@ module AnnotationProperties =
     let private commentText (model : AdaptiveAnnotation) =
         model.metadata |> AVal.map (fun m -> m.comment)
 
+    /// multi-line, unlike a SemUi text box, which drops the line breaks the comment dialog
+    /// allows; sent on change (when the field is left)
+    let private commentBox (model : AdaptiveAnnotation) =
+        let box =
+            commentText model |> AVal.map (fun c ->
+                // the plain element; Aardvark.UI.Primitives, opened above, has its own textarea
+                Aardvark.UI.Static.textarea [
+                    attribute "rows" "3"
+                    style "width:100%; resize:vertical; font-family:inherit"
+                    onChange (fun s -> SetComment (s.TrimEnd()))
+                ] c)
+        Incremental.div AttributeMap.empty (AList.ofAValSingle box)
+
     let private shapeModelText (model : AdaptiveAnnotation) =
         model.metadata |> AVal.map (fun m ->
             match m.shapeModel with
@@ -152,7 +165,7 @@ module AnnotationProperties =
     let metadataRows (model : AdaptiveAnnotation) =
         [
             Html.row "Confidence:"   [confidenceButtons model |> UI.wrapToolTip DataPosition.Bottom confidenceTooltip]
-            Html.row "Comment:"      [Html.SemUi.textBox (commentText model) SetComment |> UI.wrapToolTip DataPosition.Bottom commentTooltip]
+            Html.row "Comment:"      [commentBox model |> UI.wrapToolTip DataPosition.Bottom commentTooltip]
             Html.row "Shape Model:"  [Incremental.text (shapeModelText model)]
             Html.row "Images Used:"  [Incremental.text (projectedImagesText model)]
         ]

@@ -294,9 +294,15 @@ module OpcMetadata =
     // not change during a session.
     let private cache = System.Collections.Concurrent.ConcurrentDictionary<string, Option<OpcMetadata>>()
 
-    /// tryReadForOpcx, read once per session and path.
+    /// tryReadForOpcx, read once per session and path. A missing or unreadable sidecar is not
+    /// kept, so one added later is found.
     let tryReadForOpcxCached (opcxPath : string) =
-        cache.GetOrAdd(opcxPath, fun p -> tryReadForOpcx p)
+        match cache.TryGetValue opcxPath with
+        | true, md -> md
+        | _ ->
+            let md = tryReadForOpcx opcxPath
+            if md.IsSome then cache.[opcxPath] <- md
+            md
 
     let private headerRow (md : OpcMetadata) (key : string) (label : string) (format : string -> string) =
         md.fitsHeader |> Map.tryFind key |> Option.bind nonEmpty |> Option.map (fun v -> label, format v)

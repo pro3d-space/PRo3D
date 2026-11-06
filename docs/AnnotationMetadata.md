@@ -15,13 +15,15 @@ All four show in the annotation's **Properties** panel and can be exported (see
 
 ## Confidence: keys 1–4
 
-Select one or more annotations, then press **1**, **2**, **3** or **4** in the 3D view.
+Select one or more annotations with a tool other than *Draw annotation* (e.g. *Select
+annotation*), then press **1**, **2**, **3** or **4** in the 3D view.
 All selected annotations get that rating as one undo step (Ctrl+Z takes it back), and a
 short message top right says what happened, e.g. *Confidence 3 set on 2 annotations*.
 
-The keys only rate while annotations are selected **and none is being drawn**. While you
-draw, **0–3** set the semantic of the next annotation as before. The **–** button in
-Properties removes a rating.
+The keys only rate while annotations are selected **and the draw tool is not active**. With
+*Draw annotation* active, **0–3** set the semantic of the next annotation as before, even
+though finishing an annotation selects it. With Ctrl held, 1–4 and C do neither. The **–**
+button in Properties removes a rating.
 
 ### Confidence labels
 
@@ -35,7 +37,8 @@ are on in every new session.
 
 ## Comment: key C
 
-Select **one** annotation and press **C** in the 3D view. A small dialog opens next to the
+Select **one** annotation (draw tool not active) and press **C** in the 3D view. A small
+dialog opens next to the
 annotation, so it stays in view while you type. The dialog follows the annotation when the
 camera moves.
 
@@ -43,10 +46,14 @@ camera moves.
 - **Enter** saves and closes the dialog (the same as *OK*). The keys go straight back to the
   3D view, so the next **1–4** or **C** works without moving the mouse.
 - **Shift+Enter** starts a new line.
-- **Esc** or *Cancel* closes it without changing anything.
+- **Esc** or *Cancel* closes it without changing anything, and so does Esc in the 3D view.
+- A blank comment removes the comment; trailing blanks and line breaks are dropped.
 
-With no annotation selected, **C** still re-centres the orbit on the body centre. With
-several selected, it shows a hint instead.
+The comment can also be edited in Properties, in a multi-line field that saves when you
+leave it.
+
+With no annotation selected, or with the draw tool active, **C** still re-centres the orbit
+on the body centre. With several selected, it shows a hint instead.
 
 ## Shape model
 
@@ -150,6 +157,9 @@ once, in the order it first appears along the annotation.
   there. The listed one is the image that actually saw the point.
 - The list is captured once, when the annotation is finished. Moving its points later does
   not update it.
+- The points are placed with the same surface the projection is computed on (the first
+  surface bound to a SPICE body, as in the [Image Inspector](ImageInspector.md)). Annotations
+  on a second OPC with its own transformation are tested in that surface's frame.
 - The projection stack itself is not saved with the scene; this list is.
 
 Each entry stores the image's file name, instrument and observation time (UTC).
@@ -157,7 +167,8 @@ Each entry stores the image's file name, instrument and observation time (UTC).
 ## Export
 
 The annotation export ([AnnotationExport.md](AnnotationExport.md)) has six columns for
-this, all on by default:
+this. They are part of the default selection, so a default export has six more columns than
+before:
 
 | column | content |
 |---|---|
@@ -167,6 +178,13 @@ this, all on by default:
 | `shapeModelVersion` | `MAP_VER`, else the `vNNN` of the file name |
 | `shapeModelCredit` | who made the shape model ([Credits](#credits)) |
 | `projectedImages` | the image file names, separated by `; ` |
+
+## Annotations made other ways
+
+Shape model and images are captured only for annotations drawn in the 3D view. Annotations
+from a CSV polygon import, supporting profiles and geological-map label points start
+without them, and so do annotations drawn before this feature. A boolean operation's result
+keeps the metadata of the first annotation it was made from.
 
 ## Scene files
 

@@ -83,6 +83,23 @@ let private persistenceTests =
             Expect.equal a.metadata AnnotationMetadata.empty "empty metadata"
         }
 
+        test "TC-23.1 wrongly typed values are dropped, the annotation still loads" {
+            let a = { polyline [ V3d.Zero; V3d.IOO ] with metadata = sample }
+            let damaged =
+                match Json.serialize a with
+                | Object props ->
+                    props
+                    |> Map.add "confidence" (String "3")
+                    |> Map.add "comment" (Number 7M)
+                    |> Map.add "projectedImagesUsed" (Object Map.empty)
+                    |> Map.add "shapeModel" (Array [])
+                    |> Object
+                | j -> j
+            let back : Annotation = damaged |> Json.format |> Json.parse |> Json.deserialize
+            Expect.equal back.metadata AnnotationMetadata.empty "every wrongly typed value dropped"
+            Expect.equal back.key a.key "the annotation itself loaded"
+        }
+
         test "TC-23.1 damaged entries are dropped, the annotation still loads" {
             let a = { polyline [ V3d.Zero; V3d.IOO ] with metadata = sample }
             let damaged =
@@ -281,6 +298,18 @@ let private appTests =
             Expect.equal (annotationOf drawing' a.key).metadata.comment "new" "saved"
             Expect.isNone model'.comment "dialog closed"
             Expect.equal feedback (Some "Comment saved") "message"
+        }
+
+        test "TC-23.4 a blank comment removes the comment, trailing blanks are dropped" {
+            let a = { polyline [ V3d.Zero; V3d.IOO ] with metadata = { AnnotationMetadata.empty with comment = "old" } }
+            let drawing = withSelected [ a ] (Some a.key)
+            let drawing, model, _ = AnnotationMetadataApp.update drawing AnnotationMetadataModel.initial OpenComment
+            let drawing', _, feedback = AnnotationMetadataApp.update drawing model (CommitComment "  \n ")
+            Expect.equal (annotationOf drawing' a.key).metadata.comment "" "removed"
+            Expect.equal feedback (Some "Comment removed") "message"
+            let drawing, model, _ = AnnotationMetadataApp.update drawing' AnnotationMetadataModel.initial OpenComment
+            let drawing', _, _ = AnnotationMetadataApp.update drawing model (CommitComment "line one\nline two\n")
+            Expect.equal (annotationOf drawing' a.key).metadata.comment "line one\nline two" "inner line break kept, trailing one dropped"
         }
 
         test "TC-23.4 cancel leaves the comment as it was" {

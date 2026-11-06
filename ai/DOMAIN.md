@@ -166,8 +166,12 @@ Confidence 1–4, comment, shape model and projected images used (#887). User do
 | `src/PRo3D.Viewer/Viewer/AnnotationMetadataApp.fs` | sub-app (model in `AnnotationMetadata-Model.fs`): keys, comment dialog, `captureFinished` at annotation finish |
 
 - **Keys are context dependent.** `Viewer.metadataKeyAction` takes 1–4 and C only while
-  annotations are selected and `drawing.working` is None; otherwise 0–3 set the semantic (in the
-  `KeyDown` update, no longer in `getDrawingActionForKey`) and C re-centres the orbit.
+  annotations are selected, nothing is being drawn and the interaction is not DrawAnnotation
+  (finishing selects the new annotation, so selection alone would rate it); otherwise 0–3 set
+  the semantic (in the `KeyDown` update, no longer in `getDrawingActionForKey`) and C
+  re-centres the orbit. Esc cancels an open comment dialog.
+- **JSON:** all four keys are read as raw `Json` and converted in a match/try: a typed
+  `Json.tryRead` fails the annotation, and the scene, when a key holds the wrong type.
 - **Capture runs at finish**, in `Viewer.withAnnotationMetadata` on both finish paths, and
   patches the `LeafAdded` undo entry so redo keeps the metadata.
 - **Images used** is a CPU line-of-sight test per control point, using `ImageInspector.tryContextFor`

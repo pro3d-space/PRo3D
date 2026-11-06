@@ -108,6 +108,8 @@ module AnnotationMetadataApp =
             | None -> drawing, model, None
             | Some editor ->
                 let model = { model with comment = None }
+                // trailing blanks and new lines dropped; blank means no comment
+                let text = text.TrimEnd()
                 match HashMap.tryFind editor.annotation drawing.annotations.flat with
                 | Some (Leaf.Annotations a) when a.metadata.comment <> text ->
                     let a = { a with metadata = { a.metadata with comment = text } }
@@ -133,13 +135,13 @@ module AnnotationMetadataApp =
             match leaf with
             | Leaf.Surfaces s when s.name = surfaceName -> s.opcxPath
             | _ -> None)
-        |> Option.map (fun opcx -> OpcMetadata.shapeModelOf opcx (OpcMetadata.tryReadForOpcx opcx))
+        |> Option.map (fun opcx -> OpcMetadata.shapeModelOf opcx (OpcMetadata.tryReadForOpcxCached opcx))
 
     let private imageRef (image : ProjectedImageModel) : ProjectedImageRef =
         {
             image      = IO.Path.GetFileName image.texture
             instrument = image.instrument
-            time       = image.time.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ", Globalization.CultureInfo.InvariantCulture)
+            time       = (Calendar.toUtc image.time).ToString("yyyy-MM-ddTHH:mm:ss.fffZ", Globalization.CultureInfo.InvariantCulture)
         }
 
     /// How far (m) the first terrain hit seen from a projector may lie from the annotation point
@@ -177,25 +179,6 @@ module AnnotationMetadataApp =
         match stack, points with
         | [], _ | _, [] -> [], loadedKdTrees
         | _ ->
-            let contexts =
-                stack
-                |> List.choose (fun image ->
-                    match ImageInspector.tryContextFor gis surfaces refSystem image with
-                    | Ok ctx -> Some (image, ctx)
-                    | Result.Error e ->
-                        Log.warn "[AnnotationMetadata] %s: no projector (%s)" (IO.Path.GetFileName image.texture) e
-                        None)
-
-            let observedSystem = Gis.GisApp.getSpiceReferenceSystem gis
-            let observerSystem = Gis.GisApp.getObserverSystem gis
-            let visibleSurface = fun _ (leaf : Leaf) _ ->
-                match leaf with
-                | Leaf.Surfaces s -> s.isActive && s.isVisible
-                | _ -> false
-
-            // the picking cache, extended by the kd-trees this loads
-            let cache = ref loadedKdTrees
-
             let inFootprint (ctx : ImageInspector.Context) (p : V3d) =
                 let b = ctx.toWorld.Backward.TransformPos p
                 let h = ctx.full.Forward.Transform(V4d(b.X, b.Y, b.Z, 1.0))
@@ -212,10 +195,30 @@ module AnnotationMetadataApp =
                 if abs e.W < 1.0e-12 || not (Double.IsFinite e.W) then None
                 else Some (ctx.toWorld.Forward.TransformPos (e.XYZ / e.W))
 
-            let visibleFrom (ctx : ImageInspector.Context) (p : V3d) =
-                match projectionCentre ctx with
-                | None -> false
-                | Some origin ->
+            // per image once: its projector and centre. Images whose footprint holds none of the
+            // points are dropped before any ray is cast.
+            let contexts =
+                stack
+                |> List.choose (fun image ->
+                    match ImageInspector.tryContextFor gis surfaces refSystem image with
+                    | Ok ctx when points |> List.exists (inFootprint ctx) ->
+                        projectionCentre ctx |> Option.map (fun centre -> image, ctx, centre)
+                    | Ok _ -> None
+                    | Result.Error e ->
+                        Log.warn "[AnnotationMetadata] %s: no projector (%s)" (IO.Path.GetFileName image.texture) e
+                        None)
+
+            let observedSystem = Gis.GisApp.getSpiceReferenceSystem gis
+            let observerSystem = Gis.GisApp.getObserverSystem gis
+            let visibleSurface = fun _ (leaf : Leaf) _ ->
+                match leaf with
+                | Leaf.Surfaces s -> s.isActive && s.isVisible
+                | _ -> false
+
+            // the picking cache, extended by the kd-trees this loads
+            let cache = ref loadedKdTrees
+
+            let visibleFrom (origin : V3d) (p : V3d) =
                     let toP = p - origin
                     let distance = Vec.length toP
                     if distance <= 0.0 then false
@@ -234,8 +237,8 @@ module AnnotationMetadataApp =
                 points
                 |> List.choose (fun p ->
                     contexts
-                    |> List.tryPick (fun (image, ctx) ->
-                        if inFootprint ctx p && visibleFrom ctx p then Some image else None))
+                    |> List.tryPick (fun (image, ctx, centre) ->
+                        if inFootprint ctx p && visibleFrom centre p then Some image else None))
                 |> List.distinctBy (fun image -> image.id)
                 |> List.map imageRef
 

@@ -408,10 +408,17 @@ module ViewerApp =
         | Some text -> m |> logScreen 2000 text
         | None -> m
 
-    /// Keys 1-4 and C while annotations are selected and none is being drawn (#887).
+    /// Keys 1-4 and C while annotations are selected and the draw tool is not active (#887).
+    /// With the draw tool active the digits stay the semantic: finishing an annotation selects
+    /// it, so "selected" alone would rate the annotation just drawn. Esc in the 3D view closes
+    /// an open comment dialog.
     let private metadataKeyAction (m : Model) (k : Aardvark.Application.Keys) : Option<AnnotationMetadataAction> =
-        if m.ctrlFlag || m.annotationMetadata.comment.IsSome || not (AnnotationMetadataApp.takesKeys m.drawing) then None
-        else
+        match m.annotationMetadata.comment, k with
+        | Some _, Aardvark.Application.Keys.Escape -> Some CancelComment
+        | Some _, _ -> None
+        | None, _ when m.ctrlFlag || m.interaction = Interactions.DrawAnnotation
+                       || not (AnnotationMetadataApp.takesKeys m.drawing) -> None
+        | None, _ ->
             match k with
             | Aardvark.Application.Keys.D1 | Aardvark.Application.Keys.NumPad1 -> Some (SetConfidence 1)
             | Aardvark.Application.Keys.D2 | Aardvark.Application.Keys.NumPad2 -> Some (SetConfidence 2)
@@ -2092,17 +2099,16 @@ module ViewerApp =
 
         | AnnotationMetadataMessage msg, _ ->
             updateAnnotationMetadata msg m
-        | KeyDown k, _ when (metadataKeyAction m k).IsSome ->
-            match metadataKeyAction m k with
-            | Some msg -> updateAnnotationMetadata msg m
-            | None -> m
         | KeyDown k, _ ->
+          match metadataKeyAction m k with
+          | Some msg -> updateAnnotationMetadata msg m
+          | None ->
             let m =
                 match k with
                 // 0-3: the semantic of the next annotation drawn (keys 1-4 rate selected
                 // annotations instead, see metadataKeyAction)
                 | Aardvark.Application.Keys.D0 | Aardvark.Application.Keys.D1
-                | Aardvark.Application.Keys.D2 | Aardvark.Application.Keys.D3 when not m.ctrlFlag ->
+                | Aardvark.Application.Keys.D2 | Aardvark.Application.Keys.D3 ->
                     let semantic =
                         match k with
                         | Aardvark.Application.Keys.D0 -> Semantic.Horizon0
@@ -2886,8 +2892,8 @@ module ViewerApp =
                 attribute "useMapping" "true"
                 // Pull keyboard focus onto the render control as soon as the cursor enters,
                 // so modifier keys (ctrlFlag, drawing-key shortcuts) work without a prior click.
-                // ... unless a text field has it, e.g. the comment dialog floating over the view (#887)
-                attribute "onmouseenter" "if (!(window.pro3dIsTextEntry && pro3dIsTextEntry(document.activeElement))) this.focus()"
+                // ... unless the comment dialog floating over the view has it (#887)
+                attribute "onmouseenter" "if (!(document.activeElement && document.activeElement.closest && document.activeElement.closest('.annotation-comment-dialog'))) this.focus()"
                 //attribute "showFPS" "true"
                 //attribute "data-renderalways" "true"
                 Aardvark.UI.Events.onKeyDown' (fun k ->

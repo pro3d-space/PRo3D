@@ -1447,10 +1447,22 @@ with
             // optional, no version bump (#887): older releases skip these keys. The nested
             // records are read raw and deserialised inside a try like profileOf above, so a
             // damaged entry is dropped instead of failing the scene
-            let! (confidence : Option<int>) = Json.tryRead "confidence"
-            let! (comment : Option<string>) = Json.tryRead "comment"
+            // all four read raw: a typed tryRead fails the annotation, and with it the scene,
+            // when a key holds the wrong type
+            let! (confidenceJson : Option<Chiron.Json>) = Json.tryRead "confidence"
+            let! (commentJson : Option<Chiron.Json>) = Json.tryRead "comment"
             let! (shapeModelJson : Option<Chiron.Json>) = Json.tryRead "shapeModel"
-            let! (imagesJson : Option<list<Chiron.Json>>) = Json.tryRead "projectedImagesUsed"
+            let! (imagesJson : Option<Chiron.Json>) = Json.tryRead "projectedImagesUsed"
+            let confidence =
+                match confidenceJson with
+                | Some (Chiron.Number n) when n = Math.Round n && n >= 1M && n <= 4M -> Some (int n)
+                | Some j -> Log.warn "[Annotation] confidence %A is not 1-4, dropped" j; None
+                | None -> None
+            let comment =
+                match commentJson with
+                | Some (Chiron.String s) -> Some s
+                | Some j -> Log.warn "[Annotation] comment %A is not text, dropped" j; None
+                | None -> None
             let shapeModel : Option<ShapeModelRef> =
                 shapeModelJson
                 |> Option.bind (fun j ->
@@ -1459,8 +1471,12 @@ with
                         Log.warn "[Annotation] shapeModel could not be read, dropped: %s" e.Message
                         None)
             let projectedImagesUsed : list<ProjectedImageRef> =
-                imagesJson
-                |> Option.defaultValue []
+                let entries =
+                    match imagesJson with
+                    | Some (Chiron.Array entries) -> entries
+                    | Some j -> Log.warn "[Annotation] projectedImagesUsed %A is not a list, dropped" j; []
+                    | None -> []
+                entries
                 |> List.choose (fun j ->
                     try Some (Json.deserialize j)
                     with e ->
@@ -1468,7 +1484,7 @@ with
                         None)
             let metadata =
                 {
-                    confidence          = confidence |> Option.bind AnnotationMetadata.validConfidence
+                    confidence          = confidence
                     comment             = comment |> Option.defaultValue ""
                     shapeModel          = shapeModel
                     projectedImagesUsed = projectedImagesUsed
