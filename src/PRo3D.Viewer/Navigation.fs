@@ -223,6 +223,15 @@ module Navigation =
                 | MapViewController.Message.Down (button, pos) ->
                     MouseScheme.mapDown scheme button
                     |> Option.map (fun mb -> MapViewController.Message.Down (mb, pos))
+                // Shift + right pans in every scheme: the right button always
+                // belongs to the camera, so it is not remapped. Shift with any
+                // other button is an ordinary press (Shift+click multi-selects
+                // annotations when that press goes to the tool).
+                | MapViewController.Message.ShiftDown (MouseButtons.Right, pos) ->
+                    Some (MapViewController.Message.ShiftDown (MouseButtons.Right, pos))
+                | MapViewController.Message.ShiftDown (button, pos) ->
+                    MouseScheme.mapDown scheme button
+                    |> Option.map (fun mb -> MapViewController.Message.Down (mb, pos))
                 | MapViewController.Message.Up button ->
                     MapViewController.Message.Up (MouseScheme.mapUp scheme button) |> Some
                 | _ -> Some a
@@ -268,9 +277,10 @@ module Navigation =
                 // orbit about the body spin axis (falling back to the map-frame up for the
                 // constant-up frames). A spin-axis twist preserves look-at-origin + north-up,
                 // so it is safe to apply after `updateCameraForMapView`.
+                // A pan is a translation, not a rotation - the lock would swallow it.
                 let cam =
                     match model.lockedAxis with
-                    | Some NavigationAxis.UpDown ->
+                    | Some NavigationAxis.UpDown when not cam.pan ->
                         let frame = mapFrame planet model.camera.view.Location
                         let axisDir = frame.polarAxis |> Option.defaultValue frame.up
                         { cam with view = NavigationConstraint.constrainRotationToAxis model.camera.view cam.view axisDir V3d.OOO }

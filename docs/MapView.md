@@ -29,7 +29,8 @@ wrong axis. The GIS view says so and switches the frame on request.
 | Input | Effect |
 |-------|--------|
 | Left-drag | Move over the ground (grab-and-drag: the terrain follows the cursor) |
-| Middle-drag | Same as left-drag |
+| Middle-drag | **Pan**: shift the view rigidly, without turning the camera |
+| `Shift` + right-drag | Pan, as middle-drag — in Direct Tool Mode too |
 | Right-drag | Zoom in/out |
 | Mouse wheel | Zoom in/out |
 | `W` `A` `S` `D` | Move north / west / south / east |
@@ -41,16 +42,37 @@ stored in the scene.
 ## The camera constraint
 
 After every mouse move, key release and animation tick,
-`updateCameraForMapView` re-derives the camera pose from its position alone:
+`updateCameraForMapView` re-derives the camera orientation from its position:
 
 ```
-frame  = mapFrame planet cameraLocation      // local east / north / up
-camera = CameraView.lookAt cameraLocation V3d.OOO frame.north
+centred = cameraLocation + pan                // un-pan (see below)
+frame   = mapFrame planet centred             // local east / north / up
+camera  = CameraView.lookAt centred V3d.OOO frame.north
+camera  = camera moved by -pan in its own right/up plane
 ```
 
-So the camera's position is the only free state; orientation is a function of
-it. Navigating therefore means *moving the camera over the body*, never turning
-it — which is what makes the view stay map-like.
+So the camera's position and the pan are the only free state; orientation is a
+function of them. Navigating therefore means *moving the camera over the body*,
+never turning it — which is what makes the view stay map-like.
+
+### Pan
+
+A pan is a rigid translation of the view: the camera moves sideways in its own
+image plane and does not turn, so the whole picture shifts on screen and the body
+centre is no longer in the middle. The ground under the cursor follows it (one
+window width of drag = `2 · tan(hfov / 2) · height` of ground).
+
+The pan is **not stored separately** — it is encoded in the view itself.
+`panOffset` reads it back as the position of the frame origin in the camera's
+right/up plane; `updateCameraForMapView` un-pans, re-aims and re-pans by that
+offset, and orbiting (left-drag, WASD) rotates the camera *rigidly* about the
+centre (forward included) instead of re-aiming it, so the pan survives both. Since
+it lives in the `CameraView`, bookmarks and scenes keep it without any format
+change. Entering MapView from another mode starts centred (`switchToMapViewController`).
+
+Wheel and right-drag zoom move along the view direction, i.e. towards the
+screen centre, not towards the body centre. The vertical axis lock does not apply
+while panning (a translation has no rotation to constrain).
 
 ### The map frame
 
@@ -156,6 +178,14 @@ orbit about the body spin axis (`mapFrame.polarAxis`), i.e. longitude-only motio
 The two horizontal edges are not lockable in MapView. The lock is a post-filter on
 the camera in `Navigation.update` and is transient (see NavigationGizmo.md for the
 clearing rules).
+
+`Shift` + right is the pan gesture in both mouse schemes because the right button
+always belongs to the camera (zoom normally, look in Direct Tool Mode), so Shift only
+switches it to pan. `Shift` + left is left alone: in Direct Tool Mode it is the tool's
+click, and with *Pick Annotation* active Shift+click multi-selects.
+
+Middle-drag used to repeat left-drag (in a view always aimed at the centre,
+"pan" and "orbit" were the same motion); it now pans.
 
 ## Tests
 

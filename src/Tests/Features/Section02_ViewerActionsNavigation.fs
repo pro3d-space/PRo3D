@@ -426,6 +426,86 @@ let tests =
             Expect.isSome frame.polarAxis "a planetary frame has a pole to guard against"
         }
 
+        // TC-2.5 MapView pan: a rigid translation of the view
+
+        test "TC-2.5 a Shift+right drag in MapView pans without turning the camera" {
+            let entered, _ =
+                Nav.run false None false Nav.aboveMars
+                    (Navigation.Action.SetNavigationMode NavigationMode.MapView)
+            let before = entered.camera.view
+            Expect.isLessThan (Vec.length (MapViewController.panOffset before |> Option.defaultValue V2d.II)) 1e-6
+                "precondition: entering MapView starts centred"
+            let step m msg = fst (Nav.run false None false m (Navigation.Action.MapViewControllerAction msg))
+            let after =
+                [ MapViewController.Message.ShiftDown (MouseButtons.Right, V2i(100, 100))
+                  MapViewController.Message.Move (V2i(160, 130))
+                  MapViewController.Message.Up MouseButtons.Right ]
+                |> List.fold step entered
+            Expect.isGreaterThan (Vec.distance after.camera.view.Location before.Location) 1.0
+                "a pan should move the camera"
+            Expect.isGreaterThan (Vec.dot after.camera.view.Forward before.Forward) (1.0 - 1e-9)
+                "a pan must not turn the camera"
+            Expect.isGreaterThan (Vec.dot after.camera.view.Up before.Up) (1.0 - 1e-9)
+                "a pan keeps north up"
+            Expect.isFalse after.camera.pan "releasing the button ends the pan"
+            match MapViewController.panOffset after.camera.view with
+            | None -> failtest "the body centre should stay in front of the camera"
+            | Some o ->
+                // Dragged right and down: the body centre follows the cursor.
+                Expect.isGreaterThan o.X 0.0 "the body centre should move right on screen"
+                Expect.isLessThan o.Y 0.0 "the body centre should move down on screen"
+        }
+
+        test "TC-2.5 a MapView pan survives an orbit and the per-frame re-aim" {
+            let entered, _ =
+                Nav.run false None false Nav.aboveMars
+                    (Navigation.Action.SetNavigationMode NavigationMode.MapView)
+            let step m msg = fst (Nav.run false None false m (Navigation.Action.MapViewControllerAction msg))
+            let panned =
+                [ MapViewController.Message.Down (MouseButtons.Middle, V2i(100, 100))
+                  MapViewController.Message.Move (V2i(150, 100))
+                  MapViewController.Message.Up MouseButtons.Middle ]
+                |> List.fold step entered
+            let offsetOf (nav : NavigationModel) =
+                match MapViewController.panOffset nav.camera.view with
+                | Some o -> o
+                | None   -> failtest "the body centre should stay in front of the camera"
+            let o0 = offsetOf panned
+            Expect.isGreaterThan o0.Length 1.0 "precondition: middle-drag pans"
+            let orbited =
+                [ MapViewController.Message.Down (MouseButtons.Left, V2i(100, 100))
+                  MapViewController.Message.Move (V2i(130, 120))
+                  MapViewController.Message.Up MouseButtons.Left
+                  MapViewController.Message.StepTime ]
+                |> List.fold step panned
+            Expect.isGreaterThan (Vec.distance orbited.camera.view.Location panned.camera.view.Location) 1.0
+                "precondition: the drag orbits"
+            Expect.isLessThan (Vec.distance (offsetOf orbited) o0) (1e-6 * o0.Length)
+                "orbiting must keep the pan"
+        }
+
+        test "TC-2.5 Shift+right pans in direct tool mode too, Shift+left stays with the tool" {
+            let entered, _ =
+                Nav.run false None false Nav.aboveMars
+                    (Navigation.Action.SetNavigationMode NavigationMode.MapView)
+            let scheme = { Navigation.MouseScheme.full with directToolMode = true }
+            let step m msg =
+                fst (Nav.runWith Nav.refSystem scheme false None m (Navigation.Action.MapViewControllerAction msg))
+            let drag button =
+                [ MapViewController.Message.ShiftDown (button, V2i(100, 100))
+                  MapViewController.Message.Move (V2i(160, 100))
+                  MapViewController.Message.Up button ]
+                |> List.fold step entered
+            Expect.isLessThan
+                (Vec.distance (drag MouseButtons.Left).camera.view.Location entered.camera.view.Location) 1e-6
+                "Shift+left belongs to the tool in direct tool mode"
+            let panned = drag MouseButtons.Right
+            Expect.isGreaterThan (Vec.distance panned.camera.view.Location entered.camera.view.Location) 1.0
+                "Shift+right pans in direct tool mode as well"
+            Expect.isGreaterThan (Vec.dot panned.camera.view.Forward entered.camera.view.Forward) (1.0 - 1e-9)
+                "and pans without turning"
+        }
+
         // TC-2.6 Navigation axis lock (navigation gizmo edge click)
 
         test "TC-2.6 an ArcBall drag along the locked axis does not move the camera" {
