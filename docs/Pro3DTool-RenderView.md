@@ -116,7 +116,7 @@ python scripts/render-view-job.py --opc <Dimorphos OPC> --didymos-opc <Didymos O
 | `--didymos-opc` | Also place Didymos, by `pxform(DIDYMOS_FIXED → DIMORPHOS_FIXED)` and its position. Didymos moves around Dimorphos, so a job with both bodies covers **one epoch**. |
 | `--width`, `--height` | 1020 × 1020, AFC's size. |
 | `--untextured`, `--no-shadows`, `--no-sun` | As in the job file. |
-| `--pointing` | `instrument` (default): the `HERA_AFC-1` frame. `spacecraft`: `HERA_SPACECRAFT` with the nominal mounting, the alignment left out. See *Pointing* below. |
+| `--pointing` | `instrument` (default): the `HERA_AFC-1` frame. `spacecraft`: `HERA_SPACECRAFT` with the nominal mounting, the alignment left out. |
 
 Conventions, the same as `pro3d-tool simulate-image --pointing ck` for HERA_AFC-1:
 - **Camera:** location is HERA relative to Dimorphos (no aberration correction).
@@ -126,60 +126,15 @@ Conventions, the same as `pro3d-tool simulate-image --pointing ck` for HERA_AFC-
 - **fov:** from `getfov` (AFC-1: 5.5°).
 - **Sun:** SUN relative to Dimorphos.
 
-**Pointing depends on the kernel delivery.** AFC-1 follows the CK, and the plans differ. In
-the pinned test set (`v182_20260527`), AFC-1 looks at Didymos on 2027-02-25 and at Dimorphos
-on 2027-03-21T17:00, but not at 14:00 or 20:00. In comet-toolbox's `v182_20260805`, it looks at
-Dimorphos on 2027-02-25. A view that comes out empty most likely points elsewhere.
-
-### Pointing
-
-The frames kernel (`fk/hera_v16.tf`) defines `HERA_AFC-1` relative to `HERA_SPACECRAFT`, rotated
-by AFC-1's measured alignment (`TKFRAME_-91110_ANGLES = (0.118, 0.129, -0.068)` degrees,
-axes 3, 2, 1). That puts the boresight **0.146°** off the spacecraft's +Z: about 10 px in a
-392 px frame, 26 px in 1020 px.
-
-- `--pointing instrument` (default) uses `HERA_AFC-1`, alignment included: where AFC-1
-  actually looks.
-- `--pointing spacecraft` uses `HERA_SPACECRAFT` with the nominal mounting (the nearest axis
-  permutation, here the identity). comet-toolbox's frames match this pointing; see
-  *Validation*. The job's `coordinatesAreIn` records the choice.
-
-![comet-toolbox against both pointings](images/render-view-toolbox-pointing.png)
-
-The figure shows comet-toolbox's frames against both pointings. With `--pointing instrument`,
-everything is shifted by the alignment: 10–15 px between the centroids at 392 px, the same in
-the frame centre and in the corner (03-24, bottom row). The tilt about Y and X (0.129°,
-−0.068°) gives √(0.129² + 0.068²) = 0.146°, i.e. (9.2, 4.8) px. The roll about Z (0.118°)
-moves points by under 0.5 px at this size.
-
-Camera **position** is HERA's in both cases. AFC-1's place on the bus is metres away, under
-0.01° at these ranges.
-
 ## Validation
-
-### Against simulate-image
-
-Dimorphos at 2027-03-21T17:00, pinned kernels, untextured, 1020 px, both at AFC-1's 5.5°:
-
-| | |
-|---|---|
-| silhouette IoU | **0.988** |
-| centroid offset | **0.1 px** |
-| equivalent radius | **+0.5 px** (render-view's 8× MSAA counts partly covered edge pixels) |
-| lit-region IoU (25% of max) | 0.96 |
-
-The level of detail makes no difference at this range. Shading differs by design: the viewer
-uses Lommel-Seeliger with no ambient term, simulate-image Lommel-Seeliger with Lambert and
-ambient. So lit regions are compared, not grey levels. `src/Tests/RenderViewTests.fs` checks
-all of this with a checked-in job and reference (`src/Tests/data/render-view`); it needs no
-SPICE.
 
 ### Against comet-toolbox
 
 ![comet-toolbox against render-view](images/render-view-toolbox.png)
 
-comet-toolbox's HERA dashboard (<https://comet-toolbox.com/dashboard/hera/>) renders along the
-spacecraft axis, so render-view is compared with `--pointing spacecraft` (see *Pointing*).
+For evaluation we compare with comet-toolbox's HERA dashboard
+(<https://comet-toolbox.com/dashboard/hera/>), which points along the spacecraft's +Z axis, so
+render-view runs with `--pointing spacecraft`.
 Setup:
 - Kernels: Planning `v182_20261020_001`, the version the dashboard showed.
 - References: its screenshots, 392 px, the full 5.5° field. They are kept in
@@ -203,6 +158,23 @@ Reproduce with [`scripts/compare-render-view-toolbox.py`](../scripts/compare-ren
 Position, orientation, size and shape agree. The lit regions differ near the terminator,
 where the viewer's shading darkens earlier than comet-toolbox's. That difference grows with
 the phase angle, so the 71° and 79° epochs score lowest.
+
+### Against simulate-image
+
+Dimorphos at 2027-03-21T17:00, pinned kernels, untextured, 1020 px, both at AFC-1's 5.5°:
+
+| | |
+|---|---|
+| silhouette IoU | **0.988** |
+| centroid offset | **0.1 px** |
+| equivalent radius | **+0.5 px** (render-view's 8× MSAA counts partly covered edge pixels) |
+| lit-region IoU (25% of max) | 0.96 |
+
+The level of detail makes no difference at this range. Shading differs by design: the viewer
+uses Lommel-Seeliger with no ambient term, simulate-image Lommel-Seeliger with Lambert and
+ambient. So lit regions are compared, not grey levels. `src/Tests/RenderViewTests.fs` checks
+all of this with a checked-in job and reference (`src/Tests/data/render-view`); it needs no
+SPICE.
 
 ### Against the kernels' own shape model
 
