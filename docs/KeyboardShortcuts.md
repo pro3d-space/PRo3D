@@ -35,8 +35,8 @@ Delete is fn+delete there.
 
 ## 1–4 and C: confidence and comments
 
-With annotations selected **and the draw tool not active**, **1**–**4** in the 3D view rate
-the selected annotations (confidence, one undo step), and **C** opens a comment dialog next to
+With annotations selected **and none being drawn** (any tool; finishing an annotation selects
+it), **1**–**4** in the 3D view rate the selected annotations (confidence, one undo step), and **C** opens a comment dialog next to
 the single selected annotation ([AnnotationMetadata.md](AnnotationMetadata.md)). Otherwise the
 keys keep their old meaning: **0**–**3** set the semantic of the next annotation, **C**
 re-centres the orbit; with Ctrl held, too. While the comment dialog is open, Enter saves,

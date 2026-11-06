@@ -1,7 +1,7 @@
 import { test, expect, Page } from "@playwright/test";
 import { config, firstImage, fixture } from "../src/pro3d";
 import { clickRowIcon, setUpProjection } from "../src/probe-lib";
-import { awaitIdle, clickTool, drawingScene, drawSkyLine, openDrawingViewer, settled, tool } from "../src/drawing";
+import { awaitIdle, drawingScene, drawSkyLine, openDrawingViewer, settled, tool } from "../src/drawing";
 import { exportDimmer as dimmer, menu, readCsv, runExport, stubSaveDialog } from "../src/export";
 import * as fs from "fs";
 import * as path from "path";
@@ -83,24 +83,13 @@ test("projected images, confidence and comment reach Properties and the export",
         await drawSkyLine(context, app, render, main, async () => {}, 60, 0);
         await settled(render, "02-line.png", save);
 
-        // 3. keys in the 3D view. With the draw tool still active, 2 is the semantic of the next
-        //    annotation, even though finishing selected the line: it must not rate it
+        // 3. keys in the 3D view, the draw tool still active: finishing selected the line, so 2
+        //    rates it and C comments on it without leaving the tool (draw, rate, draw on)
+        expect((await tool(render, "Draw annotation")).active, "still in draw mode").toBe(true);
         await render.bringToFront();
         await render.mouse.move(700, 300);
         await render.waitForTimeout(500);
         expect(await focused(render), "the 3D view has focus").toContain("mainrendercontrol");
-        await render.keyboard.press("2");
-        await render.waitForTimeout(1500);
-        expect(await render.locator(".annotation-rating-balloon").count(), "the draw tool keeps 2 as the semantic: no bubble")
-            .toBe(0);
-        expect(await render.evaluate(() => document.body.innerText), "and no message")
-            .not.toContain("Confidence 2 set");
-
-        //    Select annotation: now 2 rates the selected line, C comments on it
-        await clickTool(render, "Select annotation");
-        await expect.poll(async () => (await tool(render, "Select annotation")).active, { timeout: 30_000 }).toBe(true);
-        await render.mouse.move(720, 320);
-        await render.waitForTimeout(500);
         await render.keyboard.press("2");
         // one annotation: a bubble beside it says C2 (no message), then fades
         const bubble = render.locator(".annotation-rating-balloon").first();
@@ -135,6 +124,7 @@ test("projected images, confidence and comment reach Properties and the export",
         await expect.poll(() => focused(render), { timeout: 5_000, message: "the keys are back with the 3D view" })
             .toContain("mainrendercontrol");
         await awaitIdle(render, app, 2000);
+        expect((await tool(render, "Draw annotation")).active, "the draw tool stayed active throughout").toBe(true);
 
         // 4a. Properties
         const props = await context.newPage();

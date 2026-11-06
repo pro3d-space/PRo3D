@@ -15,17 +15,18 @@ All four show in the annotation's **Properties** panel and can be exported (see
 
 ## Confidence: keys 1–4
 
-Select one or more annotations with a tool other than *Draw annotation* (e.g. *Select
-annotation*), then press **1**, **2**, **3** or **4** in the 3D view.
+Select one or more annotations, then press **1**, **2**, **3** or **4** in the 3D view.
+Finishing an annotation selects it, so with *Draw annotation* still active you can draw, press
+a digit to rate what you just drew, and draw the next one.
 All selected annotations get that rating as one undo step (Ctrl+Z takes it back). A small
 bubble saying e.g. **C3** pops up beside each rated annotation and fades out after about
 1.5 seconds; it follows the camera meanwhile. With more than one annotation rated, a short
 message top right also gives the count, e.g. *Confidence 3 set on 2 annotations*, since the
 bubbles of annotations out of view cannot be seen. Up to 20 bubbles are shown.
 
-The keys only rate while annotations are selected **and the draw tool is not active**. With
-*Draw annotation* active, **0–3** set the semantic of the next annotation as before, even
-though finishing an annotation selects it. With Ctrl held, 1–4 and C do neither. The **–**
+The keys only rate while annotations are selected **and none is being drawn**. While an
+annotation is in progress (points placed, not yet finished), or with nothing selected,
+**0–3** set the semantic as before. With Ctrl held, 1–4 and C do neither. The **–**
 button in Properties removes a rating.
 
 ### Confidence labels
@@ -40,8 +41,8 @@ are on in every new session.
 
 ## Comment: key C
 
-Select **one** annotation (draw tool not active) and press **C** in the 3D view. A small
-dialog opens next to the
+Select **one** annotation, or just finish drawing one, and press **C** in the 3D view. A
+small dialog opens next to the
 annotation, so it stays in view while you type. The dialog follows the annotation when the
 camera moves.
 
@@ -55,7 +56,7 @@ camera moves.
 The comment can also be edited in Properties, in a multi-line field that saves when you
 leave it.
 
-With no annotation selected, or with the draw tool active, **C** still re-centres the orbit
+With no annotation selected, or while one is being drawn, **C** still re-centres the orbit
 on the body centre. With several selected, it shows a hint instead.
 
 ## Shape model

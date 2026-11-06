@@ -408,16 +408,16 @@ module ViewerApp =
         | Some text -> m |> logScreen 2000 text
         | None -> m
 
-    /// Keys 1-4 and C while annotations are selected and the draw tool is not active (#887).
-    /// With the draw tool active the digits stay the semantic: finishing an annotation selects
-    /// it, so "selected" alone would rate the annotation just drawn. Esc in the 3D view closes
-    /// an open comment dialog.
+    /// Keys 1-4 and C while annotations are selected and none is being drawn (#887), with any
+    /// tool: finishing an annotation selects it, so with the draw tool still active they rate
+    /// and comment the annotation just drawn -- the workflow is draw, rate, draw the next. The
+    /// digits set the semantic while an annotation is being drawn, or with nothing selected.
+    /// Esc in the 3D view closes an open comment dialog.
     let private metadataKeyAction (m : Model) (k : Aardvark.Application.Keys) : Option<AnnotationMetadataAction> =
         match m.annotationMetadata.comment, k with
         | Some _, Aardvark.Application.Keys.Escape -> Some CancelComment
         | Some _, _ -> None
-        | None, _ when m.ctrlFlag || m.interaction = Interactions.DrawAnnotation
-                       || not (AnnotationMetadataApp.takesKeys m.drawing) -> None
+        | None, _ when m.ctrlFlag || not (AnnotationMetadataApp.takesKeys m.drawing) -> None
         | None, _ ->
             match k with
             | Aardvark.Application.Keys.D1 | Aardvark.Application.Keys.NumPad1 -> Some (SetConfidence 1)
