@@ -268,13 +268,32 @@ let private appTests =
             let a = polyline [ V3d.Zero; V3d.IOO ]
             let b = polyline [ V3d.OIO; V3d.OOI ]
             let drawing = withSelected [ a; b ] None
-            let drawing', _, feedback = AnnotationMetadataApp.update drawing AnnotationMetadataModel.initial (SetConfidence 2)
+            let drawing', model, feedback = AnnotationMetadataApp.update drawing AnnotationMetadataModel.initial (SetConfidence 2)
             Expect.equal (annotationOf drawing' a.key).metadata.confidence (Some 2) "a rated"
             Expect.equal (annotationOf drawing' b.key).metadata.confidence (Some 2) "b rated"
             Expect.equal drawing'.undoStack.Length (drawing.undoStack.Length + 1) "one undo entry"
-            Expect.equal feedback (Some "Confidence 2 set on 2 annotations") "message"
+            Expect.equal feedback (Some "Confidence 2 set on 2 annotations") "several: the message as well"
+            match model.balloon with
+            | Some b ->
+                Expect.equal b.text "C2" "bubble text"
+                Expect.equal (List.length b.anchors) 2 "a bubble on each"
+            | None -> failtest "no bubble"
             let undone = DrawingApp.applyUndoDelta drawing'.annotations drawing'.undoStack.Head
             Expect.isNone (match HashMap.tryFind a.key undone.flat with Some (Leaf.Annotations x) -> x.metadata.confidence | _ -> Some 0) "undo clears it"
+        }
+
+        test "TC-23.3 one rated annotation: a bubble beside it, no message" {
+            let a = polyline [ V3d.Zero; V3d(2.0, 0.0, 0.0) ]
+            let drawing = withSelected [ a ] (Some a.key)
+            let _, model, feedback = AnnotationMetadataApp.update drawing AnnotationMetadataModel.initial (SetConfidence 4)
+            Expect.isNone feedback "the bubble says it"
+            match model.balloon with
+            | Some b ->
+                Expect.equal b.text "C4" "text"
+                Expect.equal b.anchors [ V3d(1.0, 0.0, 0.0) ] "at the annotation's centre"
+            | None -> failtest "no bubble"
+            let _, model', _ = AnnotationMetadataApp.update drawing model (SetConfidence 4)
+            Expect.notEqual (model'.balloon |> Option.map (fun b -> b.id)) (model.balloon |> Option.map (fun b -> b.id)) "a new rating, new bubbles"
         }
 
         test "TC-23.3 confidence outside 1-4 is ignored" {

@@ -17,8 +17,11 @@ All four show in the annotation's **Properties** panel and can be exported (see
 
 Select one or more annotations with a tool other than *Draw annotation* (e.g. *Select
 annotation*), then press **1**, **2**, **3** or **4** in the 3D view.
-All selected annotations get that rating as one undo step (Ctrl+Z takes it back), and a
-short message top right says what happened, e.g. *Confidence 3 set on 2 annotations*.
+All selected annotations get that rating as one undo step (Ctrl+Z takes it back). A small
+bubble saying e.g. **C3** pops up beside each rated annotation and fades out after about
+1.5 seconds; it follows the camera meanwhile. With more than one annotation rated, a short
+message top right also gives the count, e.g. *Confidence 3 set on 2 annotations*, since the
+bubbles of annotations out of view cannot be seen. Up to 20 bubbles are shown.
 
 The keys only rate while annotations are selected **and the draw tool is not active**. With
 *Draw annotation* active, **0–3** set the semantic of the next annotation as before, even
@@ -202,7 +205,7 @@ than failing the scene.
 | FITS header, credit and shape model from the sidecar (`OpcMetadata.shapeModelOf`, `sourceRows`) | [OpcMetadata.fs](../src/PRo3D.Core/OpcMetadata.fs) |
 | archive citations (`ShapeModelCredits.citations`) | [Annotation-Model.fs](../src/PRo3D.Base/Annotation/Annotation-Model.fs) |
 | Source & Credits section (`viewSource`) | [SurfaceApp.fs](../src/PRo3D.Core/Surface/SurfaceApp.fs) |
-| sub-app: keys, comment dialog, capture at finish, settings | [AnnotationMetadataApp.fs](../src/PRo3D.Viewer/Viewer/AnnotationMetadataApp.fs), model in [AnnotationMetadata-Model.fs](../src/PRo3D.Viewer/AnnotationMetadata-Model.fs) |
+| sub-app: keys, comment dialog, rating bubbles (`ratingBalloons`), capture at finish, settings | [AnnotationMetadataApp.fs](../src/PRo3D.Viewer/Viewer/AnnotationMetadataApp.fs), model in [AnnotationMetadata-Model.fs](../src/PRo3D.Viewer/AnnotationMetadata-Model.fs) |
 | per-image projector, any library image (`ImageInspector.tryContextFor`) | [ImageInspector.fs](../src/PRo3D.Viewer/Viewer/ImageInspector.fs) |
 | key routing (`metadataKeyAction`), capture hook (`withAnnotationMetadata`) | [Viewer.fs](../src/PRo3D.Viewer/Viewer/Viewer.fs) |
 | Properties rows | [Drawing-Properties.fs](../src/PRo3D.Core/Drawing/Drawing-Properties.fs) |

@@ -62,6 +62,17 @@ module AnnotationMetadataApp =
         | [] -> None
         | pts -> Some ((pts |> List.fold (+) V3d.Zero) / float pts.Length)
 
+    /// At most this many rating bubbles; a larger selection gets the message instead.
+    let maxBalloons = 20
+
+    /// Bubbles on the rated annotations; with more than one, also the top-right message, as
+    /// bubbles of annotations out of view cannot be seen.
+    let private rated (text : string) (message : string) (updated : list<Annotation>) (model : AnnotationMetadataModel) =
+        let anchors = updated |> List.truncate maxBalloons |> List.choose anchorOf
+        let model = { model with balloon = Some { id = Guid.NewGuid(); text = text; anchors = anchors } }
+        let feedback = if updated.Length > 1 || anchors.IsEmpty then Some message else None
+        model, feedback
+
     // ---------------------------------------------------------------------------------------
     // update
 
@@ -81,8 +92,9 @@ module AnnotationMetadataApp =
             | Some c, selected ->
                 let updated =
                     selected |> List.map (fun a -> { a with metadata = { a.metadata with confidence = Some c } })
-                replaceAll drawing updated, model,
-                Some (sprintf "Confidence %d set on %d %s" c updated.Length (plural updated.Length))
+                let model, feedback =
+                    rated (sprintf "C%d" c) (sprintf "Confidence %d set on %d %s" c updated.Length (plural updated.Length)) updated model
+                replaceAll drawing updated, model, feedback
 
         | ClearConfidence ->
             match selectedAnnotations drawing with
@@ -90,8 +102,9 @@ module AnnotationMetadataApp =
             | selected ->
                 let updated =
                     selected |> List.map (fun a -> { a with metadata = { a.metadata with confidence = None } })
-                replaceAll drawing updated, model,
-                Some (sprintf "Confidence cleared on %d %s" updated.Length (plural updated.Length))
+                let model, feedback =
+                    rated "C -" (sprintf "Confidence cleared on %d %s" updated.Length (plural updated.Length)) updated model
+                replaceAll drawing updated, model, feedback
 
         | OpenComment ->
             match selectedAnnotations drawing with
@@ -344,6 +357,37 @@ module AnnotationMetadataApp =
                     | _ -> Seq.empty
                 | _ -> Seq.empty
         }
+
+    /// The rating bubbles, one beside each rated annotation, fading out after about 1.5 s.
+    /// Like the dialog, only their positions follow the camera; the DOM is built once per
+    /// rating, so the fade runs once.
+    let ratingBalloons
+        (balloon : aval<Option<RatingBalloon>>)
+        (view : aval<CameraView>)
+        (frustum : aval<Frustum>)
+        : DomNode<'msg> =
+        let bubble (label : string) (anchor : V3d) =
+            // the outer div is placed (its style follows the camera), the inner one fades:
+            // a position update rewrites the style and must not bring the bubble back
+            let place =
+                AVal.map2 (fun v f ->
+                    match screenPosition v f anchor with
+                    | Some p ->
+                        sprintf "position:absolute; left:calc(%.3f%% + 10px); top:calc(%.3f%% - 34px); z-index:19; pointer-events:none" (100.0 * p.X) (100.0 * p.Y)
+                    | None -> "display:none") view frustum
+            Incremental.div (AttributeMap.ofAMap (amap { let! s = place in yield style s })) (AList.ofList [
+                div [
+                    clazz "annotation-rating-balloon"
+                    style "background:rgba(20,20,20,0.92); color:white; border:1px solid #2185d0; border-radius:10px; padding:2px 8px; font-weight:bold; font-size:small; white-space:nowrap; opacity:1"
+                ] [ text label ]
+                |> onBoot "var el = document.getElementById('__ID__'); setTimeout(function () { el.style.transition = 'opacity 0.5s'; el.style.opacity = '0'; }, 1200);"
+            ])
+        let content =
+            balloon |> AVal.map (fun b ->
+                match b with
+                | None -> IndexList.empty
+                | Some b -> b.anchors |> List.map (bubble b.text) |> IndexList.ofList)
+        Incremental.div AttributeMap.empty (AList.ofAVal content)
 
     /// The comment dialog, floating next to the annotation in the 3D view. Only its position
     /// follows the camera (`position`, fractions of the view, see screenPosition); the DOM is

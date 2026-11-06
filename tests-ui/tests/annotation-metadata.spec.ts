@@ -91,7 +91,9 @@ test("projected images, confidence and comment reach Properties and the export",
         expect(await focused(render), "the 3D view has focus").toContain("mainrendercontrol");
         await render.keyboard.press("2");
         await render.waitForTimeout(1500);
-        expect(await render.evaluate(() => document.body.innerText), "the draw tool keeps 2 as the semantic")
+        expect(await render.locator(".annotation-rating-balloon").count(), "the draw tool keeps 2 as the semantic: no bubble")
+            .toBe(0);
+        expect(await render.evaluate(() => document.body.innerText), "and no message")
             .not.toContain("Confidence 2 set");
 
         //    Select annotation: now 2 rates the selected line, C comments on it
@@ -100,9 +102,19 @@ test("projected images, confidence and comment reach Properties and the export",
         await render.mouse.move(720, 320);
         await render.waitForTimeout(500);
         await render.keyboard.press("2");
+        // one annotation: a bubble beside it says C2 (no message), then fades
+        const bubble = render.locator(".annotation-rating-balloon").first();
+        await expect(bubble, "the rating bubble").toHaveText("C2", { timeout: 10_000 });
+        save("02b-rating-bubble.png", await render.screenshot());
+        const vpb = render.viewportSize() ?? { width: 1600, height: 900 };
+        const bb = await bubble.boundingBox();
+        expect(bb, "the bubble is laid out").not.toBeNull();
+        console.log(`bubble at ${bb!.x}, ${bb!.y}; view centre ${vpb.width / 2}, ${vpb.height / 2}`);
+        expect(Math.abs(bb!.x - (vpb.width / 2 + 10)), "bubble beside the annotation (x)").toBeLessThan(40);
+        expect(Math.abs(bb!.y - (vpb.height / 2 - 34)), "bubble beside the annotation (y)").toBeLessThan(40);
         await expect
-            .poll(() => render.evaluate(() => document.body.innerText), { timeout: 10_000 })
-            .toContain("Confidence 2 set on 1 annotation");
+            .poll(() => bubble.evaluate((e) => getComputedStyle(e).opacity), { timeout: 5_000, message: "the bubble fades" })
+            .toBe("0");
 
         await render.keyboard.press("c");
         await render.waitForSelector(".annotation-comment-dialog", { timeout: 15_000 });

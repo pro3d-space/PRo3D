@@ -2214,6 +2214,10 @@ module Gui =
                                             return AnnotationMetadataApp.screenPosition view frustum ed.anchor
                                     }
                                 yield AnnotationMetadataApp.commentDialog commentEditor commentPosition (AnnotationMetadataMessage >> ViewerMessage)
+                                // the bubble confirming a rating beside each rated annotation (#887)
+                                yield AnnotationMetadataApp.ratingBalloons
+                                        (m.annotationMetadata |> AVal.map (fun s -> s.balloon))
+                                        m.navigation.camera.view m.frustum
                                 // navigation + interaction selector, overlaid on the right edge
                                 yield ToolStrip.view m |> UI.map ViewerMessage
                                 // axis gizmo, bottom-left corner: click an axis to look along it

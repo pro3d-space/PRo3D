@@ -14,11 +14,22 @@ type CommentEditor =
         anchor     : Aardvark.Base.V3d
     }
 
+/// The bubbles confirming a rating next to each rated annotation, e.g. "C3". They fade out on
+/// the client; `id` is new per rating, so the next rating draws fresh ones.
+type RatingBalloon =
+    {
+        id      : Guid
+        text    : string
+        /// render-space centres of the rated annotations (at most maxBalloons)
+        anchors : list<Aardvark.Base.V3d>
+    }
+
 /// State of the annotation-metadata sub-app (AnnotationMetadataApp). Session state, not
 /// persisted: the metadata itself lives on each annotation.
 type AnnotationMetadataModel =
     {
         comment              : Option<CommentEditor>
+        balloon              : Option<RatingBalloon>
         /// "C2"-style labels next to rated annotations, for all annotations at once
         showConfidenceLabels : bool
     }
@@ -38,5 +49,6 @@ module AnnotationMetadataModel =
     let initial =
         {
             comment              = None
+            balloon              = None
             showConfidenceLabels = true
         }

@@ -177,6 +177,9 @@ Confidence 1–4, comment, shape model and projected images used (#887). User do
 - **Images used** is a CPU line-of-sight test per control point, using `ImageInspector.tryContextFor`
   and the kd-trees, not the shader's facing test (that one depends on triangle winding).
   It differs from what is painted only behind occluders.
+- Rating bubbles (`AnnotationMetadataModel.balloon`, `ratingBalloons`): one per rated annotation,
+  a new `id` per rating rebuilds them; the fade is client-side (onBoot timer on an inner div,
+  so the outer div's camera-driven style updates do not undo it).
 - The comment text stays client-side until Enter. The dialog DOM depends only on
   `annotationMetadata.comment`; only its style follows the camera.
 - **Credits:** `ShapeModelRef.credit` is captured with the shape model. The sidecar's
