@@ -1,3 +1,7 @@
+## 0.6.1
+- fix — `render-view`: an OPC given a `trafo` lost its cast shadows or got coarse ones. The shadow map's bounds applied the trafo twice, so they covered the wrong region: Didymos placed 1.15 km from Dimorphos widened them to about twice the size, and an OPC moved by kilometres was outside them and cast no shadows at all. OPCs without a trafo were not affected
+- The shadow bias of `render-view` and `render-bookmarks` comes from the scene's viewer configuration (*Shadow Bias (texels)*, default 1.5 as in 0.6.0); `render-view` uses the default
+
 ## 0.6.0
 - `render-bookmarks` — new verb: opens a `.pro3d` scene headlessly and renders its plain bookmarks to PNG as the viewer shows them. Select by name, `*` / `?` wildcards or GUID; a JSON job file can hold several passes; writes a `renders.json` manifest. `--lod-level n` fixes the OPC level of detail to depth `n`. See docs/Pro3DTool-RenderBookmarks.md
 - `render-view` — new verb: renders OPCs without a scene file, each placed by a 4×4 transformation, from explicitly given cameras (location, forward, up, horizontal field of view), optionally lit by a given sun position with or without cast shadows. Input is a JSON job; the tool itself uses no SPICE. Validated against comet-toolbox, simulate-image and a ray-cast of the kernels' DSK. See docs/Pro3DTool-RenderView.md
