@@ -34,6 +34,7 @@ module ConfigProperties =
         | SetPreviewIntersectionCursorWorldSize of Numeric.Action
         | ToggleFillReachAuto
         | SetFillReach              of Numeric.Action
+        | SetShadowBias             of Numeric.Action
         
 
     let update (model : ViewConfigModel) (act : Action) =
@@ -70,6 +71,7 @@ module ConfigProperties =
         | SetPreviewIntersectionCursorWorldSize a ->  { model with previewIntersectionWorldSize = Numeric.update model.previewIntersectionWorldSize a }
         | ToggleFillReachAuto -> { model with fillReachAuto = not model.fillReachAuto }
         | SetFillReach a -> { model with fillReach = Numeric.update model.fillReach a }
+        | SetShadowBias a -> { model with shadowBias = Numeric.update model.shadowBias a }
 
         | Nop -> model
         | _ -> 
@@ -120,6 +122,11 @@ module ConfigProperties =
                 Html.row "Fill Reach (m):" [
                     UI.wrapToolTip DataPosition.Bottom fillReachTooltip (div [] [ fillReachAuto; text " auto" ])
                     Incremental.div AttributeMap.Empty fillReachMetres
+                ]
+
+                let shadowBias = Numeric.view' [InputBox] model.shadowBias |> UI.map SetShadowBias
+                Html.row "Shadow Bias (texels):" [
+                    UI.wrapToolTip DataPosition.Bottom "Sun shadows: depth bias in shadow-map texels. Raise it if lit terrain shows shadow speckles (acne); lower it if shadows start too far from their casters." shadowBias
                 ]
             ]
         )

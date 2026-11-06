@@ -335,9 +335,10 @@ module ViewerUtils =
                     }
 
                 let pickable = 
-                    (globalBB, trafo)
-                    ||>  AVal.map2( fun (a:Box3d) (b:Trafo3d) -> 
-                        { shape = PickShape.Box (a.Transformed(b)); trafo = Trafo3d.Identity }
+                    // globalBB already carries preTransform; undo it before the placement
+                    (globalBB, surf.preTransform, trafo)
+                    |||>  AVal.map3( fun (a:Box3d) (pre:Trafo3d) (b:Trafo3d) -> 
+                        { shape = PickShape.Box (a.Transformed(pre.Inverse * b)); trafo = Trafo3d.Identity }
                     ) 
                 
                 let pickBox = 

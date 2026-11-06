@@ -11,7 +11,6 @@ open PRo3D.Core
 /// Total readers for job files: every failure is an Error naming the field.
 module internal JsonRead =
 
-
     let sequence (xs : list<Result<'a, string>>) : Result<list<'a>, string> =
         List.foldBack (fun x acc ->
             match x, acc with
@@ -60,7 +59,6 @@ module internal JsonRead =
                                 (if ks.Length > 1 then "s" else "")
                                 (ks |> List.map (sprintf "'%s'") |> String.concat ", ")
                                 where (String.concat ", " known))
-
 
     let float' (field : string) (n : JsonNode) : Result<float, string> =
         match n with

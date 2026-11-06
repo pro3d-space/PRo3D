@@ -15,6 +15,7 @@ open System.Threading
 
 open Aardvark.Rendering                  // IRuntime, IFramebufferSignature
 
+open Chiron
 open Expecto
 
 open PRo3D                                // ConfigProperties
@@ -83,6 +84,26 @@ let tests =
                         (ConfigProperties.Action.SetNearPlane (Numeric.SetValue 0.25))
             Expect.floatClose Accuracy.high m.farPlane.value ViewConfigModel.initial.farPlane.value
                 "far plane should be unchanged when only the near plane is set"
+        }
+
+        test "TC-9.1 SetShadowBias updates the sun-shadow bias and it survives save/load" {
+            let m = ConfigProperties.update ViewConfigModel.initial
+                        (ConfigProperties.Action.SetShadowBias (Numeric.SetValue 4.0))
+            Expect.floatClose Accuracy.high m.shadowBias.value 4.0 "shadow bias should be 4"
+            let back : ViewConfigModel =
+                m |> Json.serialize |> Json.format |> Json.parse |> Json.deserialize
+            Expect.floatClose Accuracy.high back.shadowBias.value 4.0 "shadow bias should be saved with the scene"
+        }
+
+        test "TC-9.1 a config saved before the shadow bias existed loads with the default" {
+            // the same config without the new key, as an older release writes it
+            let json =
+                match ViewConfigModel.initial |> Json.serialize with
+                | Json.Object props -> Json.Object (Map.remove "shadowBias" props)
+                | other -> other
+            let back : ViewConfigModel = json |> Json.deserialize
+            Expect.floatClose Accuracy.high back.shadowBias.value ViewConfigModel.initShadowBias.value
+                "missing shadowBias should fall back to the default"
         }
 
         // TC-9.2 Screenshots - which scene the render server is asked for
