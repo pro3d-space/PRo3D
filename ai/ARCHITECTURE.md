@@ -173,6 +173,7 @@ PRo3D uses aardvark.media's `ThreadPool<'msg>`/`proclist` for background work th
 
 - **`messagingMailbox` / `MessagingMailbox`** — an async mailbox the viewer uses to inject messages from outside the normal update loop (e.g. remote API, async load completions). Carried on the root `Model`.
 - **`snapshotThreads` / `backgroundPicking`** — dedicated `ThreadPool<ViewerAction>` fields for batch snapshot rendering and background surface picking, kept separate so they can be started/stopped independently.
+- **Busy indicator** — the update thread, the DOM-diff thread and the render service share one `app.lock`, so a slow `update` freezes every page and the 3D stream. `Busy.fs` keeps a lock-free cell that `ViewerApp.busyLabel` sets per message and the `/busy` route reads; the page shows it as a pill. **Every operation that can block must be labelled** — see [CONVENTIONS.md](CONVENTIONS.md#long-running-operations-always-tell-the-user-busy-indicator) and [docs/BusyIndicator.md](../docs/BusyIndicator.md).
 - **Async picking** — surface picking results arrive via async values (`pickPreviewRequested : ConsumableAsyncValue<...>`); picking work is only spawned when an interaction actually requires it (see [RENDERING.md](RENDERING.md#picking)).
 
 ---

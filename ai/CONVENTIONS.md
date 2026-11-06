@@ -199,6 +199,13 @@ of the evaluation. The cost is in the dependency graph, not in the lookup. FShar
 says so in its own doc comment: *"this operation should not be used extensively since its
 resulting aval will be re-evaluated upon every change of the map."*
 
+A worse relative is building a *keys set* per element:
+`leaves |> AList.filterA (fun x -> lookup |> AMap.keys |> ASet.contains x)`. Every
+`AMap.keys` is a new node with its own reader over the whole map, so opening the view costs
+O(n) per element, O(n²) in all. The annotation tree did exactly this; at 5,000 annotations the
+annotations page kept the viewer busy for minutes and it served no page meanwhile (fixed in
+`Drawing.UI.viewTree`).
+
 One or two fixed keys is fine — it is the fan-out that hurts. For a set of keys:
 
 ```fsharp
@@ -255,6 +262,7 @@ shape is worse here: it re-fires on every edit in the collection, subset or not.
 | Choosing collection representation | ask: adaptive collection vs `aval<collection>` (rules 2–3) |
 | Reducing a collection to one value | one `AMap.filter`, not `AMap.tryFind` per key; sizes and change rates are load characteristics — ask, don't assume (rule 6) |
 | Reaching for `.Current` on a big record | check what else lives in that record first — it fires for all of it (rule 3) |
+| An operation that can block the update thread | label it in `ViewerApp.busyLabel` so the busy indicator shows it ([Long-running operations](#long-running-operations-always-tell-the-user-busy-indicator)) |
 
 ---
 
@@ -344,6 +352,45 @@ Pick the data structure for how it's *used*, and keep large/hot-path data out of
   - `List.append` / `@` — O(n) per call, O(n²) in a loop. Repeated appends mean you want an `array`/`ResizeArray`/`IndexList`, or to build then reverse.
   - `List.item` / indexing into a list — O(n); use `array` or `IndexList`/`HashMap`.
 - **Asymptotically slow operations must be discussed with the user before they go in.** Anything super-linear, or linear work inside a hot loop (e.g. an O(n) lookup per element → O(n²)), is a design decision, not a detail — raise it. Reach for the structure with the right complexity (`HashMap`/`HashSet` for membership/lookup, `array` for sequential/indexed access) instead.
+
+### Long-running operations: always tell the user (busy indicator)
+
+**Every operation that can block for more than a few hundred milliseconds must show the busy
+indicator.** A user who sees a frozen window cannot tell a slow operation from a hang, and
+there is no other way to tell them: aardvark.media's update thread, its DOM-diff thread and
+the render service share one `app.lock`, so while an `update` is slow no page repaints, the 3D
+stream stops, and nothing driven from the model can reach the browser. Only the lock-free
+`/busy` route and the client-side pill it feeds can (`src/PRo3D.Viewer/Busy.fs`,
+[docs/BusyIndicator.md](../docs/BusyIndicator.md)).
+
+- **On the update thread:** add the message to `ViewerApp.busyLabel`
+  (`src/PRo3D.Viewer/Viewer/Viewer.fs`), one line naming the operation as the user would
+  (`"picking"`, `"selecting annotations"`, `"importing surfaces"`). Unlabelled messages never
+  touch the busy cell, so labelling costs nothing on the fast path.
+- **On a background worker** whose result the screen is waiting for (e.g. the hover pick):
+  wrap the work in `Busy.scopeBackground "label"`.
+- **Inside a sub-app** (`PRo3D.Core`, which cannot see `Busy`): the label goes on the
+  *viewer message* that carries the sub-app action, matched as precisely as needed, e.g.
+  `ViewerAction.DrawingMessage (DrawingAction.PickAnnotation _)`.
+- **Add the label in the same change as the slow work**, and add it to the table in
+  [docs/BusyIndicator.md](../docs/BusyIndicator.md).
+
+What counts as long-running is not just the obvious imports and exports. Anything that can
+cross into one of these is:
+
+- **ray casting against surfaces** — the first ray into a patch loads its KdTree from disk
+  (1–5 s per patch on Dimorphos), and a ray per object adds up (box selection: 69,000 rays at
+  5,000 annotations);
+- **work per annotation / per surface / per patch**, which is cheap at test-fixture sizes
+  and seconds at real scene sizes — measure at thousands, not at five;
+- **file I/O, (de)serialization, resampling, export.**
+
+The indicator says *that* PRo3D is working, not how far along it is. It is not a substitute
+for making the operation fast; it is what keeps a slow one from looking like a crash.
+
+Test it: a Playwright spec can poll `GET <app.url>busy` (it answers while the update thread is
+blocked) and require the label during the operation — see `watchBusy` in
+`tests-ui/tests/box-selection.spec.ts` and `tests-ui/tests/busy-indicator.spec.ts`.
 
 ### Other
 
