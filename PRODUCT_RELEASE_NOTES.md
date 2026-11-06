@@ -1,3 +1,16 @@
+## 6.4.0
+The first non-prerelease of the 6.4 line. Everything from `6.4.0-prerelease001` and `-prerelease002` is included: fills that lie on the terrain, supporting profiles, the Image Inspector with shadow measurements, surface comparison, the LatLon grid over projected images and the experimental geological maps (see below). New since `-prerelease002`:
+
+- Annotations: **import polygons from CSV.** *Extras → Import Polygons (\*.csv)...* reads one row per vertex (`polygon_id,x,y,z` in body-fixed metres), PRo3D's own per-point export and `pro3d-tool unproject` output, so polygons digitised on instrument images arrive via unproject. Optionally snaps the vertices onto the surface along the local up, adds sky-projected points along the edges, and computes dip and strike. Each file becomes one annotation group and one undo step (#888, docs/PolygonCsvImport.md)
+- Annotations: **three-point ellipses can be edited by their axis ends.** In *Edit annotation* mode, four handles at the ends of the major and minor axes change the axes within the ellipse's plane, one undo step per drop. Four-point ellipses, SBMT imports and ellipses saved before 6.3.4 are not editable (#883)
+- Surfaces: **a Texture checkbox draws a surface untextured**, in plain grey, shaded by the sun or, with sun lighting off, by a light fixed to the camera (#868)
+- Coordinates: **heights say what they are measured against**: *Height above spheroid* (Mars, Earth, Moon, Phobos, Deimos, Didymos), *Radius from centre* (Dimorphos), *Height along up* (no body), in the HUD and the Coordinate System panel (#866, docs/HeightReference.md)
+- Picking: **each KdTree is loaded once per process.** The hover pick and click picks no longer load the same patch again and again (up to 40 s each on a busy machine), and clicks during a load are no longer lost (#874)
+- Tools: **`pro3d-tool render-bookmarks`** renders a scene's bookmarks headlessly to PNGs, and **`pro3d-tool render-view`** renders OPCs from explicit cameras, optionally lit by the sun with cast shadows, without a scene file (#871, #878)
+- Shadows: cast shadows of OPCs placed by a pre-transform (render-view jobs, legacy `.trafo` files) were coarse or missing; fixed. The sun-shadow bias is now a viewer setting (#889)
+- Automation: `GET /activity` tells scripts when PRo3D has settled, so UI tests no longer need fixed sleeps (#876)
+- Scenes and annotation files saved with 6.4.0 still open in earlier versions: new data is stored under new keys they skip
+
 ## 6.4.0-prerelease002
 Adds geological maps, an experimental first version.
 
