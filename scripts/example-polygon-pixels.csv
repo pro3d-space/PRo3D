@@ -1,0 +1,10 @@
+image,x,y,polygon_id,label
+ASP_000000_270323T060000_2B_NIR1_0.tif,300,236,patch_centre,Hexagon at the frame centre
+ASP_000000_270323T060000_2B_NIR1_0.tif,340,236,patch_centre,Hexagon at the frame centre
+ASP_000000_270323T060000_2B_NIR1_0.tif,350,256,patch_centre,Hexagon at the frame centre
+ASP_000000_270323T060000_2B_NIR1_0.tif,340,276,patch_centre,Hexagon at the frame centre
+ASP_000000_270323T060000_2B_NIR1_0.tif,300,276,patch_centre,Hexagon at the frame centre
+ASP_000000_270323T060000_2B_NIR1_0.tif,290,256,patch_centre,Hexagon at the frame centre
+ASP_000000_270323T060000_2B_NIR1_0.tif,270,300,triangle_south,
+ASP_000000_270323T060000_2B_NIR1_0.tif,300,300,triangle_south,
+ASP_000000_270323T060000_2B_NIR1_0.tif,285,325,triangle_south,

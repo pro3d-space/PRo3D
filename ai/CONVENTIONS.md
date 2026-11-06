@@ -350,6 +350,7 @@ Pick the data structure for how it's *used*, and keep large/hot-path data out of
 - **Immutability first** — models are immutable records; updates return new records. Reserve `mutable`/`ref`/caches for genuine performance needs (e.g. the KdTree cache), and keep them out of the persisted model.
 - **Delete dead code** rather than commenting it out (the codebase has accumulated commented blocks — don't add more).
 - Prefer extending the relevant **sub-app** over growing the monolithic viewer `update` (see [ARCHITECTURE.md](ARCHITECTURE.md#sub-app-composition)).
+- **Ask the user before placing a new feature's state, actions, update or UI**: its own sub-app in its own file(s), or cases inline in `Viewer.fs` / `ViewerGUI.fs` / `Viewer-Model.fs`. Default proposal: a separate file holding the feature's model, actions, `update` and `view` (e.g. `src/PRo3D.Viewer/PolygonImportApp.fs`), working on the sub-models it needs rather than the whole viewer `Model`, so the viewer only routes one `…Message` case and maps one view. Don't add dozens of match cases to the viewer without asking.
 
 ---
 

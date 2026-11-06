@@ -54,6 +54,7 @@ Interactive measurement/markup placed on surfaces.
 | `src/PRo3D.Core/Drawing/Drawing-App.fs` | Drawing update/view, measurement computation |
 | `src/PRo3D.Core/Importers/AnnotationGroupsImporter.fs` | Import annotations (PRo3D v1 XML groups, plus `importSbmt`) |
 | `src/PRo3D.Core/Importers/SbmtImporter.fs` | Import SBMT (Small Body Mapping Tool) structure files — tab-separated point/ellipse catalogs, **not** GIS shapefiles. See `docs/SbmtImport.md`. |
+| `src/PRo3D.Core/Importers/PolygonCsvImporter.fs` | Import closed polygons from a body-fixed vertex CSV (`polygon_id,x,y,z`; also reads the per-point export and `pro3d-tool unproject` output), optionally snapped onto the surfaces along the sky (`CooTransformation.getUpVector`, as Sky projection); with an `image` column the key is image + id. See `docs/PolygonCsvImport.md`. |
 
 Key types:
 - **`Geometry`** — `Point` | `Line` | `Polyline` | `Polygon` | `DnS` (dip & strike) | `TT` (true thickness) | `Ellipse` | `AxisEllipse` | `Axis4PEllipse`.

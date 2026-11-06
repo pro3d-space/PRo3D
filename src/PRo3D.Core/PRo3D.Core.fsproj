@@ -124,6 +124,7 @@
     <Compile Include="Importers/MeasurementsImporter.g.fs" />
     <Compile Include="Importers/SbmtImporter.fs" />
     <Compile Include="Importers/AnnotationGroupsImporter.fs" />
+    <Compile Include="Importers/PolygonCsvImporter.fs" />
     <Compile Include="Importers/SurfaceTrafoImporter.fs" />
     <Compile Include="Importers/SurfaceTrafoImporter.g.fs" />
     <Compile Include="Queries\TransferFunction.fs" />

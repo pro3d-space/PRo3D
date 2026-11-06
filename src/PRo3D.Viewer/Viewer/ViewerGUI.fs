@@ -759,6 +759,13 @@ module Gui =
                                             text "Import SBMT Annotations"
                                         ]
 
+                                        // polygon CSVs in the body-fixed frame (docs/PolygonCsvImport.md):
+                                        // opens the import window, which has the options and the file dialog
+                                        div [ clazz "ui item";
+                                            onClick (fun _ -> PolygonImportMessage PolygonImportAction.ShowImportWindow) ] [
+                                            text "Import Polygons (*.csv)..."
+                                        ]
+
                                         let jsImportTraverseDialog = "top.aardvark.dialog.showOpenDialog({title:'Import Traverse files' , filters: [{ name: 'Traverses (*.json)', extensions: ['json']},], properties: ['openFile', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
 
                                         div [ clazz "ui item"; Dialogs.onChooseFiles ImportTraverse; clientEvent "onclick" jsImportTraverseDialog ] [
@@ -2392,6 +2399,8 @@ module Gui =
                             // Overlay window; absent from the DOM while closed,
                             // so there is no JS modal state to keep in sync.
                             AnnotationExport.exportWindow m
+                            |> UI.map ViewerMessage
+                            PolygonImportApp.view m.polygonImport |> UI.map PolygonImportMessage
                             |> UI.map ViewerMessage
                             LayoutApp.UI.dialogs m.layout
                             |> UI.map (LayoutMessage >> ViewerMessage)

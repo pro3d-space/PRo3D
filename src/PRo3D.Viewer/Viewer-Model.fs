@@ -163,6 +163,8 @@ type ViewerAction =
 | ImportSceneObject               of list<string>
 | ImportPRo3Dv1Annotations        of list<string>
 | ImportSbmtAnnotations           of list<string>
+/// polygon CSVs (docs/PolygonCsvImport.md)
+| PolygonImportMessage            of PolygonImportAction
 | ImportSurfaceTrafo              of list<string>
 | ImportRoverPlacement            of list<string>
 | ImportTraverse                  of list<string>
@@ -783,6 +785,9 @@ type Model = {
     /// Settings of the annotation export window. Session-only on purpose — it
     /// lives here rather than on `Scene` so nothing has to be serialised.
     annotationExport : AnnotationExportModel
+
+    /// The polygon CSV import window. Session-only, like annotationExport.
+    polygonImport    : PolygonImportModel
 
     /// The map projection panel (#772). Session-only, like annotationExport.
     mapProjection    : PRo3D.MapProjection.MapProjectionModel

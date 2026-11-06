@@ -1707,6 +1707,20 @@ module ViewerApp =
                 with
                 | e -> Log.error "[Viewer] %A" e; m
             | None -> m
+        | PolygonImportMessage (PolygonImportAction.ImportFiles paths),_ when not paths.IsEmpty ->
+            let scene : PolygonImportApp.SceneContext = {
+                surfaces          = m.scene.surfacesModel
+                referenceSystem   = m.scene.referenceSystem
+                gis               = m.scene.gisApp
+                diagnosticTimings = Config.diagnosticTimings
+            }
+            let drawing, cache, text =
+                PolygonImportApp.importFiles scene Picking.cache m.polygonImport.options paths m.drawing
+            Picking.cache <- cache
+            let m = { m with drawing = drawing; polygonImport = PolygonImportApp.update m.polygonImport (PolygonImportAction.ImportFiles paths) }
+            m |> UserFeedback.queueFeedback { id = Guid.NewGuid().ToString(); text = text; timeout = 6000; msg = ViewerAction.NoAction "" }
+        | PolygonImportMessage msg,_ ->
+            { m with polygonImport = PolygonImportApp.update m.polygonImport msg }
         | ImportSurfaceTrafo sl,_ -> 
             match sl |> List.tryHead with
             | Some path ->
@@ -2709,6 +2723,7 @@ module ViewerApp =
             | ViewerAction.SaveScene _
             | ViewerAction.SaveAs _                          -> Some "scene file"
             | ViewerAction.AnnotationExportMessage _         -> Some "exporting annotations"
+            | ViewerAction.PolygonImportMessage (PolygonImportAction.ImportFiles _) -> Some "importing polygons"
             | ViewerAction.DrawingMessage
                 (DrawingAction.ColorByCategoryMessage
                     ColorByCategoryAction.ResampleSurface)   -> Some "sampling surface"

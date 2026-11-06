@@ -1,0 +1,10 @@
+polygon_id,x,y,z,label
+patch_centre,355.703,-110.889,115.677,Hexagon at the frame centre
+patch_centre,380.145,-42.641,117.147,Hexagon at the frame centre
+patch_centre,401.450,-29.162,83.877,Hexagon at the frame centre
+patch_centre,407.549,-49.084,49.247,Hexagon at the frame centre
+patch_centre,387.349,-118.115,48.639,Hexagon at the frame centre
+patch_centre,370.751,-132.670,82.912,Hexagon at the frame centre
+triangle_south,375.544,-171.053,4.525,
+triangle_south,395.688,-120.233,6.128,
+triangle_south,388.373,-146.622,-40.357,
