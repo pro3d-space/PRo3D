@@ -99,8 +99,11 @@ its own it projects nothing.
 ## 4. Build the stack
 
 The **+** in a row adds the image to the top of the **projection stack**
-(cap: 32). The stack panel lists the projected images top-first with
-↑ / ↓ to reorder, ✕ to remove, and a count indicator.
+(cap: 32). The stack panel lists the projected images top-first with a count
+indicator. **Drag a row onto another** to reorder: the dragged image takes the
+target's position and the images in between shift by one (the drop target is
+outlined in blue; the ☰ handle marks the rows as draggable). ↑ / ↓ move one
+step, ✕ removes.
 
 ![a stack of HERA AFC images projected onto Dimorphos](images/multiProjection-stack.png)
 
@@ -276,8 +279,8 @@ Correction* costs nothing in the shader: for an inward-wound hierarchy the
 per-patch projector matrix is negated on the CPU, which leaves every projected
 position where it is and flips the facing test.
 
-Not yet: persistence of stack and per-image settings in the scene, drag & drop
-reordering, projector-side occlusion. First start after a release that changed
+Not yet: persistence of stack and per-image settings in the scene,
+projector-side occlusion. First start after a release that changed
 the surface shaders recompiles the effect once — surfaces can take a minute or
 more to appear.
 

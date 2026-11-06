@@ -159,10 +159,38 @@ module ProjectedImageListApp =
         let isInStack (id : Guid) =
             m.stack.Content |> AVal.map (IndexList.exists (fun _ i -> i = id))
 
+        /// HTML5 drag & drop on a stack row. The dragged row carries its Guid in
+        /// the DataTransfer; dropping it onto another row moves it to that
+        /// row's position (MoveInStack's remove-then-insert does the rest: the
+        /// target and everything between shift by one). The drop highlight is
+        /// purely client-side so dragging over 32 rows costs no round trips.
+        let stackDragDrop (id : Guid) (stackPos : int) : list<Attribute<ProjectedImageListMessage>> =
+            // works whether the handler sees the native or a jQuery-wrapped event
+            let ev = "var e=(event.originalEvent||event);"
+            let highlight = "e.currentTarget.style.boxShadow='inset 0 0 0 2px #2185d0';"
+            let clear = "e.currentTarget.style.boxShadow='';"
+            [
+                attribute "draggable" "true"
+                clientEvent "ondragstart" (ev + $"e.dataTransfer.setData('text/plain','{id}'); e.dataTransfer.effectAllowed='move';")
+                clientEvent "ondragenter" (ev + "e.preventDefault();" + highlight)
+                clientEvent "ondragover" (ev + "e.preventDefault(); e.dataTransfer.dropEffect='move';" + highlight)
+                clientEvent "ondragleave" (ev + clear)
+                clientEvent "ondrop" (ev + "e.preventDefault();" + clear + "aardvark.processEvent('__ID__','stackdrop',e.dataTransfer.getData('text/plain'));")
+                onEvent' "stackdrop" [] (fun args ->
+                    // processEvent JSON-encodes its arguments, hence the quotes
+                    match args with
+                    | [ s ] ->
+                        match Guid.TryParse (s.Trim('"')) with
+                        | true, src when src <> id -> Seq.singleton (MoveInStack (src, stackPos))
+                        | _ -> Seq.empty
+                    | _ -> Seq.empty
+                )
+            ]
+
         /// The projection stack panel: draw order bottom -> top, displayed top
-        /// first (what you see on the surface wins at the top). Minimal
-        /// controls -- add/remove from the library, reorder with arrows; drag
-        /// & drop can replace the arrows later without touching the model.
+        /// first (what you see on the surface wins at the top). Reorder by
+        /// dragging a row onto another (stackDragDrop) or with the arrows;
+        /// add/remove from the library.
         let stackPanel =
             Incremental.div (AttributeMap.ofList [ attribute "style" $"border: 2px solid black; margin-top: 10px" ]) (
                 alist {
@@ -188,10 +216,12 @@ module ProjectedImageListApp =
                                 |> Option.map (fun img -> img.texture |> AVal.map Path.GetFileName)
                                 |> Option.defaultValue (AVal.constant "(missing image)")
                             yield div [
-                                attribute "style" $"display: flex; align-items: center; gap: 4px; padding: 3px 5px; border-bottom: 1px solid {borderColor}"
-                                onMouseEnter (fun _ -> HoverImage (Some id))
-                                onMouseLeave (fun _ -> HoverImage None)
+                                yield attribute "style" $"display: flex; align-items: center; gap: 4px; padding: 3px 5px; border-bottom: 1px solid {borderColor}"
+                                yield onMouseEnter (fun _ -> HoverImage (Some id))
+                                yield onMouseLeave (fun _ -> HoverImage None)
+                                yield! stackDragDrop id stackPos
                             ] [
+                                i [clazz "bars icon"; style "cursor: grab; opacity: 0.6"; attribute "title" "drag to reorder"] []
                                 i [clazz "arrow up icon"; style "cursor: pointer"; onClick (fun _ -> MoveInStack (id, stackPos + 1))] []
                                 i [clazz "arrow down icon"; style "cursor: pointer"; onClick (fun _ -> MoveInStack (id, stackPos - 1))] []
                                 i [clazz "remove icon"; style "cursor: pointer"; onClick (fun _ -> RemoveFromStack id)] []
