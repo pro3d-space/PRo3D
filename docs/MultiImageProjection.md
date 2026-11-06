@@ -50,6 +50,12 @@ HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos/
 date per image, sortable by date or distance. Sorting never changes what is
 projected.
 
+The chosen folder is **saved with the scene** (key `projectedImagesDirectory`
+in the GIS section) and re-imported when the scene is opened. If the folder no
+longer exists — e.g. a scene from another machine — a notice says the projected
+images could not be loaded; the scene keeps the path until you import a folder
+again. Only the folder is saved, not the stack or per-image settings.
+
 The four AFC-1 frames used throughout this page are in the same test-data
 repository:
 
@@ -279,7 +285,7 @@ Correction* costs nothing in the shader: for an inward-wound hierarchy the
 per-patch projector matrix is negated on the CPU, which leaves every projected
 position where it is and flips the facing test.
 
-Not yet: persistence of stack and per-image settings in the scene,
+Not yet: persistence of the stack and per-image settings in the scene,
 projector-side occlusion. First start after a release that changed
 the surface shaders recompiles the effect once — surfaces can take a minute or
 more to appear.

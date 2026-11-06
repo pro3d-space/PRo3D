@@ -124,6 +124,9 @@ type ProjectedImageListModel =
         /// The library: every loaded image. Sorted destructively by the
         /// SortEntries* messages, so positions here are not identities.
         images               : IndexList<ProjectedImageModel>
+        /// The folder the library was imported from. Saved with the scene
+        /// (GisApp "projectedImagesDirectory") and re-imported on load.
+        imageDirectory       : Option<string>
         /// Draw order, bottom -> top; the topmost layer covering a fragment
         /// wins. Holds ids into `images`, so sorting the library leaves it
         /// alone. Never longer than ProjectedImages.maxCount.
@@ -183,6 +186,7 @@ module ProjectedImageListModel =
 
     let initial : ProjectedImageListModel = {
         images = IndexList.Empty;
+        imageDirectory = None;
         stack = IndexList.Empty;
         hoveredImage = None;
         selectedImage = None;

@@ -170,12 +170,15 @@ module GisAppJson =
             let! showMarkers = Json.tryRead "showMarkers"
 
             // Additive field (tryRead + default), so scenes from before it existed load
-            // unchanged. Only the mode is persisted, not the whole image list -- the list
-            // staying session-local is existing behaviour.
+            // unchanged. Of the image list only the mode, the winding switch and the
+            // import folder are persisted (projectedImagesDirectory, below).
             let! (lightingMode : Option<int>) = Json.tryRead "lightingMode"
             let lightingMode =
                 lightingMode |> Option.map enum<LightingMode> |> Option.defaultValue LightingMode.Off
             let! (windingCorrection : Option<bool>) = Json.tryRead "windingCorrection"
+            // additive: only the folder is stored; the images themselves are
+            // re-imported from it when the scene is applied (SceneLoader.updateGisApp)
+            let! (imageDirectory : Option<string>) = Json.tryRead "projectedImagesDirectory"
 
             return {
                 version                = GisApp.current
@@ -191,7 +194,8 @@ module GisAppJson =
                 projectedImageList        =
                     { ProjectedImageListModel.initial with
                         lightingMode = lightingMode
-                        windingCorrection = Option.defaultValue false windingCorrection }
+                        windingCorrection = Option.defaultValue false windingCorrection
+                        imageDirectory = imageDirectory }
                 showMarkers            = Option.defaultValue false showMarkers
 
                 selectedMissionTimeRow = None
@@ -217,6 +221,10 @@ type GisApp with
             // a property of the scene's OPCs, so it travels with the scene (and into
             // PRo3D.Snapshots) like the lighting mode
             do! Json.write "windingCorrection"       x.projectedImageList.windingCorrection
+            // new key, written only when set: older releases ignore it
+            match x.projectedImageList.imageDirectory with
+            | Some dir -> do! Json.write "projectedImagesDirectory" dir
+            | None -> ()
         }
     static member FromJson (_ : GisApp) =
         json {

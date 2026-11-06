@@ -115,6 +115,29 @@ let tests =
             Expect.isFalse restoredOld.projectedImageList.windingCorrection "old scenes: off"
         }
 
+        test "TC-12.3 projected-image folder survives save/load; absent when never chosen" {
+            let m = GisApp.initial None
+            let unset = m |> Json.serialize |> Json.formatWith JsonFormattingOptions.SingleLine
+            Expect.isFalse (unset.Contains "projectedImagesDirectory") "not written when never chosen (old scenes look the same)"
+            let restoredUnset : GisApp = unset |> Json.parse |> Json.deserialize
+            Expect.isNone restoredUnset.projectedImageList.imageDirectory "old scenes: no folder"
+
+            let dir = @"C:\data\AFC_2027-03-21"
+            let set = { m with projectedImageList = { m.projectedImageList with imageDirectory = Some dir } }
+            let restored : GisApp =
+                set |> Json.serialize |> Json.formatWith JsonFormattingOptions.SingleLine |> Json.parse |> Json.deserialize
+            Expect.equal restored.projectedImageList.imageDirectory (Some dir) "folder survives save/load"
+        }
+
+        test "TC-12.3 loading a missing image folder keeps the library and does not throw" {
+            let m = { PRo3D.ImageMapping.ProjectedImageListModel.initial with imageDirectory = Some "kept" }
+            let m' =
+                PRo3D.ImageMapping.ProjectedImageListApp.update m
+                    (PRo3D.ImageMapping.ProjectedImageListMessage.LoadImagesDir @"Z:\does\not\exist\anywhere")
+            Expect.equal m'.imageDirectory (Some "kept") "unchanged"
+            Expect.equal m'.images.Count 0 "no images"
+        }
+
         test "TC-12.3 camera follows camera source survives save/load and defaults to on" {
             let m = GisApp.initial None
             Expect.isTrue m.cameraFollowsSource "a new scene follows"

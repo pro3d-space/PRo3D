@@ -45,6 +45,11 @@ module ProjectedImageListApp =
         | SetRoll r -> { m with boresightAdjustment = { m.boresightAdjustment with roll = Numeric.update m.boresightAdjustment.roll r } }
         | SetPitch r -> { m with boresightAdjustment = { m.boresightAdjustment with pitch = Numeric.update m.boresightAdjustment.pitch r } }
         | SetYaw r -> { m with boresightAdjustment = { m.boresightAdjustment with yaw = Numeric.update m.boresightAdjustment.yaw r } }
+        | LoadImagesDir directory when not (Directory.Exists directory) ->
+            // e.g. a scene saved on another machine: keep the current library
+            // (and the scene's path, so saving does not drop it)
+            Log.warn "[ProjectedImages] image directory not found: %s" directory
+            m
         | LoadImagesDir directory -> 
             let imageExts = [".tif";".tiff";".jpg";".jpeg";".png";".exr"]
             let images' = 
@@ -61,6 +66,7 @@ module ProjectedImageListApp =
             // a fresh library invalidates every id the old one handed out
             { m with
                 images = images'
+                imageDirectory = Some directory
                 stack = IndexList.Empty
                 hoveredImage = None
                 editImages = HashSet.empty

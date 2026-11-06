@@ -372,7 +372,23 @@ module SceneLoader =
         
     let updateGisApp (m : Model) =
         let gisApp = PRo3D.Core.Gis.GisApp.loadSpiceKernelForced m.scene.gisApp
-        { m with scene = { m.scene with gisApp = gisApp }}
+        // re-import the projected-image library from the folder saved with the scene;
+        // a folder that is gone (scene from another machine) is reported, not dropped
+        match gisApp.projectedImageList.imageDirectory with
+        | Some dir when not (Directory.Exists dir) ->
+            Log.warn "[SceneLoader] projected images not loaded, folder not found: %s" dir
+            let message =
+                sprintf "The projected images of this scene could not be loaded: the image folder %s does not exist. Import the folder again under GIS > Projected Images; the scene keeps the old path until you do." dir
+            { m with
+                scene  = { m.scene with gisApp = gisApp }
+                layout = LayoutApp.notify "Projected Images" message m.layout }
+        | Some dir ->
+            let images =
+                PRo3D.ImageMapping.ProjectedImageListApp.update
+                    gisApp.projectedImageList (PRo3D.ImageMapping.ProjectedImageListMessage.LoadImagesDir dir)
+            { m with scene = { m.scene with gisApp = { gisApp with projectedImageList = images } } }
+        | None ->
+            { m with scene = { m.scene with gisApp = gisApp }}
 
     /// A scene load replaces the annotations wholesale, so a continuous GeoJSON
     /// export armed for the previous scene would silently overwrite its file

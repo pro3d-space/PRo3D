@@ -52,13 +52,22 @@ module LayoutApp =
         | Result.Error e ->
             let message =
                 sprintf "Your last window layout could not be read (%s). PRo3D starts with the '%s' layout instead; the unreadable file was kept as current.json.corrupt in %s." e fallback.name dir
-            create dir fallback.name fallback.layout (LayoutDialog.Notice(message, LayoutDialog.None))
+            create dir fallback.name fallback.layout (LayoutDialog.Notice("Window Layout", message, LayoutDialog.None))
 
     /// Opens `dialog`, behind a notice that is still waiting to be read.
     let private openDialog (dialog : LayoutDialog) (m : LayoutModel) =
         match m.dialog with
-        | LayoutDialog.Notice (message, _) -> { m with dialog = LayoutDialog.Notice(message, dialog) }
+        | LayoutDialog.Notice (title, message, _) -> { m with dialog = LayoutDialog.Notice(title, message, dialog) }
         | _ -> { m with dialog = dialog }
+
+    /// Shows `message` in a modal notice the user has to acknowledge; notices already
+    /// waiting, and the dialog behind them, come first.
+    let notify (title : string) (message : string) (m : LayoutModel) =
+        let rec queue (d : LayoutDialog) =
+            match d with
+            | LayoutDialog.Notice (t, msg, next) -> LayoutDialog.Notice(t, msg, queue next)
+            | other -> LayoutDialog.Notice(title, message, other)
+        { m with dialog = queue m.dialog }
 
     /// Name shown for the active layout; marks a layout whose arrangement the user changed.
     let displayName (m : AdaptiveLayoutModel) =
@@ -157,7 +166,7 @@ module LayoutApp =
 
         | LayoutAction.CloseDialog ->
             match m.dialog with
-            | LayoutDialog.Notice (_, next) -> { m with dialog = next }, []
+            | LayoutDialog.Notice (_, _, next) -> { m with dialog = next }, []
             | _ -> { m with dialog = LayoutDialog.None }, []
 
         | LayoutAction.SetNameInput s ->
@@ -321,8 +330,8 @@ module LayoutApp =
                     match dialog with
                     | LayoutDialog.None -> ()
 
-                    | LayoutDialog.Notice (message, _) ->
-                        yield window "Window Layout" [
+                    | LayoutDialog.Notice (title, message, _) ->
+                        yield window title [
                             div [ attribute "data-test" "layout-notice"; style "max-width:480px; word-break:break-word" ] [ text message ]
                         ] [
                             button [ clazz "primary"; attribute "data-test" "layout-notice-ok"; onClick (fun _ -> LayoutAction.CloseDialog) ] "OK"
