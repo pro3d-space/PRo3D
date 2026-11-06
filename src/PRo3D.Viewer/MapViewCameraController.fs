@@ -141,7 +141,14 @@ module MapViewController =
         | Some axis ->
             let n = Vec.dot newForward axis
             let o = Vec.dot oldForward axis
-            (n > 0.999 && n > o) || (n < -0.999 && n < o)
+            // A single step can jump right over the pole and land on the far side
+            // below the threshold. Crossing shows as the horizontal part of the
+            // view direction reversing, so block that too.
+            let crossesPole =
+                let hOld = oldForward - axis * o
+                let hNew = newForward - axis * n
+                Vec.dot hOld hNew < 0.0
+            (n > 0.999 && n > o) || (n < -0.999 && n < o) || crossesPole
 
     /// Camera height above the body's reference surface, floored to a small
     /// positive value.
@@ -155,6 +162,16 @@ module MapViewController =
         let radius = model.rotationFactor
         let distanceToCentre = Vec.Length model.view.Location
         max (distanceToCentre - radius) (max (radius * 1e-5) 1.0)
+
+    /// Height of the camera above the ground *along the view axis*, floored as
+    /// `heightAboveSurface` is. Without a pan the two agree; after a pan
+    /// `|location|` grows while the ground straight ahead does not get further
+    /// away, so the pan speed must use this one to keep the ground under the
+    /// cursor.
+    let private depthAboveSurface (model : CameraControllerState) =
+        let radius = model.rotationFactor
+        let along = Vec.dot (-model.view.Location) model.view.Forward
+        max (along - radius) (max (radius * 1e-5) 1.0)
 
     /// Aim the camera at the frame origin with north up, discarding any pan.
     let private centreView (planet : Planet) (view : CameraView) =
@@ -189,6 +206,15 @@ module MapViewController =
                 aimed.WithLocation(aimed.Location - aimed.Right * offset.X - aimed.Up * offset.Y)
 
         { model with view = view}
+
+    /// Drop the pan: straight down at the frame origin, north up, from the
+    /// un-panned position (same distance, so the body does not jump in size).
+    /// Bound to `R`, like Google Earth's reset.
+    let recentre (planet : Planet) (view : CameraView) =
+        match panOffset view with
+        | Some offset ->
+            centreView planet (view.WithLocation(view.Location + view.Right * offset.X + view.Up * offset.Y))
+        | None -> centreView planet view
 
     /// Entering MapView starts centred: a pan carried over from another mode
     /// would just be wherever that camera happened to point.
@@ -243,10 +269,14 @@ module MapViewController =
                           let sensitivity = ((model.sensitivity + 2.0) * 5.0) / 100.0
                           let step = distancetoSurface * (model.moveVec.Z * cam.Forward * sensitivity * dt)
 
-                          if step.Length > distancetoSurface && (model.moveVec.Z > 0.0)then
+                          let loc' = cam.Location + step
+                          // As right-drag zoom: never move past the centre plane.
+                          // After a large pan the height cap alone does not stop
+                          // that, and the re-aim would then swing the view round.
+                          let staysInFront = Vec.dot (-loc') cam.Forward > 0.0
+                          if (step.Length > distancetoSurface && (model.moveVec.Z > 0.0)) || not staysInFront then
                               cam, model.orbitCenter
                           else
-                              let loc' = cam.Location + step
                               cam.WithLocation(loc'), model.orbitCenter
 
 
@@ -295,9 +325,10 @@ module MapViewController =
                           // at the centre, so a pan survives the orbit.
                           let newForward = trafo.TransformDir (cam.Forward)
 
-                          let oldToCentre = model.orbitCenter.Value - cam.Location |> Vec.normalize
-                          let newToCentre = model.orbitCenter.Value - newLocation |> Vec.normalize
-                          if blocksPole (mapFrame planet cam.Location) oldToCentre newToCentre then
+                          // The north-up frame degenerates when the *view
+                          // direction* hits the pole, so guard that (not the
+                          // direction to the centre, which differs once panned).
+                          if blocksPole (mapFrame planet cam.Location) cam.Forward newForward then
                               cam, model.orbitCenter
                           else
                               CameraView(cam.Sky, newLocation, newForward, newUp, newRight), model.orbitCenter
@@ -360,6 +391,9 @@ module MapViewController =
 
             | Wheel delta ->
                 withTime { model with isWheel = true; moveVec = model.moveVec + V3d.OOI * float (int delta.Y) * 10.0 }
+
+            | KeyDown Keys.R ->
+                { model with view = recentre planet model.view }
 
             | KeyDown _ | KeyUp _ ->
                 model
@@ -428,9 +462,7 @@ module MapViewController =
                         // Rotated, not re-aimed at the centre: keeps the pan.
                         let newForward = trafo.TransformDir (cam.Forward)
 
-                        let oldToCentre = model.orbitCenter.Value - cam.Location |> Vec.normalize
-                        let newToCentre = model.orbitCenter.Value - newLocation |> Vec.normalize
-                        if blocksPole (mapFrame planet cam.Location) oldToCentre newToCentre then
+                        if blocksPole (mapFrame planet cam.Location) cam.Forward newForward then
                             cam
                         else
                             CameraView(cam.Sky, newLocation, newForward, newUp, newRight)
@@ -440,10 +472,10 @@ module MapViewController =
                 // pan (middle-drag, Shift+right-drag): translate the camera in
                 // its own image plane without turning it, so the view shifts
                 // rigidly. Scaled so the ground under the cursor follows it:
-                // one window width spans 2 * tan(fov/2) * height of ground.
+                // one window width spans 2 * tan(fov/2) * depth of ground.
                 let cam =
                     if model.pan && not model.look && windowSize.X > 0.0 then
-                        let worldPerPixel = 2.0 * tan (angle / 2.0) * distanceBetweenCameraSurface / windowSize.X
+                        let worldPerPixel = 2.0 * tan (angle / 2.0) * depthAboveSurface model / windowSize.X
                         let shift = (-cam.Right * float delta.X + cam.Up * float delta.Y) * worldPerPixel
                         cam.WithLocation(cam.Location + shift)
                     else

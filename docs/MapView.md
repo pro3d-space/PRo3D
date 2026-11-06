@@ -34,6 +34,7 @@ wrong axis. The GIS view says so and switches the frame on request.
 | Right-drag | Zoom in/out |
 | Mouse wheel | Zoom in/out |
 | `W` `A` `S` `D` | Move north / west / south / east |
+| `R` | Reset: drop the pan — straight down at the body centre, north up, same distance |
 
 The WASD axes can be inverted per computer under *User Preferences* — see
 `UserPreferences.remapMapViewKey`. Those are machine-local settings and are not
@@ -70,9 +71,27 @@ centre (forward included) instead of re-aiming it, so the pan survives both. Sin
 it lives in the `CameraView`, bookmarks and scenes keep it without any format
 change. Entering MapView from another mode starts centred (`switchToMapViewController`).
 
+`R` (`recentre`) drops the pan: it moves the camera back to the un-panned
+position, so the body keeps its size, and aims it straight down, north up — the
+Google Earth / Cesium "reset view" convention. Like those viewers, PRo3D does not
+force other camera changes back into a nadir view: a view set by a gizmo snap, a
+fly-to or the remote API while in MapView keeps its direction (it only gets north
+turned up, since any view with the origin ahead reads as a panned map view).
+Press `R` to get the map view back.
+
+Pan speed uses the camera's height above the ground *along the view axis*
+(`depthAboveSurface`), not its distance from the centre, which grows as you pan.
+The pole guard (`blocksPole`) checks the view direction for the same reason: once
+panned, it differs from the direction to the centre, and it is the view direction
+whose north-up frame degenerates at the pole. It also rejects a step whose
+horizontal view direction reverses: a fast drag can jump right over the pole and
+land on the far side below the threshold. Wheel zoom, like right-drag zoom,
+never moves the camera past the plane through the centre.
+
 Wheel and right-drag zoom move along the view direction, i.e. towards the
 screen centre, not towards the body centre. The vertical axis lock does not apply
-while panning (a translation has no rotation to constrain).
+during a pure pan (a translation has no rotation to constrain); a pan held
+together with an orbit is still locked.
 
 ### The map frame
 

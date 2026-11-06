@@ -277,10 +277,11 @@ module Navigation =
                 // orbit about the body spin axis (falling back to the map-frame up for the
                 // constant-up frames). A spin-axis twist preserves look-at-origin + north-up,
                 // so it is safe to apply after `updateCameraForMapView`.
-                // A pan is a translation, not a rotation - the lock would swallow it.
+                // A pure pan is a translation, not a rotation - the lock would
+                // swallow it. A pan held together with an orbit still locks.
                 let cam =
                     match model.lockedAxis with
-                    | Some NavigationAxis.UpDown when not cam.pan ->
+                    | Some NavigationAxis.UpDown when not (cam.pan && not cam.look) ->
                         let frame = mapFrame planet model.camera.view.Location
                         let axisDir = frame.polarAxis |> Option.defaultValue frame.up
                         { cam with view = NavigationConstraint.constrainRotationToAxis model.camera.view cam.view axisDir V3d.OOO }
