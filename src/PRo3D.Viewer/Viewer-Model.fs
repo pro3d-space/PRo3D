@@ -199,6 +199,7 @@ type ViewerAction =
 | KeyDown                         of key : Aardvark.Application.Keys
 | KeyUp                           of key : Aardvark.Application.Keys
 | CtrlShortcut                    of key : Aardvark.Application.Keys * shift : bool // Ctrl+Z/Y/S from any page, see docs/KeyboardShortcuts.md
+| AnnotationMetadataMessage       of AnnotationMetadataAction // confidence, comments (#887)
 | ResizeMainControl               of V2i * string
 | ResizeInstrumentControl         of V2i * string
 | SetKind                         of TrafoKind
@@ -866,6 +867,8 @@ type Model = {
     roseEnabled          : bool
     roseUsePolyline      : bool
     roseUseDnS           : bool
+    /// confidence keys, comment dialog, confidence labels (#887, AnnotationMetadataApp)
+    annotationMetadata   : AnnotationMetadataModel
     /// Per-computer user preferences (e.g. MapView WASD invert flags).
     /// Loaded from / saved to `%APPDATA%/Pro3D/userPreferences.json`.
     /// Outside scene/bookmark serialisation.

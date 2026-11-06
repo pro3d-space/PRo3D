@@ -1275,10 +1275,31 @@ module DrawingApp =
         | AdaptiveAnnotations ann -> Some ann
         | _ -> None
        
+    /// The label drawn at an annotation: its text when shown, plus its confidence as "[C3]"
+    /// when confidence labels are on (#887). Empty when there is nothing to show.
+    let private labelText (showConfidence : aval<bool>) (anno : AdaptiveAnnotation) : aval<string> =
+        adaptive {
+            let! text = anno.text
+            let! showText = anno.showText
+            let! showConfidence = showConfidence
+            let! metadata = anno.metadata
+            let text = if showText then text else ""
+            let confidence =
+                match showConfidence, metadata.confidence with
+                | true, Some c -> sprintf "C%d" c
+                | _ -> ""
+            return
+                match String.IsNullOrEmpty text, String.IsNullOrEmpty confidence with
+                | _, true    -> text
+                | true, false -> confidence
+                | false, false -> sprintf "%s [%s]" text confidence
+        }
+
     let viewTextLabels<'ma> 
         (mbigConfig       : 'ma)
         (msmallConfig     : MSmallConfig<'ma>)
         (view             : aval<CameraView>)      
+        (showConfidence   : aval<bool>)
         (model            : AdaptiveDrawingModel) =
 
         let config : Sg.innerViewConfig = 
@@ -1299,8 +1320,10 @@ module DrawingApp =
                 match anno |> tryToAnnotation with
                 | None -> AVal.constant None
                 | Some v -> 
-                    Sg.shouldTextBeRendered v 
-                    |> AVal.map (function | true -> Some (Sg.drawText view config v) | _ -> None)
+                    let text = labelText showConfidence v
+                    (text, v.visible)
+                    ||> AVal.map2 (fun t visible -> visible && not (String.IsNullOrEmpty t))
+                    |> AVal.map (function | true -> Some (Sg.drawText' view config text v) | _ -> None)
                ) 
             |> Sg.set
 

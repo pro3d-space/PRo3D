@@ -34,6 +34,9 @@ module AnnotationProperties =
     | SetFillAlpha    of Numeric.Action
     /// label points of a geological map (#843); empty clears
     | SetGeoUnit      of string
+    /// 1-4, None clears (#887)
+    | SetConfidence   of Option<int>
+    | SetComment      of string
         
     let update (referenceSystem : ReferenceSystem) (model : Annotation) (act : Action) =
         match act with
@@ -93,6 +96,10 @@ module AnnotationProperties =
         | SetGeoUnit u ->
             let u = u.Trim()
             { model with geoUnit = if String.IsNullOrEmpty u then None else Some u }
+        | SetConfidence c ->
+            { model with metadata = { model.metadata with confidence = c |> Option.bind AnnotationMetadata.validConfidence } }
+        | SetComment c ->
+            { model with metadata = { model.metadata with comment = c } }
 
 
     let fillTooltip      = "Fill the interior. Closed geometries only"
@@ -102,6 +109,66 @@ module AnnotationProperties =
 
     let private geoUnitText (model : AdaptiveAnnotation) =
         model.geoUnit |> AVal.map (Option.defaultValue "")
+
+    let confidenceTooltip = "Confidence from the identification criteria, 1 (lowest) to 4 (highest). Keys 1-4 in the 3D view rate the selected annotations"
+    let commentTooltip    = "Free notes. C in the 3D view opens a comment dialog next to the selected annotation"
+
+    /// "-", 1, 2, 3, 4 as a button group; the current rating highlighted (#887)
+    let confidenceButtons (model : AdaptiveAnnotation) =
+        let current = model.metadata |> AVal.map (fun m -> m.confidence)
+        let button (value : Option<int>) (label : string) =
+            let attributes =
+                AttributeMap.ofAMap (amap {
+                    let! c = current
+                    yield clazz (if c = value then "ui mini primary button" else "ui mini button")
+                    yield onClick (fun _ -> SetConfidence value)
+                })
+            Incremental.div attributes (AList.single (text label))
+        div [ clazz "ui mini buttons" ] [
+            yield button None "-"
+            for i in AnnotationMetadata.minConfidence .. AnnotationMetadata.maxConfidence do
+                yield button (Some i) (string i)
+        ]
+
+    let private commentText (model : AdaptiveAnnotation) =
+        model.metadata |> AVal.map (fun m -> m.comment)
+
+    /// multi-line, unlike a SemUi text box, which drops the line breaks the comment dialog
+    /// allows; sent on change (when the field is left)
+    let private commentBox (model : AdaptiveAnnotation) =
+        let box =
+            commentText model |> AVal.map (fun c ->
+                // the plain element; Aardvark.UI.Primitives, opened above, has its own textarea
+                Aardvark.UI.Static.textarea [
+                    attribute "rows" "3"
+                    style "width:100%; resize:vertical; font-family:inherit"
+                    onChange (fun s -> SetComment (s.TrimEnd()))
+                ] c)
+        Incremental.div AttributeMap.empty (AList.ofAValSingle box)
+
+    let private shapeModelText (model : AdaptiveAnnotation) =
+        model.metadata |> AVal.map (fun m ->
+            match m.shapeModel with
+            | Some sm ->
+                match sm.credit with
+                | Some c -> sprintf "%s. %s" (AnnotationMetadata.describeShapeModel sm) c
+                | None -> AnnotationMetadata.describeShapeModel sm
+            | None -> "not recorded")
+
+    let private projectedImagesText (model : AdaptiveAnnotation) =
+        model.metadata |> AVal.map (fun m ->
+            match m.projectedImagesUsed with
+            | [] -> "none"
+            | images -> images |> List.map (fun i -> sprintf "%s (%s, %s)" i.image i.instrument i.time) |> String.concat "; ")
+
+    /// Confidence, comment, shape model and projected images (#887)
+    let metadataRows (model : AdaptiveAnnotation) =
+        [
+            Html.row "Confidence:"   [confidenceButtons model |> UI.wrapToolTip DataPosition.Bottom confidenceTooltip]
+            Html.row "Comment:"      [commentBox model |> UI.wrapToolTip DataPosition.Bottom commentTooltip]
+            Html.row "Shape Model:"  [Incremental.text (shapeModelText model)]
+            Html.row "Images Used:"  [Incremental.text (projectedImagesText model)]
+        ]
 
     let view (paletteFile : string) (model : AdaptiveAnnotation) =
 
@@ -125,6 +192,7 @@ module AnnotationProperties =
                 Html.row "Dip Angle:"   [Numeric.view' [InputBox] model.manualDipAngle |> UI.map SetManualDippingAngle]
                 Html.row "Dip Azimuth:" [Numeric.view' [InputBox] model.manualDipAzimuth |> UI.map SetManualDippingAzimuth]
                 Html.row "Cross Section:" [button [clazz "ui button tiny"; onClick (fun _ -> CreateCrossSection)] [text "Create"]]
+                yield! metadataRows model
             ]
 
         )

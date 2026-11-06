@@ -389,6 +389,44 @@ module ViewerApp =
             }
             { m with drawing = drawing } |> UserFeedback.queueFeedback feedback
 
+    /// Shape model and projected images of the annotation drawing input just finished (#887).
+    let private withAnnotationMetadata (finished : Option<Annotation>) (m : Model) : Model =
+        match finished with
+        | None -> m
+        | Some _ ->
+            let drawing, cache =
+                AnnotationMetadataApp.captureFinished
+                    m.scene.gisApp m.scene.surfacesModel m.scene.referenceSystem Picking.cache finished m.drawing
+            Picking.cache <- cache
+            { m with drawing = drawing }
+
+    /// Confidence, comment and label toggle (#887): the app's update plus its short message.
+    let private updateAnnotationMetadata (msg : AnnotationMetadataAction) (m : Model) : Model =
+        let drawing, metadataModel, feedback = AnnotationMetadataApp.update m.drawing m.annotationMetadata msg
+        let m = { m with drawing = drawing; annotationMetadata = metadataModel }
+        match feedback with
+        | Some text -> m |> logScreen 2000 text
+        | None -> m
+
+    /// Keys 1-4 and C while annotations are selected and none is being drawn (#887), with any
+    /// tool: finishing an annotation selects it, so with the draw tool still active they rate
+    /// and comment the annotation just drawn -- the workflow is draw, rate, draw the next. The
+    /// digits set the semantic while an annotation is being drawn, or with nothing selected.
+    /// Esc in the 3D view closes an open comment dialog.
+    let private metadataKeyAction (m : Model) (k : Aardvark.Application.Keys) : Option<AnnotationMetadataAction> =
+        match m.annotationMetadata.comment, k with
+        | Some _, Aardvark.Application.Keys.Escape -> Some CancelComment
+        | Some _, _ -> None
+        | None, _ when m.ctrlFlag || not (AnnotationMetadataApp.takesKeys m.drawing) -> None
+        | None, _ ->
+            match k with
+            | Aardvark.Application.Keys.D1 | Aardvark.Application.Keys.NumPad1 -> Some (SetConfidence 1)
+            | Aardvark.Application.Keys.D2 | Aardvark.Application.Keys.NumPad2 -> Some (SetConfidence 2)
+            | Aardvark.Application.Keys.D3 | Aardvark.Application.Keys.NumPad3 -> Some (SetConfidence 3)
+            | Aardvark.Application.Keys.D4 | Aardvark.Application.Keys.NumPad4 -> Some (SetConfidence 4)
+            | Aardvark.Application.Keys.C -> Some OpenComment
+            | _ -> None
+
     let private matchPickingInteraction (bc: BlockingCollection<string>) (p: V3d) (referenceSystem : Option<SpiceReferenceSystem>) (hitFunction:(V3d -> V3d option)) (surf: Surface) (m: Model) = 
         match m.interaction, m.viewerMode with
         | Interactions.DrawAnnotation, _ ->
@@ -414,7 +452,7 @@ module ViewerApp =
             let msg = DrawingAction.AddPointAdv(p, hitFunction, referenceSystem, surf.name, None)
             let drawing, finished = DrawingApp.updateFinishing m.scene.referenceSystem drawingConfig referenceSystem bc view m.shiftFlag m.drawing msg
             //Log.stop()
-            let m = { m with drawing = drawing } |> withAutoProfiles bc view finished |> stash
+            let m = { m with drawing = drawing } |> withAnnotationMetadata finished |> withAutoProfiles bc view finished |> stash
             if linearContact then
                 m |> logScreen 6000 "Contact drawn with Linear projection: its straight segments leave the terrain, so it will not follow the units' edges. Choose Sky projection for contacts."
             else m
@@ -667,10 +705,8 @@ module ViewerApp =
         //    match m.interaction with                     
         //    | Interactions.PickAnnotation -> DrawingAction.StartPickingMulti
         //    | _ -> DrawingAction.Nop
-        | Aardvark.Application.Keys.D0 -> DrawingAction.SetSemantic Semantic.Horizon0
-        | Aardvark.Application.Keys.D1 -> DrawingAction.SetSemantic Semantic.Horizon1
-        | Aardvark.Application.Keys.D2 -> DrawingAction.SetSemantic Semantic.Horizon2
-        | Aardvark.Application.Keys.D3 -> DrawingAction.SetSemantic Semantic.Horizon3 
+        // 0-3 (semantic) are handled in the KeyDown update: with annotations selected and none
+        // being drawn, 1-4 rate them instead (#887, metadataKeyAction)
         | _  -> DrawingAction.Nop
 
     let updateFrustumAspect m (windowSize : V2i) (viewPortSizeId : string) =
@@ -1051,7 +1087,7 @@ module ViewerApp =
                     DrawingApp.updateFinishing m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing msg
 
                 // Enter finishing a polyline: its toolbar profiles
-                { m with drawing = drawing; } |> withAutoProfiles sendQueue view finished |> stash
+                { m with drawing = drawing; } |> withAnnotationMetadata finished |> withAutoProfiles sendQueue view finished |> stash
         | SurfaceActions msg,_ ->
             
             let view = m.navigation.camera.view
@@ -2061,9 +2097,29 @@ module ViewerApp =
             { initialModel with recent = m.recent; layout = m.layout; mainViewScenes = m.mainViewScenes }
             |> ViewerIO.loadRoverData
 
+        | AnnotationMetadataMessage msg, _ ->
+            updateAnnotationMetadata msg m
         | KeyDown k, _ ->
+          match metadataKeyAction m k with
+          | Some msg -> updateAnnotationMetadata msg m
+          | None ->
             let m =
                 match k with
+                // 0-3: the semantic of the next annotation drawn (keys 1-4 rate selected
+                // annotations instead, see metadataKeyAction)
+                | Aardvark.Application.Keys.D0 | Aardvark.Application.Keys.D1
+                | Aardvark.Application.Keys.D2 | Aardvark.Application.Keys.D3 ->
+                    let semantic, digit =
+                        match k with
+                        | Aardvark.Application.Keys.D0 -> Semantic.Horizon0, 0
+                        | Aardvark.Application.Keys.D1 -> Semantic.Horizon1, 1
+                        | Aardvark.Application.Keys.D2 -> Semantic.Horizon2, 2
+                        | _ -> Semantic.Horizon3, 3
+                    let drawing =
+                        DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue m.navigation.camera.view m.shiftFlag m.drawing (DrawingAction.SetSemantic semantic)
+                    // said on screen, as the same digits rate annotations at other times (#887)
+                    { m with drawing = drawing }
+                    |> logScreen 2500 (AnnotationMetadataApp.semanticMessage (string semantic) digit m.drawing)
                 | Aardvark.Application.Keys.LeftShift -> 
                     let m = { m with shiftFlag = true}
                     Log.line "[Viewer] ShiftFlag %A" m.shiftFlag
@@ -2838,7 +2894,8 @@ module ViewerApp =
                 attribute "useMapping" "true"
                 // Pull keyboard focus onto the render control as soon as the cursor enters,
                 // so modifier keys (ctrlFlag, drawing-key shortcuts) work without a prior click.
-                attribute "onmouseenter" "this.focus()"
+                // ... unless the comment dialog floating over the view has it (#887)
+                attribute "onmouseenter" "if (!(document.activeElement && document.activeElement.closest && document.activeElement.closest('.annotation-comment-dialog'))) this.focus()"
                 //attribute "showFPS" "true"
                 //attribute "data-renderalways" "true"
                 Aardvark.UI.Events.onKeyDown' (fun k ->
@@ -2954,6 +3011,7 @@ module ViewerApp =
                 m.scene.config
                 mdrawingConfig
                 view 
+                (m.annotationMetadata |> AVal.map (fun s -> s.showConfidenceLabels))
                 m.drawing            
             
         let scaleBarTexts = 

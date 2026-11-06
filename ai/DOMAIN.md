@@ -154,6 +154,44 @@ Actions cover assigning bodies/frames to surfaces, observing (positioning at a t
 
 ---
 
+## Annotation metadata
+
+Confidence 1–4, comment, shape model and projected images used (#887). User docs:
+[docs/AnnotationMetadata.md](../docs/AnnotationMetadata.md).
+
+| File | Role |
+|---|---|
+| `src/PRo3D.Base/Annotation/Annotation-Model.fs` | `Annotation.metadata : AnnotationMetadata` (`ShapeModelRef`, `ProjectedImageRef`); four new top-level JSON keys, written only when set, no version bump |
+| `src/PRo3D.Core/OpcMetadata.fs` | `fitsHeader` from the `*.opc.json` sidecar; `shapeModelOf` (FITS header, else `_vNNN` of the file name) |
+| `src/PRo3D.Viewer/Viewer/AnnotationMetadataApp.fs` | sub-app (model in `AnnotationMetadata-Model.fs`): keys, comment dialog, `captureFinished` at annotation finish |
+
+- **Keys are context dependent.** `Viewer.metadataKeyAction` takes 1–4 and C while
+  annotations are selected and nothing is being drawn, with any tool: finishing selects the
+  new annotation, and rating it right away in draw mode is the intended workflow (the user
+  draws, rates, draws on). Otherwise 0–3 set the semantic (in the `KeyDown` update, no longer
+  in `getDrawingActionForKey`) and C re-centres the orbit. Esc cancels an open comment dialog.
+- **JSON:** all four keys are read as raw `Json` and converted in a match/try: a typed
+  `Json.tryRead` fails the annotation, and the scene, when a key holds the wrong type.
+- **Capture runs at finish**, in `Viewer.withAnnotationMetadata` on both finish paths, and
+  patches the `LeafAdded` undo entry so redo keeps the metadata.
+- **Images used** is a CPU line-of-sight test per control point, using `ImageInspector.tryContextFor`
+  and the kd-trees, not the shader's facing test (that one depends on triangle winding).
+  It differs from what is painted only behind occluders.
+- Rating bubbles (`AnnotationMetadataModel.balloon`, `ratingBalloons`): one per rated annotation,
+  a new `id` per rating rebuilds them; the fade is client-side (onBoot timer on an inner div,
+  so the outer div's camera-driven style updates do not undo it).
+- The comment text stays client-side until Enter. The dialog DOM depends only on
+  `annotationMetadata.comment`; only its style follows the camera.
+- **Credits:** `ShapeModelRef.credit` is captured with the shape model. The sidecar's
+  `product_information.credit` comes first, then `ShapeModelCredits.citations`, a table of
+  archive citations (only ones checked against PDS go in). The Surfaces panel's *Source &
+  Credits* (`SurfaceApp.viewSource`, `OpcMetadata.sourceRows`) shows the same for the
+  selected surface; `OpcMetadata.fs` is compiled early in Core for that.
+- The comment dialog is placed in percent of the view (`screenPosition` returns fractions):
+  `viewPortSizes` is keyed per render-page instance and is not a reliable pixel size.
+
+---
+
 ## Geological Maps
 
 Units derived from contacts and label points (#843, the Mappy method). How it works (pipeline,

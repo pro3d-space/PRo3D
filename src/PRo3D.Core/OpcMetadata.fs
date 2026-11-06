@@ -10,6 +10,8 @@ open Aardvark.Data.Opc
 
 open FSharp.Data
 
+open PRo3D.Base.Annotation
+
 /// The DEM reference model an OPC was exported against, as recorded in the `DemModel`
 /// block of the OPC's `*.opc.json` sidecar.
 ///
@@ -65,6 +67,13 @@ type OpcMetadata =
         /// verbatim DSKBRIEF text, kept as-is because it carries more than is parsed below
         dskBrief         : Option<string>
         dskSummary       : Option<DskSummary>
+        /// keyword -> value of the FITS header of the source product (`fits2mbi.fits_header`),
+        /// present for OPCs built from a FITS DTM such as the HERA V4 global Dimorphos OPC
+        fitsHeader       : Map<string, string>
+        /// who made the shape model, as the product states it: product_information.credit, a
+        /// top-level "credit", or the FITS AUTHOR / CREDIT / REFERENC keyword. None in every
+        /// product seen so far (#887)
+        credit           : Option<string>
     }
 
 /// Reads the `*.opc.json` sidecar that JOANNEUM's ExportGpc writes next to an OPC.
@@ -84,6 +93,9 @@ module OpcMetadata =
         match Int32.TryParse(s, NumberStyles.Integer, invariant) with
         | true, v -> Some v
         | _       -> None
+
+    let private nonEmpty (s : string) =
+        if String.IsNullOrWhiteSpace s then None else Some (s.Trim())
 
     let private tryString (json : JsonValue) (name : string) =
         match json.TryGetProperty name with
@@ -154,6 +166,36 @@ module OpcMetadata =
                 radii     = tryV3d dem "Radii"
             }
 
+    let private headerValue (v : JsonValue) =
+        match v with
+        | JsonValue.String s  -> Some (s.Trim())
+        | JsonValue.Number n  -> Some (n.ToString(invariant))
+        | JsonValue.Float f   -> Some (f.ToString("R", invariant))
+        | JsonValue.Boolean b -> Some (if b then "T" else "F")
+        | JsonValue.Null      -> None
+        | other               -> Some (other.ToString())
+
+    /// `fits2mbi.fits_header`: an array of objects, each mapping keywords to
+    /// `{ "value": ..., "comment": ... }`. Keywords without a value are left out.
+    let private parseFitsHeader (json : JsonValue) =
+        match json.TryGetProperty "fits2mbi" |> Option.bind (fun f -> f.TryGetProperty "fits_header") with
+        | Some (JsonValue.Array entries) ->
+            let mutable header = Map.empty
+            for entry in entries do
+                match entry with
+                | JsonValue.Record props ->
+                    for (key, card) in props do
+                        let value =
+                            match card with
+                            | JsonValue.Record _ -> card.TryGetProperty "value" |> Option.bind headerValue
+                            | v -> headerValue v
+                        match value with
+                        | Some v -> header <- Map.add (key.ToUpperInvariant()) v header
+                        | None -> ()
+                | _ -> ()
+            header
+        | _ -> Map.empty
+
     let ofJsonString (path : string) (content : string) =
         let json = JsonValue.Parse content
         let productInfo = json.TryGetProperty "product_information"
@@ -165,6 +207,7 @@ module OpcMetadata =
             | _ -> []
 
         let dskBrief = tryString json "DskBrief"
+        let fitsHeader = parseFitsHeader json
 
         {
             path             = path
@@ -176,6 +219,18 @@ module OpcMetadata =
             demModel         = parseDemModel json
             dskBrief         = dskBrief
             dskSummary       = dskBrief |> Option.bind parseDskBrief
+            fitsHeader       = fitsHeader
+            credit           =
+                // product_information.credit (the OPC producer's schema), a top-level "credit",
+                // then the FITS keywords the shape-model producer may set (docs/AnnotationMetadata.md)
+                [
+                    productInfo |> Option.bind (fun p -> tryString p "credit")
+                    tryString json "credit"
+                    Map.tryFind "AUTHOR" fitsHeader
+                    Map.tryFind "CREDIT" fitsHeader
+                    Map.tryFind "REFERENC" fitsHeader
+                ]
+                |> List.tryPick (Option.bind nonEmpty)
         }
 
     /// The `*.opc.json` sidecar belonging to an `*.opcx` file, if present.
@@ -200,6 +255,104 @@ module OpcMetadata =
     let tryReadForOpcx (opcxPath : string) =
         tryRead (sidecarPath opcxPath)
 
+    /// `vNNN` at the end of an SPC product name, e.g. `dimorphos_l_0050mm_spc_obj_0897s26313_v004`
+    let tryVersionOfFileName (name : string) =
+        name |> tryGroup @"_(v\d{2,})$"
+
+    /// The shape model an annotation on this OPC is drawn on (#887): the FITS header's
+    /// DATASRCV / MAP_VER / PRODNAME when the sidecar carries one, otherwise the version in the
+    /// SPC file name. `opcxPath` names the product when the header does not.
+    let shapeModelOf (opcxPath : string) (metadata : Option<OpcMetadata>) : ShapeModelRef =
+        // an `*.opcx`, or the `*.opc.json` sidecar itself
+        let fileName =
+            let n = Path.GetFileNameWithoutExtension opcxPath
+            if n.EndsWith(".opc", StringComparison.OrdinalIgnoreCase) then n.Substring(0, n.Length - 4) else n
+        let header key =
+            metadata |> Option.bind (fun m -> Map.tryFind key m.fitsHeader) |> Option.bind nonEmpty
+        let modelName = header "DATASRCV"
+        let mapVersion = header "MAP_VER"
+        // stated by the product first; otherwise the citation of the archive it comes from
+        let credit =
+            match metadata |> Option.bind (fun m -> m.credit) with
+            | Some c -> Some c
+            | None ->
+                let product = header "PRODNAME" |> Option.map Path.GetFileNameWithoutExtension
+                ShapeModelCredits.tryCredit (List.choose id [ product; Some fileName; modelName ])
+        match modelName, mapVersion with
+        | None, None ->
+            match tryVersionOfFileName fileName with
+            | Some v -> { product = fileName; modelName = None; version = Some v; source = "file-name"; credit = credit }
+            | None   -> { product = fileName; modelName = None; version = None;   source = "none"; credit = credit }
+        | _ ->
+            let product =
+                header "PRODNAME"
+                |> Option.map Path.GetFileNameWithoutExtension
+                |> Option.defaultValue fileName
+            { product = product; modelName = modelName; version = mapVersion; source = "fits-header"; credit = credit }
+
+    // The Surfaces panel's Source section reads the sidecar while it is drawn; a sidecar does
+    // not change during a session.
+    let private cache = System.Collections.Concurrent.ConcurrentDictionary<string, Option<OpcMetadata>>()
+
+    /// tryReadForOpcx, read once per session and path. A missing or unreadable sidecar is not
+    /// kept, so one added later is found.
+    let tryReadForOpcxCached (opcxPath : string) =
+        match cache.TryGetValue opcxPath with
+        | true, md -> md
+        | _ ->
+            let md = tryReadForOpcx opcxPath
+            if md.IsSome then cache.[opcxPath] <- md
+            md
+
+    let private headerRow (md : OpcMetadata) (key : string) (label : string) (format : string -> string) =
+        md.fitsHeader |> Map.tryFind key |> Option.bind nonEmpty |> Option.map (fun v -> label, format v)
+
+    /// The Surfaces panel's Source section (#887, docs/AnnotationMetadata.md): the credit, then
+    /// label/value rows of what the sidecar says about the shape model and the OPC, missing
+    /// ones left out. `allHeader` is the whole FITS header, for the fold-out.
+    let sourceRows (opcxPath : string) (metadata : Option<OpcMetadata>) =
+        let sm = shapeModelOf opcxPath metadata
+        let credit = sm.credit
+        let shapeRows =
+            match metadata with
+            | Some md when sm.source = "fits-header" ->
+                List.choose id [
+                    headerRow md "DATASRCV" "Shape model" id
+                    headerRow md "MAP_VER"  "Version" id
+                    headerRow md "DATASRCD" "Model date" (fun d -> d.Split('T').[0])
+                    headerRow md "DATASRC"  "Method" id
+                    headerRow md "PRODNAME" "Product" id
+                    headerRow md "MAP_TYPE" "Map type" id
+                    headerRow md "GSD"      "Grid spacing" (fun g -> match tryFloat g with Some v -> sprintf "%.1f mm" v | None -> g)
+                    headerRow md "MISSION"  "Mission" id
+                    headerRow md "TARGET"   "Target" id
+                    headerRow md "ORIGIN"   "Origin" id
+                    headerRow md "SOFTWARE" "Software" id
+                    headerRow md "DATEPRD"  "Produced" (fun d -> d.Split('T').[0])
+                ]
+            | _ ->
+                [
+                    "Product", sm.product
+                    "Version", (match sm.version with
+                                | Some v -> v + " (from the file name; the sidecar has no FITS header)"
+                                | None -> "unknown (no FITS header, no version in the file name)")
+                ]
+        let opcRows =
+            match metadata with
+            | None -> [ "Sidecar", "none (no *.opc.json next to the OPC)" ]
+            | Some md ->
+                List.choose id [
+                    md.creationDateTime |> Option.map (fun d ->
+                        "OPC created",
+                        sprintf "%s%s" (d.Split('T').[0]) (md.creatorId |> Option.map (sprintf " by %s") |> Option.defaultValue ""))
+                    md.demModel |> Option.map (fun d -> "DEM model", d.modelType)
+                    md.dskSummary |> Option.bind (fun d -> d.body) |> Option.map (fun b -> "DSK body", b)
+                    md.dskSummary |> Option.bind (fun d -> d.referenceFrame) |> Option.map (fun f -> "DSK frame", f)
+                    Some ("Sidecar", md.path)
+                ]
+        let allHeader = metadata |> Option.map (fun md -> md.fitsHeader |> Map.toList) |> Option.defaultValue []
+        credit, shapeRows @ opcRows, allHeader
+
     let private formatRange (unit : string) (r : Option<Range1d>) =
         match r with
         | Some r -> sprintf "%.5f .. %.5f %s" r.Min r.Max unit
@@ -217,6 +370,8 @@ module OpcMetadata =
 
         for input in metadata.inputProducts do
             Log.line "[OpcMetadata]   input: %s" input
+
+        Log.line "[OpcMetadata]   shape model: %s" (AnnotationMetadata.describeShapeModel (shapeModelOf metadata.path (Some metadata)))
 
         match metadata.demModel with
         | Some dem ->

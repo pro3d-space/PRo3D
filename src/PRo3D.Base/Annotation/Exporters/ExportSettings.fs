@@ -203,7 +203,10 @@ module AnnotationExportSettings =
         annotationFields  =
             [ AnnotationField.Key; AnnotationField.Text; AnnotationField.GroupName
               AnnotationField.GroupPath; AnnotationField.SurfaceName
-              AnnotationField.Geometry; AnnotationField.Semantic ]
+              AnnotationField.Geometry; AnnotationField.Semantic
+              AnnotationField.Confidence; AnnotationField.Comment
+              AnnotationField.ShapeModel; AnnotationField.ShapeModelVersion
+              AnnotationField.ShapeModelCredit; AnnotationField.ProjectedImages ]
             @ measurementFields
         pointFields       = AnnotationFields.allPointFields
     }
