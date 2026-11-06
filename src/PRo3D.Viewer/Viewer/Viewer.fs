@@ -691,6 +691,10 @@ module ViewerApp =
         | _  -> DrawingAction.Nop
 
     let updateFrustumAspect m (windowSize : V2i) (viewPortSizeId : string) =
+          // a hidden or collapsed view reports 0 x 0 (or 0 x h): its aspect is NaN or
+          // infinite and would end up in the saved frustum (#834). Keep the last good one.
+          if windowSize.X < 1 || windowSize.Y < 1 then m
+          else
             let aspect = float windowSize.X / float windowSize.Y
             let m = 
                 { m with frustum = m.frustum 

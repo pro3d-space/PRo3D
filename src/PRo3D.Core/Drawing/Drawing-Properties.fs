@@ -76,11 +76,17 @@ module AnnotationProperties =
             model
         | SetManualDippingAngle a ->                
             let model = { model with manualDipAngle = Numeric.update model.manualDipAngle a }
-            let dnsResults = DipAndStrike.calculateManualDipAndStrikeResults referenceSystem.up.value referenceSystem.northO model
+            // None while the other manual angle is still unset: keep what there is (#834)
+            let dnsResults =
+                DipAndStrike.calculateManualDipAndStrikeResults referenceSystem.up.value referenceSystem.northO model
+                |> Option.orElse model.dnsResults
             { model with dnsResults = dnsResults }
         | SetManualDippingAzimuth a ->
             let model ={ model with manualDipAzimuth = Numeric.update model.manualDipAzimuth a }
-            let dnsResults = DipAndStrike.calculateManualDipAndStrikeResults referenceSystem.up.value referenceSystem.northO model
+            // None while the other manual angle is still unset: keep what there is (#834)
+            let dnsResults =
+                DipAndStrike.calculateManualDipAndStrikeResults referenceSystem.up.value referenceSystem.northO model
+                |> Option.orElse model.dnsResults
             { model with dnsResults = dnsResults }
         | CreateCrossSection ->
             model // handled at Viewer level
