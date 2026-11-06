@@ -133,12 +133,12 @@ type SceneStateViewConfig =
         }
     static member ToJson (x : SceneStateViewConfig) =
         json {  
-            do! Json.write "nearPlane"           x.nearPlane          
-            do! Json.write "farPlane"            x.farPlane           
+            do! Json.writeFloatOr 0.1      "nearPlane"       x.nearPlane          
+            do! Json.writeFloatOr 100000.0 "farPlane"        x.farPlane           
             do! Json.write "frustumModel"        x.frustumModel       
-            do! Json.write "arrowLength"         x.arrowLength        
-            do! Json.write "arrowThickness"      x.arrowThickness     
-            do! Json.write "dnsPlaneSize"        x.dnsPlaneSize       
+            do! Json.writeFloatOr 1.0      "arrowLength"     x.arrowLength        
+            do! Json.writeFloatOr 1.0      "arrowThickness"  x.arrowThickness     
+            do! Json.writeFloatOr 1.0      "dnsPlaneSize"    x.dnsPlaneSize       
             do! Json.write "lodColoring"         x.lodColoring        
             do! Json.write "drawOrientationCube" x.drawOrientationCube
         }
@@ -188,9 +188,9 @@ type SceneStateReferenceSystem =
         json {  
             do! Json.write "origin"         (string x.origin)
             do! Json.write "isVisible"      x.isVisible          
-            do! Json.write "size"           x.size               
+            do! Json.writeFloatOr 1.0 "size" x.size               
             do! Json.write "selectedScale"  x.selectedScale  
-            do! Json.write "textsize"       x.textsize
+            do! Json.writeFloat "textsize" x.textsize
             do! Json.write "textcolor"      (x.textcolor.ToString())
         }
 
@@ -368,9 +368,9 @@ type FrustumParameters with
 
     static member ToJson(x : FrustumParameters) =
         json {
-            do! Json.write "farplane"         x.farplane
-            do! Json.write "nearplane"        x.nearplane
-            do! Json.write "fieldOfView"      x.fieldOfView
+            do! Json.writeFloatOr 1000.0 "farplane"    x.farplane
+            do! Json.writeFloatOr 0.01   "nearplane"   x.nearplane
+            do! Json.writeFloatOr 60.0   "fieldOfView" x.fieldOfView
             do! Json.write "resolution"       (x.resolution.ToString ())
         }
 
@@ -543,8 +543,8 @@ type SequencedBookmarkModel with
             do! Json.write "version"    x.version
             do! Json.write "bookmark"   x.bookmark
             do! Json.write "sceneState" x.sceneState
-            do! Json.write "delay"      x.delay.value
-            do! Json.write "duration"   x.duration.value
+            do! Json.writeFloatOr x.delay.min    "delay"    x.delay.value
+            do! Json.writeFloatOr x.duration.min "duration" x.duration.value
             if x.poseDataPath.IsSome then
                 do! Json.write "poseDataPath" x.poseDataPath
             if x.frustumParameters.IsSome then
@@ -735,12 +735,12 @@ type AnimationSettings = {
     static member ToJson(x : AnimationSettings) =
         json {
             do! Json.write "useGlobalAnimation" x.useGlobalAnimation
-            do! Json.write "globalDuration"     x.globalDuration.value
+            do! Json.writeFloat "globalDuration"     x.globalDuration.value
             do! Json.write "loopMode"           (x.loopMode |> int)
             do! Json.write "applyStateOnSelect" x.applyStateOnSelect
             do! Json.write "useEasing"          x.useEasing
             do! Json.write "smoothPath"         x.smoothPath
-            do! Json.write "smoothingFactor"    x.smoothingFactor.value
+            do! Json.writeFloat "smoothingFactor"    x.smoothingFactor.value
         }
 
 type AnimationTimeStepContent =

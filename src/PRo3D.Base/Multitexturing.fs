@@ -1,5 +1,6 @@
 ﻿namespace PRo3D.Base
 
+open System
 open Aardvark.Base
 open Aardvark.Rendering
 
@@ -64,8 +65,8 @@ module ColorMaps =
             | Ramp(min, max, name) ->
                 json {
                     do! Json.write "case" "Ramp"
-                    do! Json.write "min" min
-                    do! Json.write "max" max
+                    do! Json.write "min" (if Double.IsFinite min && abs min < 7.9e28 then min else 0.0) // readers use plain read: never null (#834)
+                    do! Json.write "max" (if Double.IsFinite max && abs max < 7.9e28 then max else 1.0)
                     do! Json.write "name" name
                 }
             | Passthrough ->

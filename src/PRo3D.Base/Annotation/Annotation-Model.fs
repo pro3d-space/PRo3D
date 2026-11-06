@@ -262,15 +262,19 @@ with
               | 1 -> return! DipAndStrikeResults.readV1
               | _ -> return! v |> sprintf "don't know version %A  of DipAndStrikeResults" |> Json.error
         }
+    /// Dip and strike angles all defined: anything else is not a dip & strike result (#834).
+    static member isFinite (x : DipAndStrikeResults) =
+        Double.IsFinite x.dipAngle && Double.IsFinite x.dipAzimuth && Double.IsFinite x.strikeAzimuth
+
     static member ToJson (x : DipAndStrikeResults) =
         json {
             do! Json.write "version"          x.version                    
             do! Json.write "plane"            (x.plane.ToString())
-            do! Json.write "dipAngle"         x.dipAngle          
+            do! Json.writeFloatOr 0.0 "dipAngle"      x.dipAngle          
             do! Json.write "dipDirection"     (x.dipDirection.ToString())
             do! Json.write "strikeDirection"  (x.strikeDirection.ToString())        
-            do! Json.write "dipAzimuth"       x.dipAzimuth     
-            do! Json.write "strikeAzimuth"    x.strikeAzimuth  
+            do! Json.writeFloatOr 0.0 "dipAzimuth"    x.dipAzimuth     
+            do! Json.writeFloatOr 0.0 "strikeAzimuth" x.strikeAzimuth  
             do! Json.write "centerOfMass"     (x.centerOfMass.ToString())
             do! Json.write "error"            x.error
             do! Json.write "regressionInfo"   x.regressionInfo
@@ -1336,7 +1340,9 @@ with
             do! Json.writeWith (Ext.toJson<ColorInput,Ext>) "color" x.color
             do! Json.writeWith (Ext.toJson<NumericInput,Ext>) "thickness" x.thickness
             do! Json.write "results"     x.results
-            do! Json.write "dnsResults"  x.dnsResults
+            // a dip & strike with non-finite angles is undefined: saved as none, which every
+            // release reads (its float readers would fail on null, #834)
+            do! Json.write "dnsResults"  (x.dnsResults |> Option.filter DipAndStrikeResults.isFinite)
             do! Json.write "visible"     x.visible
             do! Json.write "showDns"     x.showDns
             do! Json.write "text"        x.text
@@ -1377,7 +1383,7 @@ with
             // colour and alpha as soon as the user switches the fill off and saves
             do! Json.write "showFill"  x.showFill
             do! Json.write "fillColor" (x.fillColor.c.ToString())
-            do! Json.write "fillAlpha" x.fillAlpha.value
+            do! Json.writeFloat "fillAlpha" x.fillAlpha.value
             match x.geoUnit with
             | Some u -> do! Json.write "geoUnit" u
             | None -> ()

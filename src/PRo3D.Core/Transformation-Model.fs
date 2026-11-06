@@ -462,7 +462,7 @@ type Transformations with
             do! Json.write "flipZ" x.flipZ
             do! Json.write "isSketchFab" x.isSketchFab
             do! Json.write "usePivot" x.usePivot
-            do! Json.write "pivotSize" x.pivotSize.value
+            do! Json.writeFloat "pivotSize" x.pivotSize.value
 
             let tRefSys =
                 match x.refSys with
@@ -471,7 +471,7 @@ type Transformations with
          
             do! Json.writeWith Ext.toJson<Trafo3d,Ext> "refSys" tRefSys
             do! Json.write "showTrafoRefSys" x.showTrafoRefSys
-            do! Json.write "refSysSize" x.refSysSize.value
+            do! Json.writeFloat "refSysSize" x.refSysSize.value
             do! Json.write "refSysMode" (x.refSysMode |> int)
             do! Json.write "pivotMode" (x.pivotMode |> int)
         }
@@ -492,10 +492,10 @@ type TransformationData =
     static member ToJson (x : TransformationData) = 
         json {
             do! Json.write "translation" (x.translation.ToString())
-            do! Json.write "scaling" x.scaling
-            do! Json.write "yaw"   x.yaw
-            do! Json.write "pitch" x.pitch
-            do! Json.write "roll"  x.roll
+            do! Json.writeFloatOr 1.0 "scaling" x.scaling
+            do! Json.writeFloatOr 0.0 "yaw"   x.yaw
+            do! Json.writeFloatOr 0.0 "pitch" x.pitch
+            do! Json.writeFloatOr 0.0 "roll"  x.roll
             do! Json.writeWith Ext.toJson<Trafo3d,Ext> "trafo" x.trafo
             do! Json.write "pivot" (x.pivot.ToString())
             let tRefSys =

@@ -157,8 +157,8 @@ type Entity = {
             do! Json.write "label"        x.label       
             do! Json.write "spiceName"    x.spiceName   
             do! Json.write "color"        (string x.color)
-            do! Json.write "radius"       x.radius   
-            do! Json.write "trajectoryLength" x.trajectoryLength   
+            do! PRo3D.Base.Json.writeFloatOr 1.0 "radius" x.radius   
+            do! PRo3D.Base.Json.writeFloat "trajectoryLength" x.trajectoryLength   
             do! Json.write "textureName"  x.textureName 
             do! Json.write "defaultFrame" x.defaultFrame
             do! Json.write "draw"         x.draw

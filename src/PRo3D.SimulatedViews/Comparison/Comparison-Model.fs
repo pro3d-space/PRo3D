@@ -64,7 +64,7 @@ type AnnotationComparison = {
             if x.measurement2.IsSome then 
                 do! Json.write "measurements2"  x.measurement2.Value
             if x.difference.IsSome then 
-                do! Json.write "difference"   x.difference.Value
+                do! Json.writeFloat "difference"   x.difference.Value
         }
     static member FromJson (_ : AnnotationComparison) =
         json {
@@ -116,9 +116,9 @@ type VertexStatistics = {
 } with
   static member ToJson (x:VertexStatistics) =
     json {
-        do! Json.write "minDistance" x.minDistance
-        do! Json.write "avgDistance" x.avgDistance
-        do! Json.write "maxDistance" x.maxDistance
+        do! Json.writeFloat "minDistance" x.minDistance
+        do! Json.writeFloat "avgDistance" x.avgDistance
+        do! Json.writeFloat "maxDistance" x.maxDistance
     }
 
 
@@ -152,7 +152,7 @@ type AreaSelection = {
         json {
             do! Json.write "id" x.id
             do! Json.write "label"  x.label
-            do! Json.write "radius" x.radius
+            do! Json.writeFloatOr 1.0 "radius" x.radius
             do! Json.write "location" (x.location |> string)
             do! Json.write "highResolution" x.highResolution
             do! Json.write "visible" x.visible
