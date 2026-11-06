@@ -6,12 +6,9 @@ the PRo3D viewer would draw them, because they go through the same scene graph a
 same sun shading and shadows. Everything comes from a JSON job file; the tool itself uses
 no SPICE.
 
-The motivating case is Dimorphos (and Didymos) seen from HERA's AFC-1, with the cameras
-computed elsewhere, e.g. from SPICE.
-
 ```
 pro3d-tool render-view --job job.json
-pro3d-tool render-view --job job.json --views "afc1_20270321*" --width 512 --height 512 --no-sun
+pro3d-tool render-view --job job.json --views "rover_*" --width 512 --height 512 --no-sun
 ```
 
 | Option | Default | Meaning |
@@ -35,6 +32,11 @@ The exit code is 0 on success and 1 on any error. Every view is checked before t
 image is rendered.
 
 ## Job file
+
+The cameras, the OPC placements and the sun come from outside, from whatever computes them:
+a rover or orbiter camera model on Mars, SPICE for a spacecraft. The example below is one
+such case: Dimorphos and Didymos as seen from HERA's AFC-1 camera, in Dimorphos' body-fixed
+frame, with the Didymos OPC placed relative to Dimorphos.
 
 ```jsonc
 // illustration: the test fixture's view (2027-03-21T17:00, pinned kernels) and Didymos as
@@ -104,7 +106,8 @@ the depth buffer is spent on the scene even at kilometres of distance.
 
 ### How the evaluation jobs were made
 
-For the evaluation, the jobs were written by
+The evaluation uses the Dimorphos case: HERA's AFC-1 camera looking at Dimorphos, with
+Didymos placed as well where it is in the frame. The jobs were written by
 [`scripts/render-view-job.py`](../scripts/render-view-job.py) (spiceypy). It is a test aid,
 not part of the tool, and it is one way of computing the cameras. Every comparison below
 goes through it, so an error in it would show in all of them.
