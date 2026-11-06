@@ -29,6 +29,8 @@ It reports **that** PRo3D is working, not how far along it is — see
 | --- | --- |
 | `camera` | `NavigationMessage` — the ArcBall switch picks the centre ray against every active surface synchronously |
 | `picking` | `PickSurface`, `PreviewPickSurfaceFinished` — a cold patch loads its triangle set |
+| `picking` | `DrawingMessage (PickAnnotation _)` — a Ctrl+click on an annotation tests the clicked point for occlusion with a ray, which loads a cold patch's KdTree |
+| `selecting annotations` | `BoxSelectEnd` — the box selection's occlusion rays, up to 32 per annotation, plus cold KdTree loads: seconds with thousands of annotations ([AnnotationBoxSelection](AnnotationBoxSelection.md)) |
 | `importing surfaces` | `ImportSurface`, `DiscoverAndImportOpcs`, `ImportDiscoveredSurfacesThreads` |
 | `scene file` | `LoadScene`, `OpenScene`, `SaveScene`, `SaveAs` |
 | `exporting annotations` | `AnnotationExportMessage` |

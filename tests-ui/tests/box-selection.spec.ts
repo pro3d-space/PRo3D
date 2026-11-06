@@ -3,6 +3,7 @@ import { Pro3d } from "../src/pro3d";
 import { awaitIdle, clickTool, drawingScene, openDrawingViewer } from "../src/drawing";
 import { PNG } from "pngjs";
 import { randomUUID } from "crypto";
+import * as http from "http";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -364,6 +365,46 @@ function magentaEdges(png: Buffer): Array<[number, number]> {
     return out;
 }
 
+/**
+ * Polls the busy indicator's lock-free `/busy` route (docs/BusyIndicator.md) until `stop`, and
+ * returns every operation label it reported with the longest time seen for each. The route
+ * answers while the update thread holds the app lock, which is the point: the pill is the
+ * only feedback the user gets during a long box selection.
+ */
+function watchBusy(app: Pro3d) {
+    const seen = new Map<string, number>();
+    let running = true;
+    const once = () =>
+        new Promise<void>((resolve) => {
+            const req = http.get(`${app.url}busy`, (res) => {
+                let body = "";
+                res.on("data", (c) => (body += c));
+                res.on("end", () => {
+                    try {
+                        const b = JSON.parse(body) as { busy: boolean; op?: string; ms?: number };
+                        if (b.busy && b.op) seen.set(b.op, Math.max(seen.get(b.op) ?? 0, b.ms ?? 0));
+                    } catch {}
+                    resolve();
+                });
+            });
+            req.on("error", () => resolve());
+            req.setTimeout(5000, () => req.destroy());
+        });
+    const loop = (async () => {
+        while (running) {
+            await once();
+            await new Promise((r) => setTimeout(r, 100));
+        }
+    })();
+    return {
+        stop: async () => {
+            running = false;
+            await loop;
+            return seen;
+        },
+    };
+}
+
 /** The viewer's own measurement of the last box hit tests. */
 function boxSelectionLog(app: Pro3d): string[] {
     try {
@@ -402,8 +443,10 @@ test("box selection: thousands of annotations, occlusion by the body, gestures",
         );
         expect(edges.length, "B annotations drawn (magenta)").toBeGreaterThan(100);
         const [ex, ey] = edges[Math.floor(edges.length / 2)];
+        const clickBusy = watchBusy(app);
         await ctrlClick(render, ex, ey);
         const clicked = await readWhen(reader, panel, (s) => s.single || s.total > 0, 60_000);
+        console.log(`[box-selection] busy during the click: ${JSON.stringify([...(await clickBusy.stop())])}`);
         expect(clicked.s.single || clicked.s.total > 0, `Ctrl+click at (${ex},${ey}) on a line edge selects it`).toBe(true);
         await render.waitForTimeout(1500);
         save("1-click-edge.png", await render.screenshot());
@@ -411,8 +454,13 @@ test("box selection: thousands of annotations, occlusion by the body, gestures",
         expect(later.single || later.total > 0, "and it stays selected after the release").toBe(true);
 
         // 2. Ctrl+drag over the whole view: exactly the B set, none of the hidden ones
+        const boxBusy = watchBusy(app);
         await ctrlDrag(render, at(0.02, 0.03), at(0.88, 0.97));
         const all = await readWhen(reader, panel, (s) => s.total >= SETS.B.count, 300_000);
+        const busy = await boxBusy.stop();
+        console.log(`[box-selection] busy during the box: ${JSON.stringify([...busy])}`);
+        // the hit test blocks the update thread for seconds; the pill has to say so
+        expect(busy.has("selecting annotations"), "busy indicator reports the box selection").toBe(true);
         await awaitIdle(render, app, 2000);
         const allFinal = await reader.read();
         save("2-box-all.png", await render.screenshot());

@@ -2597,6 +2597,11 @@ module ViewerApp =
             | ViewerAction.NavigationMessage _               -> Some "camera"
             | ViewerAction.PickSurface _
             | ViewerAction.PreviewPickSurfaceFinished _      -> Some "picking"
+            // the click's occlusion check casts a ray, so a cold patch loads its KdTree
+            | ViewerAction.DrawingMessage (DrawingAction.PickAnnotation _) -> Some "picking"
+            // one ray per sample, up to 32 per annotation, plus cold KdTree loads: seconds
+            // with thousands of annotations (docs/AnnotationBoxSelection.md)
+            | ViewerAction.BoxSelectEnd _                    -> Some "selecting annotations"
             | ViewerAction.ImportSurface _
             | ViewerAction.DiscoverAndImportOpcs _
             | ViewerAction.ImportDiscoveredSurfacesThreads _ -> Some "importing surfaces"

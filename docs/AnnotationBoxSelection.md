@@ -196,4 +196,7 @@ annotations, the box took 10.5 s: 69,000 rays at about 26 microseconds each (1.8
 8.8 s loading the six KdTree patches the rays touch for the first time. Picking loads the same
 patches lazily too, so a later box costs only the rays.
 
+While it runs, the busy indicator reads `selecting annotations` ([BusyIndicator](BusyIndicator.md)),
+and the spec checks that `/busy` reports it.
+
 The manual steps are in the test protocol as TC-62 (Box Selection of Annotations).
