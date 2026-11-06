@@ -151,6 +151,56 @@ module DrawingApp =
             let a = { a with dnsResults = points |> DipAndStrike.calculateDipAndStrikeResults up north }
             { a with results = Some (Calculations.calculateAnnotationResults a up north planet) }
 
+    /// Whether the vertex-editing gestures apply to `a`: a polyline-like annotation by its
+    /// control points, or a three-point ellipse by its axis ends (`EllipseEdit`).
+    let isEditable (a : Annotation) =
+        Geometry.isVertexEditable a.geometry
+        || EllipseEdit.isEditable a.geometry a.projection a.ellipticResults
+
+    /// The positions the handles of `a` are drawn and grabbed at, in handle-index order.
+    let editHandles (a : Annotation) : V3d[] =
+        if Geometry.isVertexEditable a.geometry then IndexList.toArray a.points
+        else
+            match a.ellipticResults with
+            | Some r when EllipseEdit.isEditable a.geometry a.projection a.ellipticResults ->
+                EllipseEdit.handlesOnOutline r (IndexList.toArray a.points)
+            | _ -> [||]
+
+    /// Drops axis-end handle `index` of a three-point ellipse at `drop` and rebuilds the
+    /// ellipse on its stored construction plane, exactly as `getFinishedAnnotation` built it:
+    /// the outline is re-sampled and draped with `samplePoint` (the Sky projection), the
+    /// stored shape, dip and strike and the results are recomputed.
+    ///
+    /// The annotation is returned unchanged when the drop would collapse an axis or the new
+    /// outline cannot be draped - a half-built ellipse is worse than a refused edit.
+    let moveEllipseHandle
+        (up : V3d) (north : V3d) (planet : Planet)
+        (samplePoint : V3d -> Option<V3d>)
+        (index : int) (drop : V3d)
+        (a : Annotation) : Annotation =
+
+        match a.ellipticResults with
+        | None -> a
+        | Some r ->
+            match EllipseEdit.tryPlane r, EllipseEdit.tryMoveHandle r index drop with
+            | Some plane, Some construction ->
+                match EllipticAnnotations.constructAndSampleFromPlane plane construction samplePoint with
+                | Some c when c.surfaceProjectedEllipsePoints.Length >= 3 ->
+                    let a =
+                        { a with
+                            points          = IndexList.ofArray c.surfaceProjectedEllipsePoints
+                            ellipticResults = Some (EllipticAnnotations.Measures.ofConstructed planet up north c)
+                            // the construction points lie on the plane, so this is that plane again
+                            dnsResults      = IndexList.ofArray construction |> DipAndStrike.calculateDipAndStrikeResults up north }
+                    { a with results = Some (Calculations.calculateAnnotationResults a up north planet) }
+                | Some c ->
+                    Log.warn "[Drawing] edited ellipse outline could not be projected onto the surface (%d sampled points); edit discarded" c.surfaceProjectedEllipsePoints.Length
+                    a
+                | None -> a
+            | _ ->
+                Log.warn "[Drawing] ellipse handle %d dropped where it would collapse an axis; edit discarded" index
+                a
+
     /// The surface sampler of the working annotation's last click, keyed by its annotation. A
     /// polygon is finished by Enter (`Finish`), which carries no sampler, yet its closing edge
     /// must be draped with the same projection, surface and frame as its other edges. Not model
@@ -1069,8 +1119,8 @@ module DrawingApp =
 
             | GrabVertex (id, pointIndex) ->
                 match model.annotations.flat.TryFind id with
-                | Some (Leaf.Annotations ann) when Geometry.isVertexEditable ann.geometry ->
-                    match IndexList.tryAt pointIndex ann.points with
+                | Some (Leaf.Annotations ann) when isEditable ann ->
+                    match editHandles ann |> Array.tryItem pointIndex with
                     | Some original ->
                         { model with
                             vertexGrab =
@@ -1093,26 +1143,27 @@ module DrawingApp =
 
             | MoveVertex (id, pointIndex, position, samplePoint) ->
                 match model.annotations.flat.TryFind id with
-                | Some (Leaf.Annotations ann) when Geometry.isVertexEditable ann.geometry ->
+                | Some (Leaf.Annotations ann) when isEditable ann ->
                     let up     = smallConfig.up.Get(bigConfig)
                     let north  = smallConfig.north.Get(bigConfig)
                     let planet = smallConfig.planet.Get(bigConfig)
 
-                    let before = model.annotations
-                    let after =
-                        before
-                        |> Groups.updateLeaf id (fun leaf ->
-                            match leaf with
-                            | Leaf.Annotations a ->
-                                a
-                                |> moveVertex up north planet model.samplingDistance samplePoint pointIndex position
-                                |> Leaf.Annotations
-                            | other -> other
-                        )
+                    let edited =
+                        if Geometry.isVertexEditable ann.geometry then
+                            moveVertex up north planet model.samplingDistance samplePoint pointIndex position ann
+                        else
+                            moveEllipseHandle up north planet samplePoint pointIndex position ann
 
-                    // one atomic update, and therefore one undo entry, per drop
-                    { model with annotations = after; vertexGrab = None }
-                    |> pushUndo (SnapshotDelta(before, after))
+                    // a refused ellipse edit returns the annotation itself: no change, no undo entry
+                    if LanguagePrimitives.PhysicalEquality edited ann then
+                        { model with vertexGrab = None }
+                    else
+                        let before = model.annotations
+                        let after = before |> Groups.updateLeaf id (fun _ -> Leaf.Annotations edited)
+
+                        // one atomic update, and therefore one undo entry, per drop
+                        { model with annotations = after; vertexGrab = None }
+                        |> pushUndo (SnapshotDelta(before, after))
                 | _ ->
                     { model with vertexGrab = None }
 
@@ -1432,8 +1483,9 @@ module DrawingApp =
             // fill and outline stay aligned. The legacy branch below applies it to both for the
             // same reason. See pro3d-space/PRo3D#672.
 
-            // after the lines, so a handle is never hidden by the outline running through it -
-            // matching the pick pass, where handles are drawn last for the same reason
+            // in a pass after the main one (PackedRendering.vertexHandlePass), so a handle is never
+            // hidden by the outline running through it - matching the pick pass, where handles are
+            // drawn last for the same reason
             let packedVertexHandles =
                 PackedRendering.packedVertexHandleRender hoveredVertex grabbedVertex viewport handleGeometry
                 |> Sg.noEvents

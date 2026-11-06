@@ -34,6 +34,72 @@ Greying the options out is deliberate rather than hiding them or disabling the w
 which projections exist. The label is left as the bare name so the disabled note cannot
 stretch the `<select>` wider than the same dropdown under a non-ellipse geometry.
 
+## Editing an ellipse
+
+A finished `AxisEllipse` can be reshaped with **Edit Annotation**, the vertex-editing mode
+([AnnotationVertexEditing.md](AnnotationVertexEditing.md)). Select the ellipse and four handles
+appear, at the ends of its two axes. Ctrl+click one to pick it up and Ctrl+click on the surface to
+drop it:
+
+| Handle | What the drop does |
+|---|---|
+| a major-axis end | the opposite end stays put; the axis turns and stretches to the drop. The minor length is kept. |
+| a minor-axis end | the major axis stays put; the minor length becomes the drop's distance from it. |
+
+**Telling the axes apart.** The major-axis ends are drawn **magenta** and the minor-axis ends
+**cyan**, and a thin guide line in the same colour runs along each axis through the ellipse, so
+it is plain which handle does what before anything is picked up. The hint line next to the tool
+settings says it in words, with the current full axis lengths ("Ctrl+click an axis end to move
+it: magenta = major axis (120.32 m), cyan = minor axis (70.00 m)"), and while a handle is in
+hand it says what the drop will do to which axis. Hovered handles turn yellow and the grabbed
+one green, as for polylines. The colours are `PackedRendering.EllipseEditColors`, chosen away
+from the handle palette and from red and orange, the usual annotation colours.
+
+While a handle is in hand, a green line runs from the opposite end of the same axis to the cursor.
+The guides, that line and the handles are drawn over the terrain (no depth test), in passes after
+the main one (`ellipseAxisGuidePass`, then `vertexHandlePass`): the fitted plane and a straight
+line between surface points both run partly under the surface.
+On drop the outline is re-sampled and draped, and the stored shape (centre, semi-axes, long-axis
+azimuth), dip and strike and the measurements are recomputed. One drop is one undo entry. A minor
+end dragged out past the major length makes that axis the major one; the handles follow.
+
+**The plane is not re-fitted.** An ellipse is constructed in the plane fitted through its three
+clicks. Editing keeps that plane: it is recovered from the stored shape (the plane through
+`center` spanned by `semiMajorAxis` and `semiMinorAxis`), the drop is projected
+orthogonally onto it, and the ellipse is rebuilt there with the same construction
+(`EllipseConstruction.constructEllipseOrtho2d`) the tool uses while drawing. Re-fitting a plane
+through surface points on every edit would drift the ellipse a little each time; this way an
+ellipse only changes by what was moved. The cost is that an edit cannot tilt the ellipse: an
+ellipse whose plane is wrong has to be redrawn.
+
+The handles are drawn at the outline point nearest each axis end, so they sit on the terrain
+where the outline is, not on the plane, which may run under or above it. The drop is draped with
+the Sky projection whatever the drawing toolbar is set to.
+
+A drop that would collapse an axis (a minor end dropped onto the major axis, a major end onto
+the fixed end), or an outline that can no longer be draped, is refused: the ellipse stays as it
+was and no undo entry is pushed.
+
+Not editable: `Axis4PEllipse` (see below), ellipses imported from SBMT (`Projection.Linear`,
+not draped), and ellipses saved before v6.3.4, which do not carry the stored shape
+(`"ellipseShape"`). Nothing new is persisted, so an edited ellipse loads in older releases
+like any other. Supporting profiles generated from an ellipse are not regenerated when it is
+edited.
+
+The code is `EllipseEdit` in [Annotation-Model.fs](../src/PRo3D.Base/Annotation/Annotation-Model.fs)
+(plane, handles, handle moves) and `DrawingApp.moveEllipseHandle` /
+`DrawingApp.editHandles` in [Drawing-App.fs](../src/PRo3D.Core/Drawing/Drawing-App.fs).
+
+The geometry of an edit is tested in `src/Tests/VertexEditingTests.fs` (`editing a
+three-point ellipse`): which end stays, which length is kept, ten drops in place without drift,
+undo, refused drops. `tests-ui/tests/ellipse-editing.spec.ts` does it in the viewer on the
+Dimorphos OPC: it finds the four handles in the render, picks a major end up (it must turn
+green), pulls it out by 35 % and reads the outline back with the same ellipse fit as the drawing
+spec (`tests-ui/src/ellipse-fit.ts`): major axis longer by about that much, minor width kept,
+opposite end in place. Then Ctrl+Z, and the same for a minor end. It also checks the colours:
+the handles on the picked major ends are magenta, the other two cyan, and a guide of each colour
+runs between its pair.
+
 ## Known limitation
 
 `Axis4PEllipse` is currently not fitted. `getFinishedAnnotation` takes the plane-based

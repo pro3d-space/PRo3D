@@ -489,7 +489,9 @@ module PackedRendering =
                 let c =
                     if v.subId = uniform.GrabbedVertex then V4f(0.2f, 0.8f, 0.2f, 1.0f)
                     elif v.subId = uniform.HoveredVertex then V4f(1.0f, 0.85f, 0.1f, 1.0f)
-                    else V4f(1.0f, 1.0f, 1.0f, 1.0f)
+                    // idle: the colour vertexHandles chose - white, or the axis colour of an
+                    // ellipse axis end (EllipseEditColors)
+                    else v.c
 
                 return { v with pos = V4f(clip.X + dx, clip.Y + dy, clip.Z, clip.W); c = c }
             }
@@ -1268,6 +1270,34 @@ module PackedRendering =
         let renderOn runtime (surfaces : OffscreenSurfaces.SurfaceDepth) fills =
             render runtime fills surfaces.depth surfaces.size surfaces.viewTrafo surfaces.projTrafo
 
+    /// Colours that tell the two axes of an ellipse apart while it is edited: its handles, the
+    /// axis guides drawn through it and the hint line all use them. Away from the handle
+    /// palette - green is grabbed, yellow hovered, white a polyline vertex - and away from red and
+    /// orange, the usual annotation colours.
+    module EllipseEditColors =
+        let major = C4b(240, 80, 240)
+        let minor = C4b(40, 200, 255)
+        let majorName = "magenta"
+        let minorName = "cyan"
+        /// handles 0 and 1 end the major axis, 2 and 3 the minor (EllipseEdit.tryPlaneHandles)
+        let ofHandle (index : int) = if index < 2 then major else minor
+
+    /// Where the edit handles of `anno` are, in handle-index order (the index GrabVertex and
+    /// MoveVertex receive); empty when it cannot be edited. Polyline-like: the clicked control
+    /// points. Three-point ellipse: its four axis ends, snapped to the draped outline
+    /// (`EllipseEdit`). The adaptive twin of `DrawingApp.editHandles`.
+    let editHandles (anno : AdaptiveAnnotation) (t : AdaptiveToken) : V3d[] =
+        let geometry = anno.geometry.GetValue(t)
+        if Geometry.isVertexEditable geometry then
+            anno.points.Content.GetValue(t) |> IndexList.toArray
+        else
+            let projection = anno.projection.GetValue(t)
+            let elliptic   = anno.ellipticResults.GetValue(t)
+            match elliptic with
+            | Some r when EllipseEdit.isEditable geometry projection elliptic ->
+                EllipseEdit.handlesOnOutline r (anno.points.Content.GetValue(t) |> IndexList.toArray)
+            | _ -> [||]
+
     /// Draggable control-point handles for one annotation - the one being edited.
     ///
     /// The object id written to alpha indexes the same `ordered` array lines and fills use, so a
@@ -1277,7 +1307,8 @@ module PackedRendering =
     ///
     /// Emits `anno.points` - the control points the user clicked - and deliberately not
     /// `Drawing.Sg.getPolylinePoints`, which returns the terrain-sampled polyline and would put a
-    /// handle on every sample.
+    /// handle on every sample. A three-point ellipse gets its four axis ends instead
+    /// (`EllipseEdit.handlesOnOutline`), since its points are the sampled outline.
     ///
     /// Returns bare geometry so the visible and pick passes can attach different shaders.
     let vertexHandles
@@ -1310,9 +1341,10 @@ module PackedRendering =
                 | Some oid ->
                     let (_, anno) = annos.[oid]
                     let visible   = anno.visible.GetValue(t)
-                    let geometry  = anno.geometry.GetValue(t)
+                    let handles   = if visible then editHandles anno t else [||]
+                    let isEllipse = not (Geometry.isVertexEditable (anno.geometry.GetValue(t)))
 
-                    if visible && Geometry.isVertexEditable geometry then
+                    if handles.Length > 0 then
                         let pivot = anno.modelTrafo.GetValue(t)
                         pivotTrafo <- Some pivot
 
@@ -1327,7 +1359,7 @@ module PackedRendering =
                                V2f(-1.0f, -1.0f); V2f(1.0f, 1.0f); V2f(-1.0f, 1.0f) |]
 
                         let mutable i = 0
-                        for p in anno.points.Content.GetValue(t) do
+                        for p in handles do
                             let local = pivot.Backward.TransformPos p |> V3f
                             for c in quad do
                                 positions.Add local
@@ -1335,9 +1367,8 @@ module PackedRendering =
                                 subIds.Add i
                                 objIds.Add oid
                                 sizes.Add size
-                                // the shader chooses the visible colour; supplied because every
-                                // packed draw does and HandleVertex declares Colors as an input
-                                colors.Add(C4f(1.0f, 1.0f, 1.0f, 1.0f))
+                                // the idle colour; the shader overrides it while hovered or grabbed
+                                colors.Add(if isEllipse then (EllipseEditColors.ofHandle i).ToC4f() else C4f(1.0f, 1.0f, 1.0f, 1.0f))
                             i <- i + 1
 
                 {| points     = positions.ToArray()
@@ -1359,6 +1390,16 @@ module PackedRendering =
         |> Sg.vertexAttribute DefaultSemantic.Colors      (data |> AVal.map (fun d -> d.colors))
         |> Sg.uniform "MV" mv
 
+    /// The handles draw after everything in the main pass. Listing them after the lines in an
+    /// `Sg.ofSeq` does not order anything - the main pass sorts by pipeline state - and a selected
+    /// ellipse outline, a band wider than its line, covered all but a sliver of each handle.
+    /// One pass for the one handle draw.
+    ///
+    /// The axis guides of an ellipse being edited (Viewer.ellipseAxisGuides) draw in their own pass
+    /// between the two: over its outline, under its handles.
+    let ellipseAxisGuidePass = RenderPass.after "ellipse-axis-guides" RenderPassOrder.Arbitrary RenderPass.main
+    let vertexHandlePass = RenderPass.after "vertex-handles" RenderPassOrder.Arbitrary ellipseAxisGuidePass
+
     /// Visible pass for the vertex handles. `hovered` and `grabbed` are control point indices, or
     /// -1; the shader compares them per vertex the way SelectedId works for lines.
     let packedVertexHandleRender (hovered : aval<int>) (grabbed : aval<int>) (viewport : aval<V2i>) handles =
@@ -1374,6 +1415,7 @@ module PackedRendering =
         // outline. The pick pass makes the same choice, so what you see is what you can grab.
         |> Sg.depthTest (AVal.constant DepthTest.None)
         |> Sg.writeBuffers' (Set.ofList [WriteBuffer.Color DefaultSemantic.Colors])
+        |> Sg.pass vertexHandlePass
 
     /// Point sprites as bare geometry, positions `view`-transformed on the CPU. `points` adds the
     /// viewer's shader; the map projection view (#772) adds its own.
