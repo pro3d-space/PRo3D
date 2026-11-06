@@ -232,9 +232,8 @@ re-samples the two edges next to it with the drawing tool's own sampling.
 | File | Role |
 |---|---|
 | `src/PRo3D.Core/Importers/PolygonCsvImporter.fs` | parser (`parseLines` / `parseFile`), surface snap (`snapToSurface` / `snapAll`, ray cast passed in), `ImportOptions` and `build` (linear or sky-projected annotations, via `DrawingApp.resampleSegment`), group construction |
-| `src/PRo3D.Viewer/Viewer-Model.fs` | `PolygonImportModel` (window state, session-only) and `PolygonImportAction` |
-| `src/PRo3D.Viewer/Viewer/Viewer.fs` | handler: ray cast through `SurfaceIntersection.doKdTreeIntersection`, merge into the annotation tree, notice |
-| `src/PRo3D.Viewer/Viewer/ViewerGUI.fs` | the *Extras* menu entry and the import window (`PolygonImport.importWindow`) |
+| `src/PRo3D.Viewer/PolygonImportApp.fs` | the sub-app: `PolygonImportModel` (window state, session-only), `PolygonImportAction`, `update`, `importFiles` (GIS frame, ray cast through `SurfaceIntersection.doKdTreeIntersection`, merge into the annotation tree, undo step, notice text) and `view` (the import window) |
+| `src/PRo3D.Viewer/Viewer-Model.fs`, `Viewer/Viewer.fs`, `Viewer/ViewerGUI.fs` | wiring only: the `polygonImport` field, `PolygonImportMessage` routed to the sub-app, the *Extras* menu entry, `PolygonImportApp.view` in the layout |
 | `src/Tests/PolygonCsvImportTests.fs` | parser, snapping (analytic sphere), grouping, and that the shipped examples keep importing |
 | `scripts/example-polygons.csv`, `scripts/example-polygon-pixels.csv` | the examples under [Try it](#try-it) |
 

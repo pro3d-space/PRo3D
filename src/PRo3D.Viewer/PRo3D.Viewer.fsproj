@@ -62,6 +62,7 @@
     <Compile Include="Layouts\LayoutApp.fs" />
     <Compile Include="ProvenanceModel.fs" />
     <Compile Include="ProvenanceModel.g.fs" />
+    <Compile Include="PolygonImportApp.fs" />
     <Compile Include="Viewer-Model.fs" />
     <Compile Include="Viewer-Model.g.fs" />
     <Compile Include="Busy.fs" />

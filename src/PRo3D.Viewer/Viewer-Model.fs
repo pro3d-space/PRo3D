@@ -126,25 +126,6 @@ type ImageInspectorAction =
     /// a scale bar standing at the shadow tip, as tall as the measured depth
     | CreateScaleBar
 
-/// The polygon CSV import window (docs/PolygonCsvImport.md). Session-only, like annotationExport.
-type PolygonImportModel = {
-    isOpen  : bool
-    options : PRo3D.Core.PolygonCsvImporter.ImportOptions
-}
-
-module PolygonImportModel =
-    let initial = { isOpen = false; options = PRo3D.Core.PolygonCsvImporter.ImportOptions.initial }
-
-type PolygonImportAction =
-    | ShowImportWindow
-    | HideImportWindow
-    | ToggleSnapVertices
-    | ToggleDrapeEdges
-    | ToggleDipAndStrike
-    | SetSpacing of float
-    /// files chosen in the window; imports them with its options and closes it
-    | ImportFiles of list<string>
-
 type ViewerAction =
 | ToggleDirectToolMode
 | DrawingMessage                  of DrawingAction
