@@ -104,9 +104,9 @@ module RoverMetrics =
 
             let! fromRMC = Json.read "fromRMC"
             let! toRMC = Json.read "toRMC"
-            let! sclkStart = Json.read "SCLK_START"
-            let! sclkEnd = Json.read "SCLK_END"
-            let! length = Json.read "length"
+            let! sclkStart = Json.readFloat "SCLK_START"
+            let! sclkEnd = Json.readFloat "SCLK_END"
+            let! length = Json.readFloat "length"
 
             return
                 {
@@ -212,10 +212,10 @@ module RimfaxMetrics =
 
             let! fromRMC = Json.read "fromRMC"
             let! toRMC = Json.read "toRMC"
-            let! sclkStart = Json.read "SCLK_START"
-            let! sclkEnd = Json.read "SCLK_END"
+            let! sclkStart = Json.readFloat "SCLK_START"
+            let! sclkEnd = Json.readFloat "SCLK_END"
             let! rimfaxSurfaceProperties = Json.read "rimfaxSurfaceProperties"
-            let! length = Json.read "length"
+            let! length = Json.readFloat "length"
 
             return
                 {
@@ -272,10 +272,10 @@ module WaypointMetrics =
     let readV0 =
         json {
             let! site = Json.read "site"
-            let! yaw = Json.read "yaw"
-            let! pitch = Json.read "pitch"
-            let! roll = Json.read "roll"
-            let! tilt = Json.read "tilt"
+            let! yaw = Json.readFloat "yaw"
+            let! pitch = Json.readFloat "pitch"
+            let! roll = Json.readFloat "roll"
+            let! tilt = Json.readFloat "tilt"
             let! note = Json.read "note"
             let! distanceM = Json.read "distanceM"
             let! totalDistanceM = Json.read "totalDistanceM"
@@ -300,13 +300,13 @@ module WaypointMetrics =
 
             let! rmc = Json.read "RMC"
             let! site = Json.read "site" 
-            let! yaw = Json.read "yaw" 
-            let! pitch = Json.read "pitch" 
-            let! roll = Json.read "roll" 
-            let! tilt = Json.read "tilt" 
+            let! yaw = Json.readFloat "yaw" 
+            let! pitch = Json.readFloat "pitch" 
+            let! roll = Json.readFloat "roll" 
+            let! tilt = Json.readFloat "tilt" 
             let! note = Json.read "note" 
-            let! distanceM = Json.read "dist_m" 
-            let! totalDistanceM = Json.read "dist_total_m"
+            let! distanceM = Json.readFloat "dist_m" 
+            let! totalDistanceM = Json.readFloat "dist_total_m"
 
             return
                 {
@@ -418,10 +418,10 @@ module Sol =
             let! (location : string) = Json.read "location"
             let! solNumber = Json.read "solNumber"
             let! site = Json.read "site"
-            let! yaw = Json.read "yaw"
-            let! pitch = Json.read "pitch"
-            let! roll = Json.read "roll"
-            let! tilt = Json.read "tilt"
+            let! yaw = Json.readFloat "yaw"
+            let! pitch = Json.readFloat "pitch"
+            let! roll = Json.readFloat "roll"
+            let! tilt = Json.readFloat "tilt"
             let! note = Json.read "note"
             let! distanceM = Json.read "distanceM"
             let! totalDistanceM = Json.read "totalDistanceM"
@@ -769,9 +769,9 @@ type Traverse with
             do! Json.write "showDots" x.showDots
             do! Json.write "isVisibleT" x.isVisibleT
             do! Json.writeWith (Ext.toJson<ColorInput, Ext>) "color" x.color
-            do! Json.write "tLineWidth" x.tLineWidth.value
-            do! Json.write "heightOffset" x.heightOffset.value
-            do! Json.write "priority" x.priority.value
+            do! Json.writeFloat "tLineWidth" x.tLineWidth.value
+            do! Json.writeFloat "heightOffset" x.heightOffset.value
+            do! Json.writeFloat "priority" x.priority.value
             do! Json.write "priorityEnabled" x.priorityEnabled
             do! Json.write "traverseType" x.traverseType
             do! Json.write "showRimfaxSurfaces" x.showRimfaxSurfaces

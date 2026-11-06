@@ -101,6 +101,10 @@ module ReferenceSystemApp =
                 origin = if placeOrigin then p else model.origin
         }
 
+    /// Finite and not (near) zero: something that can be normalized into a direction.
+    let isUsableDirection (v : V3d) =
+        not v.AnyNaN && not v.AnyInfinity && v.Length > 1e-12
+
     let updateCoordSystem (p:V3d) (planet:Planet) (model : ReferenceSystem) =
         updateCoordSystemAt true p planet model
 
@@ -120,22 +124,28 @@ module ReferenceSystemApp =
             updateCoordSystem p model.planet model, bigConfig
         | RefreshUpNorth p ->
             updateCoordSystemAt false p model.planet model, bigConfig
-        | SetUp up ->    
+        | SetUp up ->
+            // components are edited one at a time, so (0,0,0) passes by on the way from
+            // z-up to x-up: an undefined direction is not taken over (#834)
             let up = Vector3d.update model.up up
-            let up = ReferenceSystem.setV3d up.value.Normalized
-            { model with up =  up}, bigConfig
-        | SetNorth  n     -> 
+            if not (isUsableDirection up.value) then model, bigConfig
+            else
+                let up = ReferenceSystem.setV3d up.value.Normalized
+                { model with up =  up}, bigConfig
+        | SetNorth  n     ->
             let n = Vector3d.update model.north n
-            let n = ReferenceSystem.setV3d n.value//.Normalized
-            
-            { model with north = n }, bigConfig
+            if not (isUsableDirection n.value) then model, bigConfig
+            else
+                let n = ReferenceSystem.setV3d n.value//.Normalized
+                { model with north = n }, bigConfig
         | SetNOffset o ->
             let noffset = Numeric.update model.noffset o
-            let no = 
+            let no =
               Rot3d.Rotation(model.up.value, noffset.value |> Double.radiansFromDegrees)
-                .Transform(model.north.value) |> Vec.normalize                
+                .Transform(model.north.value) |> Vec.normalize
 
-            { model with noffset = noffset; northO = no }, bigConfig 
+            if isUsableDirection no then { model with noffset = noffset; northO = no }, bigConfig
+            else model, bigConfig
         | ToggleVisible   -> 
             { model with isVisible = not model.isVisible}, bigConfig
         | SetArrowSize d  ->

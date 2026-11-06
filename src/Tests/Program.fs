@@ -39,6 +39,7 @@ let allTests (parameters : TestUtils.TestParameters) : Test =
     // whole suite; per-list testSequenced is not enough, lists still interleave.
     testSequenced <| testList "all tests" [
         // kernel-independent tests (use only the default SPICE kernels)
+        SaveRobustnessTests.tests()
         GeoJsonRework.Tests.tests()
         AnnotationExportTest.tests()
         EllipseExportTest.tests()

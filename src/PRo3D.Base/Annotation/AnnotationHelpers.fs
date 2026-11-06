@@ -71,7 +71,8 @@ module Calculations =
     
     let pitch (up:V3d) (dir:V3d) =
         let ground = new Plane3d(up.Normalized, 0.0)
-        Math.Asin(ground.Height(dir)).DegreesFromRadians()
+        // rounding can push |height| of a unit vector past 1: asin would give NaN (#834)
+        Math.Asin(clamp -1.0 1.0 (ground.Height(dir))).DegreesFromRadians()
 
     /// Angle between the plane's first principal axis and the horizontal direction
     /// within the plane. Used by the CSV and the Attitude exporters alike.
@@ -193,15 +194,20 @@ module Calculations =
 
         let trueThickness, verticalThickness =
             match (annotation.geometry, annotation.dnsResults) with
-            | (Geometry.TT, Some dns) when (annotation.manualDipAngle.value.IsNaN()) |> not ->
+            | (Geometry.TT, Some dns) when Double.IsFinite annotation.manualDipAngle.value
+                                          && DipAndStrikeResults.isFinite dns
+                                          && annotation.points.Count > 1 ->
                 let p1 = annotation.points.[1]
                 let planeHeight = dns.plane.Height(p1)
 
-                let rayUp, rayDown = Ray3d(p1, upVec), Ray3d(p1, upVec)
-
-                let pointOnPlaneUp = rayUp.Intersect(dns.plane)
-                let pointOnPlaneDown = rayDown.Intersect(dns.plane)
-                let verticalDistance = (min (Vec.distance p1 pointOnPlaneUp) (Vec.distance p1 pointOnPlaneDown)) * (planeHeight.Sign() |> float)
+                // the vertical through p1 meets the plane once; a (near) vertical plane is
+                // never met, so the vertical thickness is undefined there, not infinite (#834)
+                let n = dns.plane.Normal.Normalized
+                let verticalDistance =
+                    if abs (Vec.dot n upVec.Normalized) < 1e-9 then Double.NaN
+                    else
+                        let pointOnPlane = Ray3d(p1, upVec).Intersect(dns.plane)
+                        Vec.distance p1 pointOnPlane * (planeHeight.Sign() |> float)
 
                 planeHeight, verticalDistance
             | _ -> Double.NaN, Double.NaN
@@ -294,40 +300,60 @@ module DipAndStrike =
             | -1 -> -normal
             | _  ->  normal
 
-        //strike
-        let strike = up.Cross(planeNormal).Normalized
+        //strike; a horizontal plane has none (up x normal = 0, whose azimuth is NaN, #834):
+        //by convention it dips 0 and strikes north
+        let strike =
+            let s = up.Cross(planeNormal)
+            if s.Length > 1e-12 * planeNormal.Length then s.Normalized
+            else
+                let u = up.Normalized
+                (north - u * north.Dot(u)).Normalized
 
         //dip vector
-        let dip = strike.Cross(planeNormal).Normalized
+        let dip =
+            let d = strike.Cross(planeNormal)
+            if d.Length > 1e-12 * planeNormal.Length then d.Normalized
+            else strike.Cross(up).Normalized
 
         //dip plane incline .. maximum dip angle
         let v = strike.Cross(up).Normalized
 
         {|
-            dipAngle        = Math.Acos(v.Dot(dip)).DegreesFromRadians()
+            // rounding can push the dot product of unit vectors past 1: acos gives NaN (#834)
+            dipAngle        = Math.Acos(clamp -1.0 1.0 (v.Dot(dip))).DegreesFromRadians()
             dipDirection    = dip
             strikeDirection = strike
             dipAzimuth      = Calculations.computeAzimuth v north up
             strikeAzimuth   = Calculations.computeAzimuth strike north up
         |}
     
-    let calculateManualDipAndStrikeResults (up : V3d) (north : V3d) (annotation : Annotation) =        
-        
+    /// None when the manual angles are not both set (they start as NaN for every geometry
+    /// but TT), when there is no point to anchor the plane, or when the result is not finite:
+    /// a NaN dip & strike must never enter the model (#834).
+    let rec calculateManualDipAndStrikeResults (up : V3d) (north : V3d) (annotation : Annotation) =
+        if not (Double.IsFinite annotation.manualDipAngle.value && Double.IsFinite annotation.manualDipAzimuth.value)
+           || annotation.points.IsEmpty then None
+        else
+            calculateManualDipAndStrikeResults' up north annotation
+            |> Option.filter DipAndStrikeResults.isFinite
+
+    and calculateManualDipAndStrikeResults' (up : V3d) (north : V3d) (annotation : Annotation) =
+
         let up = up |> Vec.normalize
         let north = north |> Vec.normalize
         
         //apply dip azimuth rotation
-        let dipDirection = 
+        let horizontalDipDirection = 
             north 
             |> Trafo3d.Rotation(up, ((-annotation.manualDipAzimuth.value).RadiansFromDegrees())).Forward.TransformDir
             |> Vec.normalize
         
         //strike
-        let strikeDirection = dipDirection.Cross(up) |> Vec.normalize
+        let strikeDirection = horizontalDipDirection.Cross(up) |> Vec.normalize
 
         //apply dip angle rotation along negative strike direction because dipping angles can only dip down
         let dipDirection = 
-            dipDirection
+            horizontalDipDirection
             |> Trafo3d.Rotation(-strikeDirection, ((annotation.manualDipAngle.value).RadiansFromDegrees())).Forward.TransformDir
             |> Vec.normalize
     
@@ -341,7 +367,7 @@ module DipAndStrike =
         let dippingPlane = Plane3d(planeNormal, p0)        
 
         //reconstructing dip angle from dot product (must equal manualDipAngle)
-        let alpha = -(Math.Asin (Vec.dot up dipDirection)).DegreesFromRadians()        
+        let alpha = -(Math.Asin (clamp -1.0 1.0 (Vec.dot up dipDirection))).DegreesFromRadians()
         
         let dns = {
             version         = DipAndStrikeResults.current
@@ -349,7 +375,9 @@ module DipAndStrike =
             dipAngle        = alpha
             dipDirection    = dipDirection
             strikeDirection = strikeDirection
-            dipAzimuth      = Calculations.computeAzimuth dipDirection north up
+            // from the horizontal direction: at a dip of 90 degrees the tilted one points
+            // straight down and has no azimuth (NaN, #834)
+            dipAzimuth      = Calculations.computeAzimuth horizontalDipDirection north up
             strikeAzimuth   = Calculations.computeAzimuth strikeDirection north up
             centerOfMass    = p0
             error           = 
@@ -432,7 +460,7 @@ module DipAndStrike =
     
     let reCalculateDipAndStrikeResults (up : V3d) (north : V3d) (annotation : Annotation) =        
         match (annotation.geometry, annotation.dnsResults) with
-        | Geometry.DnS, Some dnsResults ->
+        | Geometry.DnS, Some dnsResults when not dnsResults.plane.Normal.AnyNaN && not dnsResults.plane.Normal.AnyInfinity ->
             let up = up |> Vec.normalize
             let north = north |> Vec.normalize
         
@@ -448,7 +476,7 @@ module DipAndStrike =
                         strikeAzimuth   = att.strikeAzimuth
                 }
             
-            Some dns 
+            Some dns |> Option.filter DipAndStrikeResults.isFinite
         | Geometry.TT, Some _ ->
             calculateManualDipAndStrikeResults up north annotation
         | _ ->

@@ -1017,7 +1017,7 @@ type Surface with
             do! Json.write "transformation" x.transformation  
             
             do! Json.write "filterByDistance" x.filterByDistance
-            do! Json.write "filterDistance" x.filterDistance.value
+            do! Json.writeFloat "filterDistance" x.filterDistance.value
 
             do! Json.write "highlightSelected"     x.highlightSelected
             do! Json.write "highlightAlways"       x.highlightAlways

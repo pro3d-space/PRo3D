@@ -260,6 +260,11 @@ module RemoteApi =
             | _ -> 
                 None
 
+        /// A transform that can be applied and saved: finite and invertible (#834).
+        static member IsUsableTransform (forward : M44d) =
+            let finite = forward.ToArray() |> Array.forall Double.IsFinite
+            finite && abs forward.Determinant > 1e-300 && (forward.Inverse.ToArray() |> Array.forall Double.IsFinite)
+
         member x.setSurfaceTransform(id, forward : M44d) =
             let trafo = Trafo3d(forward, forward.Inverse)
 
@@ -788,9 +793,11 @@ module RemoteApi =
 
                                 let forward = forward |> M44d.Parse
 
-                                api.setSurfaceTransform(id |> Guid, forward)
-
-                                http.ok (sprintf "Received payload %s" (forward.ToString()))
+                                if not (Api.IsUsableTransform forward) then
+                                    http.badRequest "forward must be a finite, invertible 4x4 matrix"
+                                else
+                                    api.setSurfaceTransform(id |> Guid, forward)
+                                    http.ok (sprintf "Received payload %s" (forward.ToString()))
                         )
                     | None ->                                             
                         http.notFound "Surface not found"
@@ -806,8 +813,11 @@ module RemoteApi =
                                     let parsedJson = JObject.Parse(validPayload)
                                     let forward = parsedJson.["forward"].ToString()
                                     let forward = forward |> M44d.Parse
-                                    api.setSurfaceTransform(id, forward)
-                                    http.ok (sprintf "Received payload %s" (forward.ToString()))
+                                    if not (Api.IsUsableTransform forward) then
+                                        http.badRequest "forward must be a finite, invertible 4x4 matrix"
+                                    else
+                                        api.setSurfaceTransform(id, forward)
+                                        http.ok (sprintf "Received payload %s" (forward.ToString()))
                             )
                         | None ->                                             
                             http.notFound "Selected surface does not exist - really bad"

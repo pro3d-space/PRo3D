@@ -82,14 +82,14 @@ type Intrinsics with
     static member ToJson(x : Intrinsics) =
         json {
             //do! Json.write "version" x.version
-            do! Json.write "horizontalFieldOfView" x.horizontalFieldOfView
-            do! Json.write "verticalFieldOfView" x.verticalFieldOfView
+            do! Json.writeFloatOr 0.0 "horizontalFieldOfView" x.horizontalFieldOfView
+            do! Json.writeFloatOr 0.0 "verticalFieldOfView" x.verticalFieldOfView
             do! Json.write "horizontalResolution" x.horizontalResolution
             do! Json.write "verticalResolution" x.verticalResolution
-            do! Json.write "horizontalPrinciplePoint" x.horizontalPrinciplePoint    
-            do! Json.write "verticalPrinciplePoint" x.verticalPrinciplePoint
-            do! Json.write "horizontalFocalLengthPerPixel" x.horizontalFocalLengthPerPixel
-            do! Json.write "verticalFocalLengthPerPixel" x.verticalFocalLengthPerPixel
+            do! Json.writeFloatOr 0.0 "horizontalPrinciplePoint" x.horizontalPrinciplePoint    
+            do! Json.writeFloatOr 0.0 "verticalPrinciplePoint" x.verticalPrinciplePoint
+            do! Json.writeFloatOr 0.0 "horizontalFocalLengthPerPixel" x.horizontalFocalLengthPerPixel
+            do! Json.writeFloatOr 0.0 "verticalFocalLengthPerPixel" x.verticalFocalLengthPerPixel
             do! Json.write "horizontalDistortionMap" x.horizontalDistortionMap
             do! Json.write "verticalDistortionMap" x.verticalDistortionMap    
             do! Json.write "vignettingMap" x.vignettingMap
@@ -298,7 +298,7 @@ type Instrument with
             //do! Json.write "version" x.version
             do! Json.write "id" x.id
             do! Json.write "iType" (x.iType |> int)
-            do! Json.write "calibratedFocalLengths" x.calibratedFocalLengths
+            do! Json.writeFloatsOr 0.0 "calibratedFocalLengths" x.calibratedFocalLengths
             do! Json.writeWith Ext.toJson<NumericInput,Ext> "focal" x.focal
             do! Json.write "intrinsics" x.intrinsics
             do! Json.write "extrinsics" x.extrinsics    
@@ -549,8 +549,8 @@ with
   static member current = 0
   static member ToJson (x : Angles) =
     json {
-      do! Json.write      "panAxis"    x.panAxis
-      do! Json.write      "tiltAxis"   x.tiltAxis
+      do! Json.writeFloatOr 0.0 "panAxis"    x.panAxis
+      do! Json.writeFloatOr 0.0 "tiltAxis"   x.tiltAxis
     }
 
 type ReferenceFrameInfo = {
@@ -577,7 +577,7 @@ with
     json {
       do! Json.write      "camIdentifier"       x.camIdentifier
       do! Json.write      "angles"              x.angles
-      do! Json.write      "focalLength"         x.focalLength
+      do! Json.writeFloatOr 0.0 "focalLength" x.focalLength
       do! Json.write      "referenceFrameInfo"  x.referenceFrameInfo
     }
 
@@ -747,7 +747,7 @@ type DistancePoint  with
             do! Json.write "id" x.id
             do! Json.write "vpId" x.vpId
             do! Json.write "position" (x.position.ToString())
-            do! Json.write "distance" x.distance
+            do! Json.writeFloatOr 0.0 "distance" x.distance
         } 
 
 [<ModelType>]
@@ -1003,8 +1003,8 @@ type ViewPlan with
             if x.selectedDistPoint.IsSome then
                 do! Json.write "selectedDistPoint" (x.selectedDistPoint.Value.ToString())
             do! Json.write "showDistanceText" x.showDistanceText 
-            do! Json.write "textSize" x.textSize.value
-            do! Json.write "dPointSize" x.dPointSize.value
+            do! Json.writeFloat "textSize" x.textSize.value
+            do! Json.writeFloat "dPointSize" x.dPointSize.value
             do! Json.write "dPointColor" (x.dPointColor.c.ToString())
         }
 

@@ -35,6 +35,29 @@ module Json =
           do! Json.writeNone name
       }
     
+    /// For keys whose readers - also in older releases - use plain `Json.read`: a null there
+    /// makes the whole file unloadable, so a non-finite value is written as `fallback`
+    /// instead (and logged). Only a safety net (#834): the source of the value must be fixed.
+    let writeFloatOr (fallback : double) name (floatValue : double) =
+      json {
+        if Double.IsFinite floatValue then
+          do! Json.write name (clamp -maxWritableFloat maxWritableFloat floatValue)
+        else
+          Log.warn "[Json] non-finite %s = %f written as %f" name floatValue fallback
+          do! Json.write name fallback
+      }
+
+    /// `writeFloat` for each element; for lists whose readers (also in older releases) read
+    /// `list<float>` with plain `Json.read`, so a non-finite element is written as `fallback`.
+    let writeFloatsOr (fallback : double) (name : string) (values : list<double>) =
+      let finite =
+        values |> List.map (fun v ->
+          if Double.IsFinite v then clamp -maxWritableFloat maxWritableFloat v
+          else
+            Log.warn "[Json] non-finite element of %s = %f written as %f" name v fallback
+            fallback)
+      Json.write name finite
+
     let readFloat name : Json<double> = 
       json {
         let! v = Json.tryRead name
@@ -60,10 +83,11 @@ module Json =
           f a name
       | None ->
           Json.writeNone name
+    /// `Some` non-finite is written as None (all readers use tryRead).
     let writeOptionFloat (name : string) (x : option<float>) =
       match x with
       | Some a ->
-          Json.write name a
+          writeFloat name a
       | None ->
           Json.writeNone name
 
@@ -267,6 +291,16 @@ type Ext with
 
     // Frustum
     static member ToJson1 (ext : Ext, x : Frustum) =
+        // readers (also in older releases) use plain Json.read: never write null here (#834)
+        let finite =
+            Double.IsFinite x.left && Double.IsFinite x.right && Double.IsFinite x.bottom &&
+            Double.IsFinite x.top && Double.IsFinite x.near && Double.IsFinite x.far &&
+            abs x.far < Json.maxWritableFloat
+        let x =
+            if finite then x
+            else
+                Log.warn "[Json] non-finite frustum %A written as a default perspective frustum" x
+                Frustum.perspective 60.0 0.01 1000.0 1.0
         json {
             do! Json.write "left"      x.left   
             do! Json.write "right"     x.right   

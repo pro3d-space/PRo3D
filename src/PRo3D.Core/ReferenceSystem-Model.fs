@@ -221,6 +221,6 @@ type ReferenceSystem with
             do! Json.write "scaleChart" (x.scaleChart |> IndexList.toList)
             do! Json.write "selectedScale" x.selectedScale
             do! Json.write "planet" (x.planet |> int)
-            do! Json.write "textsize" x.textsize.value
+            do! Json.writeFloat "textsize" x.textsize.value
             do! Json.write "textcolor" (x.textcolor.c.ToString())
         }

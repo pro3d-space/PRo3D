@@ -714,7 +714,10 @@ module SurfaceUtils =
             |> Seq.choose (fun m ->
                 match Double.TryParse(m.Groups.[1].Value, NumberStyles.Float, CultureInfo.InvariantCulture),
                       Double.TryParse(m.Groups.[2].Value, NumberStyles.Float, CultureInfo.InvariantCulture) with
-                | (true, min), (true, max) -> Some (Range1d(min, max))
+                // TryParse takes "NaN", "Infinity" and overflows 1e400 to infinity: such a
+                // range is no range (#834)
+                | (true, min), (true, max) when Double.IsFinite min && Double.IsFinite max && min <= max ->
+                    Some (Range1d(min, max))
                 | _ -> None
             )
             |> Seq.toList

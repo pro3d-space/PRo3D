@@ -44,7 +44,7 @@ type FrustumModel with
     static member ToJson (x : FrustumModel) =
         json {
           do! Json.write      "toggleFocal"  x.toggleFocal
-          do! Json.write      "focal"        x.focal.value      
+          do! Json.writeFloatOr x.focal.min "focal" x.focal.value      
           do! Json.writeWith  (Ext.toJson<Frustum, Ext>) "frustumOld"   x.oldFrustum
           do! Json.writeWith  (Ext.toJson<Frustum, Ext>) "frustum"      x.frustum    
         }
@@ -463,7 +463,7 @@ type ViewConfigModel with
             do! Json.write "filterTexture" x.filterTexture
             do! Json.write "version" x.version
             do! Json.write "showExplorationPointGui" x.showExplorationPointGui
-            do! Json.write "previewIntersectionWorldSize" x.previewIntersectionWorldSize.value
+            do! Json.writeFloat "previewIntersectionWorldSize" x.previewIntersectionWorldSize.value
             do! Json.write "showPreviewIntersection" x.showPreviewIntersection
             do! Json.write "fillReachAuto" x.fillReachAuto
             do! Json.writeFloat "fillReach" x.fillReach.value

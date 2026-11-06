@@ -1252,8 +1252,12 @@ module DrawingApp =
             | Some path ->
                 Log.line "[Drawing] automatically writing geojson.xyz file to %s since the annotations have changed." path
                 // virtually finish the annotation (as if closed by interaction) - to let it be part of the exported ones.
-                let artificiallyFinishedModel, _ = finish bigConfig smallConfig model view
-                exportGeoJsonStream artificiallyFinishedModel path
+                // a side export: it must never fail the drawing action that triggered it (#834)
+                try
+                    let artificiallyFinishedModel, _ = finish bigConfig smallConfig model view
+                    exportGeoJsonStream artificiallyFinishedModel path
+                with e ->
+                    Log.error "[Drawing] automatic geojson export to %s failed: %s" path e.Message
             | _ -> ()
             newModel, finished
         | false ->

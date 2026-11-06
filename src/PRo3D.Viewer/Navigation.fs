@@ -295,8 +295,17 @@ module Navigation =
                     ReferenceSystem.bodyAwareSky
                         (smallConfig.planet.Get(bigConfigB))
                         (smallConfig.up.Get(bigConfigB))
+                // looking straight along the sky (a top-down orbit view) or standing on the
+                // centre leaves lookAt without a right vector: NaN camera, saved with the
+                // scene and every bookmark taken after (#834). Keep the current view then.
                 let view' =
-                    CameraView.lookAt model.camera.view.Location center sky
+                    let location = model.camera.view.Location
+                    let fw = center - location
+                    if fw.Length < 1e-9 || sky.Length < 1e-12
+                       || (fw.Normalized.Cross sky.Normalized).Length < 1e-6 then
+                        model.camera.view
+                    else
+                        CameraView.lookAt location center sky
 
                 { model with camera = { model.camera with view = view'}; navigationMode = mode; updatePerFrame = false}, None
             | NavigationMode.MapView ->

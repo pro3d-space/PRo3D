@@ -11,6 +11,8 @@ open PRo3D.Core.Surface
 open PRo3D.Base.Gis
 open Aether
 
+open System
+
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Entity =
 
@@ -30,6 +32,10 @@ module Entity =
             showTrajectory = false
         }
 
+    /// Entity radius and trajectory length bounds: finite and far below what JSON can store.
+    let minSize = 0.0000001
+    let maxSize = 1e15
+
     let update (m : Entity) (msg : EntityAction) =
         match msg with 
         | EntityAction.SetLabel label ->
@@ -40,10 +46,12 @@ module Entity =
             {m with spiceNameText = name}
         | EntityAction.SetReferenceFrame frame ->
             {m with defaultFrame = frame}
+        // the numeric field evaluates what is typed: "1e400" or "1/0" arrive as huge or
+        // infinite values, which cannot be saved (#834)
         | EntityAction.SetRadius radius ->
-            {m with radius = radius}
+            if Double.IsFinite radius then {m with radius = clamp minSize maxSize radius} else m
         | EntityAction.SetTrajectoryLength trajectoryLength ->
-            {m with trajectoryLength = trajectoryLength}
+            if Double.IsFinite trajectoryLength then {m with trajectoryLength = clamp minSize maxSize trajectoryLength} else m
         | EntityAction.SetTextureName textureName ->
             {m with textureName = Some textureName}
         | EntityAction.ToggleDraw ->
@@ -122,7 +130,7 @@ module Entity =
             ]
         let radiusInput = 
             (Aardvark.UI.NoSemUi.numeric 
-                { min = 0.0000001; max = System.Double.MaxValue; smallStep = 0.1; largeStep= 1.0 } 
+                { min = 0.0000001; max = maxSize; smallStep = 0.1; largeStep= 1.0 } 
                 "text"
                 ([clazz "ui inverted input"] |> AttributeMap.ofList)
                 m.radius 
@@ -130,7 +138,7 @@ module Entity =
 
         let trajectoryLengthInput =
             (Aardvark.UI.NoSemUi.numeric 
-                { min = 0.0000001; max = System.Double.MaxValue; smallStep = 0.1; largeStep= 1.0 } 
+                { min = 0.0000001; max = maxSize; smallStep = 0.1; largeStep= 1.0 } 
                 "text"
                 ([clazz "ui inverted input"] |> AttributeMap.ofList)
                 m.trajectoryLength 
