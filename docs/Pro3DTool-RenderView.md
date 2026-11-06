@@ -144,42 +144,42 @@ axes 3, 2, 1). That puts the boresight **0.146°** off the spacecraft's +Z: abou
   permutation, here the identity). comet-toolbox's frames match this pointing; see
   *Validation*. The job's `coordinatesAreIn` records the choice.
 
+![comet-toolbox against both pointings](images/render-view-toolbox-pointing.png)
+
+The figure shows comet-toolbox's frames against both pointings. With `--pointing instrument`,
+everything is shifted by the alignment: 10–15 px between the centroids at 392 px, the same in
+the frame centre and in the corner (03-24, bottom row). The tilt about Y and X (0.129°,
+−0.068°) gives √(0.129² + 0.068²) = 0.146°, i.e. (9.2, 4.8) px. The roll about Z (0.118°)
+moves points by under 0.5 px at this size.
+
 Camera **position** is HERA's in both cases. AFC-1's place on the bus is metres away, under
 0.01° at these ranges.
 
 ## Validation
 
-**Against simulate-image**, Dimorphos at 2027-03-21T17:00 (pinned kernels, untextured, 1020 px):
+### Against simulate-image
+
+Dimorphos at 2027-03-21T17:00, pinned kernels, untextured, 1020 px, both at AFC-1's 5.5°:
 
 | | |
 |---|---|
 | silhouette IoU | **0.988** |
 | centroid offset | **0.1 px** |
-| silhouette area, render-view / simulate-image | 1.012 (radius +0.5 px: render-view's 8× MSAA counts partly covered edge pixels) |
+| equivalent radius | **+0.5 px** (render-view's 8× MSAA counts partly covered edge pixels) |
 | lit-region IoU (25% of max) | 0.96 |
 
-Both use AFC-1's 5.5° field of view from the instrument kernel (`hera_afc_v06.ti`). Until
-#801, simulate-image used a hardcoded 5.5307°, which made the body 1.1% smaller in area.
-The level of detail makes no difference at this range.
+The level of detail makes no difference at this range. Shading differs by design: the viewer
+uses Lommel-Seeliger with no ambient term, simulate-image Lommel-Seeliger with Lambert and
+ambient. So lit regions are compared, not grey levels. `src/Tests/RenderViewTests.fs` checks
+all of this with a checked-in job and reference (`src/Tests/data/render-view`); it needs no
+SPICE.
 
-Shading differs by design: the viewer uses Lommel-Seeliger with no ambient term, plus its
-shadow acne; simulate-image uses Lommel-Seeliger with Lambert and ambient. So lit regions
-are compared, not grey levels. The automated test, `src/Tests/RenderViewTests.fs`, covers
-all of the above with a checked-in job and reference (`src/Tests/data/render-view`). It
-needs no SPICE.
+### Against comet-toolbox
 
-**Against comet-toolbox**, eight epochs with the dashboard's own kernels: see below.
-Orientation and shape agree (same elongation, same tilt, the crater on the same limb); the
-position depends on the pointing.
+![comet-toolbox against render-view](images/render-view-toolbox.png)
 
-#### Both pointings, eight epochs
-
-![comet-toolbox against render-view with both pointings](images/render-view-toolbox-pointing.png)
-
-*Left:* comet-toolbox screenshot (<https://comet-toolbox.com/dashboard/hera/>). *Middle and
-right:* render-view with `--pointing instrument` and `--pointing spacecraft`. The yellow outline
-on every panel is comet-toolbox's lit region.
-
+comet-toolbox's HERA dashboard (<https://comet-toolbox.com/dashboard/hera/>) renders along the
+spacecraft axis, so render-view is compared with `--pointing spacecraft` (see *Pointing*).
 Setup:
 - Kernels: Planning `v182_20261020_001`, the version the dashboard showed.
 - References: its screenshots, 392 px, the full 5.5° field. They are kept in
@@ -189,28 +189,27 @@ Setup:
 
 Reproduce with [`scripts/compare-render-view-toolbox.py`](../scripts/compare-render-view-toolbox.py).
 
-| Epoch (UTC) | IoU, `instrument` | IoU, `spacecraft` | centroid offset, `instrument` / `spacecraft` | silhouette IoU vs DSK ray-cast |
-|---|---|---|---|---|
-| 2027-02-18 11:00 | 0.82 | 0.94 | 9.8 / 2.0 px | 0.964 |
-| 2027-02-18 13:30 | 0.77 | 0.94 | 10.5 / 1.4 px | 0.972 |
-| 2027-02-25 10:30 | 0.68 | 0.93 | 12.9 / 2.6 px | 0.966 |
-| 2027-02-25 14:45 | 0.65 | 0.86 | 15.2 / 4.8 px | 0.968 |
-| 2027-03-11 01:00 | 0.41 | 0.78 | 11.3 / 1.6 px | 0.964 |
-| 2027-03-21 12:30 | 0.70 | 0.96 | 10.0 / 0.8 px | 0.968 |
-| 2027-03-24 03:00 (AFC-1 on Didymos) | 0.55 | 0.87 | 11.8 / 1.7 px | 0.928 |
-| 2027-03-25 03:00 | 0.31 | 0.65 | 15.3 / 6.0 px | 0.961 |
+| Epoch (UTC) | Phase | lit-region IoU | centroid offset |
+|---|---|---|---|
+| 2027-02-18 11:00 | 12° | 0.94 | 2.0 px |
+| 2027-02-18 13:30 | 34° | 0.94 | 1.4 px |
+| 2027-02-25 10:30 | 36° | 0.93 | 2.6 px |
+| 2027-02-25 14:45 | 57° | 0.86 | 4.8 px |
+| 2027-03-11 01:00 | 71° | 0.78 | 1.6 px |
+| 2027-03-21 12:30 | 0° | 0.96 | 0.8 px |
+| 2027-03-24 03:00 (AFC-1 on Didymos) | 91° | 0.87 | 1.7 px |
+| 2027-03-25 03:00 | 79° | 0.65 | 6.0 px |
 
-- comet-toolbox's frames match `--pointing spacecraft`.
-- The difference between the two pointings is the AFC-1 alignment. Its Y and X angles
-  (0.129°, −0.068°) tilt the boresight by √(0.129² + 0.068²) = 0.146°, which is (9.2, 4.8) px
-  at 392 px. The roll about Z (0.118°) moves points by under 0.5 px at this size.
-- The shift is the same at the frame centre as in the corner. In the 03-24 view, Dimorphos
-  sits about 165 px from the centre and is shifted by (−5, +9) px.
-- The last column checks `--pointing instrument` against a spiceypy ray-cast of the kernels'
-  DSK, with no PRo3D code involved. Its centroids are within 1 px of render-view's.
-  Dimorphos is about 15 px across on 03-24.
-- With `--pointing spacecraft`, the remaining difference is near the terminator: the viewer's
-  shading darkens earlier, so the high-phase epochs (71°, 79°) score lowest.
+Position, orientation, size and shape agree. The lit regions differ near the terminator,
+where the viewer's shading darkens earlier than comet-toolbox's. That difference grows with
+the phase angle, so the 71° and 79° epochs score lowest.
+
+### Against the kernels' own shape model
+
+`--pointing instrument` silhouettes against a spiceypy ray-cast of the kernels' DSK, with no
+PRo3D code involved (`compare-render-view-toolbox.py --raycast`), same epochs: silhouette
+IoU 0.961–0.972, and 0.928 on 03-24, where Dimorphos is about 15 px across. The rest is the
+difference between the OPC and the DSK.
 
 ## In process
 

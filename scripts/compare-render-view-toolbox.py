@@ -154,29 +154,33 @@ def tile(base, masks, scale):
     return t
 
 
-def figure(rows, path, scale):
-    yellow, magenta, cyan = (255, 210, 60), (255, 60, 200), (0, 255, 255)
+def figure(rows, path, scale, pointings=POINTINGS):
+    yellow = (255, 210, 60)
+    colours = {"instrument": (255, 60, 200), "spacecraft": (0, 255, 255)}
+    frames = {"instrument": "HERA_AFC-1", "spacecraft": "HERA_SPACECRAFT"}
     n = int(round(rows[0]["ref"].shape[0] * scale))
     gap, top, foot = 16, 46, 24
-    w = 3 * n + 4 * gap
+    w = (1 + len(pointings)) * n + (2 + len(pointings)) * gap
     h = top + len(rows) * (n + foot + gap) + 40
     out = Image.new("RGB", (w, h), (18, 18, 22))
     d = ImageDraw.Draw(out)
-    heads = ["comet-toolbox", "render-view, HERA_AFC-1", "render-view, HERA_SPACECRAFT"]
+    heads = ["comet-toolbox"] + ["render-view, --pointing %s (%s)" % (p, frames[p]) for p in pointings]
     for i, t in enumerate(heads):
         d.text((gap + i * (n + gap), 16), t, fill=(230, 230, 230))
     y = top
     for r in rows:
         ref = r["ref"] > THRESHOLD
         out.paste(tile(r["ref"], [(ref, yellow)], scale), (gap, y))
-        for k, (p, colour) in enumerate((("instrument", magenta), ("spacecraft", cyan))):
+        for k, p in enumerate(pointings):
+            colour = colours[p]
             img = r[p]
             out.paste(tile(img, [(img > THRESHOLD, colour), (ref, yellow)], scale), (gap + (k + 1) * (n + gap), y))
             d.text((gap + (k + 1) * (n + gap), y + n + 4), "IoU %.2f, centroids %.1f px apart" % (
                 r["result"][p]["iou"], r["result"][p]["centroidOffsetPx"]), fill=colour)
         d.text((gap, y + n + 4), r["utc"].replace("T", " ") + " UTC", fill=(200, 200, 200))
         y += n + foot + gap
-    d.text((gap, y), "yellow: comet-toolbox lit region (on every panel); magenta / cyan: render-view lit region; cross: image centre",
+    d.text((gap, y), "yellow: comet-toolbox lit region (on every panel); %s: render-view lit region; cross: image centre"
+           % " / ".join("magenta" if p == "instrument" else "cyan" for p in pointings),
            fill=(200, 200, 200))
     out.save(path)
 
@@ -193,6 +197,8 @@ def main():
     ap.add_argument("--raycast", action="store_true", help="also check the geometry against a DSK ray-cast")
     ap.add_argument("--figure-epochs", help="comma-separated YYYYMMDDTHHMM stamps for the figure (default: all)")
     ap.add_argument("--figure-scale", type=float, default=1.0)
+    ap.add_argument("--figure-pointings", default=",".join(POINTINGS),
+                    help="pointings shown in the figure, comma separated (default: both)")
     a = ap.parse_args()
 
     a.opc = os.path.abspath(a.opc)
@@ -261,7 +267,8 @@ def main():
     wanted = set(s.strip() for s in a.figure_epochs.split(",")) if a.figure_epochs else None
     chosen = [r for (stamp, _, _), r in zip(found, rows) if wanted is None or stamp in wanted]
     if chosen:
-        figure(chosen, os.path.join(out, "pointing.png"), a.figure_scale)
+        shown = tuple(p for p in POINTINGS if p in a.figure_pointings.split(","))
+        figure(chosen, os.path.join(out, "pointing.png"), a.figure_scale, shown or POINTINGS)
         print("\nfigure: %s" % os.path.join(out, "pointing.png"))
     return 0
 
