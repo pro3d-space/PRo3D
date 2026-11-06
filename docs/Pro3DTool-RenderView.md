@@ -122,7 +122,12 @@ Conventions, the same as `pro3d-tool simulate-image --pointing ck` for HERA_AFC-
 - **Camera:** location is HERA relative to Dimorphos (no aberration correction).
 - **Orientation:** with `R = pxform(HERA_AFC-1 → DIMORPHOS_FIXED)`, forward = `R[:,2]` (the
   boresight) and up = `R[:,0]`. Right is `R[:,1]`. This is what `specialTrafos` and
-  simulate-image's camera basis compose to for AFC-1.
+  simulate-image's camera basis compose to for AFC-1. Note that it is PRo3D's AFC
+  convention, chosen to match comet-toolbox: the instrument kernel's FOV diagram draws
+  +X right and +Y down, i.e. the image turned by 90°. See
+  [simulate-image, Image axes](./Pro3DTool-SimulateImage.md#image-axes-specialtrafos).
+  render-view itself takes `up` and `forward` from the job as given, so the convention is
+  the script's.
 - **fov:** from `getfov` (AFC-1: 5.5°).
 - **Sun:** SUN relative to Dimorphos.
 

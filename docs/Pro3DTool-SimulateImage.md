@@ -278,6 +278,33 @@ This is what the instruments see, not an error, and why [`sample-layers`](./Pro3
 combines images by surface point through each image's own camera. Only the fallback look-at
 camera (no attitude in the kernels) invents a roll (up = body +Z), and warns.
 
+### Image axes (`specialTrafos`)
+
+Which instrument-frame axes become the image's right and up is a fixed table per instrument,
+`InstrumentProjection.specialTrafos` (`src/PRo3D.Base/InstrumentProjection.fs`). It is a signed
+swap of axes, i.e. a turn by a multiple of 90°, not a measured angle. The small measured
+misalignment of an instrument is in the frames kernel and comes in through the instrument
+frame itself (for AFC-1, 0.146°; see [render-view, Pointing](./Pro3DTool-RenderView.md#pointing)).
+
+| Instrument | image right | image up | boresight |
+|---|---|---|---|
+| HERA_AFC-1, HERA_HSH | +Y | +X | +Z |
+| HERA_AFC-2 | −Y | −X | +Z |
+| MILANI_ASPECT_NIR1 (all ASPECT channels) | −X | +Y | +Z |
+
+How these were chosen:
+- **AFC-1** matches comet-toolbox's HERA dashboard (<https://comet-toolbox.com/dashboard/hera/>).
+  render-view, which uses the same axes, matches its frames in orientation at eight epochs.
+  The AFC instrument kernel's FOV diagram (`hera_afc_v06.ti`, "Apparent FOV Layout") draws
+  +X to the right and +Y downward; that layout is this one turned by 90°. Which of the two a
+  real AFC frame shows has not been checked yet (#801).
+- **AFC-2** is AFC-1 turned by 180°.
+- **ASPECT** is not calibrated: its channel frames are zero-offset copies of
+  `MILANI_SPACECRAFT`, and the entry only makes the camera basis right-handed.
+
+The viewer projects images through the same table, so a change to it turns simulated frames
+and projected real frames alike.
+
 ## Caveats
 
 - **Pointing is the plan, not the observation.** The attitude comes from the kernels loaded,
