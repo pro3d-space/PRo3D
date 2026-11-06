@@ -534,54 +534,57 @@ module DrawingApp =
 
         let vertexInside (c : V4d) = c.W > behindEps && ndcRect.Contains (toNdc c)
 
-        // world points of the stretch of a segment inside the rectangle, about samplePixelSpacing apart
-        let segmentSamples (p0 : V3d) (p1 : V3d) (c0 : V4d) (c1 : V4d) : seq<V3d> =
+        // world points of the stretch of a segment inside the rectangle, about samplePixelSpacing
+        // apart, appended to `out`
+        let segmentSamples (out : ResizeArray<V3d>) (p0 : V3d) (p1 : V3d) (c0 : V4d) (c1 : V4d) =
             match clipToFront p0 p1 c0 c1 with
-            | None -> Seq.empty
+            | None -> ()
             | Some (p0, p1, c0, c1) ->
                 let a, b = toNdc c0, toNdc c1
                 match clipToRect ndcRect a b with
-                | None -> Seq.empty
+                | None -> ()
                 | Some (t0, t1) ->
                     let pixels = (toPixels ((b - a) * (t1 - t0))).Length
                     let n = int (ceil (pixels / samplePixelSpacing)) + 1 |> min maxVisibilityRaysPerAnnotation
-                    seq {
-                        for i in 0 .. n - 1 do
-                            let t = if n = 1 then 0.5 * (t0 + t1) else t0 + (t1 - t0) * float i / float (n - 1)
-                            let s = screenToSegmentParam c0.W c1.W t
-                            yield p0 + (p1 - p0) * s
-                    }
+                    for i in 0 .. n - 1 do
+                        let t = if n = 1 then 0.5 * (t0 + t1) else t0 + (t1 - t0) * float i / float (n - 1)
+                        let s = screenToSegmentParam c0.W c1.W t
+                        out.Add(p0 + (p1 - p0) * s)
 
-        let samples (a : Annotation) : seq<V3d> =
+        // one buffer for all annotations, refilled per annotation
+        let buffer = ResizeArray<V3d>()
+
+        // the samples of an annotation inside the rectangle, in path order, into `buffer`
+        let samples (a : Annotation) =
+            buffer.Clear()
             let path    = drawnPath a
-            let clipped = path |> Array.map (fun p -> m * V4d(p, 1.0))
-            seq {
-                if path.Length = 1 then
-                    if vertexInside clipped.[0] then yield path.[0]
-                else
-                    for i in 0 .. path.Length - 2 do
-                        if vertexInside clipped.[i] then yield path.[i]
-                        yield! segmentSamples path.[i] path.[i + 1] clipped.[i] clipped.[i + 1]
-                    if path.Length > 1 && vertexInside clipped.[path.Length - 1] then yield path.[path.Length - 1]
-            }
+            let clipped = Array.zeroCreate<V4d> path.Length
+            for i in 0 .. path.Length - 1 do clipped.[i] <- m * V4d(path.[i], 1.0)
+            if path.Length = 1 then
+                if vertexInside clipped.[0] then buffer.Add path.[0]
+            elif path.Length > 1 then
+                for i in 0 .. path.Length - 2 do
+                    if vertexInside clipped.[i] then buffer.Add path.[i]
+                    segmentSamples buffer path.[i] path.[i + 1] clipped.[i] clipped.[i + 1]
+                if vertexInside clipped.[path.Length - 1] then buffer.Add path.[path.Length - 1]
 
         // every k-th sample, so the ray budget covers the whole part inside the box rather than
         // running out on its first, possibly hidden, stretch
-        let anyVisible (s : V3d[]) =
-            let stride = max 1 ((s.Length + maxVisibilityRaysPerAnnotation - 1) / maxVisibilityRaysPerAnnotation)
+        let anyVisible () =
+            let stride = max 1 ((buffer.Count + maxVisibilityRaysPerAnnotation - 1) / maxVisibilityRaysPerAnnotation)
             let mutable i = 0
             let mutable found = false
-            while not found && i < s.Length do
-                found <- isVisible s.[i]
+            while not found && i < buffer.Count do
+                found <- isVisible buffer.[i]
                 i <- i + stride
             found
 
-        annotations
-        |> Seq.choose (fun a ->
-            if a.visible && anyVisible (samples a |> Seq.toArray)
-            then Some a.key
-            else None)
-        |> Seq.toList
+        let mutable result = []
+        for a in annotations do
+            if a.visible then
+                samples a
+                if anyVisible () then result <- a.key :: result
+        List.rev result
 
     /// The point of an annotation drawn nearest to a screen position (`ndc`, normalized device
     /// coordinates): the part of it a click there lands on, so a click on the visible part of a

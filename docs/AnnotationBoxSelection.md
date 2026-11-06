@@ -30,7 +30,9 @@ gesture away.
 
 In the classic scheme, releasing Ctrl before the mouse button **cancels** the rectangle,
 selection unchanged: without Ctrl the left button drives the camera again, and the rectangle
-would no longer match what is under it.
+would no longer match what is under it. The rectangle disappears on the key event itself
+(`ViewerApp.dropBoxIfDisarmed`), not on the next mouse move. In Direct Tool Mode, pressing Ctrl
+mid-drag cancels it the same way.
 
 ## What counts as touching
 
@@ -68,8 +70,10 @@ on the CPU with the surfaces' picking KdTrees.
   applies in every mode that picks annotations, including Edit Annotation re-selection.
   Grabbing a control-point handle is unaffected, since handles are drawn on top of everything.
 - **Nearest surface.** The ray takes the nearest hit over all occluding surfaces, whatever
-  their priority (`Picking.castToSurfaces`). Surface picking prefers the highest priority
-  instead, which would let a nearer low-priority surface fail to hide what is behind it.
+  their priority (`Picking.castToSurfaces` via `SurfaceIntersection.doKdTreeIntersectionNearest`).
+  Surface picking (`doKdTreeIntersection`) prefers the highest priority instead, which would
+  let a nearer low-priority surface fail to hide what is behind it. Both share one pass over
+  the surfaces per ray, so a ray costs the same as a pick ray, whatever the surface count.
 
 The comparison is the depth test itself (`DrawingApp.pointVisible`). The annotation's depth is
 offset toward the camera exactly as `depthOffsetFS` offsets it on the GPU, with the same
@@ -167,5 +171,29 @@ Notes:
 - **TC-22.6, real terrain:** the MSL OPC from `src/Tests/resources`, through
   `HeadlessPicking`. A point on the surface is visible, 1 m into it hidden, 1 m above it
   visible. Skipped without the data.
+
+`tests-ui/tests/box-selection.spec.ts` (Playwright) runs it in the app, on the Dimorphos OPC
+with 5000 generated polylines (`PRO3D_BOX_SCALE` scales the count) whose visibility is known
+by construction:
+
+- **A**: 2000 inside the body (on a 30 m sphere), never visible;
+- **B**: 1000 floating between the camera and the body (120 m, within 40 deg of the view
+  direction), always visible;
+- **C**: 2000 behind the body (120 m, within 20 deg of the far side), all hidden by it.
+
+In order, it checks that:
+
+- a Ctrl+click on the edge of a B line selects it, and it stays selected after the release;
+- a Ctrl+drag over the whole view selects exactly B: A 0, B 1000, C 0, read per annotation from
+  the annotations list;
+- a Ctrl+click on empty space changes nothing;
+- releasing Ctrl mid-drag hides the rectangle at once and changes nothing;
+- a Ctrl+drag over empty space clears the selection.
+
+It prints the viewer's own measurement (`[BoxSelection] ... visibility rays, ... ms`). Every
+hidden annotation costs the full ray budget, so this is the worst case. Measured at 5000
+annotations, the box took 10.5 s: 69,000 rays at about 26 microseconds each (1.8 s), plus about
+8.8 s loading the six KdTree patches the rays touch for the first time. Picking loads the same
+patches lazily too, so a later box costs only the rays.
 
 The manual steps are in the test protocol as TC-62 (Box Selection of Annotations).

@@ -231,6 +231,12 @@ module ViewerApp =
     /// `DrawingModel` no longer carries draw/pick flags. See docs/DirectToolMode.md.
     let toolArmed (m : Model) : bool = m.ctrlFlag <> m.directToolMode
 
+    /// The box rectangle needs the tool gate for its whole drag: when a Ctrl key event takes
+    /// the left button back for the camera, drop it at once instead of on the next move.
+    let dropBoxIfDisarmed (m : Model) : Model =
+        if m.multiSelectBox.IsSome && not (toolArmed m) then { m with multiSelectBox = None }
+        else m
+
     let mutable cache = HashMap.Empty
 
     let updateSceneWithNewSurface (m: Model) =
@@ -591,10 +597,16 @@ module ViewerApp =
             let frustum  = m.overlayFrustum |> Option.defaultValue m.frustum
             let viewProj = CameraView.viewTrafo m.navigation.camera.view * Frustum.projTrafo frustum
             let ndc      = Box2d.FromPoints(pixelToNdc viewportSize box.Min, pixelToNdc viewportSize box.Max)
-            m.drawing.annotations.flat
-            |> Leaf.toAnnotations
-            |> HashMap.toValueList
-            |> DrawingApp.annotationsTouchingRect viewProj viewportSize ndc (annotationPointVisible m viewProj)
+            let annotations = m.drawing.annotations.flat |> Leaf.toAnnotations |> HashMap.toValueList
+            // rays cast and time spent, logged per box: the cost of occlusion at scale
+            let mutable rays = 0
+            let visible = annotationPointVisible m viewProj
+            let counted p = rays <- rays + 1; visible p
+            let sw = Diagnostics.Stopwatch.StartNew()
+            let hits = DrawingApp.annotationsTouchingRect viewProj viewportSize ndc counted annotations
+            Log.line "[BoxSelection] %d of %d annotations, %d visibility rays, %.1f ms"
+                hits.Length annotations.Length rays sw.Elapsed.TotalMilliseconds
+            hits
 
     /// A Ctrl+click on an annotation counts only if the clicked part of it is visible: the
     /// annotation point nearest the click, tested against the surfaces with the click's own
@@ -1944,7 +1956,7 @@ module ViewerApp =
 
             let m =
                 match k with
-                | Keyboard.Modifier -> { m with ctrlFlag = true }
+                | Keyboard.Modifier -> dropBoxIfDisarmed { m with ctrlFlag = true }
                 | _ -> m
 
             let m =
@@ -2044,7 +2056,7 @@ module ViewerApp =
                 | _ -> m
 
             match k with
-            | Keyboard.Modifier -> { m with ctrlFlag = false }
+            | Keyboard.Modifier -> dropBoxIfDisarmed { m with ctrlFlag = false }
             | _ -> m
         | SetInteraction t,_ ->
                 
