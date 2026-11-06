@@ -45,7 +45,10 @@ let private changedFraction (a : PixImage<byte>) (b : PixImage<byte>) =
             changed <- changed + 1L)
     float changed / float (ma.SX * ma.SY)
 
-let private parse (json : string) = JobFile.parse @"C:\jobs" json
+/// a job folder that is a rooted path on every OS (C:\jobs is a relative path on Linux)
+let private jobDir = Path.Combine(Path.GetTempPath(), "jobs")
+
+let private parse (json : string) = JobFile.parse jobDir json
 
 let private jobTests =
     testList "job file and bookmark selection" [
@@ -84,8 +87,8 @@ let private jobTests =
             match parse """{ "scene": "s/x.pro3d", "lodLevel": 2 }""" |> Result.bind JobFile.toJob with
             | Result.Error e -> failtest e
             | Ok job ->
-                Expect.equal job.scene (Path.GetFullPath @"C:\jobs\s\x.pro3d") "relative to the job file"
-                Expect.equal job.out (Path.GetFullPath @"C:\jobs\s\x-renders") "beside the scene"
+                Expect.equal job.scene (Path.GetFullPath(Path.Combine(jobDir, "s", "x.pro3d"))) "relative to the job file"
+                Expect.equal job.out (Path.GetFullPath(Path.Combine(jobDir, "s", "x-renders"))) "beside the scene"
                 match job.passes with
                 | [ p ] ->
                     Expect.equal p.bookmarks [ "*" ] "every bookmark"
@@ -130,7 +133,7 @@ let private jobTests =
 
         test "two passes writing the same files are refused before rendering" {
             let job : RenderJob =
-                { scene = "x"; out = @"C:\out"
+                { scene = "x"; out = Path.Combine(Path.GetTempPath(), "out")
                   passes = [ for _ in 1 .. 2 -> { bookmarks = [ "*" ]; settings = RenderSettings.defaults; suffix = "" } ] }
             match RenderJob.plan [ bookmark "a" ] job with
             | Ok _ -> failtest "the second pass would overwrite the first"
