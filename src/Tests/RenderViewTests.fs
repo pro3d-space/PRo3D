@@ -281,6 +281,36 @@ let private renderTests =
             )
         }
 
+        test "a moved OPC keeps its cast shadows: OPC, camera and sun moved together give the same image" {
+            // the shadow map's bounds once applied an OPC's trafo twice (globalBB already
+            // carries it): 20 km off, the map covered empty space and the shadows vanished
+            withDimorphos (fun view opc (runtime, signature) ->
+            Startup.init ()
+            let sun = view.sun |> Option.defaultWith (fun () -> failtest "the fixture has a sun")
+            let side (r : OpcRenderer) =
+                // the crater-shadow sun of the test above: 85 deg phase, from the image's right
+                let forward = Vec.normalize view.camera.forward
+                let right = Vec.cross forward view.camera.up |> Vec.normalize
+                let phase = Conversion.RadiansFromDegrees 85.0
+                let towardsSun = -forward * cos phase + right * sin phase
+                { sun with position = r.Bounds.Center + towardsSun * Vec.length (sun.position - r.Bounds.Center) }
+            let here =
+                use r = new OpcRenderer(runtime, signature, [ opc ])
+                let s = side r
+                r.Render(view.camera, Some s, view.settings), r.Render(view.camera, Some { s with shadows = false }, view.settings)
+            let shift = V3d(20000.0, -15000.0, 5000.0)
+            let moved =
+                use r = new OpcRenderer(runtime, signature, [ { opc with trafo = Some (Trafo3d.Translation shift) } ])
+                let s = side r
+                let camera = { view.camera with location = view.camera.location + shift }
+                r.Render(camera, Some s, view.settings)
+            let shadowed, unshadowed = here
+            let shadows = differs shadowed unshadowed
+            Expect.isGreaterThan shadows 0.00005 "the unmoved OPC casts shadows"
+            Expect.isLessThan (differs moved shadowed) (shadows * 0.3) "the moved OPC casts the same shadows"
+            )
+        }
+
         test "OPC transformations place each OPC; LoD still fixable" {
             withDimorphos (fun view opc (runtime, signature) ->
             Startup.init ()

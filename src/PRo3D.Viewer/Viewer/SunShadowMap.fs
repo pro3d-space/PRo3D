@@ -175,8 +175,11 @@ module SunShadowMap =
                 | Some (AdaptiveSurfaces surf) ->
                     let visible = surf.isVisible.GetValue t
                     if visible then
+                        // globalBB already carries preTransform (SurfaceSg.createSgSurfaces);
+                        // undo it before the placement, which applies it again
+                        let pre = surf.preTransform.GetValue t
                         let trafo = (surfacePlacement m surfaceId surf).GetValue t
-                        box <- box.ExtendedBy(bb.Transformed trafo)
+                        box <- box.ExtendedBy(bb.Transformed(pre.Inverse * trafo))
                 | _ -> ()
             box)
 
