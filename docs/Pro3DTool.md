@@ -17,7 +17,7 @@ It supersedes the older `opc-tool` (see [Migrating](#migrating-from-opc-tool)).
 | `simulate-image` | Simulated instrument image of a body at a SPICE time: Lommel-Seeliger sun lighting, procedural micro-structure, cast shadows, optional de-shaded texture albedo | **[Pro3DTool-SimulateImage.md](./Pro3DTool-SimulateImage.md)** |
 | `sample-layers` | Assemble AFC, ASPECT and HyperScout observations onto a body: per OPC vertex, which image sees it, where, under which sun geometry, and every band's value — as CSV keyed by vertex id | **[Pro3DTool-SampleLayers.md](./Pro3DTool-SampleLayers.md)** |
 | `render-bookmarks` | Open a `.pro3d` scene headlessly and render its bookmarks to PNGs as the viewer shows them; batch via a JSON job file; optionally at a fixed OPC level of detail. Also an in-process library, `PRo3D.SceneRender` | **[Pro3DTool-RenderBookmarks.md](./Pro3DTool-RenderBookmarks.md)** |
-| `render-view` | Render OPCs without a scene file from explicitly given cameras (location, forward, up, horizontal FOV), each OPC placed by a transformation, optionally sun-lit; JSON job files, e.g. HERA AFC-1 views of Didymos/Dimorphos written from SPICE by [`scripts/render-view-job.py`](../scripts/render-view-job.py) | **[Pro3DTool-RenderView.md](./Pro3DTool-RenderView.md)** |
+| `render-view` | Render OPCs without a scene file from explicitly given cameras (location, forward, up, horizontal FOV), each OPC placed by a transformation, optionally sun-lit; JSON job files | **[Pro3DTool-RenderView.md](./Pro3DTool-RenderView.md)** |
 
 ## Install
 

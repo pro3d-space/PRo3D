@@ -3,7 +3,8 @@
 
 The job holds plain geometry -- camera location / forward / up, horizontal field of view,
 sun position, OPC placements -- all in DIMORPHOS_FIXED, metres, so the tool itself needs
-no SPICE. See docs/Pro3DTool-RenderView.md.
+no SPICE. Used for render-view's evaluation: docs/Pro3DTool-RenderView.md, "How the
+evaluation jobs were made".
 
     python scripts/render-view-job.py --opc <Dimorphos OPC> --times 2027-03-21T14:00:00 \
         --out job.json [--didymos-opc <Didymos OPC>] [--width 1020 --height 1020]
@@ -85,7 +86,7 @@ def orientation(et, pointing):
     """Instrument -> FRAME. `instrument`: the kernels' HERA_AFC-1 frame, alignment
     included (what the camera sees). `spacecraft`: HERA_SPACECRAFT with the nominal
     mounting, alignment left out -- for comparing with tools that render along the
-    spacecraft's axes (docs/Pro3DTool-RenderView.md, "Pointing")."""
+    spacecraft's axes (comet-toolbox; docs/Pro3DTool-RenderView.md, "Validation")."""
     if pointing == "spacecraft":
         return np.asarray(sp.pxform(SPACECRAFT, FRAME, et)) @ nominal_mounting(et)
     return np.asarray(sp.pxform(INSTRUMENT, FRAME, et))

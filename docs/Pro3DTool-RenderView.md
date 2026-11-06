@@ -6,8 +6,8 @@ the PRo3D viewer would draw them, because they go through the same scene graph a
 same sun shading and shadows. Everything comes from a JSON job file; the tool itself uses
 no SPICE.
 
-The motivating case is Dimorphos (and Didymos) seen from HERA's AFC-1. The job file for
-it is written by [`scripts/render-view-job.py`](../scripts/render-view-job.py) from SPICE (see [The SPICE job generator](#the-spice-job-generator)).
+The motivating case is Dimorphos (and Didymos) seen from HERA's AFC-1, with the cameras
+computed elsewhere, e.g. from SPICE.
 
 ```
 pro3d-tool render-view --job job.json
@@ -100,38 +100,29 @@ Comments and trailing commas are allowed.
 Near and far planes are chosen from the camera's distance to the OPCs' bounding box, so
 the depth buffer is spent on the scene even at kilometres of distance.
 
-## The SPICE job generator
+## Validation
 
-[`scripts/render-view-job.py`](../scripts/render-view-job.py) (needs spiceypy) writes a job for HERA AFC-1 views of
-Dimorphos, in `DIMORPHOS_FIXED`, metres:
+### How the evaluation jobs were made
+
+For the evaluation, the jobs were written by
+[`scripts/render-view-job.py`](../scripts/render-view-job.py) (spiceypy). It is a test aid,
+not part of the tool, and it is one way of computing the cameras. Every comparison below
+goes through it, so an error in it would show in all of them.
 
 ```
-python scripts/render-view-job.py --opc <Dimorphos OPC> --times 2027-03-21T17:00:00,2027-03-21T23:00:00 --out job.json
-python scripts/render-view-job.py --opc <Dimorphos OPC> --didymos-opc <Didymos OPC> --times 2027-02-25T10:30:00 --out job.json
+python scripts/render-view-job.py --opc <Dimorphos OPC> --times 2027-03-21T17:00:00 --out job.json [--didymos-opc <Didymos OPC>] [--pointing spacecraft] [--kernel <metakernel>]
 ```
 
-| Option | |
-|---|---|
-| `--kernel-root` / `--kernel` | Kernel tree (default `$PRO3D_SPICE_KERNELS`) / an explicit metakernel (default `mk/hera_plan.tm`). |
-| `--didymos-opc` | Also place Didymos, by `pxform(DIDYMOS_FIXED → DIMORPHOS_FIXED)` and its position. Didymos moves around Dimorphos, so a job with both bodies covers **one epoch**. |
-| `--width`, `--height` | 1020 × 1020, AFC's size. |
-| `--untextured`, `--no-shadows`, `--no-sun` | As in the job file. |
-| `--pointing` | `instrument` (default): the `HERA_AFC-1` frame. `spacecraft`: `HERA_SPACECRAFT` with the nominal mounting, the alignment left out. |
-
-Conventions, the same as `pro3d-tool simulate-image --pointing ck` for HERA_AFC-1:
-- **Camera:** location is HERA relative to Dimorphos (no aberration correction).
+What it computes, in `DIMORPHOS_FIXED`, metres:
+- **Camera:** HERA relative to Dimorphos (no aberration correction).
 - **Orientation:** with `R = pxform(HERA_AFC-1 → DIMORPHOS_FIXED)`, forward = `R[:,2]` (the
-  boresight) and up = `R[:,0]`. Right is `R[:,1]`. This is what `specialTrafos` and
-  simulate-image's camera basis compose to for AFC-1. Note that it is PRo3D's AFC
-  convention, chosen to match comet-toolbox: the instrument kernel's FOV diagram draws
-  +X right and +Y down, i.e. the image turned by 90°. See
-  [simulate-image, Image axes](./Pro3DTool-SimulateImage.md#image-axes-specialtrafos).
-  render-view itself takes `up` and `forward` from the job as given, so the convention is
-  the script's.
+  boresight), up = `R[:,0]`, right = `R[:,1]`. These are PRo3D's AFC image axes, as
+  simulate-image uses them ([Image axes](./Pro3DTool-SimulateImage.md#image-axes-specialtrafos)).
+  `--pointing spacecraft` takes `HERA_SPACECRAFT` instead, without AFC-1's 0.146° alignment.
 - **fov:** from `getfov` (AFC-1: 5.5°).
 - **Sun:** SUN relative to Dimorphos.
-
-## Validation
+- **Didymos** (`--didymos-opc`): placed by `pxform(DIDYMOS_FIXED → DIMORPHOS_FIXED)` and its
+  position, so a job with both bodies covers one epoch.
 
 ### Against comet-toolbox
 
