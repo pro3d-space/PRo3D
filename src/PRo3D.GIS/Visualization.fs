@@ -151,7 +151,11 @@ module Visualization =
                         | Some (tex, s, f, capacity) when s = size && f = format && capacity >= keys.Length -> tex
                         | current ->
                             current |> Option.iter (fun (old, _, _, _) -> runtime.DeleteTexture old)
-                            let capacity = max keys.Length (min ProjectedImages.maxCount (2 * keys.Length))
+                            // gone now: the catch below must not delete it again
+                            allocated <- None
+                            // a few spare slots (hovered library image, the next +)
+                            // rather than doubling: slices are full-resolution images
+                            let capacity = min ProjectedImages.maxCount (keys.Length + 4)
                             let tex = runtime.CreateTexture2DArray(size, format, levels = 1, samples = 1, count = capacity)
                             allocated <- Some (tex, size, format, capacity)
                             content <- Array.create capacity None

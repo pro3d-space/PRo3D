@@ -496,6 +496,21 @@ let private sidecarTests =
             )
         }
 
+        test "the scene layout prompt waits behind every queued notice" {
+            Fixture.withLayoutDir (fun dir ->
+                let scene = Path.Combine(dir, "s.pro3d")
+                Fixture.ok (SceneLayoutSidecar.tryWrite scene (LayoutOps.sanitize DashboardModes.core.layout)) "write"
+                let m =
+                    LayoutApp.initial dir
+                    |> LayoutApp.notify "first" "a"
+                    |> LayoutApp.notify "second" "b"
+                let offered, _ = LayoutApp.sceneOpened dir scene m
+                match offered.dialog with
+                | LayoutDialog.Notice ("first", _, LayoutDialog.Notice ("second", _, LayoutDialog.SceneLayout _)) -> ()
+                | other -> failtestf "expected both notices, then the prompt; got %A" other
+            )
+        }
+
         test "ignoring changes nothing" {
             Fixture.withLayoutDir (fun dir ->
                 let scene = Path.Combine(dir, "s.pro3d")

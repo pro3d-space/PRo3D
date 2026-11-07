@@ -33,11 +33,11 @@ module ImageProjection =
             member x.ProjectedStackTrafos : Arr<N<32>, M44f> = uniform?ProjectedStackTrafos
             member x.ProjectedStackMinMax : Arr<N<32>, V2f> = uniform?ProjectedStackMinMax
             member x.ProjectedStackCount : int = uniform?ProjectedStackCount
-            /// layer in focus (hovered / dragged), -1: none; every other layer's
-            /// opacity is scaled by ProjectedStackFade
             /// layer i samples slot ProjectedStackSlices.[i] of the stack texture
             /// array: images keep their slot, so reordering changes only this
             member x.ProjectedStackSlices : Arr<N<32>, int> = uniform?ProjectedStackSlices
+            /// layer in focus (hovered / dragged), -1: none; every other layer's
+            /// opacity is scaled by ProjectedStackFade
             member x.ProjectedStackFocus : int = uniform?ProjectedStackFocus
             member x.ProjectedStackFade : float32 = uniform?ProjectedStackFade
             /// InstrumentVisibilityMode.RelativeCount: tint fragments by how
@@ -154,8 +154,9 @@ module ImageProjection =
                 let count = uniform.ProjectedStackCount
                 for j in 0 .. count - 1 do
                     let i = count - 1 - j
-                    // no focus: the first cover ends the walk (one sample, as before)
-                    let wanted = topIndex < 0 || (i <= focus && not focusCovered)
+                    // no focus: the first cover ends the walk (one sample, as before);
+                    // below the top only the focused layer itself is of interest
+                    let wanted = topIndex < 0 || (i = focus && not focusCovered)
                     if wanted then
                         let ndc = uniform.ProjectedStackTrafos.[i] * v.localPos
                         let p = ndc.XYZ / ndc.W

@@ -304,7 +304,9 @@ Correction* costs nothing in the shader: for an inward-wound hierarchy the
 per-patch projector matrix is negated on the CPU, which leaves every projected
 position where it is and flips the facing test.
 
-Not yet: persistence of per-image settings in the scene,
+Not yet: persistence of per-image settings in the scene (a restored stack shows each
+image with channel 0 and its sidecar's min/max), an image folder relative to the scene
+(the folder is saved as an absolute path),
 projector-side occlusion. First start after a release that changed
 the surface shaders recompiles the effect once — surfaces can take a minute or
 more to appear.

@@ -54,11 +54,14 @@ module LayoutApp =
                 sprintf "Your last window layout could not be read (%s). PRo3D starts with the '%s' layout instead; the unreadable file was kept as current.json.corrupt in %s." e fallback.name dir
             create dir fallback.name fallback.layout (LayoutDialog.Notice("Window Layout", message, LayoutDialog.None))
 
-    /// Opens `dialog`, behind a notice that is still waiting to be read.
+    /// Opens `dialog`, behind the notices still waiting to be read (all of them:
+    /// `notify` queues several).
     let private openDialog (dialog : LayoutDialog) (m : LayoutModel) =
-        match m.dialog with
-        | LayoutDialog.Notice (title, message, _) -> { m with dialog = LayoutDialog.Notice(title, message, dialog) }
-        | _ -> { m with dialog = dialog }
+        let rec behind (d : LayoutDialog) =
+            match d with
+            | LayoutDialog.Notice (title, message, next) -> LayoutDialog.Notice(title, message, behind next)
+            | _ -> dialog
+        { m with dialog = behind m.dialog }
 
     /// Shows `message` in a modal notice the user has to acknowledge; notices already
     /// waiting, and the dialog behind them, come first.

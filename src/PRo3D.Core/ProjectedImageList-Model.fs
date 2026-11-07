@@ -262,21 +262,26 @@ module ProjectedImageListModel =
             |> List.choose (fun id -> tryFind id m |> Option.map (fun i -> System.IO.Path.GetFileName i.texture))
 
     /// Rebuilds the stack from file names after the library was imported.
-    /// Returns the names not found in the library (matched case-insensitively).
+    /// Returns the names not found in the library (matched exactly, else
+    /// case-insensitively: a scene moved between file systems).
     let restoreStack (names : list<string>) (m : ProjectedImageListModel) : ProjectedImageListModel * list<string> =
-        let byName =
-            m.images
-            |> IndexList.toList
-            |> List.map (fun i -> fileKey i.texture, i.id)
-            |> HashMap.ofList
-        let ids, missing =
+        let images = m.images |> IndexList.toList
+        let exact =
+            images |> List.map (fun i -> System.IO.Path.GetFileName i.texture, i.id) |> HashMap.ofList
+        let byKey =
+            images |> List.map (fun i -> fileKey i.texture, i.id) |> HashMap.ofList
+        let ids, _, missing =
             names
-            |> List.distinctBy fileKey
-            |> List.fold (fun (ids, missing) name ->
-                match HashMap.tryFind (fileKey name) byName with
-                | Some id -> id :: ids, missing
-                | None -> ids, name :: missing
-            ) ([], [])
+            |> List.fold (fun (ids, used, missing) name ->
+                let found =
+                    match HashMap.tryFind name exact with
+                    | Some id -> Some id
+                    | None -> HashMap.tryFind (fileKey name) byKey
+                match found with
+                | Some id when not (HashSet.contains id used) -> id :: ids, HashSet.add id used, missing
+                | Some _ -> ids, used, missing
+                | None -> ids, used, name :: missing
+            ) ([], HashSet.empty, [])
         let stack = ids |> List.rev |> List.truncate ProjectedImages.maxCount |> IndexList.ofList
         { m with stack = stack; pendingStack = [] }, List.rev missing
 

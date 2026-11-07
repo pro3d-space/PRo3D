@@ -384,19 +384,32 @@ module SceneLoader =
                 layout = LayoutApp.notify "Projected Images" message m.layout }
         | Some dir ->
             let pending = gisApp.projectedImageList.pendingStack
-            let images =
-                PRo3D.ImageMapping.ProjectedImageListApp.update
-                    gisApp.projectedImageList (PRo3D.ImageMapping.ProjectedImageListMessage.LoadImagesDir dir)
-            let images, missing = PRo3D.ImageMapping.ProjectedImageListModel.restoreStack pending images
-            let m = { m with scene = { m.scene with gisApp = { gisApp with projectedImageList = images } } }
-            match missing with
-            | [] -> m
-            | _ ->
-                Log.warn "[SceneLoader] projected-image stack entries not found in %s: %A" dir missing
+            let restored =
+                // one unreadable file or sidecar must not fail the whole scene load
+                try
+                    let images =
+                        PRo3D.ImageMapping.ProjectedImageListApp.update
+                            gisApp.projectedImageList (PRo3D.ImageMapping.ProjectedImageListMessage.LoadImagesDir dir)
+                    Ok (PRo3D.ImageMapping.ProjectedImageListModel.restoreStack pending images)
+                with e -> Result.Error e
+            match restored with
+            | Result.Error e ->
+                Log.error "[SceneLoader] projected images not loaded from %s: %A" dir e
                 let message =
-                    sprintf "%d image(s) of this scene's projection stack are no longer in %s and were left out: %s"
-                        missing.Length dir (String.concat ", " missing)
-                { m with layout = LayoutApp.notify "Projected Images" message m.layout }
+                    sprintf "The projected images of this scene could not be loaded from %s (%s). Import the folder again under GIS > Projected Images." dir e.Message
+                { m with
+                    scene  = { m.scene with gisApp = gisApp }
+                    layout = LayoutApp.notify "Projected Images" message m.layout }
+            | Ok (images, missing) ->
+                let m = { m with scene = { m.scene with gisApp = { gisApp with projectedImageList = images } } }
+                match missing with
+                | [] -> m
+                | _ ->
+                    Log.warn "[SceneLoader] projected-image stack entries not found in %s: %A" dir missing
+                    let message =
+                        sprintf "%d image(s) of this scene's projection stack are no longer in %s and were left out: %s"
+                            missing.Length dir (String.concat ", " missing)
+                    { m with layout = LayoutApp.notify "Projected Images" message m.layout }
         | None ->
             { m with scene = { m.scene with gisApp = gisApp }}
 
