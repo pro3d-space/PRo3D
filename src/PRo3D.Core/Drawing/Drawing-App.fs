@@ -201,6 +201,55 @@ module DrawingApp =
                 Log.warn "[Drawing] ellipse handle %d dropped where it would collapse an axis; edit discarded" index
                 a
 
+    /// Lays the supporting profiles of an edited ellipse (#833) across it again, so its craters
+    /// export still matches it. Its profiles are found by their link, and each keeps its key,
+    /// group, colour, thickness and label: only the line, its measurements and the stored
+    /// azimuth are replaced. The set keeps its directions: a compass set stays compass, an axis
+    /// set follows the axes - whatever the Supporting Profiles panel is set to now.
+    ///
+    /// All or nothing, like generating them: `Error` (and nothing changed) when one cannot be
+    /// rebuilt. `Ok` with the count regenerated, 0 for an ellipse without profiles.
+    let regenerateEllipseProfiles
+        (up : V3d) (north : V3d) (planet : Planet)
+        (samplingDistance : float) (samplePoint : V3d -> Option<V3d>)
+        (parent : Annotation) (groups : GroupsModel) : Result<GroupsModel * int, string> =
+
+        let profiles =
+            SupportingProfiles.profilesOf parent.key groups
+            |> HashSet.toArray
+            |> Array.choose (fun id ->
+                match groups.flat |> HashMap.tryFind id with
+                | Some (Leaf.Annotations a) -> a.profileOf |> Option.map (fun link -> id, a, link)
+                | _ -> None)
+
+        if profiles.Length = 0 then Result.Ok (groups, 0)
+        else
+            let axisLabels = SupportingProfiles.majorAxis |> Array.map fst
+            let mode =
+                if profiles |> Array.exists (fun (_, _, l) -> Array.contains l.direction axisLabels)
+                then EllipseProfileMode.MajorAxis
+                else EllipseProfileMode.Compass
+            match SupportingProfiles.forEllipse planet up north mode parent with
+            | Result.Error why -> Result.Error why
+            | Result.Ok specs ->
+                let rebuilt =
+                    profiles |> Array.choose (fun (id, a, link) ->
+                        specs
+                        |> List.tryFind (fun spec -> spec.link.direction = link.direction)
+                        |> Option.map (fun spec ->
+                            let a =
+                                { a with
+                                    points     = IndexList.ofList [ spec.start; spec.stop ]
+                                    segments   = IndexList.single (resampleSegment samplingDistance samplePoint spec.start spec.stop)
+                                    modelTrafo = Trafo3d.Translation spec.start
+                                    // the index it was generated with names it (p<label>_<index>)
+                                    profileOf  = Some { spec.link with index = link.index } }
+                            let a = { a with dnsResults = a.points |> DipAndStrike.calculateDipAndStrikeResults up north }
+                            id, { a with results = Some (Calculations.calculateAnnotationResults a up north planet) }))
+                let groups =
+                    rebuilt |> Array.fold (fun g (id, a) -> g |> Groups.updateLeaf id (fun _ -> Leaf.Annotations a)) groups
+                Result.Ok (groups, rebuilt.Length)
+
     /// The surface sampler of the working annotation's last click, keyed by its annotation. A
     /// polygon is finished by Enter (`Finish`), which carries no sampler, yet its closing edge
     /// must be draped with the same projection, surface and frame as its other edges. Not model
@@ -1455,9 +1504,33 @@ module DrawingApp =
                         let before = model.annotations
                         let after = before |> Groups.updateLeaf id (fun _ -> Leaf.Annotations edited)
 
-                        // one atomic update, and therefore one undo entry, per drop
-                        { model with annotations = after; vertexGrab = None }
-                        |> pushUndo (SnapshotDelta(before, after))
+                        // an ellipse takes its supporting profiles along; one that cannot follow
+                        // refuses the whole edit, as one that cannot be built refuses a generation
+                        let after =
+                            if Geometry.isVertexEditable ann.geometry then Result.Ok (after, 0)
+                            else regenerateEllipseProfiles up north planet model.samplingDistance samplePoint edited after
+
+                        let label =
+                            if String.IsNullOrWhiteSpace edited.text then sprintf "%A %s" edited.geometry (edited.key.ToString().Substring(0, 8))
+                            else edited.text
+                        let say (message : string) (m : DrawingModel) =
+                            { m with supportingProfiles = { m.supportingProfiles with message = Some message } }
+
+                        match after with
+                        | Result.Error why ->
+                            Log.warn "[Drawing] ellipse edit refused, its supporting profiles cannot follow: %s" why
+                            { model with vertexGrab = None }
+                            |> say (sprintf "Edit of %s refused: its supporting profiles cannot follow (%s)." label why)
+                        | Result.Ok (after, regenerated) ->
+                            // one atomic update, and therefore one undo entry, per drop - the
+                            // profiles included
+                            let model =
+                                { model with annotations = after; vertexGrab = None }
+                                |> pushUndo (SnapshotDelta(before, after))
+                            if regenerated = 0 then model
+                            else
+                                Log.line "[Drawing] %d profiles of %s regenerated" regenerated label
+                                model |> say (sprintf "%d profiles of %s regenerated." regenerated label)
                 | _ ->
                     { model with vertexGrab = None }
 

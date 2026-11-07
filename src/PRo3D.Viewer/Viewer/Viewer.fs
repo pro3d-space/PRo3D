@@ -582,12 +582,19 @@ module ViewerApp =
 
                 // an ellipse is always draped with the Sky projection (Geometry.allowedProjections),
                 // whatever the drawing toolbar is set to now
-                let sampler =
+                let isEllipse =
                     match m.drawing.annotations.flat.TryFind grab.annotation with
-                    | Some (Leaf.Annotations a) when not (Geometry.isVertexEditable a.geometry) -> skyProjection m
-                    | _ -> hitFunction
+                    | Some (Leaf.Annotations a) -> not (Geometry.isVertexEditable a.geometry)
+                    | _ -> false
+                let sampler = if isEllipse then skyProjection m else hitFunction
+                // An ellipse drop reports what became of its supporting profiles in the panel's
+                // message; cleared first, so the same outcome twice (moved again, "4 profiles of
+                // craterA regenerated.") is reported twice.
+                let start =
+                    if isEllipse then { m.drawing with supportingProfiles = { m.drawing.supportingProfiles with message = None } }
+                    else m.drawing
                 let msg = DrawingAction.MoveVertex(grab.annotation, grab.pointIndex, p, sampler)
-                let drawing = DrawingApp.update m.scene.referenceSystem drawingConfig referenceSystem bc view m.shiftFlag m.drawing msg
+                let drawing = DrawingApp.update m.scene.referenceSystem drawingConfig referenceSystem bc view m.shiftFlag start msg
 
                 // surfaceName is only ever advisory and nothing re-validates it, so a vertex may
                 // legitimately end up on a different surface than the annotation was drawn on -
@@ -597,12 +604,17 @@ module ViewerApp =
                     | Some (Leaf.Annotations a) -> a.surfaceName <> surf.name
                     | _ -> false
 
+                // an ellipse edit says what became of its supporting profiles: regenerated, or
+                // the edit refused because they could not follow. The Properties panel showing
+                // that message is usually closed while editing.
+                let profileMessage = if isEllipse then drawing.supportingProfiles.message else None
+
                 let m = { m with drawing = drawing } |> stash
-                if movedAcrossSurfaces then
-                    // same 3 s transient top-right overlay "Importing OPCs..." and "scene saved" use
-                    m |> logScreen 3000 (sprintf "vertex moved onto surface \"%s\"" surf.name)
-                else
-                    m
+                // same 3 s transient top-right overlay "Importing OPCs..." and "scene saved" use
+                match profileMessage with
+                | Some message -> m |> logScreen 4000 message
+                | None when movedAcrossSurfaces -> m |> logScreen 3000 (sprintf "vertex moved onto surface \"%s\"" surf.name)
+                | None -> m
             | _ ->
                 // Either nothing is grabbed, or this is the very click that grabbed and the cursor
                 // has not moved yet. Both mean "not a drop".
@@ -3381,6 +3393,17 @@ module ViewerApp =
                 match m.drawing.vertexGrab.GetValue t, m.surfaceIntersection.GetValue t with
                 | Some grab, Some hit ->
                     match m.drawing.annotations.flat.Content.GetValue t |> HashMap.tryFind grab.annotation with
+                    | Some (AdaptiveAnnotations ann) when not (Geometry.isVertexEditable (ann.geometry.GetValue t))
+                                                         && grab.pointIndex = EllipseEdit.CentreHandle ->
+                        // the centre: the whole outline, moved in its plane to the cursor - where
+                        // the drop puts it before draping it onto the terrain again
+                        match ann.ellipticResults.GetValue t with
+                        | Some r ->
+                            let outline = ann.points.Content.GetValue t |> IndexList.toArray
+                            match EllipseEdit.tryMovedOutline r outline hit.hitPoint with
+                            | Some moved when moved.Length > 0 -> Array.append moved [| moved.[0] |]
+                            | _ -> [||]
+                        | None -> [||]
                     | Some (AdaptiveAnnotations ann) when not (Geometry.isVertexEditable (ann.geometry.GetValue t)) ->
                         // an ellipse axis end: from the end that stays (the opposite one of the same
                         // axis) to the cursor - the axis being dragged out
@@ -3432,8 +3455,9 @@ module ViewerApp =
                     match m.drawing.annotations.flat.Content.GetValue t |> HashMap.tryFind id with
                     | Some (AdaptiveAnnotations ann) when not (Geometry.isVertexEditable (ann.geometry.GetValue t)) ->
                         let h = PackedRendering.editHandles ann t
-                        if h.Length = 4 then [| (PackedRendering.EllipseEditColors.major, [| h.[0]; h.[1] |])
-                                                (PackedRendering.EllipseEditColors.minor, [| h.[2]; h.[3] |]) |]
+                        if h.Length >= 4 then
+                            [| (PackedRendering.EllipseEditColors.major, [| h.[0]; h.[1] |])
+                               (PackedRendering.EllipseEditColors.minor, [| h.[2]; h.[3] |]) |]
                         else [||]
                     | _ -> [||]
                 | None -> [||])

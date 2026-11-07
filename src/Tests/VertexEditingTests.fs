@@ -376,6 +376,11 @@ let private drawEllipse () =
     Draw.drawFull Draw.refSystemMars Geometry.AxisEllipse true
         [ c + V3d(60.0, 0.0, 0.0); c - V3d(60.0, 0.0, 0.0); c + V3d(0.0, 35.0, 0.0) ]
 
+let private shapeOf' (a : Annotation) =
+    match a.ellipticResults with
+    | Some r -> r
+    | None   -> failtestf "%s: no stored ellipse" a.text
+
 let private shapeOf (label : string) (m : DrawingModel) =
     match (theOnly label m).ellipticResults with
     | Some r -> r
@@ -405,12 +410,13 @@ let private close (label : string) (expected : V3d) (actual : V3d) =
 let private ellipseTests =
     testList "editing a three-point ellipse" [
 
-        test "it has four handles, at the ends of its axes" {
+        test "it has five handles, at the ends of its axes and its centre" {
             let c = ellipseCenter
             let a = drawEllipse () |> theOnly "drawn"
             Expect.isTrue (DrawingApp.isEditable a) "a Sky three-point ellipse with a stored shape is editable"
             let h = DrawingApp.editHandles a
-            Expect.equal h.Length 4 "two per axis"
+            Expect.equal h.Length 5 "two per axis, and the centre"
+            close "the centre handle" c h.[EllipseEdit.CentreHandle]
             // 0/1 are the ends of the major axis, 2/3 those of the minor one
             close "major ends" V3d.Zero (h.[0] + h.[1] - 2.0 * c)
             Expect.floatClose Accuracy.medium (h.[0] - h.[1]).Length 120.0 "major axis, m"
@@ -530,6 +536,183 @@ let private ellipseTests =
         }
     ]
 
+// ---------------------------------------------------------------------------------------------
+// moving a whole three-point ellipse by its centre, and the supporting profiles that follow
+// ---------------------------------------------------------------------------------------------
+
+/// the ellipse among its profiles
+let private theEllipse (label : string) (m : DrawingModel) =
+    match Draw.annotations m |> List.filter (fun a -> a.profileOf.IsNone) with
+    | [ a ] -> a
+    | xs -> failtestf "%s: expected one ellipse, got %d" label xs.Length
+
+let private profilesOf (m : DrawingModel) =
+    Draw.annotations m
+    |> List.choose (fun a -> a.profileOf |> Option.map (fun l -> l.index, a))
+    |> List.sortBy fst
+    |> List.map snd
+
+let private directionOf (a : Annotation) =
+    a.profileOf |> Option.map (fun l -> l.direction) |> Option.defaultValue ""
+
+let private azimuthOf (a : Annotation) =
+    a.profileOf |> Option.map (fun l -> l.azimuth) |> Option.defaultValue nan
+
+/// grab handle `i` of the ellipse and drop it at `target`
+let private dropOn refSystem (i : int) (target : V3d) (m : DrawingModel) =
+    let a = theEllipse "dropOn" m
+    m
+    |> fun m -> Draw.run refSystem m (DrawingAction.GrabVertex(a.key, i))
+    |> fun m -> Draw.run refSystem m DrawingAction.ArmVertexGrab
+    |> fun m -> Draw.run refSystem m (DrawingAction.MoveVertex(a.key, i, target, Draw.identityHit))
+
+/// the ellipse with its four supporting profiles in `mode`, generated as the panel does
+let private withProfiles (mode : EllipseProfileMode) =
+    let m = drawEllipse ()
+    let a = theEllipse "withProfiles" m
+    let m = { m with annotations = { m.annotations with singleSelectLeaf = Some a.key } }
+    let m = Draw.run Draw.refSystemMars m (DrawingAction.SetProfileEllipseMode mode)
+    let m = Draw.run Draw.refSystemMars m (DrawingAction.GenerateSupportingProfiles (Some Draw.identityHit))
+    Expect.equal (profilesOf m).Length 4 "four profiles to start with"
+    m
+
+let private endsOf (a : Annotation) =
+    match IndexList.toList a.points with
+    | [ s; e ] -> s, e
+    | _ -> failtestf "profile %s has %d points" a.text (IndexList.count a.points)
+
+/// how far `p` is from the infinite line through the two ends of profile `a`
+let private offLine (p : V3d) (a : Annotation) =
+    let s, e = endsOf a
+    let d = (e - s).Normalized
+    (p - s - d * Vec.dot (p - s) d).Length
+
+let private ellipseMoveTests =
+    testList "moving a three-point ellipse" [
+
+        test "dragging the centre moves the whole ellipse in its plane, axes and orientation kept" {
+            let c = ellipseCenter
+            let m = drawEllipse ()
+            let r0 = shapeOf "start" m
+            // off the plane by 7 m: projected onto it, like the axis ends
+            let r = m |> dropHandle EllipseEdit.CentreHandle (c + V3d(30.0, -20.0, 7.0)) |> shapeOf "moved"
+            close "centre at the drop, in the plane" (c + V3d(30.0, -20.0, 0.0)) r.center
+            close "semi-major axis kept" r0.semiMajorAxis r.semiMajorAxis
+            close "semi-minor axis kept" r0.semiMinorAxis r.semiMinorAxis
+            // the axis keeps its direction in space; its azimuth is against local north, which
+            // turns a hair over 36 m on Mars (1.2e-4 deg measured)
+            Expect.isLessThan (abs (r.majorAxisAzimuth - r0.majorAxisAzimuth)) 1e-3 "azimuth kept, deg"
+        }
+
+        test "the moved outline is the old one, shifted, at the same size" {
+            let c = ellipseCenter
+            let m = drawEllipse ()
+            let before = theOnly "before" m
+            let after = m |> dropHandle EllipseEdit.CentreHandle (c + V3d(30.0, -20.0, 0.0)) |> theOnly "after"
+            let worst =
+                after.points |> IndexList.toArray
+                |> Array.map (fun p ->
+                    let d = p - (c + V3d(30.0, -20.0, 0.0))
+                    abs ((d.X / 60.0) ** 2.0 + (d.Y / 35.0) ** 2.0 - 1.0))
+                |> Array.max
+            Expect.isLessThan worst 1e-6 "every outline point is on the moved ellipse"
+            Expect.isSome after.dnsResults "dip and strike recomputed"
+            match before.results, after.results with
+            | Some b, Some a -> Expect.floatClose Accuracy.medium a.area b.area "the same size"
+            | _ -> failtest "results missing"
+        }
+
+        test "dropping the centre where it is, ten times, changes nothing" {
+            let start = drawEllipse ()
+            let r0 = shapeOf "start" start
+            let repeated =
+                [ 0 .. 9 ] |> List.fold (fun m _ ->
+                    match DrawingApp.editHandles (theOnly "repeat" m) |> Array.tryItem EllipseEdit.CentreHandle with
+                    | Some h -> dropHandle EllipseEdit.CentreHandle h m
+                    | None   -> failtest "no centre handle") start
+            let r = shapeOf "repeated" repeated
+            close "centre" r0.center r.center
+            close "semi-major" r0.semiMajorAxis r.semiMajorAxis
+            close "semi-minor" r0.semiMinorAxis r.semiMinorAxis
+        }
+
+        test "a move is one undo entry, and undo puts the ellipse back" {
+            let c = ellipseCenter
+            let m = drawEllipse ()
+            let undoBefore = List.length m.undoStack
+            let moved = m |> dropHandle EllipseEdit.CentreHandle (c + V3d(40.0, 0.0, 0.0))
+            Expect.equal (List.length moved.undoStack) (undoBefore + 1) "one entry"
+            let undone = Draw.run Draw.refSystemMars moved DrawingAction.Undo
+            Expect.equal (shapeOf "undone" undone) (shapeOf "start" m) "the stored shape is back"
+            Expect.equal (theOnly "undone" undone).points (theOnly "start" m).points "the outline is back"
+        }
+
+        test "compass profiles follow a move: the same profiles, through the new centre, still compass" {
+            let c = ellipseCenter
+            let shift = V3d(30.0, -20.0, 0.0)
+            let m = withProfiles EllipseProfileMode.Compass
+            let before = profilesOf m
+            let moved = m |> dropOn Draw.refSystemMars EllipseEdit.CentreHandle (c + shift)
+            let after = profilesOf moved
+            let centre = (shapeOf' (theEllipse "moved" moved)).center
+            close "the ellipse moved" (c + shift) centre
+            Expect.equal (after |> List.map (fun a -> a.key)) (before |> List.map (fun a -> a.key)) "the same profiles, regenerated in place"
+            Expect.equal (after |> List.map (fun a -> a.text)) (before |> List.map (fun a -> a.text)) "names kept"
+            Expect.equal (after |> List.map directionOf) [ "N-S"; "NE-SW"; "E-W"; "NW-SE" ] "still compass"
+            for (b, a) in List.zip before after do
+                Expect.isLessThan (offLine centre a) 1e-6 (sprintf "%s runs through the new centre" a.text)
+                Expect.floatClose Accuracy.medium (azimuthOf a) (azimuthOf b) (sprintf "%s keeps its bearing" a.text)
+                Expect.isLessThan ((fst (endsOf a) - fst (endsOf b)) - shift).Length 1e-3 (sprintf "%s moved with the ellipse" a.text)
+            Expect.stringContains (moved.supportingProfiles.message |> Option.defaultValue "") "4 profiles" "says so"
+        }
+
+        test "axis profiles follow a turned major axis" {
+            let c = ellipseCenter
+            let m = withProfiles EllipseProfileMode.MajorAxis
+            let handles = DrawingApp.editHandles (theEllipse "start" m)
+            match handles |> Array.tryFindIndex (fun h -> (h - (c + V3d(60.0, 0.0, 0.0))).Length < 1e-6) with
+            | None -> failtest "no handle on the +x major end"
+            | Some i ->
+                let turned = m |> dropOn Draw.refSystemMars i (c + V3d(0.0, 120.0, 0.0))
+                let r = shapeOf' (theEllipse "turned" turned)
+                match profilesOf turned |> List.tryFind (fun a -> directionOf a = "major") with
+                | None -> failtest "no major profile"
+                | Some major ->
+                    let s, e = endsOf major
+                    Expect.isGreaterThan (abs (Vec.dot (e - s).Normalized r.semiMajorAxis.Normalized)) (1.0 - 1e-9) "the major profile lies along the new major axis"
+                    Expect.isLessThan (offLine r.center major) 1e-6 "through the new centre"
+        }
+
+        test "undo takes the ellipse and its profiles back in one step" {
+            let c = ellipseCenter
+            let m = withProfiles EllipseProfileMode.Compass
+            let moved = m |> dropOn Draw.refSystemMars EllipseEdit.CentreHandle (c + V3d(30.0, -20.0, 0.0))
+            Expect.equal (List.length moved.undoStack) (List.length m.undoStack + 1) "one entry for ellipse and profiles"
+            let undone = Draw.run Draw.refSystemMars moved DrawingAction.Undo
+            Expect.equal (theEllipse "undone" undone).points (theEllipse "start" m).points "the ellipse is back"
+            Expect.equal (profilesOf undone |> List.map (fun a -> a.points)) (profilesOf m |> List.map (fun a -> a.points)) "and its profiles"
+        }
+
+        test "an edit its profiles cannot follow is refused, and says why" {
+            let c = ellipseCenter
+            let m = withProfiles EllipseProfileMode.Compass
+            // compass profiles need a reference body; without one they cannot be rebuilt
+            let refused = m |> dropOn Draw.refSystemFlat EllipseEdit.CentreHandle (c + V3d(30.0, -20.0, 0.0))
+            Expect.equal (theEllipse "refused" refused).points (theEllipse "start" m).points "the ellipse stayed"
+            Expect.equal (profilesOf refused |> List.map (fun a -> a.points)) (profilesOf m |> List.map (fun a -> a.points)) "and its profiles"
+            Expect.equal (List.length refused.undoStack) (List.length m.undoStack) "nothing to undo"
+            Expect.isNone refused.vertexGrab "the grab is released"
+            Expect.stringContains (refused.supportingProfiles.message |> Option.defaultValue "") "refused" "says so"
+        }
+
+        test "an ellipse without profiles moves without a profile message" {
+            let c = ellipseCenter
+            let m = drawEllipse ()
+            let moved = m |> dropHandle EllipseEdit.CentreHandle (c + V3d(10.0, 0.0, 0.0))
+            Expect.isNone moved.supportingProfiles.message "nothing to report"
+        }
+    ]
+
 let tests () =
     testList "vertex editing" [
         touchedSegmentTests
@@ -539,4 +722,5 @@ let tests () =
         segmentUpdateTests
         closingEdgeTests
         ellipseTests
+        ellipseMoveTests
     ]

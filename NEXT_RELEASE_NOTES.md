@@ -15,4 +15,5 @@ release folds them into `PRODUCT_RELEASE_NOTES.md`.
 
 ## Pending
 
+- Annotations: **move a whole ellipse.** In *Edit Annotation* a three-point ellipse has a fifth, white handle at its centre: drag it to move the ellipse, axes, orientation and axis ratio kept, stamped onto the terrain where it is dropped; a green outline previews the move. One Ctrl+Z undoes it. **Supporting profiles now follow every ellipse edit**, moved or reshaped, in the directions they had; an edit they cannot follow is refused with a notice (docs/EllipseAnnotations.md)
 - Export: **the Boulders, Craters, Lineaments and Fractures presets now include the annotation metadata columns** (confidence, comment, shape model, shape model version, projected images, credit); before, only the Annotation table preset had them (#887, docs/AnnotationExport-CSV.md)
