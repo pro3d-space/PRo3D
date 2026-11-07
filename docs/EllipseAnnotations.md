@@ -86,13 +86,17 @@ plane is fitted through them as the tool fits one through its clicks
 (`EllipseEdit.tryRefit`). Unlike a redraw the ellipse keeps its size: the axis lengths and the
 axis ratio are kept exactly, the major axis is turned only as far as the new tilt needs (its
 old direction projected onto the new plane), and the outline is stamped onto the terrain again.
+The new centre is where the sky ray through the moved centre meets the new plane, so on a slope
+it stays under the cursor.
 Centre, dip and strike, the long-axis azimuth, area and the other measurements are those of the
 new place.
 
 The green preview is the shift within the old plane, before the re-fit and the stamping, so
-over bumps it can float or dip a little where the dropped outline will not. Because every move
-re-fits, even a drop where the handle already is can tilt the ellipse slightly the first time
-(the stamped axis ends are not the original clicks); the axis ends never do.
+over bumps it can float or dip a little where the dropped outline will not. A centre dropped
+less than 1 % of the minor semi-axis from where it was is no move at all - no re-fit, no undo
+entry - so picking it up and putting it down again does not tilt the ellipse. A move that cannot
+be made (its axis ends would miss the surface, the terrain there gives no plane) is refused with
+a notice saying why, like an axis collapse.
 
 The axis-end handles are drawn at the outline point nearest each axis end, so they sit on the
 terrain where the outline is, not on the plane, which may run under or above it. The centre
