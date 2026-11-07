@@ -22,8 +22,9 @@ type LayoutDialog =
     | Rename      of name : string
     | SceneLayout of PendingSceneLayout
     /// A message that must not go unseen (toasts vanish before a starting viewer shows),
-    /// followed by the dialog that was pending behind it.
-    | Notice      of message : string * next : LayoutDialog
+    /// followed by the dialog that was pending behind it. Also used outside the layout
+    /// feature (LayoutApp.notify), e.g. a scene's image folder that is missing.
+    | Notice      of title : string * message : string * next : LayoutDialog
 
 /// The viewer's window layout. Runtime state of the local user, deliberately not part of
 /// `Scene`: it is restored from AppData, and only written beside a scene as a sidecar.

@@ -202,6 +202,23 @@ module ProjectedImagesListAppHelper =
                     )
             )
 
+        // which layer stays at full strength while the others fade: the dragged
+        // or hovered image's index among the layers, filtered exactly like
+        // stackProjections above so the index addresses the same slot
+        let stackFocus =
+            g.projectedImageList.Current |> AVal.map (fun model ->
+                match ProjectedImageListModel.stackFocus model with
+                | None -> (-1, 1.0f)
+                | Some (focusId, fade) ->
+                    ProjectedImageListModel.effectiveStack model
+                    |> IndexList.toArray
+                    |> Array.filter (fun id -> ProjectedImageListModel.tryFind id model |> Option.isSome)
+                    |> Array.tryFindIndex ((=) focusId)
+                    |> function
+                        | Some i -> (i, float32 fade)
+                        | None -> (-1, 1.0f)
+            )
+
         // the hovered image's own projector, hover-only footprints (D5): the
         // surface outline uniform and the frustum wireframe both read this
         let hoveredProjection =
@@ -219,6 +236,7 @@ module ProjectedImagesListAppHelper =
                 imageProjection = imageTrafo
                 stackProjections = stackProjections
                 hoveredProjection = hoveredProjection
+                stackFocus = stackFocus
                 windingCorrection = g.projectedImageList.windingCorrection
                 // coverage view: tint by how many stack layers cover a fragment
                 stackCoverageEnabled =

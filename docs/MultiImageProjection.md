@@ -50,6 +50,18 @@ HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos/
 date per image, sortable by date or distance. Sorting never changes what is
 projected.
 
+The chosen folder is **saved with the scene** (key `projectedImagesDirectory`
+in the GIS section) and re-imported when the scene is opened. If the folder no
+longer exists — e.g. a scene from another machine — a notice says the projected
+images could not be loaded; the scene keeps the path until you import a folder
+again.
+
+The **projection stack is saved too**, as the images' file names in draw order
+(key `projectedImagesStack`), and rebuilt after the re-import. Stack images no
+longer in the folder are left out and listed in a notice. Both keys are
+additive: the scene version is unchanged and older releases ignore them.
+Per-image settings (colour map, channel, ranges) are not saved yet.
+
 The four AFC-1 frames used throughout this page are in the same test-data
 repository:
 
@@ -99,8 +111,24 @@ its own it projects nothing.
 ## 4. Build the stack
 
 The **+** in a row adds the image to the top of the **projection stack**
-(cap: 32). The stack panel lists the projected images top-first with
-↑ / ↓ to reorder, ✕ to remove, and a count indicator.
+(cap: 32). The stack panel lists the projected images top-first with a count
+indicator. **Drag a row onto another** to reorder: the dragged image takes the
+target's position and the images in between shift by one (the drop target is
+outlined in blue; the ☰ handle marks the rows as draggable). ↑ / ↓ move one
+step, ✕ removes.
+
+Feedback while reordering:
+
+- **Hovering a stack row** keeps that image at full strength and fades the
+  other stack layers to about a third, so you see which image you are about
+  to move (with its green footprint outline and frustum). Hovering a
+  **library** image fades the stack only slightly (to about ¾) while that
+  image is previewed on top.
+- **While dragging**, the 3D view already shows the order the drop would give:
+  every row you pass over is previewed. The list itself keeps its order until
+  you drop; the dragged row is shown half-transparent.
+- **Drop** takes the order over; releasing elsewhere or pressing Esc goes back
+  to the order before the drag.
 
 ![a stack of HERA AFC images projected onto Dimorphos](images/multiProjection-stack.png)
 
@@ -276,8 +304,10 @@ Correction* costs nothing in the shader: for an inward-wound hierarchy the
 per-patch projector matrix is negated on the CPU, which leaves every projected
 position where it is and flips the facing test.
 
-Not yet: persistence of stack and per-image settings in the scene, drag & drop
-reordering, projector-side occlusion. First start after a release that changed
+Not yet: persistence of per-image settings in the scene (a restored stack shows each
+image with channel 0 and its sidecar's min/max), an image folder relative to the scene
+(the folder is saved as an absolute path),
+projector-side occlusion. First start after a release that changed
 the surface shaders recompiles the effect once — surfaces can take a minute or
 more to appear.
 
