@@ -69,6 +69,15 @@ module GroupsApp =
 
         loop target |> IndexList.ofList
 
+    /// The group path of every leaf in the tree, in the innermost-first order the tree view
+    /// builds (`i :: path`) and updateNodeAt expects. One walk, for callers that turn many ids
+    /// into TreeSelections at once.
+    let leafPaths (root : Node) : HashMap<Guid, list<Index>> =
+        let rec loop (path : list<Index>) (n : Node) (acc : HashMap<Guid, list<Index>>) =
+            let acc = n.leaves |> IndexList.fold (fun acc id -> HashMap.add id path acc) acc
+            n.subNodes |> IndexList.toSeqIndexed |> Seq.fold (fun acc (i, sub) -> loop (i :: path) sub acc) acc
+        loop [] root HashMap.empty
+
     let updateLeaf' id f model =
         let update = 
             (fun (d:option<Leaf>) ->

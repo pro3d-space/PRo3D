@@ -2176,8 +2176,19 @@ module Keyboard =
 
     let isMac = RuntimeInformation.IsOSPlatform(OSPlatform.OSX)
 
+    /// The tool modifier (Model.ctrlFlag, docs/DirectToolMode.md): Ctrl, and on macOS also Cmd.
+    ///
+    /// Browsers send keyCode 17 for both Ctrls (-> LeftCtrl). Alt/Option is deliberately NOT a
+    /// modifier: it used to be one, undocumented, which made Alt arm every tool, Alt+S save and
+    /// Alt+Z undo, and stole Alt from box selection's toggle (docs/AnnotationBoxSelection.md).
+    ///
+    /// macOS: Ctrl+click is a right-click there, so Cmd is the key Mac users have. Chromium
+    /// (Electron) sends keyCode 91 for left Cmd (-> LWin) and 93 for right Cmd (-> Apps);
+    /// Aardvark's KeyConverter has no entry for Firefox's 224. RWin is kept for keyboards that
+    /// report 92. `isMac` is the server's OS, which is the client's in the Electron app; on
+    /// Windows these keys stay out, since the Windows key opens the Start menu and its key-up
+    /// would be lost, leaving the flag stuck.
     let (|Modifier|_|) (k : Keys) =
         if k = Keys.LeftCtrl then Some Modifier
-        elif k = Keys.LeftAlt then Some Modifier
-        elif int k = 70 && isMac then Some Modifier
+        elif isMac && (k = Keys.LWin || k = Keys.RWin || k = Keys.Apps) then Some Modifier
         else None

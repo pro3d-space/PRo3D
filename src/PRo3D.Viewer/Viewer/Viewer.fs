@@ -213,7 +213,8 @@ module ViewerApp =
             getArrowThickness   = fun (x:AdaptiveViewConfigModel) -> x.arrowThickness.value
             getArrowLength      = fun (x:AdaptiveViewConfigModel) -> x.arrowLength.value
             getDnsPlaneSize     = fun (x:AdaptiveViewConfigModel) -> x.dnsPlaneSize.value
-            getOffset           = fun (x:AdaptiveViewConfigModel) -> AVal.constant(0.1)//x.offset.value
+            // shared with the CPU occlusion test of annotation selection (DrawingApp.pointVisible)
+            getOffset           = fun (x:AdaptiveViewConfigModel) -> AVal.constant PRo3D.Base.Shader.DepthOffset.annotationWorld //x.offset.value
             getPickingTolerance = fun (x:AdaptiveViewConfigModel) -> x.pickingTolerance.value
             getFillReach        = fun (x:AdaptiveViewConfigModel) ->
                                       (x.fillReachAuto, x.fillReach.value) ||> AVal.map2 (fun auto metres ->
@@ -245,6 +246,12 @@ module ViewerApp =
     /// gate (`ViewerUtils.toolArmed`) and `allowAnnotationPicking` all consult it, and
     /// `DrawingModel` no longer carries draw/pick flags. See docs/DirectToolMode.md.
     let toolArmed (m : Model) : bool = m.ctrlFlag <> m.directToolMode
+
+    /// The box rectangle needs the tool gate for its whole drag: when a Ctrl key event takes
+    /// the left button back for the camera, drop it at once instead of on the next move.
+    let dropBoxIfDisarmed (m : Model) : Model =
+        if m.multiSelectBox.IsSome && not (toolArmed m) then { m with multiSelectBox = None }
+        else m
 
     let mutable cache = HashMap.Empty
 
@@ -804,6 +811,74 @@ module ViewerApp =
         // being drawn, 1-4 rate them instead (#887, metadataKeyAction)
         | _  -> DrawingAction.Nop
 
+    // ---- box selection of annotations (docs/AnnotationBoxSelection.md) ------------------------
+
+    /// a release closer than this to the press (pixels, either axis) is a click, not a drag
+    let private boxSelectMinDrag = 4.0
+
+    /// Pixels relative to the render control -> normalized device coordinates (y up).
+    let private pixelToNdc (size : V2d) (p : V2d) =
+        V2d(2.0 * p.X / size.X - 1.0, 1.0 - 2.0 * p.Y / size.Y)
+
+    /// The annotations a pixel rectangle on the main render view touches, with the camera and
+    /// frustum that view renders with.
+    /// Whether an annotation point is visible from the camera `viewProj`, i.e. not hidden by a
+    /// surface - the same decision the depth test makes on screen, with the same depth offset.
+    let private annotationPointVisible (m : Model) (viewProj : Trafo3d) =
+        DrawingApp.pointVisible
+            viewProj
+            (PRo3D.Base.Shader.DepthOffset.toClip PRo3D.Base.Shader.DepthOffset.annotationWorld)
+            (Picking.castToSurfaces m)
+
+    let private annotationsInPixelBox (m : Model) (viewportSize : V2d) (box : Box2d) =
+        if viewportSize.X <= 0.0 || viewportSize.Y <= 0.0 then []
+        else
+            let frustum  = m.overlayFrustum |> Option.defaultValue m.frustum
+            let viewProj = CameraView.viewTrafo m.navigation.camera.view * Frustum.projTrafo frustum
+            let ndc      = Box2d.FromPoints(pixelToNdc viewportSize box.Min, pixelToNdc viewportSize box.Max)
+            let annotations = m.drawing.annotations.flat |> Leaf.toAnnotations |> HashMap.toValueList
+            // rays cast and time spent, logged per box: the cost of occlusion at scale
+            let mutable rays = 0
+            let visible = annotationPointVisible m viewProj
+            let counted p = rays <- rays + 1; visible p
+            let sw = Diagnostics.Stopwatch.StartNew()
+            let hits = DrawingApp.annotationsTouchingRect viewProj viewportSize ndc counted annotations
+            Log.line "[BoxSelection] %d of %d annotations, %d visibility rays, %.1f ms"
+                hits.Length annotations.Length rays sw.Elapsed.TotalMilliseconds
+            hits
+
+    /// A Ctrl+click on an annotation counts only if the clicked part of it is visible: the
+    /// annotation point nearest the click, tested against the surfaces with the click's own
+    /// camera. Fails open - an annotation or point that cannot be found keeps the click.
+    let private clickedPartVisible (m : Model) (hit : SceneHit) (id : Guid) =
+        let e = hit.event
+        match m.drawing.annotations.flat |> HashMap.tryFind id with
+        | Some (Leaf.Annotations a) when e.evtViewport.X > 0 && e.evtViewport.Y > 0 ->
+            let viewProj = e.evtView * e.evtProj
+            let size     = V2d e.evtViewport
+            let ndc      = pixelToNdc size (V2d e.evtPixel)
+            match DrawingApp.annotationPointUnderCursor viewProj size ndc a with
+            | Some p -> annotationPointVisible m viewProj p
+            | None   -> true
+        | _ -> true
+
+    /// What a finished box gesture does to the selection, if anything. A drag selects what the
+    /// rectangle touches (Alt toggles, else Shift adds, else it replaces). A click does nothing
+    /// here - a click on an annotation is PickDirectly's. It deliberately does not clear the
+    /// selection on empty space: telling "empty" from a hit by a second hit test disagreed with
+    /// the pick pass's widened lines and points, and undid picks on release.
+    let boxSelectionAction (m : Model) (box : MultiSelectionBox) (release : BoxPointer) : Option<DrawingAction> =
+        let box    = { box with current = release.position }
+        let pixels = MultiSelectionBox.pixelBox box
+        if pixels.Size.X >= boxSelectMinDrag || pixels.Size.Y >= boxSelectMinDrag then
+            let mode =
+                if release.alt then Drawing.SelectionMode.Toggle
+                elif release.shift then Drawing.SelectionMode.Add
+                else Drawing.SelectionMode.Replace
+            Some (DrawingAction.SelectAnnotations(mode, annotationsInPixelBox m box.viewportSize pixels))
+        else
+            None
+
     let updateFrustumAspect m (windowSize : V2i) (viewPortSizeId : string) =
             let aspect = float windowSize.X / float windowSize.Y
             let m = 
@@ -1130,7 +1205,19 @@ module ViewerApp =
                     //{ m with correlationPlot = cp } |> shortFeedback msg
                     m
                 | None -> m
-                
+
+            // a Ctrl+click on an annotation (both renderers send PickAnnotation with the click's
+            // SceneHit): selects only if the clicked part is not hidden behind a surface - the
+            // pick pass that found the annotation contains no terrain (docs/AnnotationBoxSelection.md)
+            | Drawing.PickAnnotation (hit, id) ->
+                if clickedPartVisible m hit id then
+                    let drawing =
+                        DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue m.navigation.camera.view m.shiftFlag m.drawing (Drawing.PickDirectly id)
+                    { m with drawing = drawing } |> stash
+                else
+                    Log.line "[Viewer] ignoring click on a hidden part of annotation %A" id
+                    m
+
             | Drawing.UnionSelectedAnnotations None
             | Drawing.ApplyCutStroke None
             | Drawing.GenerateSupportingProfiles None ->
@@ -2198,6 +2285,12 @@ module ViewerApp =
           match metadataKeyAction m k with
           | Some msg -> updateAnnotationMetadata msg m
           | None ->
+            // Escape abandons a box selection drag in progress
+            let m =
+                match k with
+                | Aardvark.Application.Keys.Escape -> { m with multiSelectBox = None }
+                | _ -> m
+
             let m =
                 match k with
                 // 0-3: the semantic of the next annotation drawn (keys 1-4 rate selected
@@ -2231,7 +2324,7 @@ module ViewerApp =
 
             let m =
                 match k with
-                | Keyboard.Modifier -> { m with ctrlFlag = true }
+                | Keyboard.Modifier -> dropBoxIfDisarmed { m with ctrlFlag = true }
                 | _ -> m
 
             // N: next problem of the active geological map, while working on it
@@ -2318,7 +2411,7 @@ module ViewerApp =
                 | _ -> m
 
             match k with
-            | Keyboard.Modifier -> { m with ctrlFlag = false }
+            | Keyboard.Modifier -> dropBoxIfDisarmed { m with ctrlFlag = false }
             | _ -> m
         | CtrlShortcut (k, shift),_ ->
             let view =
@@ -2527,26 +2620,48 @@ module ViewerApp =
         //    | true ->
         //        Log.line "[Viewer] No shattercone updates found."
         //        m
+        // body-level mouse events. They used to clear multiSelectBox, which now belongs to the box
+        // selection: the body's mousedown arrives right after the render control's pointerdown and
+        // would wipe the box just started.
         | StartDragging _,_ ->
-            let m' =
-                match m.multiSelectBox with
-                | Some x -> { m with multiSelectBox = None }
-                | None -> m
-            m'
+            m
         | Dragging _,_ ->
-            let m' =
-                match m.multiSelectBox with
-                | Some x -> { m with multiSelectBox = None }
+            m
+        | EndDragging (mousePos, mouseButton),_ ->
+            {m with navigation = {m.navigation with camera = {m.navigation.camera with pan = false }}}
+
+        // box selection of annotations (docs/AnnotationBoxSelection.md): left drag with the tool
+        // armed in Select Annotation mode - the same gate as allowAnnotationPicking
+        | BoxSelectStart p,_ ->
+            if p.button = 0 && m.interaction = Interactions.PickAnnotation && toolArmed m then
+                { m with multiSelectBox = Some { startPoint = p.position; current = p.position; viewportSize = p.viewportSize } }
+            else
+                m
+        // the gate is held for the whole drag: releasing Ctrl hands the left button back to the
+        // camera, so the rectangle would no longer match what is under it - drop it instead
+        | BoxSelectMove _,_ when m.multiSelectBox.IsSome && not (toolArmed m) ->
+            { m with multiSelectBox = None }
+        | BoxSelectMove p,_ ->
+            match m.multiSelectBox with
+            | Some b -> { m with multiSelectBox = Some { b with current = p } }
+            | None   -> m
+        | BoxSelectEnd p,_ ->
+            match m.multiSelectBox with
+            | Some _ when not (toolArmed m) -> { m with multiSelectBox = None }
+            | Some b ->
+                let m = { m with multiSelectBox = None }
+                match boxSelectionAction m b p with
+                | Some action ->
+                    let drawing =
+                        DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue m.navigation.camera.view m.shiftFlag m.drawing action
+                    { m with drawing = drawing } |> stash
                 | None -> m
-            m'
-        | EndDragging (mousePos, mouseButton),_ -> 
-          let m' =
-                match m.multiSelectBox with
-                | Some x -> { m with multiSelectBox = None }
-                | None -> m
-          let m' = 
-            {m' with navigation = {m'.navigation with camera = {m'.navigation.camera with pan = false }}}
-          m'
+            | None -> m
+        | BoxSelectCancel,_ ->
+            // also sent after every ordinary release (the pointer capture ends): keep it a no-op then
+            match m.multiSelectBox with
+            | Some _ -> { m with multiSelectBox = None }
+            | None   -> m
         | MouseIn _,_ ->
             {m with navigation = {m.navigation with camera = {m.navigation.camera with pan = true }}}
         | MouseOut _,_ ->
@@ -2872,6 +2987,13 @@ module ViewerApp =
             | ViewerAction.NavigationMessage _               -> Some "camera"
             | ViewerAction.PickSurface _
             | ViewerAction.PreviewPickSurfaceFinished _      -> Some "picking"
+            // the click's occlusion check casts a ray, so a cold patch loads its KdTree
+            | ViewerAction.DrawingMessage (DrawingAction.PickAnnotation _) -> Some "picking"
+            // one ray per sample, up to 32 per annotation, plus cold KdTree loads: seconds
+            // with thousands of annotations (docs/AnnotationBoxSelection.md). Sent on every
+            // pointerup on the render control, camera drags included; without a box it costs
+            // one write of the busy cell and never reaches the pill's threshold.
+            | ViewerAction.BoxSelectEnd _                    -> Some "selecting annotations"
             | ViewerAction.ImportSurface _
             | ViewerAction.DiscoverAndImportOpcs _
             | ViewerAction.ImportDiscoveredSurfacesThreads _ -> Some "importing surfaces"
@@ -2943,6 +3065,48 @@ module ViewerApp =
         }
         |> Sg.noEvents
         |> Sg.trafo(trafo)
+    
+    /// DOM pointer events for the box selection (docs/AnnotationBoxSelection.md). Aardvark's
+    /// mouse events report page coordinates and no modifier keys, so these read what they need
+    /// straight off the event: the position relative to the render control (the selection
+    /// overlay shares its origin), the control's size, the button and Shift/Alt.
+    module private BoxSelectEvents =
+        let private relX = "(function(){var r=event.currentTarget.getBoundingClientRect(); return event.clientX - r.left;})()"
+        let private relY = "(function(){var r=event.currentTarget.getBoundingClientRect(); return event.clientY - r.top;})()"
+        // a left press captures the pointer, so a drag that leaves the view keeps reporting
+        let private captureAndButton =
+            "(function(){ if (event.button === 0) { try { event.currentTarget.setPointerCapture(event.pointerId); } catch (e) {} } return event.button; })()"
+
+        // the values arrive as JSON text; parsed by hand like GeometryLab's relative events,
+        // since an integral pixel coordinate is not a float to FsPickler
+        let private number (s : string) =
+            match Double.TryParse(s.Trim().Trim('"'), Globalization.NumberStyles.Float, Globalization.CultureInfo.InvariantCulture) with
+            | true, v -> v
+            | _ -> 0.0
+        let private flag (s : string) = s.Trim().Trim('"') = "true"
+
+        let private pointer (kind : string) (button : string) (cb : BoxPointer -> 'msg) =
+            onEvent kind
+                [ button; relX; relY; "event.currentTarget.clientWidth"; "event.currentTarget.clientHeight"; "event.shiftKey"; "event.altKey" ]
+                (fun args ->
+                    match args with
+                    | b :: x :: y :: w :: h :: shift :: alt :: _ ->
+                        cb { button = int (number b); position = V2d(number x, number y); viewportSize = V2d(number w, number h)
+                             shift = flag shift; alt = flag alt }
+                    | _ -> cb { button = -1; position = V2d.Zero; viewportSize = V2d.Zero; shift = false; alt = false })
+
+        let onDown cb = pointer "onpointerdown" captureAndButton cb
+        let onUp   cb = pointer "onpointerup" "event.button" cb
+
+        let onMove (cb : V2d -> 'msg) =
+            onEvent "onpointermove" [ relX; relY ] (fun args ->
+                match args with
+                | x :: y :: _ -> cb (V2d(number x, number y))
+                | _ -> cb V2d.Zero)
+
+        let onCancel (msg : 'msg) =
+            [ onEvent "onpointercancel" [] (fun _ -> msg)
+              onEvent "onlostpointercapture" [] (fun _ -> msg) ]
 
     /// Ctrl/Shift held while focus leaves a render control are released elsewhere; that
     /// KeyUp never arrives here, and a stale ctrlFlag/shiftFlag would keep picking armed.
@@ -2951,6 +3115,21 @@ module ViewerApp =
             [KeyUp Aardvark.Application.Keys.LeftCtrl; KeyUp Aardvark.Application.Keys.LeftShift])
 
     let renderControlAttributes (id : string) (m: AdaptiveModel) =
+
+        // Moves are sent only while a box is being dragged, so an idle view sends no move
+        // traffic. Up and cancel stay attached: the handler set changes only once the server has
+        // processed BoxSelectStart, and a quick click would otherwise lose its release.
+        let boxSelectAtts =
+            amap {
+                yield BoxSelectEvents.onDown BoxSelectStart
+                yield BoxSelectEvents.onUp BoxSelectEnd
+                yield! BoxSelectEvents.onCancel BoxSelectCancel
+                let! box = m.multiSelectBox
+                if box.IsSome then
+                    yield BoxSelectEvents.onMove BoxSelectMove
+            }
+            |> AttributeMap.ofAMap
+            |> AttributeMap.mapAttributes (AttributeValue.map ViewerMessage)
 
         let renderControlAtts (model: AdaptiveNavigationModel) =
             amap {
@@ -2988,6 +3167,8 @@ module ViewerApp =
         AttributeMap.unionMany [
             renderControlAtts m.navigation
                 |> AttributeMap.mapAttributes (AttributeValue.map ViewerMessage)
+
+            boxSelectAtts
 
             AttributeMap.ofList [
                 attribute "style" "width:100%; height: 100%; float:left; background-color: #222222"

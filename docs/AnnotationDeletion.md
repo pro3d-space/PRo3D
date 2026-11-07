@@ -3,7 +3,8 @@
 Press **Delete** (labelled DEL, Entf or CANC depending on the keyboard) in the 3D view, the
 **Annotations** tree or the annotation **Properties** panel to delete every selected annotation
 at once. **Ctrl+Z** brings them all back in one step, and **Ctrl+Y**
-deletes them again.
+deletes them again. On macOS, Cmd works wherever this page says Ctrl
+([the modifier key](DirectToolMode.md#the-modifier-key)).
 
 Before this, the only way to delete an annotation was the **remove** button next to it in the
 annotation tree, one annotation at a time.
@@ -14,8 +15,12 @@ Delete removes the union of both kinds of annotation selection:
 
 | How it was selected | Shown as | Deleted? |
 |---|---|---|
-| Cube icon in the annotation tree, or Shift+Ctrl+click in the 3D view | coloured cube (multi-selection, `selectedLeaves`) | yes |
+| Cube icon in the annotation tree, Shift+Ctrl+click or a [selection rectangle](AnnotationBoxSelection.md) in the 3D view | coloured cube (multi-selection, `selectedLeaves`) | yes |
 | Name in the annotation tree, or Ctrl+click in the 3D view | green name (`singleSelectLeaf`) | yes |
+
+In the 3D view, a plain Ctrl+click clears the multi-selection and selects only the clicked
+annotation, so what looks selected is what Delete removes. Shift+Ctrl+click adds to (or toggles
+in) the whole selection, including the green one. See [AnnotationBoxSelection.md](AnnotationBoxSelection.md).
 
 This is the same set that `DrawingApp.isSelected` treats as selected, for example when the
 GeoJSON export marks selected annotations.

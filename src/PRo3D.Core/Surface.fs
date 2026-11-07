@@ -315,7 +315,10 @@ module SurfaceIntersection =
         else
             surf.preTransform * fullTrafo
 
-    let doKdTreeIntersection
+    /// The nearest hit of the ray on each surface `filterSurface` accepts (at most one per
+    /// surface), and the updated KdTree cache. Shared by `doKdTreeIntersection` (picking: the
+    /// highest priority wins) and `doKdTreeIntersectionNearest` (occlusion: the nearest wins).
+    let private hitsPerSurface
         (m             : SurfaceModel)
         (refSys        : ReferenceSystem)
         (observedSystem : SurfaceId -> Option<SpiceReferenceSystem>)
@@ -324,7 +327,7 @@ module SurfaceIntersection =
         (filterSurface : Guid -> Leaf -> SgSurface -> bool) 
         (loadedKdTrees : HashMap<string, ConcreteKdIntersectionTree>)
         (verboseLogging : bool)
-        : option<KdTreeHitInfo> * HashMap<_,_> =
+        : list<KdTreeHitInfo> * HashMap<_,_> =
 
         let mutable loadedKdTrees = loadedKdTrees
         let activeSgSurfaces =
@@ -333,14 +336,14 @@ module SurfaceIntersection =
             |> List.choose (fun (id,leaf) ->
                 match m.sgSurfaces |> HashMap.tryFind id with
                 | Some s ->
-                    if filterSurface id leaf s then Some s
+                    if filterSurface id leaf s then Some (s, leaf)
                     else None
                 | _ -> None
             )
 
         let hits =
             activeSgSurfaces
-            |> List.map (fun d -> d, d.picking, (m.surfaces.flat |> HashMap.find d.surface) |> Leaf.toSurface)
+            |> List.map (fun (d, leaf) -> d, d.picking, Leaf.toSurface leaf)
             |> List.choose (fun (sgSurf, p, surf) ->
                 match p with
                 | Picking.NoPicking -> None
@@ -357,39 +360,37 @@ module SurfaceIntersection =
                             | _ -> None, None
 
                         let fullTrafo = TransformationApp.fullTrafo' surf.transformation refSys observedSystem observerSystem //SurfaceTransformations.fullTrafo' surf refSys
+                        // once per surface, not per box: the same for every patch
+                        let trafo =
+                            if surf.transformation.flipZ then
+                                Trafo3d.Scale(1.0, 1.0, -1.0).Forward * (fullTrafo.Forward * surf.preTransform.Forward)
+                            else if surf.transformation.isSketchFab then
+                                Sg.switchYZTrafo.Forward
+                            else
+                                (fullTrafo.Forward * surf.preTransform.Forward)
+                        let backward =
+                            if surf.transformation.flipZ then
+                                Trafo3d.Scale(1.0, 1.0, -1.0).Backward * surf.preTransform.Backward * fullTrafo.Backward
+                            else if surf.transformation.isSketchFab then
+                                Sg.switchYZTrafo.Backward
+                            else
+                                surf.preTransform.Backward * fullTrafo.Backward
+                        let localRay = r.Ray.Transformed(backward) |> FastRay3d
+
                         //get bbs that are hit
                         let hitBoxes =
                             kd
                             |> HashMap.toList |> List.map fst
                             |> List.filter(fun x ->
                                 let mutable t = 0.0
-                                let r' = r.Ray //combine pre and current transform
-
-                                let trafo =
-                                    if surf.transformation.flipZ then
-                                        Trafo3d.Scale(1.0, 1.0, -1.0).Forward * (fullTrafo.Forward * surf.preTransform.Forward)
-                                    else if surf.transformation.isSketchFab then
-                                        Sg.switchYZTrafo.Forward
-                                    else
-                                        (fullTrafo.Forward * surf.preTransform.Forward)
-
-                                x.Transformed(trafo).Intersects(r', &t)
+                                x.Transformed(trafo).Intersects(r.Ray, &t)
                             )
                         //intersect corresponding kdtrees
                         let closestHit =
                             hitBoxes
                             |> List.choose(fun key ->
                                 if verboseLogging then Log.startTimed "intersection: %s; pr: %f" surf.name surf.priority.value
-                                //let ray = r.Ray.Transformed(surf.preTransform.Backward) |> FastRay3d  //combine pre and current transform
-                                let backward =
-                                    if surf.transformation.flipZ then
-                                        Trafo3d.Scale(1.0, 1.0, -1.0).Backward * surf.preTransform.Backward * fullTrafo.Backward
-                                    else if surf.transformation.isSketchFab then
-                                        Sg.switchYZTrafo.Backward
-                                    else
-                                        surf.preTransform.Backward * fullTrafo.Backward
-
-                                let ray = r.Ray.Transformed(backward) |> FastRay3d
+                                let ray = localRay
                                 let hit, c =
                                     kd |> DebugKdTreesX.intersectKdTrees key surf loadedKdTrees ray
                                 if verboseLogging then Log.stop()
@@ -404,11 +405,48 @@ module SurfaceIntersection =
                         closestHit
                 | Picking.PickMesh pm -> Log.error "no kdtree loaded for %s" surf.name; None
             )
+
+        hits, loadedKdTrees
+
+    /// Picking: the nearest hit among the surfaces of the highest priority that is hit at all.
+    let doKdTreeIntersection
+        (m             : SurfaceModel)
+        (refSys        : ReferenceSystem)
+        (observedSystem : SurfaceId -> Option<SpiceReferenceSystem>)
+        (observerSystem : Option<ObserverSystem>)
+        (r             : FastRay3d) 
+        (filterSurface : Guid -> Leaf -> SgSurface -> bool) 
+        (loadedKdTrees : HashMap<string, ConcreteKdIntersectionTree>)
+        (verboseLogging : bool)
+        : option<KdTreeHitInfo> * HashMap<_,_> =
+
+        let hits, loadedKdTrees =
+            hitsPerSurface m refSys observedSystem observerSystem r filterSurface loadedKdTrees verboseLogging
+        let best =
+            hits
             |> List.groupBy(fun info -> info.surface.priority.value) |> List.sortByDescending fst
             |> List.tryHead
             |> Option.bind(fun (_,b) -> b |> List.sortBy (fun info -> info.hit.RayHit.T) |> List.tryHead)
-            //|> List.sortBy(fun (t,_) -> t)
-            //|> List.tryPick(fun d -> Some d)
+        best, loadedKdTrees
 
-        hits, loadedKdTrees
+    /// Occlusion: the nearest hit over all accepted surfaces, whatever their priority - a
+    /// nearer low-priority surface still hides what is behind it. One pass over the surfaces.
+    let doKdTreeIntersectionNearest
+        (m             : SurfaceModel)
+        (refSys        : ReferenceSystem)
+        (observedSystem : SurfaceId -> Option<SpiceReferenceSystem>)
+        (observerSystem : Option<ObserverSystem>)
+        (r             : FastRay3d) 
+        (filterSurface : Guid -> Leaf -> SgSurface -> bool) 
+        (loadedKdTrees : HashMap<string, ConcreteKdIntersectionTree>)
+        : option<KdTreeHitInfo> * HashMap<_,_> =
+
+        let hits, loadedKdTrees =
+            hitsPerSurface m refSys observedSystem observerSystem r filterSurface loadedKdTrees false
+        let nearest =
+            hits |> List.fold (fun (best : Option<KdTreeHitInfo>) h ->
+                match best with
+                | Some b when b.hit.RayHit.T <= h.hit.RayHit.T -> best
+                | _ -> Some h) None
+        nearest, loadedKdTrees
 

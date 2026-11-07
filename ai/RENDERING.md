@@ -175,6 +175,8 @@ The pick pass draws the flat caps (`FillGeometry.caps`); the 2D map view (`MapAn
 
 GPU tests and benchmark: `src/Tests/FillRenderTest.fs`. Playwright: `tests-ui/tests/annotation-fill.spec.ts`. User docs: [docs/AnnotationFill.md](../docs/AnnotationFill.md); the technique explained for developers (z-fail count, why the sum is the colour, overlap blending): [docs/dev/AnnotationFill-technique.md](../docs/dev/AnnotationFill-technique.md).
 
+**The pass contains no terrain**, so it happily reports an annotation hidden behind a surface. A body click therefore leaves the pass as `DrawingAction.PickAnnotation (sceneHit, id)` (the legacy renderer sends the same), and the viewer re-checks it on the CPU before selecting: the annotation point under the cursor (`DrawingApp.annotationPointUnderCursor`) must pass `DrawingApp.pointVisible`, a KdTree ray cast (`Picking.castToSurfaces`) compared with the GPU's own depth offset (`Shader.DepthOffset.toClip`). Box selection uses the same test. Hover highlighting is *not* checked. See [docs/AnnotationBoxSelection.md](../docs/AnnotationBoxSelection.md#occlusion).
+
 Gates: `ViewerApp.allowAnnotationPicking` decides whether the readback is honoured at all; `ViewerApp.allowVertexEditing` additionally gates the handles. `Interactions.EditAnnotation` is the one mode where annotation picking *and* KdTree surface picking are both live — see [docs/AnnotationVertexEditing.md](../docs/AnnotationVertexEditing.md) for why that ordering hazard needs `VertexGrab.movedSinceGrab`.
 
 ### KdTrees

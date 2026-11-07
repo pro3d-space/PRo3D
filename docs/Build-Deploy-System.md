@@ -10,7 +10,7 @@ In order to deploy all supported architectures using github actions is the prefe
 
 Deployments are triggered by github actions. 
 There are two release types:
- 1. public releases: add a new top entry (with the new version) to [PRODUCT_RELEASE_NOTES.md](https://github.com/pro3d-space/PRo3D/blob/develop/PRODUCT_RELEASE_NOTES.md), commit and push. The CI builds a multiplatform build with installers and the result appears as a draft on the github release page.
+ 1. public releases: add a new top entry (with the new version) to [PRODUCT_RELEASE_NOTES.md](https://github.com/pro3d-space/PRo3D/blob/develop/PRODUCT_RELEASE_NOTES.md), with the bullets collected in [NEXT_RELEASE_NOTES.md](https://github.com/pro3d-space/PRo3D/blob/develop/NEXT_RELEASE_NOTES.md) (then leave that file with its header and an empty list), commit and push. The CI builds a multiplatform build with installers and the result appears as a draft on the github release page.
 
 > **You no longer need to edit `aardium/package.json`.** `PRODUCT_RELEASE_NOTES.md` is the single source of truth for the release version: the build syncs `package.json`'s `version` from it automatically (see *How a release is crafted* below). A push that touches `PRODUCT_RELEASE_NOTES.md` is enough to trigger the deploy workflow.
 
@@ -70,6 +70,11 @@ For development use `./build.sh CopyToElectron`, switch into the aardium directo
 ## Release notes
 
 tags and release notes taken from PRODCT_RELEASE_NOTES.md
+
+Between releases, each PR adds its user-visible changes to `NEXT_RELEASE_NOTES.md`, not to
+`PRODUCT_RELEASE_NOTES.md`: `ReleaseNotes.load` parses every `##` heading of the latter as a
+version, so an `## Unreleased` section fails every build. Releasing moves those bullets into the
+new version's section.
 
 ## Version numbers
 

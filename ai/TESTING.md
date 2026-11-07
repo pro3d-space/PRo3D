@@ -126,6 +126,26 @@ is the shape to copy.
   hand-dispatched `change` event; **`UI.dropDown''` does not** — it reported
   "set Slope" while the render did not move a pixel. Use Playwright's
   `selectOption` for those.
+- **Test at real scene sizes, with generated data.** Per-object work that is instant on a
+  five-annotation fixture can take seconds or minutes at thousands. Generate the scene
+  instead of importing it: write `<scene>.pro3d.ann` next to the scene (PRo3D loads it
+  with the scene) with geometry whose expected result is known by construction —
+  `sceneWithAnnotations` in `tests/box-selection.spec.ts` places 5,000 polylines inside,
+  in front of and behind Dimorphos. Copy the annotation file's other members
+  (`colorByCategory`, `dnsColorLegend`, `version`) from `fixtures/*.pro3d.ann`; a missing
+  one fails the whole load.
+- **Long operations: poll `/busy`, and require the label.** It answers while the update
+  thread holds the app lock, so it is how a spec observes a stall *and* how it proves the
+  user was told (`watchBusy` in `box-selection.spec.ts`). Every slow operation must be
+  labelled ([CONVENTIONS.md](CONVENTIONS.md#long-running-operations-always-tell-the-user-busy-indicator)).
+- **A quiet log is not an idle app.** `awaitIdle` waits for the log to stop growing, but a
+  first ray into a patch loads its KdTree for seconds without logging. Poll for the
+  expected *result* instead.
+- **Collapsed accordions: `textContent`, not `innerText`.** Their content is in the DOM
+  but `innerText` skips it (the Bulk Edit header, for one).
+- **The Playwright filter is a regex over the full path.** In a worktree named after the
+  feature (`…/box-selection-854/`) `npx playwright test box-selection` matches *every*
+  spec. Pass `tests/<name>.spec.ts`.
 - **Wait for `attached`, not `visible`.** Config rows live inside collapsed
   accordions and arrive over the incremental DOM channel *after* `networkidle`.
   They are settable while never being visible.
