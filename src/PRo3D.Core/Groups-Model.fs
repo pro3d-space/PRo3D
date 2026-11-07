@@ -456,6 +456,8 @@ type Annotations = {
     annotations     : GroupsModel
     dnsColorLegend  : FalseColorsModel
     colorByCategory : ColorByCategoryModel
+    /// new key, absent before #843: older releases skip it, older files read as no maps
+    geologicalMaps  : GeologicalMapsModel
 }
 
 type Annotations with
@@ -471,6 +473,7 @@ type Annotations with
                 dnsColorLegend  = dnsColorLegend
                 // absent from v0 files, so the panel comes up disabled
                 colorByCategory = ColorByCategoryModel.initial
+                geologicalMaps  = GeologicalMapsModel.initial
             }
         }
 
@@ -479,12 +482,14 @@ type Annotations with
             let! annotations     = Json.read "annotations"
             let! dnsColorLegend  = Json.read "dnsColorLegend"
             let! colorByCategory = Json.read "colorByCategory"
+            let! geologicalMaps  = Json.tryRead "geologicalMaps"
 
             return {
                 version         = Annotations.current
                 annotations     = annotations
                 dnsColorLegend  = dnsColorLegend
                 colorByCategory = colorByCategory
+                geologicalMaps  = geologicalMaps |> Option.defaultValue GeologicalMapsModel.initial
             }
         }
 
@@ -503,6 +508,7 @@ type Annotations with
             do! Json.write "annotations"     x.annotations
             do! Json.write "dnsColorLegend"  x.dnsColorLegend
             do! Json.write "colorByCategory" x.colorByCategory
+            do! Json.write "geologicalMaps"  x.geologicalMaps
         }
 
 [<ModelType>]

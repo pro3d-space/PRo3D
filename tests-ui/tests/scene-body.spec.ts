@@ -271,7 +271,12 @@ test("picking the planet in the top bar sets up the GIS observation", async ({ b
             )
             .toBe("ok");
 
+        // a small body: the notice says the view switched to MapView (#898); it is up for 5 s
+        await expect
+            .poll(() => render.evaluate(() => document.body.innerText), { timeout: 10_000, intervals: [200], message: "MapView notice" })
+            .toContain("Scene body Dimorphos: switched to MapView");
         await expect.poll(() => overlayPlanet(render), { timeout: 30_000 }).toBe("Dimorphos");
+        await expect.poll(async () => (await mapTool(render)).active, { timeout: 30_000, message: "MapView active" }).toBe(true);
 
         // the GIS observation followed: Dimorphos, in its fixed frame
         const gis = await openGis(context, app);

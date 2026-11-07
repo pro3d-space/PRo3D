@@ -311,6 +311,225 @@ let private segmentUpdateTests =
         }
     ]
 
+// ---------------------------------------------------------------------------------------------
+// closing edge of a Sky polygon
+// ---------------------------------------------------------------------------------------------
+
+let closingEdgeTests =
+    // clicks 5 m above the ground, samples on it: a straight closing edge would stay at z = 5
+    let drawSampled () =
+        let refSystem = Draw.refSystemFlat
+        let start =
+            Draw.startTool refSystem Geometry.Polygon
+            |> fun m -> Draw.run refSystem m (DrawingAction.SetProjection Projection.Sky)
+        let click m p = Draw.run refSystem m (DrawingAction.AddPointAdv(p, flattenToGround, None, "test-surface", None))
+        let drawn = [ V3d(0,0,5); V3d(10,0,5); V3d(10,10,5) ] |> List.fold click start
+        Draw.run refSystem drawn DrawingAction.Finish |> theOnly "polygon"
+
+    testList "closing edge" [
+        test "is sampled onto the surface like the other edges" {
+            let a = drawSampled ()
+            let closing =
+                match IndexList.tryLast a.segments with
+                | Some s -> s
+                | None -> failtest "no closing segment"
+            Expect.equal (IndexList.count a.segments) 3 "closed ring"
+            // still stored first -> last (#821), what older releases read
+            Expect.equal closing.startPoint (V3d(0,0,5)) "starts at the first click"
+            Expect.equal closing.endPoint (V3d(10,10,5)) "ends at the last click"
+            Expect.isGreaterThan (IndexList.count closing.points) 10 "sampled every metre"
+            for p in closing.points do
+                Expect.floatClose Accuracy.high p.Z 0.0 "sample on the surface"
+        }
+
+        test "the flattened line walks it from the last point back to the first" {
+            let a = drawSampled ()
+            let pts = Annotation.retrievePoints a |> Array.ofList
+            Expect.equal pts.[pts.Length - 1] (V3d(0,0,5)) "the ring ends where it started"
+            // no straight jump back to the first point before the closing edge
+            for i in 1 .. pts.Length - 1 do
+                Expect.isLessThan (Vec.Distance(pts.[i - 1], pts.[i])) 5.5 (sprintf "step %d" i)
+        }
+
+        test "a closing segment already stored last -> first is not turned around" {
+            let a = drawSampled ()
+            let turned =
+                match IndexList.tryLast a.segments with
+                | Some s ->
+                    let s' = { startPoint = s.endPoint; endPoint = s.startPoint; points = s.points |> IndexList.toList |> List.rev |> IndexList.ofList }
+                    { a with segments = a.segments |> IndexList.setAt (IndexList.count a.segments - 1) s' }
+                | None -> failtest "no closing segment"
+            Expect.equal (Annotation.retrievePoints turned) (Annotation.retrievePoints a) "the same ring either way"
+        }
+    ]
+
+// ---------------------------------------------------------------------------------------------
+// three-point ellipses, edited by their axis ends (EllipseEdit)
+// ---------------------------------------------------------------------------------------------
+
+/// near the Mars surface, like TC-3.6, so the Sky frame is a real one. The three clicks
+/// span the plane z = c.Z: major axis along x (semi 60 m), minor along y (35 m).
+let private ellipseCenter = V3d(693177.21, -3147511.67, 1070879.15)
+
+let private drawEllipse () =
+    let c = ellipseCenter
+    Draw.drawFull Draw.refSystemMars Geometry.AxisEllipse true
+        [ c + V3d(60.0, 0.0, 0.0); c - V3d(60.0, 0.0, 0.0); c + V3d(0.0, 35.0, 0.0) ]
+
+let private shapeOf (label : string) (m : DrawingModel) =
+    match (theOnly label m).ellipticResults with
+    | Some r -> r
+    | None   -> failtestf "%s: no stored ellipse" label
+
+/// grab handle `i` of the single annotation and drop it at `target`, on Mars
+let private dropHandle (i : int) (target : V3d) (m : DrawingModel) =
+    let refSystem = Draw.refSystemMars
+    let a = theOnly "dropHandle" m
+    m
+    |> fun m -> Draw.run refSystem m DrawingAction.StopDrawing
+    |> fun m -> Draw.run refSystem m DrawingAction.StartPicking
+    |> fun m -> Draw.run refSystem m (DrawingAction.GrabVertex(a.key, i))
+    |> fun m -> Draw.run refSystem m DrawingAction.ArmVertexGrab
+    |> fun m -> Draw.run refSystem m (DrawingAction.MoveVertex(a.key, i, target, Draw.identityHit))
+
+/// The handle at `p`. Which end of an axis is handle 0 or 1 (2 or 3) follows the sign of the
+/// stored semi-axis, which the construction does not promise, so tests find handles by place.
+let private handleAt (p : V3d) (m : DrawingModel) =
+    match DrawingApp.editHandles (theOnly "handleAt" m) |> Array.tryFindIndex (fun h -> (h - p).Length < 1e-6) with
+    | Some i -> i
+    | None   -> failtestf "no handle at %A" p
+
+let private close (label : string) (expected : V3d) (actual : V3d) =
+    Expect.isLessThan (actual - expected).Length 1e-6 (sprintf "%s: expected %A, got %A" label expected actual)
+
+let private ellipseTests =
+    testList "editing a three-point ellipse" [
+
+        test "it has four handles, at the ends of its axes" {
+            let c = ellipseCenter
+            let a = drawEllipse () |> theOnly "drawn"
+            Expect.isTrue (DrawingApp.isEditable a) "a Sky three-point ellipse with a stored shape is editable"
+            let h = DrawingApp.editHandles a
+            Expect.equal h.Length 4 "two per axis"
+            // 0/1 are the ends of the major axis, 2/3 those of the minor one
+            close "major ends" V3d.Zero (h.[0] + h.[1] - 2.0 * c)
+            Expect.floatClose Accuracy.medium (h.[0] - h.[1]).Length 120.0 "major axis, m"
+            Expect.floatClose Accuracy.medium (abs (h.[0] - h.[1]).Normalized.X) 1.0 "major along x"
+            close "minor ends" V3d.Zero (h.[2] + h.[3] - 2.0 * c)
+            Expect.floatClose Accuracy.medium (h.[2] - h.[3]).Length 70.0 "minor axis, m"
+        }
+
+        test "dragging a major end keeps the opposite end and the minor length" {
+            let c = ellipseCenter
+            // off the plane by 5 m: the drop is projected onto the stored plane, not re-fitted
+            let m = drawEllipse ()
+            let r = m |> dropHandle (handleAt (c + V3d(60.0, 0.0, 0.0)) m) (c + V3d(80.0, 0.0, 5.0)) |> shapeOf "moved"
+            close "centre midway between the fixed and the new end" (c + V3d(10.0, 0.0, 0.0)) r.center
+            Expect.floatClose Accuracy.medium r.semiMajorAxis.Length 70.0 "semi-major, m"
+            Expect.floatClose Accuracy.medium r.semiMinorAxis.Length 35.0 "semi-minor kept, m"
+            Expect.floatClose Accuracy.medium (abs r.semiMajorAxis.Normalized.X) 1.0 "still along x"
+        }
+
+        test "dragging a major end sideways turns the axis in the plane" {
+            let c = ellipseCenter
+            let m = drawEllipse ()
+            let r = m |> dropHandle (handleAt (c + V3d(60.0, 0.0, 0.0)) m) (c + V3d(0.0, 120.0, 0.0)) |> shapeOf "turned"
+            // fixed end c - 60x, new end c + 120y
+            close "centre" (c + V3d(-30.0, 60.0, 0.0)) r.center
+            Expect.floatClose Accuracy.medium r.semiMajorAxis.Length (V2d(60.0, 120.0).Length * 0.5) "semi-major, m"
+            Expect.floatClose Accuracy.medium r.semiMinorAxis.Length 35.0 "semi-minor kept, m"
+            Expect.isLessThan (abs r.semiMajorAxis.Z) 1e-6 "stays in the plane"
+            Expect.isLessThan (abs r.semiMinorAxis.Z) 1e-6 "stays in the plane"
+        }
+
+        test "dragging a minor end changes only the minor length" {
+            let c = ellipseCenter
+            let m = drawEllipse ()
+            let r = m |> dropHandle (handleAt (c - V3d(0.0, 35.0, 0.0)) m) (c + V3d(20.0, -50.0, -3.0)) |> shapeOf "widened"
+            close "centre kept" c r.center
+            Expect.floatClose Accuracy.medium r.semiMajorAxis.Length 60.0 "semi-major kept, m"
+            Expect.floatClose Accuracy.medium r.semiMinorAxis.Length 50.0 "semi-minor: distance from the major axis, m"
+        }
+
+        test "a minor end dragged past the major length makes it the major axis" {
+            let c = ellipseCenter
+            let m = drawEllipse ()
+            let r = m |> dropHandle (handleAt (c + V3d(0.0, 35.0, 0.0)) m) (c + V3d(0.0, 90.0, 0.0)) |> shapeOf "flipped"
+            Expect.floatClose Accuracy.medium r.semiMajorAxis.Length 90.0 "the long axis is now along y"
+            Expect.floatClose Accuracy.medium r.semiMinorAxis.Length 60.0 "the old major is now the minor"
+        }
+
+        test "dropping a handle where it already is changes nothing, however often" {
+            let start = drawEllipse ()
+            let r0 = shapeOf "start" start
+            let repeated =
+                [ 0 .. 9 ] |> List.fold (fun m k ->
+                    let i = k % 4
+                    match DrawingApp.editHandles (theOnly "repeat" m) |> Array.tryItem i with
+                    | Some h -> dropHandle i h m
+                    | None   -> failtestf "no handle %d" i) start
+            let r = shapeOf "repeated" repeated
+            close "centre" r0.center r.center
+            Expect.floatClose Accuracy.high r.semiMajorAxis.Length r0.semiMajorAxis.Length "semi-major length"
+            Expect.floatClose Accuracy.high r.semiMinorAxis.Length r0.semiMinorAxis.Length "semi-minor length"
+            Expect.isGreaterThan (abs (Vec.dot r.semiMajorAxis.Normalized r0.semiMajorAxis.Normalized)) (1.0 - 1e-12) "axis direction"
+        }
+
+        test "the outline, dip and strike and the results follow the edit" {
+            let c = ellipseCenter
+            let m = drawEllipse ()
+            let before = theOnly "before" m
+            let after = m |> dropHandle (handleAt (c + V3d(0.0, 35.0, 0.0)) m) (c + V3d(0.0, 50.0, 0.0)) |> theOnly "after"
+            Expect.notEqual after.points before.points "the outline is re-sampled"
+            Expect.isGreaterThan (IndexList.count after.points) 3 "and still an outline"
+            let worst =
+                after.points |> IndexList.toArray
+                |> Array.map (fun p ->
+                    let d = p - c
+                    abs ((d.X / 60.0) ** 2.0 + (d.Y / 50.0) ** 2.0 - 1.0))
+                |> Array.max
+            Expect.isLessThan worst 1e-6 "every outline point is on the new ellipse"
+            Expect.isSome after.dnsResults "dip and strike recomputed"
+            match before.results, after.results with
+            | Some b, Some a -> Expect.isGreaterThan a.area b.area "a wider ellipse has more area"
+            | _ -> failtest "results missing"
+        }
+
+        test "one undo entry per drop, and undo restores the ellipse" {
+            let c = ellipseCenter
+            let m = drawEllipse ()
+            let r0 = shapeOf "start" m
+            let undoBefore = List.length m.undoStack
+            let moved = m |> dropHandle (handleAt (c - V3d(60.0, 0.0, 0.0)) m) (c - V3d(90.0, 0.0, 0.0))
+            Expect.equal (List.length moved.undoStack) (undoBefore + 1) "one entry for the whole drop"
+            let undone = Draw.run Draw.refSystemMars moved DrawingAction.Undo
+            Expect.equal (shapeOf "undone" undone) r0 "the stored shape is back"
+            Expect.equal (theOnly "undone" undone).points (theOnly "start" m).points "the outline is back"
+        }
+
+        test "a drop that would collapse an axis is refused without an undo entry" {
+            let c = ellipseCenter
+            let m = drawEllipse ()
+            let undoBefore = List.length m.undoStack
+            // a minor end dropped onto the major axis would make the ellipse a line
+            let refused = m |> dropHandle (handleAt (c + V3d(0.0, 35.0, 0.0)) m) (c + V3d(30.0, 0.0, 0.0))
+            Expect.equal (shapeOf "refused" refused) (shapeOf "start" m) "shape unchanged"
+            Expect.equal (List.length refused.undoStack) undoBefore "nothing to undo"
+            Expect.isNone refused.vertexGrab "the grab is still released"
+        }
+
+        test "an ellipse that is not a Sky three-point ellipse has no handles" {
+            let a = drawEllipse () |> theOnly "drawn"
+            let linear = { a with projection = Projection.Linear }
+            Expect.isFalse (DrawingApp.isEditable linear) "imported ellipses (Linear, undraped) are left alone"
+            Expect.isEmpty (DrawingApp.editHandles linear) "no handles"
+            let noShape = { a with ellipticResults = None }
+            Expect.isFalse (DrawingApp.isEditable noShape) "saved before the shape was stored"
+            let fourPoint = { a with geometry = Geometry.Axis4PEllipse }
+            Expect.isFalse (DrawingApp.isEditable fourPoint) "four-point ellipses are out of scope"
+        }
+    ]
+
 let tests () =
     testList "vertex editing" [
         touchedSegmentTests
@@ -318,4 +537,6 @@ let tests () =
         resampleTests
         moveTests
         segmentUpdateTests
+        closingEdgeTests
+        ellipseTests
     ]

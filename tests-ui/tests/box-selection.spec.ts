@@ -11,7 +11,7 @@ import * as path from "path";
  * Box selection of annotations (docs/AnnotationBoxSelection.md) on the Dimorphos OPC, with
  * thousands of synthetic polylines whose visibility is known by construction.
  *
- * Section 22 in src/Tests covers the hit test and the selection modes against synthetic
+ * Section 24 in src/Tests covers the hit test and the selection modes against synthetic
  * terrain. This spec covers what only the running app has: occlusion against the real
  * KdTrees at scale, its cost, and the gestures through real pointer and key events.
  *

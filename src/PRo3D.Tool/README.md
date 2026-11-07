@@ -16,6 +16,8 @@ dotnet tool install PRo3D.Tool --global
 | `sample-layers` | Assembles instrument observations (AFC, ASPECT, HyperScout) onto the vertices of a body: per vertex and image the pixel, incidence/emission/phase and every band's value, plus OPC attribute layers, as CSV keyed by vertex id. Requires SPICE kernels and OPC kd-trees; no GPU. |
 | `unproject` | Converts image pixel coordinates to body-fixed surface coordinates on a shape model. Requires SPICE kernels; no GPU. |
 | `simulate-image` | Renders a simulated instrument image of a body at a SPICE time: Lommel-Seeliger sun lighting, procedural micro-structure, cast shadows, optional de-shaded texture albedo. Requires SPICE kernels and a GPU. |
+| `render-bookmarks` | Opens a `.pro3d` scene headlessly and renders its camera bookmarks to PNGs as the viewer shows them; batches via a JSON job file; can fix the OPC level of detail. Requires a GPU. |
+| `render-view` | Renders OPCs without a scene file from explicitly given cameras, each OPC placed by a transformation, optionally lit by a given sun; input is a JSON job file. The tool itself needs no SPICE. Requires a GPU. |
 
 ```
 pro3d-tool kdtree --help
@@ -23,6 +25,8 @@ pro3d-tool sun-angles --help
 pro3d-tool unproject --help
 pro3d-tool simulate-image --help
 pro3d-tool sample-layers --help
+pro3d-tool render-bookmarks --help
+pro3d-tool render-view --help
 ```
 
 ## SPICE kernels
@@ -45,6 +49,8 @@ Set `PRO3D_SPICE_KERNELS` to that clone or to its `kernels` subdirectory, or pas
 - [`unproject`](https://github.com/pro3d-space/PRo3D/blob/main/docs/Pro3DTool-Unproject.md)
 - [`simulate-image`](https://github.com/pro3d-space/PRo3D/blob/main/docs/Pro3DTool-SimulateImage.md)
 - [`sample-layers`](https://github.com/pro3d-space/PRo3D/blob/main/docs/Pro3DTool-SampleLayers.md)
+- [`render-bookmarks`](https://github.com/pro3d-space/PRo3D/blob/main/docs/Pro3DTool-RenderBookmarks.md)
+- [`render-view`](https://github.com/pro3d-space/PRo3D/blob/main/docs/Pro3DTool-RenderView.md)
 
 ## Migrating from `opc-tool`
 

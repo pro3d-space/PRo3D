@@ -63,6 +63,8 @@ Next choose curtain settings and set up the curtain:
 
 ![alt text](images/curtainProperties.png)
 
+The image is optional: with **Curtain** enabled and no image, the curtain is drawn in the **Base Color**, which is useful to check its placement before preparing an image. Choose the image with the folder button, or type/paste its full path into the **Image** field (the fallback if the file dialog doesn't open). The red button removes the image. Cancelling the file dialog keeps the current image. If the file at the path doesn't exist, the curtain falls back to the base color and a warning is logged.
+
 ## 7. Inspection of cross section & curtain
 
 ![alt text](images/crossSectionAndCurtain.png)

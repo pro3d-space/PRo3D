@@ -3,7 +3,10 @@
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <OutputType>Exe</OutputType>
+    <!-- A library, not an executable: PRo3D.Viewer references it and is published
+         self-contained, which cannot reference a framework-dependent executable (NETSDK1150).
+         The standalone app lives in PRo3D.MapProjection.Standalone. -->
+    <OutputType>Library</OutputType>
     <!-- XML doc warnings are not errors here, like the other libraries -->
     <NoWarn>$(NoWarn);FS3390</NoWarn>
   </PropertyGroup>
@@ -21,7 +24,6 @@
     <Compile Include="MapProjection-Model.fs" />
     <Compile Include="MapProjection-Model.g.fs" />
     <Compile Include="MapProjectionApp.fs" />
-    <Compile Include="Program.fs" />
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>

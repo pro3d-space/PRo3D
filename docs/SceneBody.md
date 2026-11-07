@@ -77,6 +77,25 @@ no view from a body at itself).
 **First import** does not second-guess a body the GIS already observes, and the radius-based
 inference no longer resets a body it cannot recognise (anything but Mars and Earth) to `None`.
 
+**The first OPC names its body** ([#894](https://github.com/pro3d-space/PRo3D/issues/894)):
+importing into an empty scene, i.e. one that observes no body, sets the scene body (the planet,
+and the GIS observing the body in its fixed frame, as picking the planet does) when the OPC
+says for sure which body it is. In order:
+
+1. the DSK summary in its `*.opc.json` (BDS-derived OPCs: `Body: 402 (DEIMOS)`);
+2. the FITS header's `TARGET` (HERA V4 global OPC: `DIMORPHOS`);
+3. its product name, after the PDS SPC convention `<body>_<g|l>_<gsd>mm_spc_...`
+   (`dimorphos_l_0050mm_spc_obj_0897s26313_v004`), or the earlier DART deliveries' body code
+   after the product type (`g_01960mm_spc_dtm_dimo_0000n00000_v003`: `dimo` Dimorphos, `didy`
+   Didymos).
+
+Only bodies PRo3D has a planet for count (Mars, Earth, Moon, Phobos, Deimos, Didymos,
+Dimorphos). A message says what was set and from what, e.g. *Scene body set to Dimorphos, from
+the FITS header's TARGET - switched to MapView*: a small body also switches the main view to
+[MapView](MapView.md) (#898), as picking one in the top bar or the GIS view does. OPCs that name no body, such as rover data or a mesh called
+`Dimorphos`, keep the radius check above; when the OPCs of one import name different bodies,
+nothing is set.
+
 **Loading a scene** whose GIS observation is body-fixed fills in the planet (scenes set up in the
 GIS view only used to keep `None`, which disabled MapView). This recomputes the annotation
 measurements, as any planet change does.
@@ -106,6 +125,9 @@ stored point (annotations, reference system, pivots, bookmarks) goes through —
   scene-load reconciliation and bookmark playback (headless model).
 - `src/Tests/Features/Section08_SequencedBookmarks.fs`, TC-8.5 — the bookmark time animates
   without a camera source.
+- `src/Tests/OpcSidecarTests.fs`, *body* — which body an OPC's metadata names (#894).
+- `tests-ui/tests/scene-body-from-opc.spec.ts` (Playwright, real viewer) — an empty PRo3D, one
+  OPC imported through *Import OPCs*: the scene body is Dimorphos and the message says why.
 - `tests-ui/tests/scene-body.spec.ts` (Playwright, real viewer) — a GIS-only scene gets its
   planet on load and map view navigates; a J2000 scene loads unchanged and switches on the
   button; a plain Mars scene is offered the switch, and picking the planet in the top bar sets

@@ -14,13 +14,12 @@
   <PropertyGroup>
     <InPublish>False</InPublish>
   </PropertyGroup>
-  <PropertyGroup Condition="$(InPublish)">
-    <!-- this is replaced by build script-->
-    <PublishSingleFile>true</PublishSingleFile>
-    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
-    <SelfContained>true</SelfContained>
-    <!--<PublishTrimmed>true</PublishTrimmed>-->
-  </PropertyGroup>
+  <!-- No RuntimeIdentifier/SelfContained/PublishSingleFile here, unlike the executables
+       (PRo3D.Viewer, PRo3D.Snapshots): this is a library, and the app it is published with
+       supplies the RID. Pinning win-x64 broke the Linux and macOS deploys as soon as a
+       RID-agnostic library sat between this project and the app (NETSDK1047): the SDK does not
+       flow a RID through a library, so this project fell back to its own win-x64 on a runner
+       that only restored linux-x64 or osx-* assets. PRo3D.Core, also a library, never had it. -->
   <ItemGroup>
     <Compile Include="ColorMapping.fs" />
     <EmbeddedResource Include="resources/plasma.png" />

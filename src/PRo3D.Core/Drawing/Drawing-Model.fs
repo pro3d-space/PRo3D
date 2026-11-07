@@ -21,6 +21,57 @@ type SamplingUnit =
 | cm = 2
 | mm = 3
 
+/// Which directions the 4 profiles through an ellipse follow (supporting profiles, #833).
+type EllipseProfileMode =
+/// N-S, NE-SW, E-W, NW-SE at the ellipse centre
+| Compass   = 0
+/// major axis, +45 deg, minor axis, +135 deg (clockwise seen from above)
+| MajorAxis = 1
+
+/// How the profiles of a polyline are placed along it (supporting profiles, #833).
+type LineamentProfileMode =
+/// one profile every `spacing` metres
+| BySpacing = 0
+/// `count` profiles, equally spaced over the whole polyline
+| ByCount   = 1
+
+/// Settings of the supporting-profile generator (#833). Session state, like the drawing tool.
+[<ModelType>]
+type SupportingProfileSettings = {
+    lineamentMode : LineamentProfileMode
+    /// m between polyline profiles (BySpacing)
+    spacing     : NumericInput
+    /// profiles per polyline (ByCount)
+    count       : NumericInput
+    /// a profile at the polyline's first point
+    atStart     : bool
+    /// a profile at the polyline's last point
+    atEnd       : bool
+    /// m, total length of a polyline profile, centred on the line
+    length      : NumericInput
+    ellipseMode : EllipseProfileMode
+    /// outcome of the last generation, shown under the button
+    message     : Option<string>
+    /// toolbar: generate profiles for every polyline as soon as it is finished
+    autoLineament : bool
+    /// toolbar: generate profiles for every ellipse as soon as it is finished
+    autoCrater    : bool
+}
+
+module SupportingProfileSettings =
+    let initial = {
+        lineamentMode = LineamentProfileMode.BySpacing
+        spacing     = { value = 10.0; min = 0.01; max = 100000.0; step = 1.0; format = "{0:0.00}" }
+        count       = { value = 5.0; min = 1.0; max = 1000.0; step = 1.0; format = "{0:0}" }
+        atStart     = true
+        atEnd       = true
+        length      = { value = 20.0; min = 0.01; max = 100000.0; step = 1.0; format = "{0:0.00}" }
+        ellipseMode = EllipseProfileMode.Compass
+        message     = None
+        autoLineament = false
+        autoCrater    = false
+    }
+
 // Delta for the annotations collection — stores only what changed per undoable operation.
 // LeafAdded/LeafRemoved carry just the leaf and the group path, which is sufficient to reverse the operation.
 // SnapshotDelta stores a full GroupsModel before/after for rare bulk operations (RemoveGroup, Clear).
@@ -126,11 +177,25 @@ type DrawingAction =
 | ApplyCutStroke         of Option<V3d -> Option<V3d>>
 | DnsColorLegendMessage  of FalseColorLegendApp.Action
 | ColorByCategoryMessage of ColorByCategoryAction
+| GeologicalMapMessage   of GeologicalMapAction
 | ExportAsAnnotations    of string
 | AddAnnotations         of list<string>
 | PickAnnotation         of SceneHit * Guid
 | PickDirectly           of Guid
 | ExportAsAttitude       of string
+// supporting profiles (#833)
+| SetProfileSpacing      of Numeric.Action
+| SetLineamentMode       of LineamentProfileMode
+| SetProfileCount        of Numeric.Action
+| SetProfileAtStart      of bool
+| SetProfileAtEnd        of bool
+| SetProfileLength       of Numeric.Action
+| SetProfileEllipseMode  of EllipseProfileMode
+| SetAutoLineamentProfiles of bool
+| SetAutoCraterProfiles  of bool
+/// Generate profiles from the single-selected polyline or ellipse. Raycast enrichment as in
+/// UnionSelectedAnnotations: the UI sends None, the viewer re-dispatches with the sky ray.
+| GenerateSupportingProfiles of Option<V3d -> Option<V3d>>
 
 [<ModelType>]
 type AutomaticGeoJsonExport = 
@@ -192,10 +257,15 @@ type DrawingModel = {
     /// to the annotations themselves
     colorByCategory : ColorByCategoryModel
 
+    /// geological maps over annotation groups (#843); persisted with the annotations
+    geologicalMaps  : GeologicalMapsModel
+
     // test laura
     haltonPoints   : list<V3d>
 
     automaticGeoJsonExport : AutomaticGeoJsonExport
+
+    supportingProfiles : SupportingProfileSettings
 }
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]    
@@ -250,8 +320,12 @@ module DrawingModel =
 
         colorByCategory = ColorByCategoryModel.initial
 
+        geologicalMaps  = GeologicalMapsModel.initial
+
         // test laura
         haltonPoints = []
 
         automaticGeoJsonExport = { enabled = false; lastGeoJsonPathXyz = None }
+
+        supportingProfiles = SupportingProfileSettings.initial
     }

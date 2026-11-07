@@ -606,6 +606,24 @@ let private viewerTests =
         }
     ]
 
+// the on-screen feedback text (shortFeedback): one text, one timer per message
+let private feedbackTests =
+    testList "user feedback" [
+        test "a message is not cleared by an earlier message's timer" {
+            let model, update = Head.make ()
+            let a = UserFeedback.create 3000 "first"
+            let b = UserFeedback.create 3000 "second"
+            let m = model |> UserFeedback.queueFeedback a |> UserFeedback.queueFeedback b
+            // what the workers show; the second message is on screen
+            let m = update m (ViewerAction.UpdateUserFeedback b.text)
+            let m = update m (ViewerAction.ThreadsDone a.id)
+            Expect.equal m.scene.userFeedback "second" "the first timer leaves the second message"
+            let m = update m (ViewerAction.ThreadsDone b.id)
+            Expect.equal m.scene.userFeedback "" "the last timer clears it"
+            Expect.equal (Head.feedbackCount m) 0 "no timer left"
+        }
+    ]
+
 let tests () =
     testList "Window layouts" [
         sanitizeTests
@@ -616,4 +634,5 @@ let tests () =
         sidecarTests
         sceneTests
         viewerTests
+        feedbackTests
     ]

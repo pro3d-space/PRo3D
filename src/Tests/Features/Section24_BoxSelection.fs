@@ -1,8 +1,8 @@
-/// Section 22 - Box selection of annotations (docs/AnnotationBoxSelection.md)
+/// Section 24 - Box selection of annotations (docs/AnnotationBoxSelection.md)
 ///   The screen-rectangle hit test (DrawingApp.annotationsTouchingRect) against fixed cameras,
 ///   and the SelectAnnotations message driven through the real DrawingApp.update. No GL: the
 ///   viewer only turns the dragged pixels into NDC and the camera into view * projection.
-module PRo3D.Tests.Section22_BoxSelection
+module PRo3D.Tests.Section24_BoxSelection
 
 open System
 
@@ -80,31 +80,31 @@ let private threeLines () =
 let private hitTests =
     testList "Hit test" [
 
-        test "TC-22.1 a vertex inside the rectangle selects the annotation" {
+        test "TC-24.1 a vertex inside the rectangle selects the annotation" {
             let p = anno Geometry.Point [ V3d(2.0, 2.0, 0.0) ]
             Expect.equal (hits orthoViewProj (ndc 0.1 0.1 0.3 0.3) [ p ]) (Set.singleton p.key) "point at NDC (0.2, 0.2)"
             Expect.isEmpty (hits orthoViewProj (ndc -0.5 -0.5 -0.1 -0.1) [ p ]) "rectangle elsewhere"
         }
 
-        test "TC-22.1 a segment crossing the rectangle selects it even with no vertex inside" {
+        test "TC-24.1 a segment crossing the rectangle selects it even with no vertex inside" {
             let l = anno Geometry.Line [ V3d(-5.0, 0.0, 0.0); V3d(5.0, 0.0, 0.0) ]
             Expect.equal (hits orthoViewProj (ndc -0.1 -0.1 0.1 0.1) [ l ]) (Set.singleton l.key) "the middle of the line"
             Expect.isEmpty (hits orthoViewProj (ndc -0.1 0.2 0.1 0.4) [ l ]) "a rectangle above the line"
         }
 
-        test "TC-22.1 a polyline is tested along every segment, not just its ends" {
+        test "TC-24.1 a polyline is tested along every segment, not just its ends" {
             // a U: both ends far away at the top, the bend through the rectangle
             let u = anno Geometry.Polyline [ V3d(-5.0, 8.0, 0.0); V3d(-5.0, -5.0, 0.0); V3d(5.0, -5.0, 0.0); V3d(5.0, 8.0, 0.0) ]
             Expect.equal (hits orthoViewProj (ndc -0.1 -0.6 0.1 -0.4) [ u ]) (Set.singleton u.key) "the bottom edge"
             Expect.isEmpty (hits orthoViewProj (ndc -0.1 -0.1 0.1 0.1) [ u ]) "inside the U but touching nothing"
         }
 
-        test "TC-22.1 hidden annotations are not selected" {
+        test "TC-24.1 hidden annotations are not selected" {
             let p = { anno Geometry.Point [ V3d.Zero ] with visible = false }
             Expect.isEmpty (hits orthoViewProj fullScreen [ p ]) "invisible"
         }
 
-        test "TC-22.1 geometry behind the camera never lands on screen" {
+        test "TC-24.1 geometry behind the camera never lands on screen" {
             // the camera sits at z = 10 looking down -z: z = 20 is behind it
             let behind = anno Geometry.Point [ V3d(0.0, 0.0, 20.0) ]
             Expect.isEmpty (hits perspectiveViewProj fullScreen [ behind ]) "a point behind the camera"
@@ -116,7 +116,7 @@ let private hitTests =
                 "the clipped part is not smeared across the opposite corner"
         }
 
-        test "TC-22.1 draped segments are what is tested, not the straight control-point chord" {
+        test "TC-24.1 draped segments are what is tested, not the straight control-point chord" {
             // control points at both ends; the draped path bulges up through y = 5
             let a = anno Geometry.Line [ V3d(-5.0, 0.0, 0.0); V3d(5.0, 0.0, 0.0) ]
             let draped =
@@ -128,7 +128,7 @@ let private hitTests =
             Expect.isEmpty (hits orthoViewProj (ndc -0.1 -0.1 0.1 0.1) [ draped ]) "the chord is not the path"
         }
 
-        test "TC-22.1 every annotation geometry can be box-selected" {
+        test "TC-24.1 every annotation geometry can be box-selected" {
             let all =
                 [ Geometry.Point; Geometry.Line; Geometry.Polyline; Geometry.Polygon; Geometry.DnS
                   Geometry.TT; Geometry.Ellipse; Geometry.AxisEllipse; Geometry.Axis4PEllipse ]
@@ -143,7 +143,7 @@ let private hitTests =
 let private selectionTests =
     testList "SelectAnnotations" [
 
-        test "TC-22.2 Replace makes the batch the whole selection and drops the green one" {
+        test "TC-24.2 Replace makes the batch the whole selection and drops the green one" {
             let m, keys = threeLines ()
             match keys with
             | [ a; b; c ] ->
@@ -154,7 +154,7 @@ let private selectionTests =
             | _ -> failtest "expected three lines"
         }
 
-        test "TC-22.2 Replace with nothing clears both selection kinds" {
+        test "TC-24.2 Replace with nothing clears both selection kinds" {
             let m, keys = threeLines ()
             match keys with
             | [ a; b; _ ] ->
@@ -166,7 +166,7 @@ let private selectionTests =
             | _ -> failtest "expected three lines"
         }
 
-        test "TC-22.2 Add extends the selection without duplicating a viewport pick" {
+        test "TC-24.2 Add extends the selection without duplicating a viewport pick" {
             let m, keys = threeLines ()
             match keys with
             | [ a; b; _ ] ->
@@ -177,7 +177,7 @@ let private selectionTests =
             | _ -> failtest "expected three lines"
         }
 
-        test "TC-22.2 Toggle flips each annotation, the green one included" {
+        test "TC-24.2 Toggle flips each annotation, the green one included" {
             let m, keys = threeLines ()
             match keys with
             | [ a; b; c ] ->
@@ -190,7 +190,7 @@ let private selectionTests =
             | _ -> failtest "expected three lines"
         }
 
-        test "TC-22.2 a plain click with a multi-selection starts fresh: only the clicked one" {
+        test "TC-24.2 a plain click with a multi-selection starts fresh: only the clicked one" {
             let m, keys = threeLines ()
             match keys with
             | [ a; b; c ] ->
@@ -206,7 +206,7 @@ let private selectionTests =
             | _ -> failtest "expected three lines"
         }
 
-        test "TC-22.2 click, then Shift+click: both are selected (the green one is not dropped)" {
+        test "TC-24.2 click, then Shift+click: both are selected (the green one is not dropped)" {
             let m, keys = threeLines ()
             match keys with
             | [ a; b; c ] ->
@@ -221,7 +221,7 @@ let private selectionTests =
             | _ -> failtest "expected three lines"
         }
 
-        test "TC-22.2 Shift+click toggles: the green one and a multi-selected one go off" {
+        test "TC-24.2 Shift+click toggles: the green one and a multi-selected one go off" {
             let m, keys = threeLines ()
             match keys with
             | [ a; b; _ ] ->
@@ -235,7 +235,7 @@ let private selectionTests =
             | _ -> failtest "expected three lines"
         }
 
-        test "TC-22.2 a selected leaf in a sub-group gets its real group path" {
+        test "TC-24.2 a selected leaf in a sub-group gets its real group path" {
             let m0 = DrawingModel.initialdrawing
             let g1 = GroupsApp.update m0.annotations (GroupsAppAction.AddGroup rootPath)
             match g1.rootGroup.subNodes.TryGetIndex 0, g1.rootGroup.subNodes |> IndexList.tryFirst with
@@ -250,13 +250,13 @@ let private selectionTests =
             | _ -> failtest "AddGroup did not create an addressable subgroup"
         }
 
-        test "TC-22.2 unknown ids are ignored" {
+        test "TC-24.2 unknown ids are ignored" {
             let m, _ = threeLines ()
             let m = m |> select SelectionMode.Replace [ Guid.NewGuid() ]
             Expect.isEmpty (selectedIds m) "nothing selected"
         }
 
-        test "TC-22.3 box-select, Delete, one Undo restores everything" {
+        test "TC-24.3 box-select, Delete, one Undo restores everything" {
             let m, keys = threeLines ()
             // the drawn lines run from (x,0) to (x,5), x = 0, 10, 20: the box spans the first two
             let boxed =
@@ -305,7 +305,7 @@ let private halfBuried () = anno Geometry.Line [ V3d(-5.0, 0.0, 1.0); V3d(5.0, 0
 let private occlusionTests =
     testList "Occlusion" [
 
-        test "TC-22.4 a point on the terrain is visible, one below it hidden, one above it visible" {
+        test "TC-24.4 a point on the terrain is visible, one below it hidden, one above it visible" {
             let visible = visibleOver terrainPlane orthoViewProj
             Expect.isTrue  (visible (V3d(1.0, 1.0, 0.0)))  "on the surface: the depth offset keeps it in front, as on screen"
             Expect.isFalse (visible (V3d(1.0, 1.0, -1.0))) "a metre below the surface"
@@ -313,20 +313,20 @@ let private occlusionTests =
             Expect.isFalse (visibleOver terrainPlane perspectiveViewProj (V3d(1.0, 1.0, -1.0))) "also through a perspective camera"
         }
 
-        test "TC-22.4 a box over a fully buried annotation selects nothing" {
+        test "TC-24.4 a box over a fully buried annotation selects nothing" {
             let buried = anno Geometry.Polyline [ V3d(-2.0, 0.0, -1.0); V3d(0.0, 2.0, -1.0); V3d(2.0, 0.0, -1.0) ]
             Expect.isEmpty (occludedHits orthoViewProj fullScreen [ buried ]) "hidden everywhere"
             Expect.equal (hits orthoViewProj fullScreen [ buried ]) (Set.singleton buried.key)
                 "projection alone would have selected it"
         }
 
-        test "TC-22.4 a partly buried annotation is selected only where the box covers its visible part" {
+        test "TC-24.4 a partly buried annotation is selected only where the box covers its visible part" {
             let l = halfBuried ()
             Expect.equal (occludedHits orthoViewProj (ndc -0.4 -0.1 -0.2 0.1) [ l ]) (Set.singleton l.key) "box over the visible end"
             Expect.isEmpty (occludedHits orthoViewProj (ndc 0.2 -0.1 0.4 0.1) [ l ]) "box over the buried end only"
         }
 
-        test "TC-22.4 a fully hidden annotation costs at most the ray cap" {
+        test "TC-24.4 a fully hidden annotation costs at most the ray cap" {
             let mutable rays = 0
             let counting (ray : Ray3d) = rays <- rays + 1; terrainPlane ray
             // a long, densely sampled polyline buried along its whole length
@@ -339,7 +339,7 @@ let private occlusionTests =
             Expect.isGreaterThan rays 1 "but it did look at more than one sample"
         }
 
-        test "TC-22.4 a long hidden stretch does not use up the ray cap before the visible part" {
+        test "TC-24.4 a long hidden stretch does not use up the ray cap before the visible part" {
             // buried and densely sampled for its first half - far more samples than the cap - then
             // above the terrain: the rays must be spread over the whole path to reach the visible half
             let l =
@@ -350,7 +350,7 @@ let private occlusionTests =
             Expect.equal (occludedHits orthoViewProj fullScreen [ l ]) (Set.singleton l.key) "the visible half selects it"
         }
 
-        test "TC-22.4 the ray budget reaches the last sample: a visible last vertex is found" {
+        test "TC-24.4 the ray budget reaches the last sample: a visible last vertex is found" {
             // 80 buried vertices, densely sampled, then one above the terrain: the spread over
             // the samples must include the very last one
             let l =
@@ -361,7 +361,7 @@ let private occlusionTests =
             Expect.equal (occludedHits orthoViewProj fullScreen [ l ]) (Set.singleton l.key) "the visible last vertex selects it"
         }
 
-        test "TC-22.5 a click on the visible part of a partly buried annotation finds a visible point" {
+        test "TC-24.5 a click on the visible part of a partly buried annotation finds a visible point" {
             let l = halfBuried ()
             let visible = visibleOver terrainPlane orthoViewProj
             match DrawingApp.annotationPointUnderCursor orthoViewProj viewport (V2d(-0.3, 0.0)) l,
@@ -373,7 +373,7 @@ let private occlusionTests =
             | _ -> failtest "the line is in front of the camera"
         }
 
-        test "TC-22.5 the point under the cursor is perspective-correct" {
+        test "TC-24.5 the point under the cursor is perspective-correct" {
             // a line receding from the camera: its screen midpoint is not its world midpoint
             let l  = anno Geometry.Line [ V3d(-2.0, 0.0, 5.0); V3d(4.0, 0.0, -20.0) ]
             let vp = perspectiveViewProj
@@ -387,7 +387,7 @@ let private occlusionTests =
             | None -> failtest "the line is in front of the camera"
         }
 
-        test "TC-22.6 against real terrain: on the MSL surface visible, 1 m into it hidden" {
+        test "TC-24.6 against real terrain: on the MSL surface visible, 1 m into it hidden" {
             let opc = Render.opcSurfaceDir
             if not (System.IO.Directory.Exists opc) then
                 skiptest (sprintf "no MSL OPC at %s -- run: git submodule update --init src/Tests/resources" opc)
@@ -426,7 +426,7 @@ let private occlusionTests =
     ]
 
 let tests =
-    testList "Section 22 - Box selection of annotations" [
+    testList "Section 24 - Box selection of annotations" [
         hitTests
         selectionTests
         occlusionTests

@@ -3,9 +3,12 @@
 Synopsis: Additive multi-scale latitude/longitude graticule drawn on OPC planetary surfaces.
 Interacts with: [Reference System / SPICE](../ai/DOMAIN.md), [Contour Lines](./Contour-Lines.md)
 
-The LatLon shader is an **overlay**: it is composed into the surface effect stack
-right after the contour-line shader and blends grid lines over whatever the surface
-already renders. It never replaces another shader, and it is configured per surface.
+The LatLon shader is an **overlay**: it is the lowest stage of the surface effect's
+unlit overlay band, so it blends grid lines over everything the surface renders
+(texture, contour lines, depth colouring, projected images) and is **not lit** — the
+grid stays readable in cast shadows and on the night side. Outcrop traces, the
+instrument footprint, the hover outline of a projected image and the 3D cursor are
+drawn over it. It never replaces another shader, and it is configured per surface.
 
 # UI
 
@@ -75,7 +78,8 @@ meridian paint last and sit on top.
 - Shader: `Shader.latLonLines` in
   [src/PRo3D.Base/Utilities.fs](../src/PRo3D.Base/Utilities.fs), added to `surfaceEffect`
   in [src/PRo3D.Viewer/Viewer/Viewer-Utils.fs](../src/PRo3D.Viewer/Viewer/Viewer-Utils.fs)
-  after `Shader.contourLines`. It reconstructs lat/lon with `atan2`, measures the
+  as the first stage of the overlay band, after lighting (see the band layout in
+  [ai/RENDERING.md](../ai/RENDERING.md#opc-surface-effect-bands)). It reconstructs lat/lon with `atan2`, measures the
   screen-space derivative (`ddx`/`ddy`) so each line keeps a constant pixel width, and
   composites each active level over the incoming colour with `overlayLine`
   (fine-to-coarse, then equator/prime meridian). The equator and prime meridian use

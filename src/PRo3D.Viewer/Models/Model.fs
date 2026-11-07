@@ -79,6 +79,9 @@ type StartupArgs = {
 
     allowPreviewIntersections : bool
 
+    /// --screenshotDirectory: where the Screenshots panel saves; None: the AppData folder
+    screenshotDirectory   : Option<string>
+
     verbose               : bool    
 
 } with 
@@ -103,6 +106,7 @@ type StartupArgs = {
           defaultSpiceKernelPath   = None
           loadScene                = None
           allowPreviewIntersections = true
+          screenshotDirectory      = None
       }
 
 

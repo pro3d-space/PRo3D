@@ -271,7 +271,7 @@ let private exportTests =
             Expect.equal (all |> List.filter (ExportTypeFilter.admits ExportTypeFilter.All)).Length all.Length "all keeps all"
         }
 
-        test "only Boulders narrows the type filter, and every other preset widens it again" {
+        test "only Boulders, Craters and Lineaments narrow the type filter, and every other preset widens it again" {
             let boulders =
                 AnnotationExportSettings.initial |> AnnotationExportSettings.applyPreset ExportPreset.Boulders
             Expect.equal boulders.typeFilter ExportTypeFilter.EllipsesOnly "Boulders: ellipses only"
@@ -283,7 +283,7 @@ let private exportTests =
             Expect.isTrue boulders.ellipseStatistics "Boulders: statistics inside the ellipses"
             Expect.isFalse AnnotationExportSettings.initial.ellipseStatistics "off by default"
 
-            for preset in ExportPreset.all |> List.filter (fun p -> p <> ExportPreset.Custom && p <> ExportPreset.Boulders) do
+            for preset in ExportPreset.all |> List.filter (fun p -> p <> ExportPreset.Custom && p <> ExportPreset.Boulders && p <> ExportPreset.Craters && p <> ExportPreset.Lineaments) do
                 let applied = boulders |> AnnotationExportSettings.applyPreset preset
                 Expect.equal applied.typeFilter ExportTypeFilter.All (sprintf "%A resets the type filter" preset)
                 Expect.isFalse applied.ellipseStatistics (sprintf "%A writes no ellipse statistics" preset)

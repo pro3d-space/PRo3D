@@ -20,6 +20,7 @@ type CrossSectionAction =
     | SetCurtainTextureStartAltitude  of Numeric.Action
     | ChangeCurtainBaseColor          of ColorPicker.Action
     | ToggleClippingEnabled
+    | CurtainTextureDialogCancelled
 
 module CrossSectionApp =
 
@@ -47,10 +48,14 @@ module CrossSectionApp =
             { model with curtainBaseColor = ColorPicker.update model.curtainBaseColor a }
         | ToggleClippingEnabled ->
             { model with clippingEnabled = not model.clippingEnabled }
+        | CurtainTextureDialogCancelled ->
+            model
 
     let viewCurtainSettings (model : AdaptiveCrossSectionModel) =
+        // Same shape as the other open dialogs (e.g. Import Annotations): the event goes
+        // back through top.aardvark. Cancelling reports no paths and keeps the current image.
         let jsImportTextureDialog =
-            "top.aardvark.dialog.showOpenDialog({title:'Select Cross Section Texture', filters: [{ name: 'Images (*.png, *.jpg, *.jpeg, *.tif, *.tiff)', extensions: ['png','jpg','jpeg','tif','tiff']},], properties: ['openFile']}).then(result => {aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+            "top.aardvark.dialog.showOpenDialog({title:'Select Cross Section Texture', filters: [{ name: 'Images (*.png, *.jpg, *.jpeg, *.tif, *.tiff)', extensions: ['png','jpg','jpeg','tif','tiff']}], properties: ['openFile']}).then(result => {if (!result.canceled) top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
         require GuiEx.semui (
             Html.table [
                 Html.row "Cross Section:" [
@@ -68,19 +73,31 @@ module CrossSectionApp =
                 ]
                 Html.row "Clipping:"          [ GuiEx.iconCheckBox model.clippingEnabled ToggleClippingEnabled ]
                 Html.row "Curtain:"           [ GuiEx.iconCheckBox model.curtainEnabled ToggleCurtainEnabled ]
-                Html.row "Absolute Altitude:" [ GuiEx.iconCheckBox model.curtainAbsoluteMode ToggleCurtainAbsoluteMode ]
-                Html.row "Texture Path:"      [
+                UI.rowWithTip "Absolute Height:"
+                    "On: down to a fixed height - spheroid height, radius on Dimorphos; needs a body. Off: fixed depth below the surface."
+                    [ GuiEx.iconCheckBox model.curtainAbsoluteMode ToggleCurtainAbsoluteMode ]
+                Html.row "Image:"      [
+                    // The path can also be typed/pasted, in case the native dialog is unavailable.
+                    Incremental.input (AttributeMap.ofAMap (amap {
+                        let! path = model.curtainTexturePath
+                        yield attribute "type" "text"
+                        yield attribute "placeholder" "none (base color only)"
+                        yield attribute "value" (path |> Option.defaultValue "")
+                        yield onChange (fun p -> SetCurtainTexturePath (p.Trim()))
+                    }))
                     button [
                         clazz "ui icon button"
                         Dialogs.onChooseFiles (fun paths ->
                             match paths with
                             | p :: _ -> SetCurtainTexturePath p
-                            | [] -> SetCurtainTexturePath "")
+                            | [] -> CurtainTextureDialogCancelled)
                         clientEvent "onclick" jsImportTextureDialog
                     ] [ i [clazz "folder open icon"] [] ] |> UI.wrapToolTip DataPosition.Bottom "Choose image"
-                    br []
-                    Incremental.text (model.curtainTexturePath |> AVal.map (Option.defaultValue "none")) ]
-                Html.row "Depth / Alt (m):" [
+                    button [clazz "ui icon button"; onClick (fun _ -> SetCurtainTexturePath "")] [
+                        i [clazz "remove icon red"] [] ] |> UI.wrapToolTip DataPosition.Bottom "Remove image"
+                ]
+                UI.rowWithTip "Depth / Height (m):"
+                    "Off: depth below the surface. On: height of the curtain bottom." [
                     Incremental.div AttributeMap.empty (
                         alist {
                             let! abs = model.curtainAbsoluteMode
@@ -91,7 +108,9 @@ module CrossSectionApp =
                         }
                     )
                 ]
-                Html.row "Tex Start Alt (m):" [Numeric.view' [InputBox] model.curtainTextureStartAltitude |> UI.map SetCurtainTextureStartAltitude]
+                UI.rowWithTip "Tex Start Height (m):"
+                    "Height of the image's top edge (Absolute Height on)."
+                    [Numeric.view' [InputBox] model.curtainTextureStartAltitude |> UI.map SetCurtainTextureStartAltitude]
                 Html.row "Tex Depth (m):" [Numeric.view' [InputBox] model.curtainTextureDepth |> UI.map SetCurtainTextureDepth]
                 Html.row "Base Color:" [ColorPicker.view model.curtainBaseColor |> UI.map ChangeCurtainBaseColor]
             ]

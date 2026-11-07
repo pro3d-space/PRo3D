@@ -105,10 +105,40 @@ let tests () =
                 Expect.isLessThan lines 3000
                     (sprintf "%s variant: %d lines of GLSL - some fragment stage grew a second return" name lines)
 
-            // and directly: the last stage must appear once per shader stage that runs it
-            let copies = (full.Value.Split([| "OutcropTraceColor" |], System.StringSplitOptions.None)).Length - 1
+            // and directly: the last colour stage (donutFragment, the cursor) must appear once
+            // per shader stage that runs it
+            let copies = (full.Value.Split([| "CursorWorldSizeSquared" |], System.StringSplitOptions.None)).Length - 1
             printfn "surface effect: the last stage is inlined %d times" copies
             Expect.isLessThan copies 20 (sprintf "the last stage is inlined %d times" copies)
+        }
+
+        test "fragment stages run in their bands: surface colour, lighting, overlays, discard" {
+            // The order is the point (ai/RENDERING.md, OPC surface effect bands): an overlay
+            // moved back before lighting goes dark on the night side, and a discard before a
+            // derivative leaves it undefined. Each stage is found by a uniform only it reads,
+            // in the fragment shader's main, where FShade inlines the stages in composition order.
+            let code = full.Value
+            let fragment = code.Substring(code.LastIndexOf "#ifdef Fragment")
+            let main = fragment.Substring(fragment.IndexOf "void main")
+            let order =
+                [
+                    "projection stack",   "ProjectedStackCount"
+                    "lighting",           "SunDirectionWorld"
+                    "depth colouring",    "DepthVisible"
+                    "latlon grid",        "LatLonLatLevels"
+                    "outcrop trace",      "OutcropTraceEnabled"
+                    "footprint",          "FootprintVisible"
+                    "hover outline",      "HoveredProjectionValid"
+                    "cursor",             "CursorShaderEnabled"
+                    "cross-section clip", "discard"
+                ]
+            let positions =
+                order |> List.map (fun (stage, marker) ->
+                    let i = main.IndexOf(marker: string)
+                    Expect.isGreaterThanOrEqual i 0 (sprintf "%s (%s) is in the fragment main" stage marker)
+                    stage, i)
+            for (a, ia), (b, ib) in List.pairwise positions do
+                Expect.isLessThan ia ib (sprintf "%s runs before %s" a b)
         }
 
         test "the variant index enumerates the pool in order" {

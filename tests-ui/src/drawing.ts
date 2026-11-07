@@ -47,6 +47,11 @@ function drawingSetup(d: any, edit: (d: any) => void) {
     // interactive FrustumMessage handler -- are both ignored at load.
     // 10.25 mm is FrustumModel's default: hfov = 2*atan(11.84/(2*focal)) = 60 deg.
     if (d.config?.frustumModel) d.config.frustumModel.focal = 10.25;
+    // The template's near plane is the instrument's 10 m too. Annotation lines are pulled
+    // towards the camera by DepthOffset in clip space, which in world units is roughly
+    // offset * distance / (2 * near): at 10 m that is ~100x less than at PRo3D's default
+    // 0.1 m, and draped lines and ellipse outlines z-fight with the terrain they lie on.
+    if (d.config?.nearPlane) d.config.nearPlane.value = 0.1;
     // cameraView.view is [Sky, Location, Forward, Up, Right]; Forward already points
     // at the body centre, so scaling Location moves in without re-aiming.
     const loc = JSON.parse(d.cameraView.view[1]) as number[];

@@ -104,6 +104,7 @@ module SurfaceUtils =
 
             highlightSelected     = true
             highlightAlways       = false
+            textureEnabled        = true
         }
 
     module ObjectFiles =        
@@ -911,8 +912,10 @@ module SurfaceApp =
             // per-patch attribute layers and triangle mappings are keyed by path, so drop
             // them rather than let them outlive the surface they belong to
             ProfileAttributeExtraction.clearCaches ()
+            DebugKdTreesX.clearLoaded ()
             { model with surfaces = groups; sgSurfaces = sg'} |> SurfaceModel.triggerSgGrouping
-        | RebuildKdTrees id ->                
+        | RebuildKdTrees id ->
+            DebugKdTreesX.clearLoaded ()
             let surf = id |> SurfaceModel.getSurface model
             match surf with
             | Some (Leaf.Surfaces sf) ->                    
@@ -1611,6 +1614,34 @@ module SurfaceApp =
             return (GroupsApp.viewGroupButtons ts |> UI.map GroupsMessage)
         } 
     
+    /// The selected surface's shape model and OPC provenance, credit first (#887,
+    /// docs/AnnotationMetadata.md). Read from the OPC's *.opc.json sidecar, once per session.
+    let viewSource (s : AdaptiveSurface) : DomNode<'msg> =
+        let content =
+            s.opcxPath |> AVal.map (fun path ->
+                match path with
+                | None ->
+                    div [ style "font-style:italic" ] [ text "Not an OPC: no source information" ]
+                | Some opcx ->
+                    let credit, rows, header = OpcMetadata.sourceRows opcx (OpcMetadata.tryReadForOpcxCached opcx)
+                    div [] [
+                        match credit with
+                        | Some c -> div [ style "font-weight:bold; margin:4px 0 8px 0" ] [ text c ]
+                        | None   -> div [ style "font-style:italic; margin:4px 0 8px 0" ] [ text "No credit known for this model" ]
+                        Html.table [
+                            for (label, value) in rows do
+                                Html.row (label + ":") [ div [ style "word-break:break-all" ] [ text value ] ]
+                        ]
+                        if not header.IsEmpty then
+                            GuiEx.accordion (sprintf "FITS header (%d keys)" header.Length) "list" false [
+                                Html.table [
+                                    for (key, value) in header do
+                                        Html.row key [ div [ style "word-break:break-all" ] [ text value ] ]
+                                ]
+                            ]
+                    ])
+        Incremental.div AttributeMap.empty (AList.ofAValSingle content)
+
     let surfaceUI (scenePath : aval<Option<string>>) (colorPaletteStore : string) (refSystem : AdaptiveReferenceSystem) (model:AdaptiveSurfaceModel) =
         let item2 = 
             model.surfaces.lastSelectedItem 
@@ -1633,6 +1664,11 @@ module SurfaceApp =
                
             ]
              
+            // shape model, its makers and the OPC's provenance; closed by default (#887)
+            yield GuiEx.accordion "Source & Credits" "info circle" false [
+                viewSurfaceProperty model viewSource
+            ]
+
             yield GuiEx.accordion "Transformation" "expand arrows alternate " false [
                 Incremental.div AttributeMap.empty (AList.ofAValSingle(viewTranslationTools model))
                 //div [] [Html.SemUi.textBox model.debugPreTrafo SetPreTrafo] // debug PreTrafo //  Bug: pretrafo ignored when picking annotation etc.

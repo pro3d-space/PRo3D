@@ -123,31 +123,123 @@ module DebugKdTreesX =
         
         loadTriangles' kd.affine kd.objectSetPath 
 
-    let loadObjectSet (cache : HashMap<string, ConcreteKdIntersectionTree>) (lvl0Tree : Level0KdTree) =             
+    /// Lazy KdTrees with their triangles, loaded once per file for the whole process (#874).
+    /// The callers' `HashMap` caches are copies threaded through by value: the hover pick
+    /// (background thread) and click picks (update thread) each loaded a cold patch into their
+    /// own copy, the last write-back dropped the other's, and `Picking` kept a copy only on a
+    /// hit - so the same patch was read again and again, seconds each. The `Lazy` makes
+    /// concurrent first uses wait for one load instead of starting their own.
+    ///
+    /// This store is the only place a loaded lazy tree is kept (`loadObjectSet` no longer puts
+    /// them into the callers' caches), so dropping an entry frees it. An entry is dropped when it
+    /// has not been used for `maxIdle`, and, least recently used first, while the loaded trees
+    /// together exceed `budgetBytes`.
+    type private LoadedKdTree(tree : Lazy<ConcreteKdIntersectionTree>) =
+        member _.Tree = tree
+        /// `Stopwatch` timestamp of the last use.
+        member val LastUse = 0L with get, set
+        /// Estimated size; 0 until loaded.
+        member val Bytes = 0L with get, set
+
+    let private envOr (name : string) (fallback : float) =
+        match Environment.GetEnvironmentVariable name with
+        | null | "" -> fallback
+        | s ->
+            match Double.TryParse(s, Globalization.NumberStyles.Float, Globalization.CultureInfo.InvariantCulture) with
+            | true, v when v >= 0.0 -> v
+            | _ ->
+                Log.warn "[KdTree] ignoring %s=%s: not a non-negative number" name s
+                fallback
+
+    /// Loaded lazy KdTrees together may hold about this much (triangles plus the tree's file
+    /// size). Environment: PRO3D_KDTREE_BUDGET_MB, default 2048.
+    let mutable budgetBytes = int64 (envOr "PRO3D_KDTREE_BUDGET_MB" 2048.0 * 1024.0 * 1024.0)
+    /// A loaded lazy KdTree unused this long is dropped. Environment: PRO3D_KDTREE_IDLE_MINUTES,
+    /// default 10.
+    let mutable maxIdle = TimeSpan.FromMinutes (envOr "PRO3D_KDTREE_IDLE_MINUTES" 10.0)
+
+    let private loadedLazyKdTrees =
+        System.Collections.Concurrent.ConcurrentDictionary<string, LoadedKdTree>()
+    let private evictLock = obj ()
+
+    let private estimateBytes (kdtreePath : string) (tree : ConcreteKdIntersectionTree) =
+        let triangles =
+            match tree.KdIntersectionTree.ObjectSet with
+            | :? TriangleSet as t -> int64 t.Position3dList.Count * 24L // V3d per corner
+            | _ -> 0L
+        let treeFile = try IO.FileInfo(kdtreePath).Length with _ -> 0L
+        triangles + treeFile
+
+    /// Drops loaded trees, oldest use first, while they are idle longer than `maxIdle` or the
+    /// loaded ones exceed `budgetBytes`. `keep` (the tree just loaded) stays, even if it alone is
+    /// over the budget. Runs on every load and once a minute; O(n log n) in the loaded trees.
+    let private evict (keep : string) =
+        lock evictLock (fun () ->
+            let now = Diagnostics.Stopwatch.GetTimestamp()
+            let idleTicks = int64 (maxIdle.TotalSeconds * float Diagnostics.Stopwatch.Frequency)
+            let loaded = loadedLazyKdTrees.ToArray() |> Array.filter (fun e -> e.Value.Bytes > 0L)
+            Array.sortInPlaceBy (fun (e : Collections.Generic.KeyValuePair<string, LoadedKdTree>) -> e.Value.LastUse) loaded
+            let mutable held = 0L
+            for e in loaded do held <- held + e.Value.Bytes
+            let mutable dropped = 0
+            for e in loaded do
+                if e.Key <> keep && (now - e.Value.LastUse > idleTicks || held > budgetBytes) then
+                    if loadedLazyKdTrees.TryRemove e then
+                        held <- held - e.Value.Bytes
+                        dropped <- dropped + 1
+            if dropped > 0 then
+                Log.line "[KdTree] dropped %d loaded KdTrees; %d kept, %.0f MB" dropped (loaded.Length - dropped) (float held / 1048576.0))
+
+    let private idleTimer =
+        lazy (
+            let tick _ =
+                try evict ""
+                with e -> Log.warn "[KdTree] dropping idle KdTrees failed: %s" e.Message
+            new Threading.Timer(tick, null, TimeSpan.FromMinutes 1.0, TimeSpan.FromMinutes 1.0))
+
+    let private loadLazyKdTree (kd : LazyKdTree) =
+        let load () =
+            Activity.track "kdtree" (fun () ->
+                let tree = KdTrees.loadKdtree kd.kdtreePath
+                Log.startTimed "loading kd tree: %s" kd.kdtreePath
+                let triangles = kd |> loadTriangles
+                Log.stop()
+                tree.KdIntersectionTree.ObjectSet <- triangles
+                tree)
+        let entry = loadedLazyKdTrees.GetOrAdd(kd.kdtreePath, fun _ -> LoadedKdTree(lazy (load ())))
+        let tree =
+            try entry.Tree.Value
+            with _ ->
+                // a failed load is not kept: the next pick tries again
+                loadedLazyKdTrees.TryRemove(Collections.Generic.KeyValuePair(kd.kdtreePath, entry)) |> ignore
+                reraise ()
+        entry.LastUse <- Diagnostics.Stopwatch.GetTimestamp()
+        if entry.Bytes = 0L then
+            // first use after the load; two racing threads may both get here, which is harmless
+            entry.Bytes <- max 1L (estimateBytes kd.kdtreePath tree)
+            idleTimer.Force() |> ignore
+            evict kd.kdtreePath
+        tree
+
+    /// Forgets every loaded lazy KdTree: after a surface is removed, or its KdTrees rebuilt.
+    let clearLoaded () = loadedLazyKdTrees.Clear()
+
+    /// Drops what is idle or over the budget now, instead of at the next load or timer tick.
+    let evictLoaded () = evict ""
+
+    /// The number of loaded lazy KdTrees in the store.
+    let loadedCount () = loadedLazyKdTrees.Count
+
+    /// Lazy trees come from the process-wide store above and are not added to `cache`, so that
+    /// dropping them from the store frees them; `cache` is passed through for the callers.
+    let loadObjectSet (cache : HashMap<string, ConcreteKdIntersectionTree>) (lvl0Tree : Level0KdTree) =
         match lvl0Tree with
-        | Aardvark.VRVis.Opc.KdTrees.InCoreKdTree kd -> 
+        | Aardvark.VRVis.Opc.KdTrees.InCoreKdTree kd ->
           kd.kdTree, cache
-        | Aardvark.VRVis.Opc.KdTrees.LazyKdTree kd ->             
-            let kdTree, cache =
-                match kd.kdTree with
-                | Some k -> k, cache
-                | None -> 
-                    let key = (kd.boundingBox.ToString())
-                    let tree = cache |> HashMap.tryFind key
-                    match tree with
-                    | Some t ->                 
-                        t, cache
-                    | None ->                                     
-                        //Log.line "cache miss %A- loading kdtree" kd.boundingBox
-                    
-                        let mutable tree = KdTrees.loadKdtree kd.kdtreePath
-                        Log.startTimed "loading kd tree: %s" kd.kdtreePath
-                        let triangles = kd |> loadTriangles
-                        Log.stop()
-                        
-                        tree.KdIntersectionTree.ObjectSet <- triangles                                                            
-                        tree, (HashMap.add key tree cache)
-            kdTree, cache
+        | Aardvark.VRVis.Opc.KdTrees.LazyKdTree kd ->
+            match kd.kdTree with
+            | Some k -> k, cache
+            | None -> loadLazyKdTree kd, cache
 
     let getTriangle (set : TriangleSet) (index : int) : Triangle3d =
         let pi = index * 3

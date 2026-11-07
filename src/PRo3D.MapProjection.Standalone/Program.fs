@@ -1,13 +1,17 @@
-/// PRo3D.MapProjection.exe: the map projection panel (#772) as a standalone app.
+/// PRo3D.MapProjection.Standalone.exe: the map projection panel (#772) as a standalone app.
 ///
-///   PRo3D.MapProjection.exe --opc <dir> [--opc <dir> ...] [--annotations <file> ...]
-///                            [--frame DIMORPHOS_SHM] [--planet Dimorphos] [--port 4330] [--server]
+///   PRo3D.MapProjection.Standalone.exe --opc <dir> [--opc <dir> ...] [--annotations <file> ...]
+///                            [--frame DIMORPHOS_SHM] [--planet Dimorphos] [--camera x,y,z]
+///                            [--cursor x,y,z]
+///                            [--port 4330] [--server]
 ///
 /// `--opc` takes an OPC directory (its hierarchies are found below it) or a single
 /// hierarchy. `--annotations` takes a PRo3D annotation file or an SBMT structure file (points,
 /// ellipses, circles), read in `--frame`. `--server` serves without opening a window and runs until stdin closes --
 /// the mode the Playwright spec drives. PRo3D embeds the same `MapProjectionApp.view` as the
 /// `mapprojection` page.
+/// Lives in the PRo3D.MapProjection namespace although it builds into
+/// PRo3D.MapProjection.Standalone.exe, so it sees the library modules directly.
 module PRo3D.MapProjection.Program
 
 open System
@@ -40,6 +44,35 @@ let main argv =
         argAfter argv "--port"
         |> Option.bind (fun s -> match Int32.TryParse s with | true, p -> Some p | _ -> None)
         |> Option.defaultValue 4330
+    // body-fixed position of a camera to mark, "x,y,z" in metres. PRo3D passes its 3D view;
+    // here it makes the marker reachable without a viewer, for tests and for looking at a
+    // planet, where the data itself is a speck.
+    let camera =
+        argAfter argv "--camera"
+        |> Option.bind (fun s ->
+            let parts = s.Split(',')
+            let number (x : string) =
+                match Double.TryParse(x.Trim(), Globalization.NumberStyles.Float, Globalization.CultureInfo.InvariantCulture) with
+                | true, v -> Some v
+                | _ -> None
+            if parts.Length <> 3 then None
+            else
+                match number parts.[0], number parts.[1], number parts.[2] with
+                | Some x, Some y, Some z -> Some (V3d(x, y, z))
+                | _ -> None)
+    let cursor =
+        argAfter argv "--cursor"
+        |> Option.bind (fun s ->
+            let parts = s.Split(',')
+            let number (x : string) =
+                match Double.TryParse(x.Trim(), Globalization.NumberStyles.Float, Globalization.CultureInfo.InvariantCulture) with
+                | true, v -> Some v
+                | _ -> None
+            if parts.Length <> 3 then None
+            else
+                match number parts.[0], number parts.[1], number parts.[2] with
+                | Some x, Some y, Some z -> Some (V3d(x, y, z))
+                | _ -> None)
     let server = argv |> Array.contains "--server"
 
     Aardvark.Init()
@@ -78,6 +111,8 @@ let main argv =
     let inputs =
         {
             planet      = AVal.constant planet
+            camera      = AVal.constant camera
+            cursor      = AVal.constant cursor
             surfaces    = ASet.ofList surfaces
             annotations = { MapAnnotations.none with annotations = MapAnnotations.ofList annotations }
         }

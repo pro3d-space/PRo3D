@@ -264,3 +264,64 @@ type SampleLayersOptions =
         [<Option("occlusion-tolerance", Default = 0.05, HelpText = "A vertex counts as hidden only if something lies on its line of sight more than this many metres in front of it (default 0.05)")>]
         occlusionTolerance : float
     }
+
+/// Options for the `render-bookmarks` verb.
+///
+/// Every option can also come from the --job file; given on the command line it wins
+/// over the file's top level (see docs/Pro3DTool-RenderBookmarks.md).
+[<Verb("render-bookmarks", HelpText = "Open a .pro3d scene headlessly and render the camera bookmarks prepared in it, one PNG per bookmark, as the viewer shows them. Optionally fixes the OPC level of detail.")>]
+type RenderBookmarksOptions =
+    {
+        [<Option("scene", HelpText = "The .pro3d scene to open. Required unless the --job file names it.")>]
+        scene : string
+
+        [<Option("bookmarks", HelpText = "Bookmarks to render: names (with * and ? wildcards; quote them in a shell) or GUIDs, space separated. Default: every bookmark (\"*\").")>]
+        bookmarks : seq<string>
+
+        [<Option("out", HelpText = "Output directory (default: <scene name>-renders beside the scene). Gets one PNG per bookmark and renders.json listing them.")>]
+        out : string
+
+        [<Option("width", HelpText = "Image width in pixels (default 1920)")>]
+        width : Option<int>
+
+        [<Option("height", HelpText = "Image height in pixels (default 1080). The scene's field of view is kept; the aspect follows width/height.")>]
+        height : Option<int>
+
+        [<Option("lod-level", HelpText = "Fix the OPC level of detail: refine every hierarchy to exactly this level (0 = root patch) instead of the viewer's distance-based choice. For testing; deep levels load the whole surface at that resolution.")>]
+        lodLevel : Option<int>
+
+        [<Option("job", HelpText = "JSON job file with the same settings, and optionally several 'passes' (e.g. one per LoD level). Command line options override its top level.")>]
+        job : string
+
+        [<Option("list", HelpText = "Only list the scene's bookmarks (name and GUID) and exit")>]
+        list : bool
+    }
+
+/// Options for the `render-view` verb.
+///
+/// The cameras, OPCs and sun come from the --job file; these options override its top
+/// level (a view's own values win), see docs/Pro3DTool-RenderView.md.
+[<Verb("render-view", HelpText = "Render OPCs without a scene file from explicitly given cameras (location, forward, up, horizontal FOV), each OPC placed by a transformation, optionally lit by a given sun. Input is a JSON job file, e.g. written by scripts/render-view-job.py from SPICE.")>]
+type RenderViewOptions =
+    {
+        [<Option("job", Required = true, HelpText = "JSON job file: opcs, views (cameras, sun), size. See docs/Pro3DTool-RenderView.md.")>]
+        job : string
+
+        [<Option("views", HelpText = "Render only these views: names with * and ? wildcards (quote them in a shell), space separated. Default: every view.")>]
+        views : seq<string>
+
+        [<Option("out", HelpText = "Output directory (default: the job's 'out', else <job name>-renders beside the job file)")>]
+        out : string
+
+        [<Option("width", HelpText = "Image width in pixels, over the job's top level (default 1920)")>]
+        width : Option<int>
+
+        [<Option("height", HelpText = "Image height in pixels, over the job's top level (default 1080)")>]
+        height : Option<int>
+
+        [<Option("lod-level", HelpText = "Fix the OPC level of detail (0 = root patch), over the job's top level. See render-bookmarks.")>]
+        lodLevel : Option<int>
+
+        [<Option("no-sun", HelpText = "Ignore every view's sun: render without sun lighting")>]
+        noSun : bool
+    }

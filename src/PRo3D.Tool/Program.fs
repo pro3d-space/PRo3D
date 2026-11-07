@@ -18,6 +18,8 @@ Command line tools for PRo3D data.
   unproject       convert image pixel coordinates to body-fixed surface coordinates
   simulate-image  render a simulated instrument image of a body at a SPICE time
   sample-layers   assemble instrument images onto the OPC vertices of a body, as CSV
+  render-bookmarks render a scene's bookmarks to images, optionally at a fixed LoD
+  render-view     render OPCs from given cameras, optionally sun-lit (job file)
 
 Run `pro3d-tool <verb> --help` for the options of a verb.
 
@@ -34,6 +36,8 @@ let private verbs : Type[] =
         typeof<UnprojectOptions>
         typeof<SimulateImageOptions>
         typeof<SampleLayersOptions>
+        typeof<RenderBookmarksOptions>
+        typeof<RenderViewOptions>
     |]
 
 let private dispatch (parsed : obj) : int =
@@ -43,6 +47,8 @@ let private dispatch (parsed : obj) : int =
     | :? UnprojectOptions as o -> UnprojectVerb.run o
     | :? SimulateImageOptions as o -> SimulateImageVerb.run o
     | :? SampleLayersOptions as o -> SampleLayersVerb.run o
+    | :? RenderBookmarksOptions as o -> RenderBookmarksVerb.run o
+    | :? RenderViewOptions as o -> RenderViewVerb.run o
     | other ->
         eprintfn "unhandled verb: %s" (other.GetType().Name)
         -1

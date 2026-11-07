@@ -248,9 +248,16 @@ module ViewerUtils =
 
         
     /// The SPICE body a surface is observed as (Sg.applyBody); None without a SPICE
-    /// reference system. Also gates whether the surface gets projection data at all.
+    /// reference system. Also gates whether the surface gets projection data at all --
+    /// so while a sun direction is given directly (Gis.SunOverride), a surface without a
+    /// body is observed as SunOverride.BodyName and gets sun shading and shadows too.
     let observedBody (observedSystem : aval<Option<SpiceReferenceSystem>>) : aval<Option<string>> =
-        observedSystem |> AVal.map (function None -> None | Some o -> Some o.body.Value)
+        (observedSystem, Gis.SunOverride.direction)
+        ||> AVal.map2 (fun observed sun ->
+            match observed, sun with
+            | Some o, _ -> Some o.body.Value
+            | None, Some _ -> Some Gis.SunOverride.BodyName
+            | None, None -> None)
 
     /// Distance-to-home filtering is on only when there is a home position to filter
     /// against. Feeds the FilterByDistance uniform and the surface-effect variant switch.
@@ -328,9 +335,10 @@ module ViewerUtils =
                     }
 
                 let pickable = 
-                    (globalBB, trafo)
-                    ||>  AVal.map2( fun (a:Box3d) (b:Trafo3d) -> 
-                        { shape = PickShape.Box (a.Transformed(b)); trafo = Trafo3d.Identity }
+                    // globalBB already carries preTransform; undo it before the placement
+                    (globalBB, surf.preTransform, trafo)
+                    |||>  AVal.map3( fun (a:Box3d) (pre:Trafo3d) (b:Trafo3d) -> 
+                        { shape = PickShape.Box (a.Transformed(pre.Inverse * b)); trafo = Trafo3d.Identity }
                     ) 
                 
                 let pickBox = 
@@ -436,6 +444,7 @@ module ViewerUtils =
                     )
                     |> Sg.noEvents
                     |> Sg.uniform "selected"      (isSelected) // isSelected
+                    |> Sg.uniform "SurfaceTextureEnabled" surf.textureEnabled
                     |> Sg.uniform "selectionColor" (AVal.constant (C4b (200uy,200uy,255uy,255uy)))
                     //|> addAttributeFalsecolorMappingParameters surf
                     |> addDepthMappingParameters fp
@@ -868,9 +877,43 @@ module ViewerUtils =
                 addressV WrapMode.Wrap
             }
        
+        type UniformScope with
+            /// Surface.textureEnabled: false replaces the texture by untexturedAlbedo
+            member x.SurfaceTextureEnabled : bool = x?SurfaceTextureEnabled
+            member x.UntexturedSunLit : bool = x?SunLightEnabled
+
+        /// Untextured surfaces (Surface.textureEnabled = false), surface-colour band: the
+        /// texture becomes a uniform light grey, so only the lighting below shows the shape.
+        let untexturedSurface (v : Vertex) =
+            fragment {
+                let mutable c = v.c
+                if not uniform.SurfaceTextureEnabled then
+                    c <- V4f(0.7f, 0.7f, 0.7f, 1.0f)
+                return c
+            }
+
+        /// Untextured surfaces without sun lighting, lighting band: a fixed light at the
+        /// camera (from upper left) over the face normal from screen-space derivatives of
+        /// the view-space position -- view space per the precision rules, and no geometry
+        /// stage needed. One return on purpose (#719, FShade#39).
+        let untexturedHeadlight (v : Vertex) =
+            fragment {
+                let mutable c = v.c
+                if not uniform.SurfaceTextureEnabled && not uniform.UntexturedSunLit then
+                    let p = v.vp.XYZ
+                    let n0 = Vec.cross (ddx p) (ddy p) |> Vec.normalize
+                    let toCam = -p |> Vec.normalize
+                    let n = if Vec.dot n0 toCam < 0.0f then -n0 else n0
+                    let l = V3f(-0.4f, 0.5f, 0.77f) |> Vec.normalize
+                    let ambient = 0.15f
+                    let i = ambient + (1.0f - ambient) * (Vec.dot n l |> max 0.0f)
+                    c <- V4f(v.c.XYZ * i, v.c.W)
+                return c
+            }
+
         let textureOrLightingIfPossible (v : Vertex) =
             fragment {
-                if uniform.HasDiffuseColorTexture then
+                if uniform.HasDiffuseColorTexture && uniform.SurfaceTextureEnabled then
                     let texColor = diffuseSampler.Sample(v.tc,-1.0f) // TODO: to why is -1 being used here as lod offset?
                     return texColor
                 else
@@ -1036,6 +1079,8 @@ module ViewerUtils =
             member x.CurtainBaseColor : V4f = uniform?CurtainBaseColor
             // 1 = absolute altitude-band texture mapping, 0 = surface-relative
             member x.CurtainAbsoluteMode : int = uniform?CurtainAbsoluteMode
+            // 1 = an image is bound, 0 = no image: the curtain is drawn in the base color
+            member x.CurtainHasTexture : int = uniform?CurtainHasTexture
 
         let curtainVertex (v : CurtainVertex) =
             vertex {
@@ -1079,7 +1124,9 @@ module ViewerUtils =
                 let totalD    = v.totalDepth
                 // v.tc.Y = 1.0 at surface, 0.0 at bottom; distFromSurface grows downward
                 let distFromSurface = (1.0f - v.tc.Y) * totalD
-                if uniform.CurtainAbsoluteMode = 1 then
+                if uniform.CurtainHasTexture = 0 then
+                    return baseColor
+                elif uniform.CurtainAbsoluteMode = 1 then
                     // Absolute mode: texture occupies the absolute altitude band
                     // [texStartAlt - texDepth, texStartAlt]. surfElev is pre-offset on
                     // CPU: (elevation - texStartAlt), so fragRelAlt = 0 at texStartAlt.
@@ -1107,9 +1154,9 @@ module ViewerUtils =
             Shader.stableTrafo      |> toEffect
             Shader.triangleSizeFilter  |> toEffect
 
+            // samples the texture only while Surface.textureEnabled; no stage after it may
+            // sample again, or unticking Texture does nothing on OBJs
             Shader.textureOrLightingIfPossible |> toEffect
-
-            PRo3D.Base.OPCFilter.improvedDiffuseTextureAndColor |> toEffect
             Shader.mapColorAdaption  |> toEffect
             PRo3D.Base.Shader.mapRadiometry |> toEffect
             Shader.fixAlpha          |> toEffect
@@ -1255,6 +1302,9 @@ module ViewerUtils =
     ///   missing.
     /// - `crossSectionClip`: the only discard in the stack. A shader that may discard
     ///   defeats hidden-surface removal on tile-based (Apple) GPUs even when it never does.
+    ///
+    /// The fragment stages come in three bands (see ai/RENDERING.md): surface colour (shaded),
+    /// lighting, then unlit overlays bottom -> top. The cross-section discard runs last.
     let surfaceEffectVariant (geometryStage : bool) (crossSectionClip : bool) =
         Effect.compose [
 
@@ -1281,6 +1331,7 @@ module ViewerUtils =
 
             Shader.fixAlpha |> toEffect
             PRo3D.Base.OPCFilter.improvedDiffuseTexture |> toEffect
+            Shader.untexturedSurface |> toEffect
             PRo3D.Base.OPCFilter.markPatchBorders |> toEffect
 
 
@@ -1295,21 +1346,11 @@ module ViewerUtils =
             PRo3D.Base.Shader.mapColorAdaption  |> toEffect
             PRo3D.Base.Shader.mapRadiometry |> toEffect
 
+            // -- 1. surface colour: what the terrain is. Shaded by the lighting below.
+
             Shader.secondaryTexture |> toEffect
-
+            // a terrain property, so shaded
             Shader.contourLines |> toEffect
-            // additive latitude/longitude graticule; composites over the colour
-            // produced by the stages above, like contourLines.
-            Shader.latLonLines |> toEffect
-            Shaders.donutFragment |> toEffect
-
-            if crossSectionClip then
-                CrossSectionShader.crossSectionClip |> toEffect
-
-            //PRo3D.Base.Shader.depthImageF        |> toEffect
-            PRo3D.Base.Shader.depthCalculation2     |> toEffect //depthImageF        |> toEffect
-
-            PRo3D.Base.Shader.footPrintF        |> toEffect
 
             // The projection stack (multi-image projection). Subsumes the old
             // single-image stableImageProjection: a stack of one behaves
@@ -1323,20 +1364,48 @@ module ViewerUtils =
             // split are gone
             ImageProjection.Shaders.projectedStackCoverage |> toEffect
 
-            // hover footprint: green outline of the hovered image's frustum
-            // footprint on the surface (D5)
-            ImageProjection.Shaders.hoveredProjectionOutline |> toEffect
+            // -- 2. lighting
+
+            // the surface colour as it is before lighting, for depthCalculation2 below
+            PRo3D.Base.Shader.surfaceColor |> toEffect
 
             // Lommel-Seeliger over the terrain normal; solarLighting's Lambert-on-a-
             // sphere-normal predecessor made relief invisible under sun lighting.
             PRo3D.SPICE.Shaders.solarShadingLS |> toEffect
             // Cast shadows (LightingMode.SunShadow); per-patch gated, no-op otherwise.
             PRo3D.SPICE.Shaders.terrainSunShadow |> toEffect
+            // untextured surfaces without the sun: a camera light instead
+            Shader.untexturedHeadlight |> toEffect
 
-            // Last in the stack on purpose: outcrop traces are an interpretive overlay, so
-            // their colour must survive lighting and shadowing. contourLines sits earlier
-            // and is shaded, which is right for a terrain property and wrong for this.
+            // -- 3. overlays: drawn on the terrain, not part of it. After lighting so they stay
+            // readable in shadow and on the night side; bottom -> top, each paints over the
+            // ones before it. A new overlay goes here, at the layer it belongs to.
+
+            // depth false colour (DepthVisible): tints the unlit surface colour, lowest
+            //PRo3D.Base.Shader.depthImageF        |> toEffect
+            PRo3D.Base.Shader.depthCalculation2     |> toEffect //depthImageF        |> toEffect
+
+            // latitude/longitude graticule: the reference grid, over the depth colouring
+            Shader.latLonLines |> toEffect
+
+            // outcrop traces: interpretation, over the grid
             OutcropTraceShader.outcropTrace |> toEffect
+
+            // instrument footprint border
+            PRo3D.Base.Shader.footPrintF        |> toEffect
+
+            // hover footprint: green outline of the hovered image's frustum
+            // footprint on the surface (D5)
+            ImageProjection.Shaders.hoveredProjectionOutline |> toEffect
+
+            // 3D cursor, always on top
+            Shaders.donutFragment |> toEffect
+
+            // -- the discard goes last: after a discard, derivatives in its quad are undefined,
+            // and latLonLines, outcropTrace and every implicit-LOD texture sample above take
+            // them. Where it sits does not change its tile-GPU cost (see above).
+            if crossSectionClip then
+                CrossSectionShader.crossSectionClip |> toEffect
         ]
 
     /// Everything composed: what every OPC surface used before #719.
@@ -1555,7 +1624,8 @@ module ViewerUtils =
         let previewPickingEnabled =
             (m.scene.config.showPreviewIntersection, m.interaction)
             ||> AVal.map2 (fun showIt interaction ->
-                showIt || interaction = Interactions.EditAnnotation)
+                // drawing: the snapping feedback of geological maps follows the cursor (#843)
+                showIt || interaction = Interactions.EditAnnotation || interaction = Interactions.DrawAnnotation)
 
         let vpVisible = isViewPlanVisible m
         let selected = m.scene.surfacesModel.surfaces.singleSelectLeaf
@@ -1814,9 +1884,24 @@ module ViewerUtils =
         )
 
     let createCurtainSg (view : aval<CameraView>) (m : AdaptiveModel) : ISg<ViewerAction> =
+        let csm = m.scene.crossSectionModel
+        // Up vector in view space. Kept outside the geometry below so that camera
+        // movement only updates this uniform instead of rebuilding the curtain
+        // (and reloading its image) every frame.
+        let upVS =
+            adaptive {
+                let! csOpt  = csm.crossSection
+                let! planet = m.scene.referenceSystem.planet
+                let! camView = view
+                let upWorld =
+                    match csOpt with
+                    | Some { geometry = LineOnSurface pts } when pts.Length > 0 ->
+                        CooTransformation.getUpVector pts.[0] planet
+                    | _ -> V3d.OOI
+                return (camView |> CameraView.viewTrafo).TransformDir upWorld |> V3f
+            }
         let curtainSgOpt =
             AVal.custom (fun token ->
-                let csm        = m.scene.crossSectionModel
                 let enabled    = csm.curtainEnabled.GetValue(token)
                 let texPath    = csm.curtainTexturePath.GetValue(token)
                 let depth      = csm.curtainExtrusionDepth.value.GetValue(token)
@@ -1827,14 +1912,17 @@ module ViewerUtils =
                 let baseColor  = csm.curtainBaseColor.c.GetValue(token)
                 let csOpt      = csm.crossSection.GetValue(token)
                 let planet     = m.scene.referenceSystem.planet.GetValue(token)
-                let camView    = view.GetValue(token)
+
+                // Without a (readable) image the curtain is still drawn, in the base color.
+                let texPath =
+                    match texPath with
+                    | Some path when not (System.IO.File.Exists path) ->
+                        Log.warn "[CrossSection] curtain image not found: %s" path
+                        None
+                    | p -> p
 
                 if not enabled then Sg.empty
                 else
-                    match texPath with
-                    | None -> Sg.empty
-                    | Some path when not (System.IO.File.Exists path) -> Sg.empty
-                    | Some path ->
                         match csOpt with
                         | None -> Sg.empty
                         | Some cs ->
@@ -1894,10 +1982,10 @@ module ViewerUtils =
                                     IndexArray = indices
                                 )
 
-                            // Up vector in view space
-                            let upWorld = CooTransformation.getUpVector ptsWS.[0] planet
-                            let viewTrafo = camView |> CameraView.viewTrafo
-                            let upVS = viewTrafo.TransformDir upWorld |> V3f
+                            let applyTexture (sg : ISg<ViewerAction>) =
+                                match texPath with
+                                | Some path -> sg |> Sg.fileTexture DefaultSemantic.DiffuseColorTexture path true
+                                | None      -> sg |> Sg.texture DefaultSemantic.DiffuseColorTexture DefaultTextures.blackTex
 
                             Sg.ofIndexedGeometry ig
                             |> Sg.trafo (AVal.constant modelTrafo)
@@ -1906,8 +1994,9 @@ module ViewerUtils =
                                 do! CurtainShader.curtainGeometry
                                 do! CurtainShader.curtainFragment
                             }
-                            |> Sg.fileTexture DefaultSemantic.DiffuseColorTexture path true
-                            |> Sg.uniform "UpVS" (AVal.constant upVS)
+                            |> applyTexture
+                            |> Sg.uniform "CurtainHasTexture" (AVal.constant (if texPath.IsSome then 1 else 0))
+                            |> Sg.uniform "UpVS" upVS
                             |> Sg.uniform "TextureDepth" (AVal.constant (float32 texDepth))
                             |> Sg.uniform "CurtainAbsoluteMode" (AVal.constant (if absMode then 1 else 0))
                             |> Sg.uniform "CurtainBaseColor" (AVal.constant (baseColor.ToC4f().ToV4f()))
@@ -1916,30 +2005,70 @@ module ViewerUtils =
             )
         curtainSgOpt |> Sg.dynamic
 
-    let renderCommands
-        (sgGrouped      :alist<amap<Guid,AdaptiveSgSurface>>) 
-        (overlayed      : ISg<ViewerAction>)
-        (depthTested    : ISg<ViewerAction>)
-        (view           : aval<CameraView>)
-        (allowFootprint : bool) 
-        (allowDepthview : bool) 
-        (runtime        : IRuntime) 
-        (m              : AdaptiveModel)  =
+    /// One view's scene for one render client (#841): the surfaces offscreen
+    /// (OffscreenSurfaces), copied in, and the fills drawn against their depth texture
+    /// (PackedRendering.DeferredFills).
+    ///
+    /// The offscreen targets are made from `values` - the size and trafos of the image the
+    /// render server is making: a live frame, or a screenshot
+    /// (/rendering/screenshot?w=&h=&samples=). The server compiles one scene per sample count
+    /// and updates `values` before every frame it renders with it, so each gets its own
+    /// targets, always of the size and projection of the image at hand. Their sample count is
+    /// `samples`, the viewer's - the one the OPC patches are prepared for (OffscreenSurfaces.render);
+    /// the copy converts to the target's (`values.signature.Samples`).
+    ///
+    /// Everything else - `grouped` (createGroupedSgs), `overlayed`, `depthTested` and the
+    /// fill geometry - is built once by the caller and shared, so the surfaces' and
+    /// annotations' GPU data are not duplicated per compiled scene. `grouped` is drawn twice:
+    /// offscreen, and pick-only in the view, so clicks on a surface still reach its handlers.
+    let offscreenScene
+        (samples     : int)
+        (grouped     : alist<ISg<ViewerAction>>)
+        (overlayed   : ISg<ViewerAction>)
+        (depthTested : ISg<ViewerAction>)
+        (fills       : PackedRendering.FillGeometry)
+        /// drawn against this client's surface depth too: the geological maps (#843)
+        (onSurfaces  : OffscreenSurfaces.SurfaceDepth -> ISg<ViewerAction>)
+        (values      : RenderClientValues) : ISg<ViewerAction> =
 
-        let grouped = createGroupedSgs runtime sgGrouped view allowFootprint allowDepthview m
+        let runtime = values.runtime
+        // never an empty target
+        let size = values.size |> AVal.map (fun (s : V2i) -> V2i(max 1 s.X, max 1 s.Y))
+
+        let surfaces =
+            grouped
+            |> AList.map (fun sg -> sg :> Aardvark.SceneGraph.ISg)
+            |> OffscreenSurfaces.inPriorityGroups values.viewTrafo values.projTrafo
+
+        let color, depth = OffscreenSurfaces.render runtime samples size surfaces
+        let surfaceDepth : OffscreenSurfaces.SurfaceDepth =
+            { depth = depth; size = size; viewTrafo = values.viewTrafo; projTrafo = values.projTrafo }
+
+        // in the same command as the annotations: the fill composite runs in the fill pass,
+        // ahead of the main pass, which is what puts the outlines on top of it
+        let annotated =
+            Sg.ofList [
+                depthTested
+                PackedRendering.DeferredFills.renderOn runtime surfaceDepth fills
+                |> Sg.noEvents
+                |> Sg.fillMode (AVal.constant FillMode.Fill)
+                |> Sg.cullMode (AVal.constant CullMode.None)
+                onSurfaces surfaceDepth
+            ]
 
         alist {
-            for sg in grouped do
-                yield RenderCommand<_>.ClearDepth 1.0
-                yield RenderCommand<_>.ClearDepth 1.0
-                yield RenderCommand<_>.Render sg
+            yield RenderCommand<_>.Render (OffscreenSurfaces.blit values.signature.Samples color depth |> Sg.noEvents)
 
-            yield RenderCommand<_>.Render depthTested
+            for sg in grouped do
+                yield RenderCommand<_>.Render (OffscreenSurfaces.pickOnly sg)
+
+            yield RenderCommand<_>.Render annotated
             yield RenderCommand<_>.ClearDepth 1.0
 
             yield RenderCommand<_>.Render overlayed
-
         }
+        |> Aardvark.UI.RenderCommand.Ordered
+        |> Sg.execute
 
         //alist {
         //    for set in grouped do

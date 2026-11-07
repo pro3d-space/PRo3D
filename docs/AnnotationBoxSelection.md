@@ -146,9 +146,9 @@ Notes:
 
 ## Tests
 
-`src/Tests/Features/Section22_BoxSelection.fs` covers:
+`src/Tests/Features/Section24_BoxSelection.fs` covers:
 
-- **TC-22.1, the hit test:**
+- **TC-24.1, the hit test:**
   - a vertex inside the rectangle;
   - a segment crossing it with no vertex inside;
   - a polyline whose bend passes through the rectangle;
@@ -156,23 +156,23 @@ Notes:
   - geometry behind the camera, and a segment partly behind it;
   - draped segments versus the straight chord;
   - every geometry.
-- **TC-22.2, the selection modes:**
+- **TC-24.2, the selection modes:**
   - Replace;
   - Replace with nothing;
   - Add, without duplicating a viewport pick;
   - Toggle, including the green annotation;
   - a sub-group path;
   - unknown ids.
-- **TC-22.3:** box-select, Delete, then one Undo.
-- **TC-22.4, occlusion in the box**, against a flat test terrain:
+- **TC-24.3:** box-select, Delete, then one Undo.
+- **TC-24.4, occlusion in the box**, against a flat test terrain:
   - a point on, below and above the terrain;
   - a fully buried annotation;
   - a partly buried one, boxed over its visible and over its hidden end;
   - the ray cap.
-- **TC-22.5, the click point:**
+- **TC-24.5, the click point:**
   - the visible and the buried part of a half-buried line;
   - perspective-correct mapping back to the world.
-- **TC-22.6, real terrain:** the MSL OPC from `src/Tests/resources`, through
+- **TC-24.6, real terrain:** the MSL OPC from `src/Tests/resources`, through
   `HeadlessPicking`. A point on the surface is visible, 1 m into it hidden, 1 m above it
   visible. Skipped without the data.
 

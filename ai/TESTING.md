@@ -48,7 +48,7 @@ For a rendering feature, climb from cheap to expensive, each rung green before t
 4. **Benchmark** (`Tests.dll --bench-...`, reusing `SurfaceEffectBenchmark.Bench`): a tool,
    not a test.
 5. **Playwright**: the panel in the real app. A feature that can run standalone
-   (`PRo3D.MapProjection.exe --server`) gets a spec against the standalone app, plus one
+   (`PRo3D.MapProjection.Standalone.exe --server`) gets a spec against the standalone app, plus one
    check that PRo3D's page shows the same thing.
 
 ## Playwright (`tests-ui/`) — drive the real app
@@ -180,8 +180,11 @@ is the shape to copy.
 - **Don't pace picking with fixed sleeps.** The first pick on a patch loads its
   KdTree from disk (~4.5 s each), later ones hit the cache in milliseconds. PRo3D
   ignores input while it intersects, so a click sent too early is silently
-  dropped and the annotation never completes. Wait for the log to go quiet
-  (`drawing.ts:awaitIdle`).
+  dropped and the annotation never completes. Wait on `GET /activity`
+  (`src/activity.ts`, docs/Activity.md): `untilIdle(app)` before a click, and
+  after Ctrl goes down `untilArmed(app, true)` - a click sent before the keydown
+  has armed the tool is taken as navigation. `drawing.ts:awaitIdle` (log quiet
+  for 4 s) is the older, slower stand-in.
 - **Address tool-strip buttons by `title`, not by icon.** `wrapToolTip` puts the
   tooltip on the button div itself, and icons repeat (`mouse pointer` is both
   *Select annotation* and *Select surface*). This needs tooltips on: a viewer
@@ -198,7 +201,9 @@ is the shape to copy.
   projection, set `focal = 10.25` and move the camera in (`drawing.ts:drawingScene`).
   It matters beyond framing: a selected annotation's outline spheres are scaled
   without the field of view (`Utilities.drawSpheresFast`, issue #770), so at 5.53°
-  they are drawn ~10x too large.
+  they are drawn ~10x too large. The template's **near plane is 10 m** as well, against
+  PRo3D's default 0.1 m; annotation depth offset scales with `distance / near`, so draped
+  lines and ellipse outlines z-fight with the terrain. `drawingScene` resets it to 0.1.
 - **When a measurement disagrees with what the app does in front of you, instrument
   the app instead of theorising.** That ~10x outline cost hours from the outside,
   and every conclusion was wrong, including "it is the harness". Three `Log.line`
@@ -285,3 +290,28 @@ verbatim into `cameraView`; never rebuild one as "position, looking at the
 origin", which discards the orientation and reframes the shot. Scaling `Location`
 to dolly in or out is safe only for a radial view, so `pullBack` asserts that
 rather than assuming it.
+
+### Story videos: screen recordings with pointer and captions
+
+A story spec can record the full UI as a captioned MP4 (`PRO3D_VIDEO=1`, `tests-ui/src/video.ts`,
+how-to in [../docs/dev/StoryVideo.md](../docs/dev/StoryVideo.md); first one:
+`geological-map-story.spec.ts`). Rules, from making that one:
+
+- **One spec, two modes.** Write the steps once against a small `Ui` (render, panels, toolbar,
+  input page); pictures use separate pages, the video one page with the panels docked as iframes
+  (layout via `PRO3D_LAYOUT_DIR`/`current.json`). Points as fractions of the view the story was
+  laid out in, scaled by view *width* (the field of view is horizontal).
+- **Machine time is cut, viewer time is explicit.** Every wait on PRo3D (pick, KdTree load,
+  panel update, settling) goes through `until(...)`: the video keeps 0.35 s of it, and nothing of
+  a wait directly following another. Only captions (`say`, hold = reading time before the action;
+  the caption stays up during it) and results (`shot`, 1.5 s) hold the picture. Mechanics (pointer
+  glides, pauses before Ctrl+click, typing, key badges) are paced to be followed, not realistic.
+  An unwrapped wait is dead time in the video - the first take was ~3:45 mostly from that.
+- **Frames from the CDP screencast, not `recordVideo`** (fixed low bitrate, blurry at 1080p); each
+  frame carries its time, so cuts are applied while writing ffmpeg's concat list.
+- **The pointer is drawn into the page**: headless Chromium draws none, and mouse events in
+  iframes never reach the top document - every move goes through `Video.move`.
+- **Captions** sit 200 px above the bottom of the render view, clear of PRo3D's "picking"
+  indicator.
+- **Check a take with contact sheets** (`ffmpeg -vf "fps=1/8,scale=960:-1,tile=3x4"`) before
+  watching it end to end.

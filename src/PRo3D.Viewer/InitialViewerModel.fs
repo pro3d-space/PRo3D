@@ -116,6 +116,7 @@ module Viewer =
             drawing         = Drawing.DrawingModel.initialdrawing
             properties      = NoProperties
             annotationExport = AnnotationExportModel.initial
+            polygonImport   = PolygonImportModel.initial
             mapProjection   = PRo3D.MapProjection.MapProjectionApp.initial
             interaction     = Interactions.DrawAnnotation
             multiSelectBox  = None
@@ -174,11 +175,16 @@ module Viewer =
             renderingUrl        = renderingUrl       
             numberOfSamples     = numberOfSamples    
             screenshotDirectory = screenshotDirectory
+            mainViewScenes      = []
             animator            = Animation.Animator.initial animatorLens
 
             provenanceModel = ProvenanceModel.invalid
             surfaceIntersection   = None
             cursorAttributes      = None
+            imageHover            = None
+            imageView             = ImageView.initial
+            shadowMeasure         = ShadowMeasure.initial
+            imageInspectorEnabled = false
             ellipseModel = None
             backgroundPicking = ThreadPool.empty
             pickPreviewRequested = new ConsumableAsyncValue<_>()
@@ -186,6 +192,7 @@ module Viewer =
             roseEnabled     = false
             roseUsePolyline = false
             roseUseDnS      = true
+            annotationMetadata = AnnotationMetadataModel.initial
             userPreferences      = UserPreferences.load ()
         } |> applyProvenaceIfEnabled
 

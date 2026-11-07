@@ -224,9 +224,16 @@ module Gui =
                     CooTransformation.tryGetLatLonAlt b a.Location
                 ) cv m.planet
 
+            // the reference system's up, never the camera's: in a local frame the value is
+            // the coordinate along that up, and must not change when the view tilts
             let altitude =
-                AVal.map2 (fun (a : CameraView) b ->
-                    CooTransformation.tryGetAltitude a.Location a.Up b) cv m.planet
+                AVal.map3 (fun (a : CameraView) b up ->
+                    CooTransformation.tryGetHeight a.Location up b) cv m.planet m.up.value
+
+            // the HUD ignores the mouse, so no tooltip: the label itself has to say what
+            // the number is (docs/HeightReference.md)
+            let altLabel =
+                m.planet |> AVal.map (fun p -> CooTransformation.HeightReference.label p + ": ")
 
             let formatCoo (project : CooTransformation.SphericalCoo -> string) =
                 spericalc |> AVal.map (function
@@ -284,7 +291,7 @@ module Gui =
                     //    td[style style'][Incremental.text alt]
                     //]
                     tr [] [
-                        td [style style'] [text "Altitude: "]
+                        td [style style'] [Incremental.text altLabel]
                         td [style style'] [Incremental.text alt2]
                     ]
                     tr [] [
@@ -395,7 +402,8 @@ module Gui =
             | Interactions.DrawAnnotation
             | Interactions.PickAnnotation
             | Interactions.CutAnnotation
-            | Interactions.EditAnnotation           -> annotation
+            | Interactions.EditAnnotation
+            | Interactions.AssignUnit               -> annotation
             | Interactions.PickSurface
             | Interactions.SelectArea               -> selection
             | Interactions.PlaceRover
@@ -751,6 +759,13 @@ module Gui =
                                             text "Import SBMT Annotations"
                                         ]
 
+                                        // polygon CSVs in the body-fixed frame (docs/PolygonCsvImport.md):
+                                        // opens the import window, which has the options and the file dialog
+                                        div [ clazz "ui item";
+                                            onClick (fun _ -> PolygonImportMessage PolygonImportAction.ShowImportWindow) ] [
+                                            text "Import Polygons (*.csv)..."
+                                        ]
+
                                         let jsImportTraverseDialog = "top.aardvark.dialog.showOpenDialog({title:'Import Traverse files' , filters: [{ name: 'Traverses (*.json)', extensions: ['json']},], properties: ['openFile', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
 
                                         div [ clazz "ui item"; Dialogs.onChooseFiles ImportTraverse; clientEvent "onclick" jsImportTraverseDialog ] [
@@ -1004,11 +1019,28 @@ module Gui =
         /// As interactionText, but also reflects whether a control point is currently in hand.
         /// Click-to-grab has no drag affordance to feel out, so the hint line is most of what makes
         /// the gesture discoverable.
-        let interactionTextWithState (directToolMode : bool) (i : Interactions) (grabbed : bool) =
+        ///
+        /// `ellipse` is the stored shape when the annotation being edited is a three-point ellipse:
+        /// its four handles do different things, so the line names them by the colours they are
+        /// drawn in (EllipseEditColors) and gives the axis lengths they change. `grabbedIndex` is
+        /// the handle in hand, or -1.
+        let interactionTextWithState (directToolMode : bool) (i : Interactions) (grabbedIndex : int) (ellipse : Option<EllipticAnnotationResult>) =
             let click = clickGesture directToolMode
+            let grabbed = grabbedIndex >= 0
+            let colors = PackedRendering.EllipseEditColors.majorName, PackedRendering.EllipseEditColors.minorName
+            match i, ellipse with
+            | Interactions.EditAnnotation, Some r ->
+                let major = 2.0 * r.semiMajorAxis.Length
+                let minor = 2.0 * r.semiMinorAxis.Length
+                match grabbedIndex with
+                | 0 | 1 -> sprintf "%s to drop this end of the major axis (%.2f m) - the opposite end stays, the minor axis keeps its length; ESC to cancel" click major
+                | 2 | 3 -> sprintf "%s to set the minor axis (%.2f m) - it stays at right angles to the major axis; ESC to cancel" click minor
+                | _ -> sprintf "%s an axis end to move it: %s = major axis (%.2f m), %s = minor axis (%.2f m)" click (fst colors) major (snd colors) minor
+            | _ ->
             match i with
             | Interactions.EditAnnotation when grabbed -> sprintf "%s to drop the point, ESC to cancel" click
             | Interactions.EditAnnotation -> sprintf "%s a vertex of the selected annotation to move it" click
+            | Interactions.AssignUnit -> sprintf "%s or drag across units of the active map to give them the active unit, Alt+%s to pick a unit" click click
             | _ -> interactionText directToolMode i
 
         let interactionTooltip (i : Interactions) : string =
@@ -1020,6 +1052,7 @@ module Gui =
             | Interactions.PlaceRover            -> "Select a rover model in the rover menu."
             | Interactions.PickAnnotation        -> "Select an annotation in the main view. The selected annotation will be highlighted green."
             | Interactions.EditAnnotation        -> "Move the vertices of the selected annotation. Its control points appear as handles; click one to pick it up, move the cursor over the surface and click again to put it down. Clicking an annotation selects it."
+            | Interactions.AssignUnit            -> "Geological maps: click a unit of the active map to give it the active legend unit (Geological Maps panel), or drag across several. Alt+click makes the unit under the cursor the active one."
             | Interactions.PickSurface           -> "Select a surface in the main view. The selected surface will be highlighted green."
             | Interactions.SelectArea            -> "Place areas for the Comparison panel (Surface Comparison dashboard). Pick both surfaces there, then press Update Measurements to colour each area by the distance between them."
             | Interactions.PlaceScaleBar         -> ""
@@ -1036,6 +1069,7 @@ module Gui =
             | Interactions.PickAnnotation        -> "Select Annotation"
             | Interactions.CutAnnotation         -> "Cut Annotation"
             | Interactions.EditAnnotation        -> "Edit Annotation"
+            | Interactions.AssignUnit            -> "Assign Unit"
             | Interactions.PickSurface           -> "Select Surface"
             | Interactions.SelectArea            -> "Comparison Area"
             | Interactions.PlaceRover            -> "Place Rover"
@@ -1127,13 +1161,34 @@ module Gui =
             // Ctrl-click hint for the selected tool, flowing straight on after that tool's
             // settings. It is prose about the tool the strip has selected, so it belongs
             // with the tool's settings rather than on the main row.
+            // the stored shape of the annotation being edited, when it is an editable ellipse
+            let editedEllipse =
+                adaptive {
+                    let! interaction = m.interaction
+                    if interaction <> Interactions.EditAnnotation then return None else
+                    match! m.drawing.annotations.singleSelectLeaf with
+                    | None -> return None
+                    | Some id ->
+                        match! AMap.tryFind id m.drawing.annotations.flat with
+                        | Some (AdaptiveAnnotations ann) ->
+                            let! geometry   = ann.geometry
+                            let! projection = ann.projection
+                            let! elliptic   = ann.ellipticResults
+                            return if EllipseEdit.isEditable geometry projection elliptic then elliptic else None
+                        | _ -> return None
+                }
+
             let hint =
                 div [clazz "item topmenu"; style "font-style:italic"] [
                     Incremental.text (
-                        AVal.map3 interactionTextWithState
-                            m.directToolMode
-                            m.interaction
-                            (m.drawing.vertexGrab |> AVal.map Option.isSome))
+                        adaptive {
+                            let! direct      = m.directToolMode
+                            let! interaction = m.interaction
+                            let! grab        = m.drawing.vertexGrab
+                            let! ellipse     = editedEllipse
+                            let grabbedIndex = match grab with Some g -> g.pointIndex | None -> -1
+                            return interactionTextWithState direct interaction grabbedIndex ellipse
+                        })
                 ]
 
             // The row itself is untinted. To wash it in a toned down version of the active
@@ -1265,6 +1320,7 @@ module Gui =
                                  "Union selected annotations (2 or more)"
                                  (ViewerAction.DrawingMessage (DrawingAction.UnionSelectedAnnotations None))
                     tool "move"          "Edit annotation - move the control points of the selected annotation" Interactions.EditAnnotation
+                    tool "paint brush"   "Assign unit - click or drag across units of the active geological map" Interactions.AssignUnit
 
                     divider
 
@@ -1286,7 +1342,7 @@ module Gui =
                     // --- reference systems & camera ---------------------------------------
                     tool "pro3d-coordinate-cross" "Place coordinate cross" Interactions.PlaceCoordinateSystem
                     tool "pro3d-surface-ref-sys" "Place an additional reference system on a surface" Interactions.PickSurfaceRefSys
-                    tool "bullseye"   "Pick the ArcBall orbit centre. Press 'C' to set the pivot point to the body center" Interactions.PickExploreCenter
+                    tool "bullseye"   "Pick the ArcBall orbit centre. Press 'C' (no annotation selected) to set the pivot point to the body center" Interactions.PickExploreCenter
                   ]
                 ]
             )
@@ -1626,7 +1682,7 @@ module Gui =
         let viewAnnotationResults (model : AdaptiveModel) =
             let view = (fun leaf ->
                 match leaf with
-                  | AdaptiveAnnotations ann -> AnnotationProperties.viewResults ann model.scene.referenceSystem.up.value
+                  | AdaptiveAnnotations ann -> AnnotationProperties.viewResults ann model.scene.referenceSystem.up.value model.scene.referenceSystem.planet
                   | _ -> div [style "font-style:italic"] [ text "no annotation selected" ])
             
             model.drawing.annotations |> GroupsApp.viewSelected view AnnotationMessage
@@ -1736,6 +1792,9 @@ module Gui =
                 GuiEx.accordion "Curtain Settings" "Expand" false [
                     CrossSectionApp.viewCurtainSettings m.scene.crossSectionModel |> UI.map CrossSectionMessage
                 ]
+                GuiEx.accordion "Confidence & Comments" "comment outline" false [
+                    AnnotationMetadataApp.viewSettings m.annotationMetadata |> UI.map AnnotationMetadataMessage
+                ]
                 GuiEx.accordion "Dip&Strike ColorLegend" "paint brush" false [
                     Incremental.div AttributeMap.empty (AList.ofAValSingle(viewDnSColorLegendUI m))
                 ] 
@@ -1809,10 +1868,16 @@ module Gui =
                                     // raw convention, matching the Coordinate System panel
                                     yield Html.row "Latitude:"  [text (sprintf "%s deg" (sc.latitude.ToString("0.00000")))]
                                     yield Html.row "Longitude:" [text (sprintf "%s deg" (sc.longitude.ToString("0.00000")))]
-                                    yield Html.row "Altitude:"  [text (sprintf "%s m"   (sc.altitude.ToString("0.00")))]
+                                    // plain title, not UI.wrapToolTip: this table re-renders on
+                                    // every mouse move and a Semantic popup would boot each time
+                                    yield Html.row (CooTransformation.HeightReference.label planet + ":") [
+                                        span [ if UI.enabletoolTips then yield attribute "title" (CooTransformation.HeightReference.description planet) ]
+                                             [ text (sprintf "%s m" (sc.altitude.ToString("0.00"))) ] ]
                                 | None -> ()
                                 for a : SampledAttribute in hit.attributes do
-                                    yield Html.row (a.name + ":") [text (formatValues a.values)]
+                                    yield Html.row (a.name + ":") [
+                                        span [ if UI.enabletoolTips then yield attribute "title" (CooTransformation.HeightReference.layerDescription a.name) ]
+                                             [ text (formatValues a.values) ] ]
                             ]
                             if hit.attributes.IsEmpty then
                                 // either the surface ships no *.aara layers at all, or the hit
@@ -2035,11 +2100,27 @@ module Gui =
               ]      
           ] |> UI.map SequencedBookmarkMessage
     
+    /// The page-body key handler's message on the annotation pages: Delete deletes the
+    /// selected annotations (one undo step), everything else is a Ctrl shortcut.
+    let annotationShortcut (k : Aardvark.Application.Keys) (shift : bool) : ViewerAction =
+        match k with
+        | Aardvark.Application.Keys.Delete -> ViewerAction.DrawingMessage DrawingAction.DeleteSelectedAnnotations
+        | _ -> CtrlShortcut (k, shift)
+
     //TODO refactor: two codes for resize attachments
     module Pages =
         let mutable renderViewportSizeId = System.Guid.NewGuid().ToString()
         let pageRouting viewerDependencies bodyAttributes (m : AdaptiveModel) viewInstrumentView viewRenderView (runtime : IRuntime) (request : IHttpRequest) =
-            
+            // Every dock panel is its own document: each page body carries the Ctrl+Z/Y/S
+            // handler so the shortcuts work in whichever panel has focus; the annotation pages
+            // also take Delete (docs/KeyboardShortcuts.md).
+            let ctrlShortcut : Attribute<ViewerAnimationAction> =
+                Events.onCtrlShortcut (fun k shift -> CtrlShortcut (k, shift)) |> ViewerUtils.mapAttribute ViewerMessage
+            let annotationShortcuts : Attribute<ViewerAnimationAction> =
+                Events.onCtrlShortcutOrDelete annotationShortcut |> ViewerUtils.mapAttribute ViewerMessage
+            let annotationBodyAttributes = annotationShortcuts :: bodyAttributes
+            let bodyAttributes = ctrlShortcut :: bodyAttributes
+
             match request.QueryParam "page" with
             | Some "instrumentview" ->
                 let id = System.Guid.NewGuid().ToString()
@@ -2063,7 +2144,7 @@ module Gui =
                       |> AttributeMap.mapAttributes (AttributeValue.map ViewerMessage)
 
                 require (viewerDependencies) (
-                    body [ style "background: #1B1C1E; width:100%; height:100%; overflow-y:auto; overflow-x:auto;"] [
+                    body [ ctrlShortcut; style "background: #1B1C1E; width:100%; height:100%; overflow-y:auto; overflow-x:auto;"] [
                       Incremental.div instrumentViewAttributes (
                         alist {
                             yield viewInstrumentView runtime id m 
@@ -2075,8 +2156,15 @@ module Gui =
             | Some "mapprojection" ->
                 // map projection panel (#772); gates itself to small bodies
                 require (viewerDependencies) (
-                    body [ style "background: #1B1C1E; width:100%; height:100%; overflow:hidden" ] [
+                    body [ ctrlShortcut; style "background: #1B1C1E; width:100%; height:100%; overflow:hidden" ] [
                         MapProjectionHost.view m |> UI.map ViewerMessage
+                    ]
+                )
+            | Some "imageinspector" ->
+                // selected projected image in 2D, hover-linked to 3D (docs/dev/shadowEstimation.md)
+                require (viewerDependencies) (
+                    body [ ctrlShortcut; style "background: #1B1C1E; width:100%; height:100%; overflow:hidden" ] [
+                        ImageInspector.view m |> UI.map ViewerMessage
                     ]
                 )
             | Some "render" -> 
@@ -2091,8 +2179,9 @@ module Gui =
                         onEvent "onfocus" ["{ X: $(document).width(), Y: $(document).height()  }"] (List.head >> Pickler.json.UnPickleOfString >> cb)
 
                     let renderViewAttributes : list<Attribute<ViewerAnimationAction>> = 
-                        [ 
+                        [
                         style "background: #1B1C1E; height:100%; width:100%"
+                        Events.onCtrlShortcutOrDelete annotationShortcut
                         Events.onClick (fun _ -> SwitchViewerMode ViewerMode.Standard)
                         onResize (fun s -> OnResize(s, renderViewportSizeId))
                         onFocus (fun s -> OnResize(s, renderViewportSizeId))
@@ -2116,6 +2205,22 @@ module Gui =
                                 yield scalarsColorLegend m
                                 yield projectedColorLegend m
                                 yield selectionRectangle m
+                                // comment dialog floating next to the selected annotation (#887)
+                                let commentEditor = m.annotationMetadata |> AVal.map (fun s -> s.comment)
+                                let commentPosition =
+                                    adaptive {
+                                        match! commentEditor with
+                                        | None -> return None
+                                        | Some ed ->
+                                            let! view = m.navigation.camera.view
+                                            let! frustum = m.frustum
+                                            return AnnotationMetadataApp.screenPosition view frustum ed.anchor
+                                    }
+                                yield AnnotationMetadataApp.commentDialog commentEditor commentPosition (AnnotationMetadataMessage >> ViewerMessage)
+                                // the bubble confirming a rating beside each rated annotation (#887)
+                                yield AnnotationMetadataApp.ratingBalloons
+                                        (m.annotationMetadata |> AVal.map (fun s -> s.balloon))
+                                        m.navigation.camera.view m.frustum
                                 // navigation + interaction selector, overlaid on the right edge
                                 yield ToolStrip.view m |> UI.map ViewerMessage
                                 // axis gizmo, bottom-left corner: click an axis to look along it
@@ -2172,7 +2277,7 @@ module Gui =
                         [SurfaceApp.surfaceUI m.scene.scenePath Config.colorPaletteStore m.scene.referenceSystem m.scene.surfacesModel |> UI.map SurfaceActions |> UI.map ViewerMessage]
                 )
             | Some "annotations" -> 
-                require (viewerDependencies) (body bodyAttributes [Annotations.annotationUI m
+                require (viewerDependencies) (body annotationBodyAttributes [Annotations.annotationUI m
                                                                         |> UI.map ViewerMessage])
             | Some "validation" -> 
                 require (viewerDependencies) (body bodyAttributes [HeightValidatorApp.viewUI m.heighValidation 
@@ -2190,6 +2295,12 @@ module Gui =
                 require (viewerDependencies) (body bodyAttributes [ScaleBars.scaleBarsUI m |> UI.map ViewerMessage])
             | Some "traverse" -> 
                 require (viewerDependencies) (body bodyAttributes [Traverse.traverseUI m |> UI.map ViewerMessage])
+            | Some "geomaps" ->
+                require (viewerDependencies) (
+                    body bodyAttributes [
+                        GeologicalMapApp.UI.view m.drawing.annotations m.drawing.geologicalMaps
+                        |> UI.map (DrawingAction.GeologicalMapMessage >> ViewerAction.DrawingMessage >> ViewerMessage)
+                    ])
             | Some "geologicSurf" -> 
                 require (viewerDependencies) (body bodyAttributes [GeologicSurfaces.geologicSurfacesUI m |> UI.map ViewerMessage])
             | Some "sequencedBookmarks" -> 
@@ -2221,6 +2332,11 @@ module Gui =
                             Incremental.div AttributeMap.empty (AList.ofAValSingle (Annotations.viewBulkAnnotationProperties m))
                         ]
 
+                        GuiEx.accordion "Supporting Profiles" "chart line" false [
+                            PRo3D.Core.Drawing.UI.viewSupportingProfiles m.drawing
+                            |> UI.map ViewerAction.DrawingMessage
+                        ]
+
                         GuiEx.accordion "Measurements" "Content" true [
                             Incremental.div AttributeMap.empty (AList.ofAValSingle results)                                        
                         ]
@@ -2235,7 +2351,7 @@ module Gui =
                             Incremental.div AttributeMap.empty (AList.ofAValSingle(Annotations.viewColorByCategory m))]
                     ]
 
-                require (viewerDependencies) (body bodyAttributes (blurg() |> List.map (UI.map ViewerMessage)))
+                require (viewerDependencies) (body annotationBodyAttributes (blurg() |> List.map (UI.map ViewerMessage)))
             | Some "config" ->
                 require (viewerDependencies) (body bodyAttributes [Config.configUI m |> UI.map ViewerMessage])
             | Some "viewplanner" -> 
@@ -2293,7 +2409,7 @@ module Gui =
             | None ->
                 require (viewerDependencies) (
                     onBoot (sprintf "document.title = '%s'" Config.title) (
-                        body [] [
+                        body [ ctrlShortcut ] [
                             TopMenu.getTopMenu m
                             |> UI.map ViewerMessage
                             div [clazz "dockingMainDings"] [
@@ -2305,6 +2421,8 @@ module Gui =
                             // Overlay window; absent from the DOM while closed,
                             // so there is no JS modal state to keep in sync.
                             AnnotationExport.exportWindow m
+                            |> UI.map ViewerMessage
+                            PolygonImportApp.view m.polygonImport |> UI.map PolygonImportMessage
                             |> UI.map ViewerMessage
                             LayoutApp.UI.dialogs m.layout
                             |> UI.map (LayoutMessage >> ViewerMessage)

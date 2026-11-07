@@ -54,6 +54,7 @@ Interactive measurement/markup placed on surfaces.
 | `src/PRo3D.Core/Drawing/Drawing-App.fs` | Drawing update/view, measurement computation |
 | `src/PRo3D.Core/Importers/AnnotationGroupsImporter.fs` | Import annotations (PRo3D v1 XML groups, plus `importSbmt`) |
 | `src/PRo3D.Core/Importers/SbmtImporter.fs` | Import SBMT (Small Body Mapping Tool) structure files — tab-separated point/ellipse catalogs, **not** GIS shapefiles. See `docs/SbmtImport.md`. |
+| `src/PRo3D.Core/Importers/PolygonCsvImporter.fs` | Import closed polygons from a body-fixed vertex CSV (`polygon_id,x,y,z`; also reads the per-point export and `pro3d-tool unproject` output), optionally snapped onto the surfaces along the sky (`CooTransformation.getUpVector`, as Sky projection); with an `image` column the key is image + id. See `docs/PolygonCsvImport.md`. |
 
 Key types:
 - **`Geometry`** — `Point` | `Line` | `Polyline` | `Polygon` | `DnS` (dip & strike) | `TT` (true thickness) | `Ellipse` | `AxisEllipse` | `Axis4PEllipse`.
@@ -84,7 +85,7 @@ Planetary coordinate frames and the up/north directions everything else is expre
 Key types & functions:
 - **`Planet`** — `Earth` | `Mars` | `Moon` | `Phobos` | `Deimos` | `Didymos` | `Dimorphos` | `JPL` | `ENU` | `None`.
 - **`ReferenceSystem`** — `origin : V3d`, `north`/`up` (as `V3dInput` for UI editing), a north-offset angle, `planet`, visibility/size, and a selectable scale chart.
-- **`SphericalCoo`** — longitude/latitude/altitude (+ radian flag).
+- **`SphericalCoo`** — longitude/latitude/altitude (+ radian flag). `altitude` is geometric and its meaning depends on the body (spheroid height, or radius from the centre on Dimorphos). PRo3D has no gravity potential. UI text for it comes from `CooTransformation.HeightReference`, so never label it "elevation". See `docs/HeightReference.md`.
 - **`CooTransformation`** — conversions `getLatLonAlt`, `getXYZFromLatLonAlt`, `getUpVector`, `getAltitude`/`getElevation'`/`getHeight`, and lifecycle `initCooTrafo`/`deInitCooTrafo`. These wrap the native `CooTransformation` library and are **thread-locked**; they require initialization at startup (done in `Program.fs`).
 - `Planet.inferCoordinateSystem` / `suggestedSystem` heuristically infer the planet from a point's distance from origin.
 
@@ -153,6 +154,91 @@ Actions cover assigning bodies/frames to surfaces, observing (positioning at a t
 
 ---
 
+## Annotation metadata
+
+Confidence 1–4, comment, shape model and projected images used (#887). User docs:
+[docs/AnnotationMetadata.md](../docs/AnnotationMetadata.md).
+
+| File | Role |
+|---|---|
+| `src/PRo3D.Base/Annotation/Annotation-Model.fs` | `Annotation.metadata : AnnotationMetadata` (`ShapeModelRef`, `ProjectedImageRef`); four new top-level JSON keys, written only when set, no version bump |
+| `src/PRo3D.Core/OpcMetadata.fs` | `fitsHeader` from the `*.opc.json` sidecar; `shapeModelOf` (FITS header, else `_vNNN` of the file name) |
+| `src/PRo3D.Viewer/Viewer/AnnotationMetadataApp.fs` | sub-app (model in `AnnotationMetadata-Model.fs`): keys, comment dialog, `captureFinished` at annotation finish |
+
+- **Keys are context dependent.** `Viewer.metadataKeyAction` takes 1–4 and C while
+  annotations are selected and nothing is being drawn, with any tool: finishing selects the
+  new annotation, and rating it right away in draw mode is the intended workflow (the user
+  draws, rates, draws on). Otherwise 0–3 set the semantic (in the `KeyDown` update, no longer
+  in `getDrawingActionForKey`) and C re-centres the orbit. Esc cancels an open comment dialog.
+- **JSON:** all four keys are read as raw `Json` and converted in a match/try: a typed
+  `Json.tryRead` fails the annotation, and the scene, when a key holds the wrong type.
+- **Capture runs at finish**, in `Viewer.withAnnotationMetadata` on both finish paths, and
+  patches the `LeafAdded` undo entry so redo keeps the metadata.
+- **Images used** is a CPU line-of-sight test per control point, using `ImageInspector.tryContextFor`
+  and the kd-trees, not the shader's facing test (that one depends on triangle winding).
+  It differs from what is painted only behind occluders.
+- Rating bubbles (`AnnotationMetadataModel.balloon`, `ratingBalloons`): one per rated annotation,
+  a new `id` per rating rebuilds them; the fade is client-side (onBoot timer on an inner div,
+  so the outer div's camera-driven style updates do not undo it).
+- The comment text stays client-side until Enter. The dialog DOM depends only on
+  `annotationMetadata.comment`; only its style follows the camera.
+- **Credits:** `ShapeModelRef.credit` is captured with the shape model. The sidecar's
+  `product_information.credit` comes first, then `ShapeModelCredits.citations`, a table of
+  archive citations (only ones checked against PDS go in). The Surfaces panel's *Source &
+  Credits* (`SurfaceApp.viewSource`, `OpcMetadata.sourceRows`) shows the same for the
+  selected surface; `OpcMetadata.fs` is compiled early in Core for that.
+- The comment dialog is placed in percent of the view (`screenPosition` returns fractions):
+  `viewPortSizes` is keyed per render-page instance and is not a reliable pixel size.
+
+---
+
+## Geological Maps
+
+Units derived from contacts and label points (#843, the Mappy method). How it works (pipeline,
+acceleration structures, precision): [docs/dev/GeologicalMap-architecture.md](../docs/dev/GeologicalMap-architecture.md). User docs:
+[docs/GeologicalMap.md](../docs/GeologicalMap.md); design and phases:
+[docs/dev/GeologicalMap-plan.md](../docs/dev/GeologicalMap-plan.md).
+
+| File | Role |
+|---|---|
+| `src/PRo3D.Base/Geometry/ContactTopology.fs` | pure: contacts + labels -> faces (with holes), open ends, conflicts, Euler check. Noding is radial (crossings seen from the body centre), so draped contacts at different heights still cross |
+| `src/PRo3D.Base/Geometry/MapShell.fs` | pure: closed shell volume per face (stereographic chart with the pole outside the face, subdivided caps, radial walls) |
+| `src/PRo3D.Core/GeologicalMap-Model.fs` | `GeologicalMapsModel` (maps, active map, active unit), `GeologicalMap` (source group, legend, opacity), `GeoUnit`, `GeologicalMapAction` |
+| `src/PRo3D.Core/Drawing/GeologicalMapApp.fs` | update, the derived topology per map (`derived`, cached per adaptive map), rendering as one DeferredFills draw, the panel (`?page=geomaps`) |
+
+- **Nothing derived is persisted.** `GeologicalMapsModel` lives on `DrawingModel` and is saved
+  in the `.pro3d.ann` file (`Annotations.geologicalMaps`); label points carry `Annotation.geoUnit`
+  (a `GeoUnit.code`). Both are new keys read with `Json.tryRead`.
+- **Group keys are renewed on every annotation load** (`GroupsApp.repairGroupNodesGuid`).
+  Anything referring to a group by `Node.key` must be remapped there -
+  `DrawingUtilities.IO.loadAnnotationse` does it for maps and the active group
+  (`repairGroupNodesGuidMapped`).
+- The drawing app handles the two actions that touch annotations (`AssignToSelected`,
+  `SetUnitCode`), and makes the active map's group the active annotation group
+  (`SetActive`/`NewMap`). A point finished into that group with a legend unit active gets the
+  unit (`finishAndAppend`).
+- Rendering needs a surface depth (main and instrument view); Snapshots and the map projection
+  view show no maps yet.
+- The viewer hands the map renderer two records: `AssignGate` (Assign unit tool active / armed)
+  and `DrawState` (draw tool on with a line geometry, and the preview-pick cursor point).
+  Preview picking therefore also runs during `DrawAnnotation` (`Viewer-Utils.fs`).
+- Click-time snapping: `GeologicalMapApp.snap`, called from `matchPickingInteraction`
+  (`DrawAnnotation`) before `AddPointAdv`.
+- **Pipeline** (`GeologicalMapApp`): `sources` (contacts + labels of the group) ->
+  `build` (`ContactTopology.build`, memoised on the contacts: label edits return the same
+  network object) -> `derive` (`ContactTopology.label`, cheap) -> `geometry` (shell volumes +
+  per-vertex face id, memoised on the network reference) and `faceTable` (per-face colour and
+  opacity, negative alpha = hatched). Assigning a unit only changes the face table.
+- **Per map one offscreen pass** into an RGBA32F target: R = sum of w*(faceId+1), G = sum of
+  w*terrain depth, B = sum of w (coverage) over volume faces behind the terrain - every volume
+  not containing the terrain point cancels to 0, so R/B and G/B are the face id and terrain
+  depth under each pixel. The composite colours from the face table; the **Assign unit** tool
+  (`Interactions.AssignUnit`, gated by `AssignGate`) downloads the pixel under the cursor and
+  unprojects the depth for a new label point - no KdTree. The tool's pickable box exists only
+  while the tool is selected, or it would take every click from the other tools.
+
+---
+
 ## Outcrop Traces
 
 `OutcropTraceModel` / `OutcropTraceApp` (`src/PRo3D.Core/`). Marks where a modelled bedding
@@ -180,7 +266,7 @@ The attitude aggregate (`ViewerUtils.outcropTraceAttitude`) is deliberately **no
 draw gate lives in `outcropTraceUniforms`, which folds every "do not draw" case into one `None`.
 
 Rendering notes are in [RENDERING.md](RENDERING.md#shaders--effects) territory: one view-space
-plane uniform plus `d mod bedThickness` in the fragment shader, added last to the effect stacks,
+plane uniform plus `d mod bedThickness` in the fragment shader, in the unlit overlay band after lighting,
 with screen-space-derivative antialiasing that is load-bearing rather than cosmetic once a whole
 sequence is on screen.
 

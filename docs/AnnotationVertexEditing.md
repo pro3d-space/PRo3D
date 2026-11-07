@@ -15,9 +15,11 @@ removing points build on the same machinery and are not implemented yet — see
 
 1. Choose **Edit Annotation** (the green move icon) in the [tool strip](ToolStrip.md) on the right edge of the main view.
 2. Select an annotation — Ctrl+click it in the 3D view, or pick it in the annotation tree. Its
-   control points appear as white discs.
+   control points appear as white discs (a three-point ellipse: magenta major-axis and cyan
+   minor-axis ends, see [EllipseAnnotations.md](EllipseAnnotations.md#editing-an-ellipse)).
 3. **Ctrl+click a handle** to pick it up. It turns green, and a green line runs from the cursor to
-   its two neighbours showing where the annotation would go.
+   its two neighbours showing where the annotation would go. The line is drawn over the terrain,
+   since a straight line between surface points runs partly under it.
 4. Move the cursor over the surface. The point follows the 3D cursor's live surface hit.
 5. **Ctrl+click again** to put it down. The annotation's length, area and dip/strike are
    recomputed.
@@ -47,11 +49,16 @@ The hint line at the right of the Tool Settings row says which of the two states
 
 ### Which annotations can be edited
 
-Points, lines, polylines and polygons.
+Points, lines, polylines and polygons, by the points you clicked.
 
-Ellipses cannot. Their stored points are the *sampled outline* computed when the ellipse was
-finished, not the two or four points you clicked to define it — there are no control points left
-to move.
+Three-point ellipses (`AxisEllipse`) too, but by the **four ends of their axes** rather than by
+the clicks: their stored points are the sampled outline, so the handles are derived from the
+stored ellipse instead. Dragging a major end turns or stretches the major axis, dragging a minor
+end widens or narrows the ellipse, and the outline is rebuilt on its original plane. See
+[EllipseAnnotations.md](EllipseAnnotations.md#editing-an-ellipse).
+
+Four-point ellipses, imported (SBMT) ellipses and ellipses saved by releases that did not yet
+store the fitted shape are not editable.
 
 Dip-and-strike and true-thickness annotations are also excluded: their points mean "samples of a
 fitted plane" rather than "corners of a polyline", so moving one individually is not a meaningful
@@ -123,6 +130,18 @@ fragment colour, which nothing reads except the debug lens overlay in OpcViewer'
 Handles are drawn last in the pick pass and with a larger depth offset than fills or lines, so
 grabbing a control point beats picking the outline running through it. They are also fattened in
 the pick pass only, the same forgiveness the line picking already applies.
+
+In the visible view they draw in a render pass of their own after the main one
+(`PackedRendering.vertexHandlePass`). Listing them after the lines in the scene graph does not
+order anything - the main pass sorts by pipeline state - and a selected ellipse outline, a band
+wider than its line, used to cover all but a sliver of each handle.
+
+The pick pass projects with the model's one `frustum`, whose aspect ratio is that of the **last
+render view that reported a resize** (`Viewer.updateFrustumAspect`). With two render views of
+different shapes open - in the Playwright specs, the render page and the main page - the pick
+buffer of one is drawn with the other's aspect and squeezed, so only annotations near the
+horizontal centre line can be picked. This predates vertex editing (#884);
+`tests-ui/tests/ellipse-editing.spec.ts` works around it by closing the main page.
 
 ### Why a grab needs a mouse move before it can be dropped
 

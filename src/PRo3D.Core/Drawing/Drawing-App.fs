@@ -74,14 +74,9 @@ module DrawingApp =
                     | Some projectedPoint -> yield projectedPoint ]
             { startPoint = a; endPoint = b; points = IndexList.ofList points }
 
-    /// Whether an annotation's segments form a closed ring.
-    ///
-    /// `closePolyline` appends one extra segment joining the last point back to the first, so a
-    /// ring has exactly as many segments as points where an open chain has one fewer. Derived from
-    /// the counts rather than from `geometry`, because that is the invariant the segment indices
-    /// actually rest on.
+    /// Whether an annotation's segments form a closed ring (Annotation.hasClosingSegment).
     let private hasClosingSegment (pointCount : int) (segmentCount : int) =
-        segmentCount >= pointCount
+        Annotation.hasClosingSegment pointCount segmentCount
 
     /// The segments invalidated by moving control point `pointIndex`.
     ///
@@ -156,19 +151,84 @@ module DrawingApp =
             let a = { a with dnsResults = points |> DipAndStrike.calculateDipAndStrikeResults up north }
             { a with results = Some (Calculations.calculateAnnotationResults a up north planet) }
 
-    let closePolyline (a:Annotation) =
+    /// Whether the vertex-editing gestures apply to `a`: a polyline-like annotation by its
+    /// control points, or a three-point ellipse by its axis ends (`EllipseEdit`).
+    let isEditable (a : Annotation) =
+        Geometry.isVertexEditable a.geometry
+        || EllipseEdit.isEditable a.geometry a.projection a.ellipticResults
+
+    /// The positions the handles of `a` are drawn and grabbed at, in handle-index order.
+    let editHandles (a : Annotation) : V3d[] =
+        if Geometry.isVertexEditable a.geometry then IndexList.toArray a.points
+        else
+            match a.ellipticResults with
+            | Some r when EllipseEdit.isEditable a.geometry a.projection a.ellipticResults ->
+                EllipseEdit.handlesOnOutline r (IndexList.toArray a.points)
+            | _ -> [||]
+
+    /// Drops axis-end handle `index` of a three-point ellipse at `drop` and rebuilds the
+    /// ellipse on its stored construction plane, exactly as `getFinishedAnnotation` built it:
+    /// the outline is re-sampled and draped with `samplePoint` (the Sky projection), the
+    /// stored shape, dip and strike and the results are recomputed.
+    ///
+    /// The annotation is returned unchanged when the drop would collapse an axis or the new
+    /// outline cannot be draped - a half-built ellipse is worse than a refused edit.
+    let moveEllipseHandle
+        (up : V3d) (north : V3d) (planet : Planet)
+        (samplePoint : V3d -> Option<V3d>)
+        (index : int) (drop : V3d)
+        (a : Annotation) : Annotation =
+
+        match a.ellipticResults with
+        | None -> a
+        | Some r ->
+            match EllipseEdit.tryPlane r, EllipseEdit.tryMoveHandle r index drop with
+            | Some plane, Some construction ->
+                match EllipticAnnotations.constructAndSampleFromPlane plane construction samplePoint with
+                | Some c when c.surfaceProjectedEllipsePoints.Length >= 3 ->
+                    let a =
+                        { a with
+                            points          = IndexList.ofArray c.surfaceProjectedEllipsePoints
+                            ellipticResults = Some (EllipticAnnotations.Measures.ofConstructed planet up north c)
+                            // the construction points lie on the plane, so this is that plane again
+                            dnsResults      = IndexList.ofArray construction |> DipAndStrike.calculateDipAndStrikeResults up north }
+                    { a with results = Some (Calculations.calculateAnnotationResults a up north planet) }
+                | Some c ->
+                    Log.warn "[Drawing] edited ellipse outline could not be projected onto the surface (%d sampled points); edit discarded" c.surfaceProjectedEllipsePoints.Length
+                    a
+                | None -> a
+            | _ ->
+                Log.warn "[Drawing] ellipse handle %d dropped where it would collapse an axis; edit discarded" index
+                a
+
+    /// The surface sampler of the working annotation's last click, keyed by its annotation. A
+    /// polygon is finished by Enter (`Finish`), which carries no sampler, yet its closing edge
+    /// must be draped with the same projection, surface and frame as its other edges. Not model
+    /// state: a function has no equality and is never persisted. Cleared when the annotation is
+    /// finished or dropped, so it keeps nothing alive (the viewer's hit function holds the model
+    /// it was built from) beyond the drawing.
+    let mutable private workingSampler : Option<Guid * (V3d -> Option<V3d>)> = None
+
+    /// Closes a polygon. Sky/Viewpoint: one more segment, sampled onto the surface like the
+    /// others (with `samplePoint`; straight without one). It is stored first -> last, as it
+    /// always was (#821): older releases and `segmentEndpoints` read it that way.
+    let closePolyline (samplingDistance : float) (samplePoint : Option<V3d -> Option<V3d>>) (a:Annotation) =
         let firstP = a.points.[0]
         let lastP = a.points.[(a.points.Count-1)]
         match a.projection with
         | Projection.Viewpoint | Projection.Sky ->
-            let dir = lastP - firstP
-            let points = [
-                    for s in 0 .. PRo3D.Config.sampleCount do
-                        yield firstP + dir * (float s / float PRo3D.Config.sampleCount) // world space
-                ]
-            let newSegment = { startPoint = firstP; endPoint = lastP; points = IndexList.ofList points }
+            let newSegment =
+                match samplePoint with
+                | Some samplePoint -> resampleSegment samplingDistance samplePoint firstP lastP
+                | None ->
+                    let dir = lastP - firstP
+                    let points = [
+                            for s in 0 .. PRo3D.Config.sampleCount do
+                                yield firstP + dir * (float s / float PRo3D.Config.sampleCount) // world space
+                        ]
+                    { startPoint = firstP; endPoint = lastP; points = IndexList.ofList points }
             { a with segments = IndexList.add newSegment a.segments }
-        | _ -> 
+        | _ ->
             { a with points = a.points |> IndexList.add firstP }
     
     let getFinishedAnnotation up north planet (referenceSystem : Option<SpiceReferenceSystem>) (sampleSurface : Option<V3d -> Option<V3d>>)  (view:CameraView) (model : DrawingModel) =
@@ -176,7 +236,13 @@ module DrawingApp =
         | Some w ->  
             let w = 
                 match w.geometry with
-                | Geometry.Polygon -> closePolyline w
+                | Geometry.Polygon ->
+                    let sampler =
+                        match sampleSurface, workingSampler with
+                        | Some s, _ -> Some s
+                        | None, Some (key, s) when key = w.key -> Some s
+                        | None, _ -> None
+                    closePolyline model.samplingDistance sampler w
                 | Geometry.TT -> 
                     { 
                         w with 
@@ -248,20 +314,28 @@ module DrawingApp =
                 Some { w with results = Some results; view = view; }
         | None -> None
 
-    let finishAndAppend up north planet (referenceSystem : Option<SpiceReferenceSystem>) (sampleSurface : Option<V3d -> Option<V3d>>) (view:CameraView) (model : DrawingModel)  = 
-      
-        let groups = 
-            match getFinishedAnnotation up north planet referenceSystem sampleSurface view model with
-            | Some a -> 
-                //let json = a |> JsonTypes.ofAnnotation |> Aardvark.UI.Pickler.jsonToString                 
-                //bc.Add json
-                model.annotations |> GroupsApp.addLeafToActiveGroup (Leaf.Annotations a) true
-            | None -> 
-                model.annotations
-        
-        { model with  working = None; annotations = groups }
+    /// Closes the working annotation and adds it to the active group; also returns the
+    /// annotation it added, if any.
+    let finishAndAppend up north planet (referenceSystem : Option<SpiceReferenceSystem>) (sampleSurface : Option<V3d -> Option<V3d>>) (view:CameraView) (model : DrawingModel) : DrawingModel * Option<Annotation> =
+
+        let finished = getFinishedAnnotation up north planet referenceSystem sampleSurface view model
+        // the sampler (it holds the viewer model) is not kept past the annotation it drew
+        workingSampler <- None
+        match finished with
+        | Some a ->
+            // a point drawn into the active geological map's group, with a legend unit
+            // active, is that unit's label point (#843)
+            let a =
+                match a.geometry, GeologicalMapApp.activeUnitFor model.annotations.activeGroup.id model.geologicalMaps with
+                | Geometry.Point, Some u -> { a with geoUnit = Some u.code }
+                | _ -> a
+            let groups = model.annotations |> GroupsApp.addLeafToActiveGroup (Leaf.Annotations a) true
+            { model with working = None; annotations = groups }, Some a
+        | None ->
+            { model with working = None }, None
 
     //adds new point to working state, if certain conditions are met the annotation finishes itself
+    //(then also returns the finished annotation)
     let addPoint up north planet (referenceSystem : Option<SpiceReferenceSystem>) (samplePoint : V3d -> Option<V3d>) (p : V3d) view model surfaceName bc bookmarkId =
       
         let working =
@@ -310,7 +384,8 @@ module DrawingApp =
         //          | _ -> ""
         //let working' = { working with text = text }
         let model = { model with working = Some working }
-        
+        workingSampler <- Some (working.key, samplePoint)
+
         match (working.geometry, (working.points |> IndexList.count)) with
         | Geometry.Point, 1 -> 
             Log.line "Picked single point at: %A" (working.points |> IndexList.tryFirst).Value
@@ -323,10 +398,10 @@ module DrawingApp =
             finishAndAppend up north planet referenceSystem (Some samplePoint) view model
         | Geometry.Axis4PEllipse, 4 ->  
             finishAndAppend up north planet referenceSystem (Some samplePoint) view model
-        | _ -> 
-            model
+        | _ ->
+            model, None
 
-        
+
     let pickler = MBrace.FsPickler.Json.JsonSerializer(indent=true)
 
     let pushUndo (delta : AnnotationsDelta) (model : DrawingModel) =
@@ -374,6 +449,7 @@ module DrawingApp =
             getDnsPlaneSize     : 'ma -> aval<float>
             getOffset           : 'ma -> aval<float>
             getPickingTolerance : 'ma -> aval<float>
+            getFillReach        : 'ma -> aval<FillReach>
         }
    
     let cylinders width positions = 
@@ -746,24 +822,31 @@ module DrawingApp =
 
         GeoJSONExport.writeStreamGeoJSON_XYZ (isSelected model) path annotations
 
-    let finish (bigConfig  : 'a) (smallConfig : SmallConfig<'a> ) (model : DrawingModel) (view : CameraView) =
+    /// Pushes the undo step for an annotation that drawing input just finished.
+    let private recordFinished groupPath (model : DrawingModel, finished : Option<Annotation>) =
+        match finished with
+        | Some a -> model |> pushUndo (LeafAdded(Leaf.Annotations a, groupPath)), finished
+        | None   -> model, None
+
+    let finish (bigConfig  : 'a) (smallConfig : SmallConfig<'a> ) (model : DrawingModel) (view : CameraView) : DrawingModel * Option<Annotation> =
         let up     = smallConfig.up.Get(bigConfig)
         let north  = smallConfig.north.Get(bigConfig)
         let planet = smallConfig.planet.Get(bigConfig)
-        let groupPath  = model.annotations.activeGroup.path
-        let flatBefore = model.annotations.flat
-        let result = finishAndAppend up north planet None None view model
-        let newLeaf =
-            result.annotations.flat
-            |> HashMap.toList
-            |> List.tryFind (fun (id, _) -> not (HashMap.containsKey id flatBefore))
-            |> Option.map snd
-        match newLeaf with
-        | Some leaf -> result |> pushUndo (LeafAdded(leaf, groupPath))
-        | None      -> result
+        finishAndAppend up north planet None None view model
+        |> recordFinished model.annotations.activeGroup.path
 
+    /// Whether the toolbar's *Lineament profiles* / *Crater profiles* wants profiles for an
+    /// annotation drawing input just finished (#833).
+    let autoProfileParent (s : SupportingProfileSettings) (finished : Option<Annotation>) : Option<Annotation> =
+        match finished with
+        | Some a when a.profileOf.IsNone
+                      && ((a.geometry = Geometry.Polyline && s.autoLineament)
+                          || (SupportingProfiles.isEllipse a.geometry && s.autoCrater)) -> Some a
+        | _ -> None
 
-    let rec update<'a> 
+    /// `update`, also returning the annotation the action finished, if any: a pick that completes
+    /// a Line/Point/ellipse, or Finish. The toolbar's auto profiles hang off this (#833).
+    let updateFinishing<'a>
         (bigConfig       : 'a) 
         (smallConfig     : SmallConfig<'a> ) 
         (referenceSystem : Option<SpiceReferenceSystem>)
@@ -771,9 +854,9 @@ module DrawingApp =
         (view        : CameraView) 
         (shiftFlag   : bool)
         (model       : DrawingModel) 
-        (act         : DrawingAction) =
+        (act         : DrawingAction) : DrawingModel * Option<Annotation> =
 
-        let newModel =
+        let other () =
             // Whether the drawing/picking tool is "armed" is decided at the event source now
             // (ViewerApp.toolArmed + the active interaction gate the scene-event handlers and
             // allowAnnotationPicking), so the update no longer matches on draw/pick flags.
@@ -787,27 +870,7 @@ module DrawingApp =
                 { model with hoverPosition = None }
             | DrawingAction.Move p ->
                 { model with hoverPosition = Some (Trafo3d.Translation p) }
-            | AddPointAdv (point, projectSurface, referenceFrame, name, bookmarkId) ->
-                let up    = smallConfig.up.Get(bigConfig)
-                let north = smallConfig.north.Get(bigConfig)
-                let planet = smallConfig.planet.Get(bigConfig)
-                let groupPath  = model.annotations.activeGroup.path
-                let flatBefore = model.annotations.flat
-
-                let model' = addPoint up north planet referenceFrame projectSurface point view model name webSocket bookmarkId
-
-                // For geometries that auto-finish after N points (Line, Point, Ellipse, …),
-                // addPoint calls finishAndAppend internally. Detect that by checking whether
-                // a new leaf appeared in the flat map and push the undo delta here.
-                let newLeaf =
-                    model'.annotations.flat
-                    |> HashMap.toList
-                    |> List.tryFind (fun (id, _) -> not (HashMap.containsKey id flatBefore))
-                    |> Option.map snd
-                match newLeaf with
-                | Some leaf -> model' |> pushUndo (LeafAdded(leaf, groupPath))
-                | None      -> model'
-            | RemoveLastPoint -> 
+            | RemoveLastPoint ->
               //let annotation = { w with points = w.points |> IndexList.append p }
               // { annotation with segments = IndexList.append newSegment annotation.segments }
           
@@ -817,9 +880,7 @@ module DrawingApp =
                                                     segments = w.segments |> IndexList.removeAt (w.segments.Count - 1)}}
                 | Some _ -> { model with working = None }
                 | None -> model
-            | Finish -> 
-                finish bigConfig smallConfig model view
-            | Exit -> 
+            | Exit ->
                 { model with hoverPosition = None }
             | SetSemantic mode ->
                 let model =
@@ -864,6 +925,7 @@ module DrawingApp =
             | Send ->                                                      
                 model
             | ClearWorking ->
+                workingSampler <- None
                 { model with working = None }
             | DrawingAction.Clear ->
                 let before = model.annotations
@@ -881,8 +943,9 @@ module DrawingApp =
                 let ids = ids |> HashSet.filter (fun id -> HashMap.containsKey id before.flat)
                 if ids.IsEmpty then model
                 else
-                    // by id, not by path: viewport picks carry the root path whatever the leaf's group
-                    let after = ids |> HashSet.fold (fun g id -> GroupsApp.removeLeafById id g) before
+                    // by id, not by path: viewport picks carry the root path whatever the leaf's group;
+                    // one walk of the tree for the whole batch (a box selection can be thousands)
+                    let after = GroupsApp.removeLeavesById ids before
                     let grab  = model.vertexGrab |> Option.filter (fun g -> not (HashSet.contains g.annotation ids))
                     // one snapshot for the whole batch, so a single undo restores all of them
                     { model with annotations = after; vertexGrab = grab }
@@ -1024,6 +1087,111 @@ module DrawingApp =
                     Log.warn "[Drawing] cutting needs a selected annotation and a stroke of at least two points"
                     model
 
+            | SetProfileSpacing a ->
+                let s = model.supportingProfiles
+                { model with supportingProfiles = { s with spacing = Numeric.update s.spacing a } }
+            | SetLineamentMode mode ->
+                { model with supportingProfiles = { model.supportingProfiles with lineamentMode = mode } }
+            | SetProfileCount a ->
+                let s = model.supportingProfiles
+                // a count is whole; the input's step is 1 but typing 2.5 must not reach the generator
+                let count = Numeric.update s.count a
+                { model with supportingProfiles = { s with count = { count with value = round count.value } } }
+            | SetProfileAtStart on ->
+                { model with supportingProfiles = { model.supportingProfiles with atStart = on } }
+            | SetProfileAtEnd on ->
+                { model with supportingProfiles = { model.supportingProfiles with atEnd = on } }
+            | SetProfileLength a ->
+                let s = model.supportingProfiles
+                { model with supportingProfiles = { s with length = Numeric.update s.length a } }
+            | SetProfileEllipseMode mode ->
+                { model with supportingProfiles = { model.supportingProfiles with ellipseMode = mode } }
+            | SetAutoLineamentProfiles on ->
+                { model with supportingProfiles = { model.supportingProfiles with autoLineament = on } }
+            | SetAutoCraterProfiles on ->
+                { model with supportingProfiles = { model.supportingProfiles with autoCrater = on } }
+
+            | GenerateSupportingProfiles projectToSurface ->
+                let project = projectToSurface |> Option.defaultValue (fun _ -> None)
+                let up     = smallConfig.up.Get(bigConfig)
+                let north  = smallConfig.north.Get(bigConfig)
+                let planet = smallConfig.planet.Get(bigConfig)
+                let settings = model.supportingProfiles
+                let report (message : string) =
+                    { model with supportingProfiles = { settings with message = Some message } }
+
+                let parent =
+                    model.annotations.singleSelectLeaf
+                    |> Option.bind (fun id -> model.annotations.flat |> HashMap.tryFind id)
+                    |> Option.bind (function Leaf.Annotations a -> Some a | _ -> None)
+
+                let specs =
+                    match parent with
+                    | Some a when SupportingProfiles.isPolyline a.geometry ->
+                        let placement =
+                            match settings.lineamentMode with
+                            | LineamentProfileMode.ByCount -> SupportingProfiles.Count (int settings.count.value)
+                            | _                            -> SupportingProfiles.Spacing settings.spacing.value
+                        SupportingProfiles.forPolyline planet up north project
+                            placement settings.atStart settings.atEnd settings.length.value a
+                    | Some a when SupportingProfiles.isEllipse a.geometry ->
+                        SupportingProfiles.forEllipse planet up north settings.ellipseMode a
+                    | Some _ -> Result.Error "profiles are generated from a polyline, a line or an ellipse"
+                    | None   -> Result.Error "select a polyline or an ellipse first"
+
+                match parent, specs with
+                | Some parent, Result.Ok specs ->
+                    let groupColor =
+                        GroupsApp.getNode model.annotations.activeGroup.path model.annotations.rootGroup
+                        |> fun node -> node.defaultColor
+                    // an ordinary Sky line, as if drawn by hand between the two ends
+                    let makeProfile (spec : SupportingProfiles.ProfileSpec) =
+                        let a =
+                            { (Annotation.make Projection.Sky None Geometry.Line parent.referenceSystem
+                                               groupColor model.thickness parent.surfaceName) with
+                                points     = IndexList.ofList [ spec.start; spec.stop ]
+                                segments   = IndexList.single (resampleSegment model.samplingDistance project spec.start spec.stop)
+                                modelTrafo = Trafo3d.Translation spec.start
+                                text       = SupportingProfiles.name parent spec.link.index
+                                // dozens of labels along a lineament or across a crater are
+                                // clutter; the name is still there to switch on per profile
+                                showText   = false
+                                view       = view
+                                profileOf  = Some spec.link }
+                        let a = { a with dnsResults = a.points |> DipAndStrike.calculateDipAndStrikeResults up north }
+                        { a with results = Some (Calculations.calculateAnnotationResults a up north planet) }
+
+                    // Generating again replaces the parent's earlier profiles: two sets with the
+                    // same names, indices and directions would be indistinguishable in the
+                    // export. Removed and added in the same undo step.
+                    let earlier = SupportingProfiles.profilesOf parent.key model.annotations
+                    let before = model.annotations
+                    let after =
+                        specs |> List.fold (fun g spec ->
+                            GroupsApp.addLeafToActiveGroup (Leaf.Annotations (makeProfile spec)) false g)
+                            (GroupsApp.removeLeavesById earlier before)
+                    // adding a leaf unselected clears the single selection; the parent stays
+                    // selected, so the panel keeps showing it and can generate again
+                    let after = { after with singleSelectLeaf = Some parent.key }
+                    // names the parent, so a message left standing after the selection moved on
+                    // is not read as being about the newly selected annotation
+                    let message =
+                        sprintf "%d profiles generated from %s%s" specs.Length
+                            (if String.IsNullOrWhiteSpace parent.text then
+                                sprintf "%A %s" parent.geometry (parent.key.ToString().Substring(0, 8))
+                             else parent.text)
+                            (if earlier.IsEmpty then "" else sprintf ", replacing the %d from before" earlier.Count)
+                    Log.line "[Drawing] %s" message
+                    { model with
+                        annotations = after
+                        supportingProfiles = { settings with message = Some message } }
+                    |> pushUndo (SnapshotDelta(before, after))
+                | _, Result.Error why ->
+                    Log.warn "[Drawing] no profiles generated: %s" why
+                    report (sprintf "No profiles generated: %s." why)
+                | None, Result.Ok _ ->
+                    report "No profiles generated: select a polyline or an ellipse first."
+
             | UnionSelectedAnnotations projectToSurface ->
                 let projectToSurface = projectToSurface |> Option.defaultValue (fun _ -> None)
 
@@ -1103,6 +1271,114 @@ module DrawingApp =
                     model.annotations.flat |> Leaf.toAnnotations |> HashMap.toList |> List.map snd
                 { model with
                     colorByCategory = ColorByCategory.update annotations model.colorByCategory msg }
+            // experimental and closed: a stale panel changes nothing (the one gate)
+            | GeologicalMapMessage msg
+                when not model.geologicalMaps.enabled && (match msg with GeologicalMapAction.SetEnabled _ -> false | _ -> true) ->
+                model
+            | GeologicalMapMessage msg ->
+                let maps = GeologicalMapApp.update model.geologicalMaps msg
+                match msg with
+                | GeologicalMapAction.AssignToSelected ->
+                    // the active unit of the active map, onto the selected points of that map's group
+                    match GeologicalMapApp.activeMapUnit model.geologicalMaps with
+                    | Some (map, u) ->
+                        let before = model.annotations
+                        let inMap = GeologicalMapApp.leafIdsOf before.rootGroup map.sourceGroup |> HashSet.ofArray
+                        let selected =
+                            let ids = model.annotations.selectedLeaves |> HashSet.map (fun s -> s.id)
+                            let ids =
+                                match model.annotations.singleSelectLeaf with
+                                | Some id -> HashSet.add id ids
+                                | None -> ids
+                            ids |> HashSet.filter (fun id -> HashSet.contains id inMap)
+                        // label points only: a unit on a contact would mean nothing
+                        let flat =
+                            selected |> HashSet.fold (fun flat id ->
+                                match HashMap.tryFind id flat with
+                                | Some (Leaf.Annotations a) when a.geometry = Geometry.Point ->
+                                    HashMap.add id (Leaf.Annotations (GeologicalMapApp.withUnit u.code a)) flat
+                                | _ -> flat) before.flat
+                        if flat = before.flat then
+                            Log.warn "[GeologicalMap] assign: no point annotation of the active map's group selected"
+                            { model with geologicalMaps = maps }
+                        else
+                            let after = { before with flat = flat }
+                            { model with annotations = after; geologicalMaps = maps }
+                            |> pushUndo (SnapshotDelta(before, after))
+                    | None ->
+                        Log.warn "[GeologicalMap] assign: no active unit in the active map"
+                        { model with geologicalMaps = maps }
+                | GeologicalMapAction.SetUnitCode (mapKey, unitId, code) ->
+                    let code = code.Trim()
+                    match GeologicalMapApp.tryFindUnit model.geologicalMaps unitId with
+                    | Some (map, u) when map.key = mapKey && code <> "" && code <> u.code
+                                         && not (GeologicalMapApp.codeInUse map code) ->
+                        // the map's label points follow the rename, so their units stay put. Not an
+                        // undo step: the legend is not on the undo stack, and undoing only the label
+                        // points would leave them with a code the legend no longer has
+                        let before = model.annotations
+                        let leaves = GeologicalMapApp.leafIdsOf before.rootGroup map.sourceGroup
+                        let flat =
+                            leaves |> Array.fold (fun flat id ->
+                                match HashMap.tryFind id flat with
+                                | Some (Leaf.Annotations a) when a.geoUnit = Some u.code ->
+                                    let text = if a.text = u.code then code else a.text
+                                    HashMap.add id (Leaf.Annotations { a with geoUnit = Some code; text = text }) flat
+                                | _ -> flat) before.flat
+                        { model with annotations = { before with flat = flat }; geologicalMaps = maps }
+                    | Some (map, _) when GeologicalMapApp.codeInUse map code ->
+                        Log.warn "[GeologicalMap] code '%s' is already used by another unit of '%s'" code map.name
+                        model
+                    | _ -> { model with geologicalMaps = maps }
+                | GeologicalMapAction.AssignAt (mapKey, labels, position) ->
+                    let unit =
+                        model.geologicalMaps.activeUnit
+                        |> Option.bind (GeologicalMapApp.tryFindUnit model.geologicalMaps)
+                        |> Option.filter (fun (map, _) -> map.key = mapKey)
+                    match unit with
+                    | Some (map, u) ->
+                        let before = model.annotations
+                        let after =
+                            match labels with
+                            | [] ->
+                                // a unit without a label point gets one where it was clicked
+                                match GeologicalMapApp.tryGroupPath before.rootGroup map.sourceGroup with
+                                | Some (path, _) ->
+                                    let point = GeologicalMapApp.labelPoint u.code position
+                                    GroupsApp.addLeaves path (IndexList.single (Leaf.Annotations point)) before
+                                | None ->
+                                    Log.warn "[GeologicalMap] the map's group is gone"
+                                    before
+                            | ls ->
+                                let flat =
+                                    ls |> List.fold (fun flat id ->
+                                        match HashMap.tryFind id flat with
+                                        | Some (Leaf.Annotations a) when a.geoUnit <> Some u.code ->
+                                            HashMap.add id (Leaf.Annotations (GeologicalMapApp.withUnit u.code a)) flat
+                                        | _ -> flat) before.flat
+                                { before with flat = flat }
+                        // painting over a unit that already has it changes nothing
+                        if obj.ReferenceEquals(after.flat, before.flat) then
+                            { model with geologicalMaps = maps }
+                        else
+                            { model with annotations = after; geologicalMaps = maps }
+                            |> pushUndo (SnapshotDelta(before, after))
+                    | None ->
+                        Log.warn "[GeologicalMap] assign: no active unit in this map"
+                        { model with geologicalMaps = maps }
+                | GeologicalMapAction.SetActive _
+                | GeologicalMapAction.NewMap _ ->
+                    // the active map's group becomes the active annotation group, so what is
+                    // drawn next - contacts, label points - lands in the map
+                    let groupKey = GeologicalMapsModel.tryActive maps |> Option.map (fun m -> m.sourceGroup)
+                    let annotations =
+                        match groupKey |> Option.bind (GeologicalMapApp.tryGroupPath model.annotations.rootGroup) with
+                        | Some (path, node) ->
+                            GroupsApp.update model.annotations (GroupsAppAction.SetActiveGroup(node.key, path, node.name))
+                        | None -> model.annotations
+                    { model with geologicalMaps = maps; annotations = annotations }
+                | _ ->
+                    { model with geologicalMaps = maps }
             | FlyToAnnotation msg ->               
                 model        
 
@@ -1133,8 +1409,8 @@ module DrawingApp =
 
             | GrabVertex (id, pointIndex) ->
                 match model.annotations.flat.TryFind id with
-                | Some (Leaf.Annotations ann) when Geometry.isVertexEditable ann.geometry ->
-                    match IndexList.tryAt pointIndex ann.points with
+                | Some (Leaf.Annotations ann) when isEditable ann ->
+                    match editHandles ann |> Array.tryItem pointIndex with
                     | Some original ->
                         { model with
                             vertexGrab =
@@ -1157,26 +1433,27 @@ module DrawingApp =
 
             | MoveVertex (id, pointIndex, position, samplePoint) ->
                 match model.annotations.flat.TryFind id with
-                | Some (Leaf.Annotations ann) when Geometry.isVertexEditable ann.geometry ->
+                | Some (Leaf.Annotations ann) when isEditable ann ->
                     let up     = smallConfig.up.Get(bigConfig)
                     let north  = smallConfig.north.Get(bigConfig)
                     let planet = smallConfig.planet.Get(bigConfig)
 
-                    let before = model.annotations
-                    let after =
-                        before
-                        |> Groups.updateLeaf id (fun leaf ->
-                            match leaf with
-                            | Leaf.Annotations a ->
-                                a
-                                |> moveVertex up north planet model.samplingDistance samplePoint pointIndex position
-                                |> Leaf.Annotations
-                            | other -> other
-                        )
+                    let edited =
+                        if Geometry.isVertexEditable ann.geometry then
+                            moveVertex up north planet model.samplingDistance samplePoint pointIndex position ann
+                        else
+                            moveEllipseHandle up north planet samplePoint pointIndex position ann
 
-                    // one atomic update, and therefore one undo entry, per drop
-                    { model with annotations = after; vertexGrab = None }
-                    |> pushUndo (SnapshotDelta(before, after))
+                    // a refused ellipse edit returns the annotation itself: no change, no undo entry
+                    if LanguagePrimitives.PhysicalEquality edited ann then
+                        { model with vertexGrab = None }
+                    else
+                        let before = model.annotations
+                        let after = before |> Groups.updateLeaf id (fun _ -> Leaf.Annotations edited)
+
+                        // one atomic update, and therefore one undo entry, per drop
+                        { model with annotations = after; vertexGrab = None }
+                        |> pushUndo (SnapshotDelta(before, after))
                 | _ ->
                     { model with vertexGrab = None }
 
@@ -1186,7 +1463,17 @@ module DrawingApp =
                     let annos = DrawingUtilities.IO.loadAnnotationsFromFile p
                     Log.line "[Drawing] Merging annotations"                
                     let merged = GroupsApp.union model.annotations annos.annotations
-                    { model with annotations = merged }
+                    // the file's geological maps come along: their groups were renewed on load
+                    // and arrive with the union. Maps and legend entries get new ids: the unit
+                    // lookups go by id across all maps (the same file twice, a re-import)
+                    let maps =
+                        let imported =
+                            annos.geologicalMaps.maps |> IndexList.map (fun m ->
+                                { m with
+                                    key   = Guid.NewGuid()
+                                    units = m.units |> IndexList.map (fun u -> { u with id = Guid.NewGuid() }) })
+                        { model.geologicalMaps with maps = IndexList.append model.geologicalMaps.maps imported }
+                    { model with annotations = merged; geologicalMaps = maps }
                 | None ->
                     model
             | ExportAsAnnotations path ->
@@ -1233,29 +1520,76 @@ module DrawingApp =
 
             | _ -> model
 
+        // drawing input can finish an annotation; everything else cannot
+        let newModel, finished =
+            match act with
+            | AddPointAdv (point, projectSurface, referenceFrame, name, bookmarkId) ->
+                let up     = smallConfig.up.Get(bigConfig)
+                let north  = smallConfig.north.Get(bigConfig)
+                let planet = smallConfig.planet.Get(bigConfig)
+                // Line, Point and the ellipses finish themselves after N points
+                addPoint up north planet referenceFrame projectSurface point view model name webSocket bookmarkId
+                |> recordFinished model.annotations.activeGroup.path
+            | Finish ->
+                finish bigConfig smallConfig model view
+            | _ ->
+                other (), None
+
         // optionally also store geojson to disk
         match automaticallyReExportGeoJson act && newModel.automaticGeoJsonExport.enabled with
-        | true -> 
+        | true ->
             match newModel.automaticGeoJsonExport.lastGeoJsonPathXyz with
-            | Some path -> 
+            | Some path ->
                 Log.line "[Drawing] automatically writing geojson.xyz file to %s since the annotations have changed." path
                 // virtually finish the annotation (as if closed by interaction) - to let it be part of the exported ones.
-                let artificiallyFinishedModel = finish bigConfig smallConfig model view
+                let artificiallyFinishedModel, _ = finish bigConfig smallConfig model view
                 exportGeoJsonStream artificiallyFinishedModel path
             | _ -> ()
-            newModel
-        | false -> 
-            newModel
-                                    
+            newModel, finished
+        | false ->
+            newModel, finished
+
+    let update<'a>
+        (bigConfig       : 'a)
+        (smallConfig     : SmallConfig<'a> )
+        (referenceSystem : Option<SpiceReferenceSystem>)
+        (webSocket   : BlockingCollection<string>)
+        (view        : CameraView)
+        (shiftFlag   : bool)
+        (model       : DrawingModel)
+        (act         : DrawingAction) : DrawingModel =
+        updateFinishing bigConfig smallConfig referenceSystem webSocket view shiftFlag model act |> fst
+
     let tryToAnnotation : AdaptiveLeafCase -> Option<AdaptiveAnnotation> = 
         function
         | AdaptiveAnnotations ann -> Some ann
         | _ -> None
        
+    /// The label drawn at an annotation: its text when shown, plus its confidence as "[C3]"
+    /// when confidence labels are on (#887). Empty when there is nothing to show.
+    let private labelText (showConfidence : aval<bool>) (anno : AdaptiveAnnotation) : aval<string> =
+        adaptive {
+            let! text = anno.text
+            let! showText = anno.showText
+            let! showConfidence = showConfidence
+            let! metadata = anno.metadata
+            let text = if showText then text else ""
+            let confidence =
+                match showConfidence, metadata.confidence with
+                | true, Some c -> sprintf "C%d" c
+                | _ -> ""
+            return
+                match String.IsNullOrEmpty text, String.IsNullOrEmpty confidence with
+                | _, true    -> text
+                | true, false -> confidence
+                | false, false -> sprintf "%s [%s]" text confidence
+        }
+
     let viewTextLabels<'ma> 
         (mbigConfig       : 'ma)
         (msmallConfig     : MSmallConfig<'ma>)
         (view             : aval<CameraView>)      
+        (showConfidence   : aval<bool>)
         (model            : AdaptiveDrawingModel) =
 
         let config : Sg.innerViewConfig = 
@@ -1276,8 +1610,10 @@ module DrawingApp =
                 match anno |> tryToAnnotation with
                 | None -> AVal.constant None
                 | Some v -> 
-                    Sg.shouldTextBeRendered v 
-                    |> AVal.map (function | true -> Some (Sg.drawText view config v) | _ -> None)
+                    let text = labelText showConfidence v
+                    (text, v.visible)
+                    ||> AVal.map2 (fun t visible -> visible && not (String.IsNullOrEmpty t))
+                    |> AVal.map (function | true -> Some (Sg.drawText' view config text v) | _ -> None)
                ) 
             |> Sg.set
 
@@ -1287,6 +1623,8 @@ module DrawingApp =
         (mbigConfig       : 'ma)
         (msmallConfig     : MSmallConfig<'ma>)
         (observerSystem : aval<Option<ObserverSystem>>)
+        /// the scene body: bounds the automatic fill reach (FillReach.maxAuto)
+        (planet           : aval<Planet>)
         (view             : aval<CameraView>)
         (frustum          : aval<Frustum>)
         (runtime          : IRuntime)
@@ -1295,8 +1633,16 @@ module DrawingApp =
         /// true only in Interactions.EditAnnotation - gates the control point handles, which are
         /// both drawn and pickable only while the user is actually editing.
         (vertexEditingAllowed : aval<bool>)
+        /// the Assign unit tool of the geological maps (#843)
+        (assignGate       : GeologicalMapApp.AssignGate)
+        /// the draw tool and the cursor's surface point, for snapping feedback (#843)
+        (drawState        : GeologicalMapApp.DrawState)
         (model            : AdaptiveDrawingModel)
-        : ISg<DrawingAction> * ISg<DrawingAction> =
+        /// overlay, depth-tested, and the fills - not rendered here: how they are drawn depends on
+        /// the view (against its offscreen surface depth, PackedRendering.DeferredFills, which
+        /// exists per render client; or PackedRendering.packedFillRender, the stencil renderer) -
+        /// and the geological maps, drawn against a render client's surface depth
+        : ISg<DrawingAction> * ISg<DrawingAction> * PackedRendering.FillGeometry * (OffscreenSurfaces.SurfaceDepth -> ISg<DrawingAction>) =
         // order is irrelevant for rendering. change list to set,
         // since set provides more degrees of freedom for the compiler           
         let annoSet = 
@@ -1359,7 +1705,8 @@ module DrawingApp =
             // ids the pick target reads back agree across lines, fills and handles by construction
             let ordered = PackedRendering.orderedAnnotations (annoSet |> ASet.map ((fun (g, (s,t)) -> g,s)))
             let lines, pickIds, bb = PackedRendering.linesNoIndirect model.colorByCategory config.offset hoveredAnnotation (model.annotations.selectedLeaves |> ASet.map (fun e -> e.id)) ordered viewMatrix
-            let fillGeometry = PackedRendering.fills model.colorByCategory config.offset ordered viewMatrix
+            let fillReach = msmallConfig.getFillReach mbigConfig
+            let fillGeometry = PackedRendering.fills model.colorByCategory planet fillReach config.offset ordered viewMatrix
 
             // handles exist only for the single selected annotation, and only in edit mode
             let handleTarget =
@@ -1367,7 +1714,7 @@ module DrawingApp =
                 ||> AVal.map2 (fun editing selected -> if editing then selected else None)
             let handleGeometry = PackedRendering.vertexHandles config.offset handleTarget ordered viewMatrix
 
-            let pickRenderTarget = PackedRendering.pickRenderTarget runtime config.pickingTolerance lines fillGeometry handleGeometry view frustum viewport
+            let pickRenderTarget = PackedRendering.pickRenderTarget runtime config.pickingTolerance lines fillGeometry.caps handleGeometry view frustum viewport
             pickRenderTarget.Acquire()
             let packedLines = 
                 let simple (kind : SceneEventKind) (f : SceneHit -> seq<'msg>) =
@@ -1445,27 +1792,41 @@ module DrawingApp =
                 PackedRendering.points model.colorByCategory (model.annotations.selectedLeaves |> ASet.map (fun l -> l.id)) (annoSet |> ASet.map ((fun (g, (s,t)) -> g,s))) config.offset viewMatrix
                 |> Sg.noEvents
 
-            // listed before the lines so outlines draw on top of their own fill. The fill writes
-            // no depth, so this ordering is all that separates them.
+            // fillGeometry is returned, not drawn: both fill renderers run in their own passes
+            // ahead of the main pass, so outlines draw on top of them wherever the caller adds them.
             //
             // NOTE: the spice trafo (t) is dropped here exactly as linesNoIndirect drops it, so
             // fill and outline stay aligned. The legacy branch below applies it to both for the
             // same reason. See pro3d-space/PRo3D#672.
-            let packedFills =
-                PackedRendering.packedFillRender fillGeometry
-                |> Sg.noEvents
 
-            // after the lines, so a handle is never hidden by the outline running through it -
-            // matching the pick pass, where handles are drawn last for the same reason
+            // in a pass after the main one (PackedRendering.vertexHandlePass), so a handle is never
+            // hidden by the outline running through it - matching the pick pass, where handles are
+            // drawn last for the same reason
             let packedVertexHandles =
                 PackedRendering.packedVertexHandleRender hoveredVertex grabbedVertex viewport handleGeometry
                 |> Sg.noEvents
+
+            // geological map units (#843): like the fills, drawn by the view against its surface
+            // depth - per render client, so a screenshot gets them at its own size
+            let geologicalMaps (surfaceDepth : OffscreenSurfaces.SurfaceDepth) =
+                GeologicalMapApp.render runtime surfaceDepth planet fillReach assignGate
+                    { drawState with drawingLine = (drawState.drawingLine, model.geometry) ||> AVal.map2 (fun on g -> on && GeologicalMapApp.isLineTool g) }
+                    // the view's own field of view, in degrees (what invariantScale expects)
+                    { camera = view; near = config.nearPlane; hfov = frustum |> AVal.map Frustum.horizontalFieldOfViewInDegrees; viewport = viewport }
+                    // the line being drawn, for the split preview
+                    (model.working |> AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption |> AVal.bind (function
+                        | Some (a : AdaptiveAnnotation) ->
+                            (a.geometry, a.points.Content) ||> AVal.map2 (fun g ps ->
+                                if GeologicalMapApp.isLineTool g then IndexList.toArray ps else [||])
+                        | None -> AVal.constant [||]))
+                    model.annotations model.geologicalMaps viewMatrix
+                |> Sg.map DrawingAction.GeologicalMapMessage
 
             let overlay =
                 Sg.ofList [
                     // brush model.hoverPosition;
                     annotations
-                    Sg.ofSeq [packedFills; packedLines; packedPoints; packedVertexHandles]
+                    Sg.ofSeq [packedLines; packedPoints; packedVertexHandles]
                     Sg.drawWorkingAnnotation config.offset (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption model.working) // TODO v5: why need fully qualified
                     Sg.drawWorkingAnnotation config.offset (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption model.cutStroke)
                 ]
@@ -1478,7 +1839,7 @@ module DrawingApp =
                 PackedRendering.fastDns config model.dnsColorLegend (annoSet |> ASet.map ((fun (g, (s,t)) -> g,s))) view
                 |> Sg.noEvents
 
-            (overlay, depthTest)
+            (overlay, depthTest, fillGeometry, geologicalMaps)
 
         else
             Log.startTimed "[Drawing] creating finished annotation geometry"
@@ -1493,29 +1854,26 @@ module DrawingApp =
                         |> AVal.map(function | Geometry.Point | Geometry.DnS -> true | _ -> false)
 
                     // This branch applies the spice trafo per annotation, unlike the packed one
-                    // above which drops it - so the fill has to be built here, under the same
-                    // trafo as its outline, or the two separate. See pro3d-space/PRo3D#672.
+                    // above which drops it. See pro3d-space/PRo3D#672.
                     // Used by PRo3D.Snapshots, which turns packed rendering off.
-                    let sg =
-                        Sg.ofList [
-                            // fill first, so the outline draws over it
-                            // no pick target in this branch, so the ids are unused - but the
-                            // ordering is how fills takes its input
-                            PackedRendering.fills model.colorByCategory config.offset (PackedRendering.orderedAnnotations (ASet.single (g, a))) viewMatrix
-                            |> PackedRendering.packedFillRender
-                            |> Sg.noEvents
-                            Sg.finishedAnnotationOld a c config view viewport showPoints picked pickingAllowed
-                        ]
-                        |> Sg.trafo t
-
-                    sg
+                    Sg.finishedAnnotationOld a c config view viewport showPoints picked pickingAllowed
+                    |> Sg.trafo t
                  )
                 |> Sg.set
             Log.stop()
-                                  
-            let overlay = 
+
+            // All fills in one draw even here: the stencil colour pass resets what it colours,
+            // so a draw per annotation would paint every other fill's pixels in its own colour.
+            // Each fill still goes under its annotation's spice trafo - applied on the CPU - so
+            // fill and outline stay aligned as before.
+            let fills =
+                PackedRendering.fillsWithTrafos
+                    model.colorByCategory planet (msmallConfig.getFillReach mbigConfig) config.offset
+                    (annoSet |> ASet.map snd) viewMatrix
+
+            let overlay =
                 Sg.ofList [
-                    // brush model.hoverPosition; 
+                    // brush model.hoverPosition;
                     annotations
                     Sg.drawWorkingAnnotation config.offset (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption model.working) // TODO v5: why need fully qualified
                     Sg.drawWorkingAnnotation config.offset (AVal.map Adaptify.FSharp.Core.Missing.AdaptiveOption.toOption model.cutStroke)
@@ -1525,5 +1883,7 @@ module DrawingApp =
                 annoSet 
                 |> ASet.map(fun (_,(a,t)) -> Sg.finishedAnnotationDiscs a config model.dnsColorLegend view |> Sg.trafo t) |> Sg.set
 
-            (overlay, depthTest)
+            // no maps here: this branch is PRo3D.Snapshots', which has no surface depth
+            (overlay, depthTest, fills, (fun (_ : OffscreenSurfaces.SurfaceDepth) -> Sg.empty))
+
             

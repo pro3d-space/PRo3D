@@ -74,7 +74,9 @@ module Picking =
 
                 //hitF >> Option.map toLocal
                 Some (hitInfo, hitPosOnRay)
-            | _ ->
+            | None, c ->
+                // a miss may have loaded patches too (#874)
+                cache <- c
                 None
 
         if endLog then Log.stop()

@@ -8,6 +8,7 @@ open System
 open System.IO
 
 open Expecto
+open Chiron
 
 open Aardvark.Base
 open Aardvark.Rendering
@@ -55,45 +56,53 @@ let private withSurfaces (f : Surface -> Surface) (m : Model) =
 let private triangleFilter (maxSize : float) =
     withSurfaces (fun s -> { s with filterByTriangleSize = true; triangleSize = { s.triangleSize with value = maxSize } })
 
+let private textureEnabled (enabled : bool) =
+    withSurfaces (fun s -> { s with textureEnabled = enabled })
+
+/// Imports the test-data OPC, frames it from above and hands `run` the model and a function
+/// that renders a changed model. Skips without test data or GL.
+let private withOpcRenderer (run : Model -> (Model -> PixImage<byte>) -> unit) =
+    let opcDir =
+        match SurfaceEffectHarness.testDataDir () with
+        | Some dir when Directory.Exists (Path.Combine(dir, Render.surfaceName)) -> Path.Combine(dir, Render.surfaceName)
+        | _ -> Render.opcSurfaceDir
+    match Directory.Exists opcDir, Render.context.Value with
+    | false, _ -> skiptest (sprintf "no OPC test data: set PRO3D_TEST_DATA or init the submodule (%s)" opcDir)
+    | true, None -> skiptest "no OpenGL runtime in this environment"
+    | true, Some (runtime, signature) ->
+
+    Startup.init ()
+    // load patches synchronously, like PRo3D.Snapshots: no LoD race with the settle time
+    PRo3D.Core.Surface.Sg.useAsyncLoading <- false
+    do Aardvark.Base.Aardvark.UnpackNativeDependencies(typeof<PRo3D.Extensions.FSharp.CooTransformation.RelState>.Assembly)
+    CooTransformation.initCooTrafo None (Path.combine [ Environment.GetFolderPath Environment.SpecialFolder.ApplicationData; "Pro3D" ])
+
+    let freshModel, update = Render.makeViewer ()
+    let imported = update (freshModel ()) (ViewerAction.ImportSurface [ opcDir ])
+    // Looking down at the OPC along the body's radial up. FlyToSurface looks from the
+    // bounding box's max corner, which for this OPC lies under the terrain: black.
+    let framed =
+        match imported.scene.surfacesModel.sgSurfaces |> HashMap.toSeq |> Seq.tryHead with
+        | Some (_, surface) ->
+            let bb = surface.globalBB
+            let c, up = bb.Center, bb.Center.Normalized
+            let north = up.Cross(V3d.OOI).Cross(up).Normalized
+            let view = CameraView.lookAt (c + up * 1.5 * bb.Size.Length) c north
+            { imported with navigation = { imported.navigation with camera = { imported.navigation.camera with view = view } } }
+        | None -> failtest "the OPC import produced no surface"
+
+    let am = AdaptiveModel.Create framed
+    use renderer = new SurfaceEffectHarness.Renderer(runtime, signature, SurfaceEffectHarness.surfacesSg runtime am, V2i(800, 600))
+    let show (m : Model) =
+        transact (fun () -> am.Update m)
+        renderer.Render settle
+    run framed show
+
 let tests () =
     testList "surface effect switching (#719)" [
 
         test "a variant switch at runtime reaches the OPC patches and draws the same pixels" {
-            let opcDir =
-                match SurfaceEffectHarness.testDataDir () with
-                | Some dir when Directory.Exists (Path.Combine(dir, Render.surfaceName)) -> Path.Combine(dir, Render.surfaceName)
-                | _ -> Render.opcSurfaceDir
-            match Directory.Exists opcDir, Render.context.Value with
-            | false, _ -> skiptest (sprintf "no OPC test data: set PRO3D_TEST_DATA or init the submodule (%s)" opcDir)
-            | true, None -> skiptest "no OpenGL runtime in this environment"
-            | true, Some (runtime, signature) ->
-
-            Startup.init ()
-            // load patches synchronously, like PRo3D.Snapshots: no LoD race with the settle time
-            PRo3D.Core.Surface.Sg.useAsyncLoading <- false
-            do Aardvark.Base.Aardvark.UnpackNativeDependencies(typeof<PRo3D.Extensions.FSharp.CooTransformation.RelState>.Assembly)
-            CooTransformation.initCooTrafo None (Path.combine [ Environment.GetFolderPath Environment.SpecialFolder.ApplicationData; "Pro3D" ])
-
-            let freshModel, update = Render.makeViewer ()
-            let imported = update (freshModel ()) (ViewerAction.ImportSurface [ opcDir ])
-            // Looking down at the OPC along the body's radial up. FlyToSurface looks from the
-            // bounding box's max corner, which for this OPC lies under the terrain: black.
-            let framed =
-                match imported.scene.surfacesModel.sgSurfaces |> HashMap.toSeq |> Seq.tryHead with
-                | Some (_, surface) ->
-                    let bb = surface.globalBB
-                    let c, up = bb.Center, bb.Center.Normalized
-                    let north = up.Cross(V3d.OOI).Cross(up).Normalized
-                    let view = CameraView.lookAt (c + up * 1.5 * bb.Size.Length) c north
-                    { imported with navigation = { imported.navigation with camera = { imported.navigation.camera with view = view } } }
-                | None -> failtest "the OPC import produced no surface"
-
-            let am = AdaptiveModel.Create framed
-            use renderer = new SurfaceEffectHarness.Renderer(runtime, signature, SurfaceEffectHarness.surfacesSg runtime am, V2i(800, 600))
-            let show (m : Model) =
-                transact (fun () -> am.Update m)
-                renderer.Render settle
-
+            withOpcRenderer (fun framed show ->
             // 1. default state: the lean variant (no geometry stage)
             let lean = show framed
             Expect.isGreaterThan (SurfaceEffectHarness.litFraction lean) 0.02 "the OPC is visible"
@@ -110,6 +119,35 @@ let tests () =
             // 4. and back
             let back = show framed
             Expect.isLessThan (meanDifference lean back) 2.0 "switching back restores the lean rendering"
+            )
+        }
+
+        // docs/UntexturedSurfaces.md: unticking Texture replaces the texture by a grey that
+        // the camera light shades (no sun lighting here), ticking it brings the texture back
+        test "unticking Texture draws the OPC untextured, ticking restores it" {
+            withOpcRenderer (fun framed show ->
+            let textured = show framed
+            Expect.isGreaterThan (SurfaceEffectHarness.litFraction textured) 0.02 "the OPC is visible"
+            let untextured = show (textureEnabled false framed)
+            Expect.isGreaterThan (SurfaceEffectHarness.litFraction untextured) 0.02 "the untextured OPC is still drawn"
+            Expect.isGreaterThan (changedFraction textured untextured) 0.2 "the texture is gone"
+            let back = show framed
+            Expect.isLessThan (meanDifference textured back) 2.0 "ticking Texture restores the textured rendering"
+            )
+        }
+
+        test "textureEnabled is saved, and a scene without it loads textured" {
+            let dir = Path.Combine(Path.GetTempPath(), "pro3d-tests", "untextured-surface")
+            Directory.CreateDirectory dir |> ignore
+            let surface = { SurfaceUtils.mk SurfaceType.SurfaceOPC MeshLoaderType.Assimp 5.0 dir with textureEnabled = false }
+            let json = surface |> Json.serialize
+            let roundTrip (j : Json) : Surface = j |> Json.formatWith JsonFormattingOptions.Compact |> Json.parse |> Json.deserialize
+            Expect.isFalse (roundTrip json).textureEnabled "unticked survives a save"
+            let legacy =
+                match json with
+                | Object fields -> Object (fields |> Map.remove "textureEnabled")
+                | other -> other
+            Expect.isTrue (roundTrip legacy).textureEnabled "a scene from before the toggle loads textured"
         }
 
         // The user's workflow: a surface starts without a projection (lean variant), then an

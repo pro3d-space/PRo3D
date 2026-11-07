@@ -45,7 +45,8 @@ module Geometry =
     ///
     /// The ellipse tools are excluded: once the ellipse is constructed, `getFinishedAnnotation`
     /// replaces their `points` with the sampled outline, so there are no control points left to
-    /// move. DnS and TT are excluded because their points carry a fitted plane's meaning rather
+    /// move. A three-point ellipse is edited by its axis ends instead, see `EllipseEdit`.
+    /// DnS and TT are excluded because their points carry a fitted plane's meaning rather
     /// than a free polyline's.
     let isVertexEditable (geometry : Geometry) =
         match geometry with
@@ -596,7 +597,99 @@ module EllipticAnnotationResult =
         geographical, shape
 
 
-module AnnotationResults =    
+/// Editing a finished three-point ellipse by its four axis ends (docs/EllipseAnnotations.md).
+///
+/// The construction plane is never re-fitted. It is the plane through the stored `center`,
+/// spanned by the stored semi-axes - the plane the ellipse was fitted in when it was drawn.
+/// A dropped handle is projected orthogonally onto it, and the ellipse is rebuilt there, so
+/// the shape only changes by what the user moved: there is no drift from edit to edit.
+///
+/// Handle order: 0 = center + semiMajorAxis, 1 = center - semiMajorAxis,
+/// 2 = center + semiMinorAxis, 3 = center - semiMinorAxis. A rebuild may swap which axis is
+/// the long one; handles are re-derived from the stored result on every grab, so that is fine.
+module EllipseEdit =
+
+    let private finite (v : V3d) = not v.AnyNaN && not v.AnyInfinity
+
+    /// center, semi-major, semi-minor and the plane normal, when the stored shape can define
+    /// a plane (no NaN from an old file, neither axis degenerate)
+    let tryFrame (r : EllipticAnnotationResult) : Option<V3d * V3d * V3d * V3d> =
+        let c, a, b = r.center, r.semiMajorAxis, r.semiMinorAxis
+        if not (finite c && finite a && finite b) then None
+        else
+            let n = Vec.cross a b
+            let scale = a.Length * b.Length
+            if scale <= 0.0 || n.Length <= 1e-9 * scale then None
+            else Some (c, a, b, n.Normalized)
+
+    /// the construction plane of a stored ellipse
+    let tryPlane (r : EllipticAnnotationResult) : Option<Plane3d> =
+        tryFrame r |> Option.map (fun (c, _, _, n) -> Plane3d(n, c))
+
+    /// The four axis ends on the construction plane, in handle order.
+    let tryPlaneHandles (r : EllipticAnnotationResult) : Option<V3d[]> =
+        tryFrame r |> Option.map (fun (c, a, b, _) -> [| c + a; c - a; c + b; c - b |])
+
+    /// Whether an annotation can be edited this way: a three-point ellipse drawn with the Sky
+    /// projection, whose stored shape defines a plane. Imported ellipses (Linear, undraped) and
+    /// ellipses saved before the shape was stored are left alone.
+    let isEditable (geometry : Geometry) (projection : Projection) (r : Option<EllipticAnnotationResult>) =
+        geometry = Geometry.AxisEllipse
+        && projection = Projection.Sky
+        && (match r with Some r -> (tryFrame r).IsSome | None -> false)
+
+    /// The handles where they are drawn and grabbed: each axis end replaced by the closest
+    /// point of the draped outline, so the handle sits on the terrain the outline sits on,
+    /// not on the (possibly buried or floating) plane. Falls back to the plane point when the
+    /// outline is empty. 4 x outline length distance tests; the outline has 200 points.
+    let handlesOnOutline (r : EllipticAnnotationResult) (outline : V3d[]) : V3d[] =
+        match tryPlaneHandles r with
+        | None -> [||]
+        | Some handles ->
+            if outline.Length = 0 then handles
+            else
+                handles |> Array.map (fun h ->
+                    let mutable best = outline.[0]
+                    let mutable bestD = (h - best).LengthSquared
+                    for i in 1 .. outline.Length - 1 do
+                        let d = (h - outline.[i]).LengthSquared
+                        if d < bestD then
+                            best <- outline.[i]
+                            bestD <- d
+                    best)
+
+    /// The three construction points (major end, major end, minor end - the clicks of the
+    /// AxisEllipse tool) on the construction plane after handle `index` is dropped at `drop`.
+    ///
+    /// Dragging a major end keeps the opposite end and the minor length; dragging a minor end
+    /// keeps the major axis and sets only the minor length (the drop's distance from the major
+    /// axis). `None` for an unknown handle or a drop that collapses an axis.
+    let tryMoveHandle (r : EllipticAnnotationResult) (index : int) (drop : V3d) : Option<V3d[]> =
+        match tryFrame r with
+        | None -> None
+        | Some (c, a, b, n) ->
+            let onPlane = drop - n * Vec.dot (drop - c) n
+            match index with
+            | 0 | 1 ->
+                let fixedEnd = if index = 0 then c - a else c + a
+                let center = (fixedEnd + onPlane) * 0.5
+                let major = onPlane - center
+                if major.Length <= 1e-9 * a.Length then None
+                else
+                    let minorDir =
+                        let d = (Vec.cross n major).Normalized
+                        if Vec.dot d b < 0.0 then -d else d
+                    Some [| center - major; center + major; center + minorDir * b.Length |]
+            | 2 | 3 ->
+                let aDir = a.Normalized
+                let v = onPlane - c
+                let perpendicular = v - aDir * Vec.dot v aDir
+                if perpendicular.Length <= 1e-9 * a.Length then None
+                else Some [| c - a; c + a; c + perpendicular |]
+            | _ -> None
+
+
+module AnnotationResults =
     
     let initial = 
         {
@@ -615,6 +708,234 @@ module AnnotationResults =
 
 type SemanticId = SemanticId of string
 type SemanticType = Metric = 0 | Angular = 1 | Hierarchical = 2 | Undefined = 3
+
+/// Where a generated profile came from (supporting profiles, #833). Fixed when the profile
+/// is generated, like `majorAxisAzimuth` at ellipse construction: editing the profile
+/// afterwards does not update it. Saved under the annotation's own `"profileOf"` key, so
+/// releases that do not know it skip it.
+type ProfileLink =
+    {
+        /// key of the ellipse or polyline the profile was generated from
+        parent    : Guid
+        /// 0, 1, 2, ... in generation order
+        index     : int
+        /// "N-S", "NE-SW", "E-W", "NW-SE" (compass), "major", "major+45", "minor",
+        /// "major+135" (major axis), "" for polyline profiles
+        direction : string
+        /// deg, start -> end, clockwise from local north, 0-360
+        azimuth   : float
+        /// m along the parent polyline; None for ellipse profiles
+        station   : Option<float>
+    }
+    with
+        static let version = 0
+
+        static member private readV0 =
+            json {
+                let! parent    = Json.read "parent"
+                let! index     = Json.read "index"
+                let! direction = Json.read "direction"
+                let! azimuth   = Json.readFloat "azimuth"
+                let! (station : Option<float>) = Json.tryRead "station"
+                return {
+                    parent    = Guid.Parse (parent : string)
+                    index     = index
+                    direction = direction
+                    azimuth   = azimuth
+                    station   = station
+                }
+            }
+
+        static member FromJson(_ : ProfileLink) =
+            json {
+                let! v = Json.read "version"
+                match v with
+                | 0 -> return! ProfileLink.readV0
+                | _ -> return! v |> sprintf "don't know version %A of ProfileLink" |> Json.error
+            }
+
+        static member ToJson (x : ProfileLink) =
+            json {
+                do! Json.write      "version"   version
+                do! Json.write      "parent"    (x.parent.ToString())
+                do! Json.write      "index"     x.index
+                do! Json.write      "direction" x.direction
+                do! Json.writeFloat "azimuth"   x.azimuth
+                match x.station with
+                | Some s -> do! Json.writeFloat "station" s
+                | None   -> ()
+            }
+
+/// The shape model an annotation was drawn on (#887, docs/AnnotationMetadata.md). Captured
+/// from the surface when the annotation is finished and kept with it, so replacing the OPC
+/// later does not change what the annotation reports.
+type ShapeModelRef =
+    {
+        /// the surface's OPC product, e.g. FITS PRODNAME or the opcx file name
+        product   : string
+        /// name and version of the SPC model (FITS DATASRCV), when the OPC carries a FITS header
+        modelName : Option<string>
+        /// product version: FITS MAP_VER, or the `vNNN` of an SPC file name
+        version   : Option<string>
+        /// where `version` came from: "fits-header", "file-name" or "none"
+        source    : string
+        /// who made the model: as the product states it, else the archive's citation
+        /// (ShapeModelCredits)
+        credit    : Option<string>
+    }
+    with
+        static let version = 0
+
+        static member private readV0 =
+            json {
+                let! product   = Json.read "product"
+                let! modelName = Json.tryRead "modelName"
+                let! ver       = Json.tryRead "modelVersion"
+                let! source    = Json.tryRead "source"
+                let! credit    = Json.tryRead "credit"
+                return {
+                    product   = product
+                    modelName = modelName
+                    version   = ver
+                    source    = source |> Option.defaultValue "none"
+                    credit    = credit
+                }
+            }
+
+        static member FromJson(_ : ShapeModelRef) =
+            json {
+                let! v = Json.read "version"
+                match v with
+                | 0 -> return! ShapeModelRef.readV0
+                | _ -> return! v |> sprintf "don't know version %A of ShapeModelRef" |> Json.error
+            }
+
+        static member ToJson (x : ShapeModelRef) =
+            json {
+                do! Json.write "version" version
+                do! Json.write "product" x.product
+                match x.modelName with
+                | Some n -> do! Json.write "modelName" n
+                | None   -> ()
+                match x.version with
+                | Some v -> do! Json.write "modelVersion" v
+                | None   -> ()
+                do! Json.write "source" x.source
+                match x.credit with
+                | Some c -> do! Json.write "credit" c
+                | None   -> ()
+            }
+
+/// Who made a shape model, credited wherever the model is shown (#887,
+/// docs/AnnotationMetadata.md): the published citation of the archive the model comes from,
+/// for products the producer's sidecar does not credit itself. Only citations checked against
+/// the archive go in here.
+module ShapeModelCredits =
+
+    /// A product family (regex over the product name, e.g. dimorphos_g_0243mm_spc_dtm_0000n00000_v004,
+    /// or over the SPC model name, FITS DATASRCV) and the citation of its archive.
+    type Citation = { products : string; citation : string }
+
+    let citations : list<Citation> =
+        [
+            // PDS SBN, urn:nasa:pds:dart_shapemodel:data_derived_dimorphos_model_v004 -- the
+            // global DTM and the local models of the final pre-impact Dimorphos model (SPC
+            // model dalyErnst_dimorphos230530). Checked 2026-11-06.
+            {
+                products = @"^dimorphos_[gl]_.*_spc_.*_v004$|^dalyErnst_dimorphos230530$"
+                citation =
+                    "Daly, T., Barnouin, O., Ernst, C., Nair, H., Espiritu, R., Waller, D. (2023). "
+                    + "Derived data products for DART shapemodel: dimorphos_model_v004. "
+                    + "NASA Planetary Data System. doi:10.26007/0nss-vd15"
+            }
+        ]
+
+    /// The citation of the first family any of `names` belongs to.
+    let tryCredit (names : list<string>) : Option<string> =
+        citations
+        |> List.tryPick (fun c ->
+            let matches (n : string) =
+                not (String.IsNullOrWhiteSpace n)
+                && Text.RegularExpressions.Regex.IsMatch(n.Trim(), c.products, Text.RegularExpressions.RegexOptions.IgnoreCase)
+            if names |> List.exists matches then Some c.citation else None)
+
+/// A projected image that was painted under an annotation's points while it was traced
+/// (#887): per point, the top image of the projection stack that covers it and faces it.
+type ProjectedImageRef =
+    {
+        /// image file name, without directory
+        image      : string
+        instrument : string
+        /// observation time, UTC, ISO 8601
+        time       : string
+    }
+    with
+        static let version = 0
+
+        static member private readV0 =
+            json {
+                let! image      = Json.read "image"
+                let! instrument = Json.tryRead "instrument"
+                let! time       = Json.tryRead "time"
+                return {
+                    image      = image
+                    instrument = instrument |> Option.defaultValue ""
+                    time       = time |> Option.defaultValue ""
+                }
+            }
+
+        static member FromJson(_ : ProjectedImageRef) =
+            json {
+                let! v = Json.read "version"
+                match v with
+                | 0 -> return! ProjectedImageRef.readV0
+                | _ -> return! v |> sprintf "don't know version %A of ProjectedImageRef" |> Json.error
+            }
+
+        static member ToJson (x : ProjectedImageRef) =
+            json {
+                do! Json.write "version"    version
+                do! Json.write "image"      x.image
+                do! Json.write "instrument" x.instrument
+                do! Json.write "time"       x.time
+            }
+
+/// Provenance and quality of an annotation (#887, docs/AnnotationMetadata.md). Saved under
+/// the annotation's own keys "confidence", "comment", "shapeModel" and "projectedImagesUsed",
+/// which releases that do not know them skip.
+type AnnotationMetadata =
+    {
+        /// 1 (lowest) to 4 (highest), from the identification criteria; None = not rated
+        confidence          : Option<int>
+        comment             : string
+        shapeModel          : Option<ShapeModelRef>
+        /// in order of first appearance along the points, each image once
+        projectedImagesUsed : list<ProjectedImageRef>
+    }
+
+module AnnotationMetadata =
+    let empty =
+        {
+            confidence          = None
+            comment             = ""
+            shapeModel          = None
+            projectedImagesUsed = []
+        }
+
+    let minConfidence = 1
+    let maxConfidence = 4
+
+    /// None outside 1..4
+    let validConfidence (c : int) =
+        if c >= minConfidence && c <= maxConfidence then Some c else None
+
+    /// e.g. "dalyErnst_dimorphos230530 004 (dimorphos_g_0243mm_spc_dtm_0000n00000_v004)"
+    let describeShapeModel (sm : ShapeModelRef) =
+        let name = sm.modelName |> Option.defaultValue sm.product
+        let version = sm.version |> Option.map (fun v -> " " + v) |> Option.defaultValue ""
+        let product = if sm.modelName.IsSome then sprintf " (%s)" sm.product else ""
+        let source = if sm.source = "file-name" then ", version from file name" else ""
+        name + version + product + source
 
 [<ModelType>]
 type Annotation = {
@@ -663,6 +984,14 @@ type Annotation = {
     showFill   : bool
     fillColor  : ColorInput
     fillAlpha  : NumericInput
+
+    /// The geological unit a label point assigns to the map unit it lies in (#843,
+    /// docs/GeologicalMap.md): a GeoUnit.code. None for every other annotation.
+    geoUnit    : Option<string>
+    /// set on profiles generated from another annotation (supporting profiles, #833)
+    profileOf  : Option<ProfileLink>
+    /// confidence, comment, shape model and projected images used (#887)
+    metadata   : AnnotationMetadata
 }
 with
     static member current = 5
@@ -755,6 +1084,9 @@ with
                 showFill             = false
                 fillColor            = color
                 fillAlpha            = Annotation.initialFillAlpha
+                geoUnit              = None
+                profileOf            = None
+                metadata             = AnnotationMetadata.empty
             }
         }
 
@@ -822,6 +1154,9 @@ with
                 showFill             = false
                 fillColor            = color
                 fillAlpha            = Annotation.initialFillAlpha
+                geoUnit              = None
+                profileOf            = None
+                metadata             = AnnotationMetadata.empty
             }
         }
 
@@ -889,6 +1224,9 @@ with
                 showFill             = false
                 fillColor            = color
                 fillAlpha            = Annotation.initialFillAlpha
+                geoUnit              = None
+                profileOf            = None
+                metadata             = AnnotationMetadata.empty
             }
         }
 
@@ -959,6 +1297,9 @@ with
                 showFill             = false
                 fillColor            = color
                 fillAlpha            = Annotation.initialFillAlpha
+                geoUnit              = None
+                profileOf            = None
+                metadata             = AnnotationMetadata.empty
             }
         }
 
@@ -1030,6 +1371,9 @@ with
                 showFill             = false
                 fillColor            = color
                 fillAlpha            = Annotation.initialFillAlpha
+                geoUnit              = None
+                profileOf            = None
+                metadata             = AnnotationMetadata.empty
             }
         }
 
@@ -1085,6 +1429,66 @@ with
             let! showFill  = Json.tryRead "showFill"
             let! fillColor = Json.tryRead "fillColor"
             let! fillAlpha = Json.tryRead "fillAlpha"
+            // optional, no version bump (#843)
+            let! geoUnit   = Json.tryRead "geoUnit"
+
+            // optional, no version bump: older releases skip the key (#833). Read raw and
+            // deserialised inside a try: a link from a later version, or a damaged one, is
+            // dropped to None rather than failing the whole scene - it is derived data
+            let! (profileOfJson : Option<Chiron.Json>) = Json.tryRead "profileOf"
+            let profileOf : Option<ProfileLink> =
+                profileOfJson
+                |> Option.bind (fun j ->
+                    try Some (Json.deserialize j)
+                    with e ->
+                        Log.warn "[Annotation] profileOf could not be read, dropped: %s" e.Message
+                        None)
+
+            // optional, no version bump (#887): older releases skip these keys. The nested
+            // records are read raw and deserialised inside a try like profileOf above, so a
+            // damaged entry is dropped instead of failing the scene
+            // all four read raw: a typed tryRead fails the annotation, and with it the scene,
+            // when a key holds the wrong type
+            let! (confidenceJson : Option<Chiron.Json>) = Json.tryRead "confidence"
+            let! (commentJson : Option<Chiron.Json>) = Json.tryRead "comment"
+            let! (shapeModelJson : Option<Chiron.Json>) = Json.tryRead "shapeModel"
+            let! (imagesJson : Option<Chiron.Json>) = Json.tryRead "projectedImagesUsed"
+            let confidence =
+                match confidenceJson with
+                | Some (Chiron.Number n) when n = Math.Round n && n >= 1M && n <= 4M -> Some (int n)
+                | Some j -> Log.warn "[Annotation] confidence %A is not 1-4, dropped" j; None
+                | None -> None
+            let comment =
+                match commentJson with
+                | Some (Chiron.String s) -> Some s
+                | Some j -> Log.warn "[Annotation] comment %A is not text, dropped" j; None
+                | None -> None
+            let shapeModel : Option<ShapeModelRef> =
+                shapeModelJson
+                |> Option.bind (fun j ->
+                    try Some (Json.deserialize j)
+                    with e ->
+                        Log.warn "[Annotation] shapeModel could not be read, dropped: %s" e.Message
+                        None)
+            let projectedImagesUsed : list<ProjectedImageRef> =
+                let entries =
+                    match imagesJson with
+                    | Some (Chiron.Array entries) -> entries
+                    | Some j -> Log.warn "[Annotation] projectedImagesUsed %A is not a list, dropped" j; []
+                    | None -> []
+                entries
+                |> List.choose (fun j ->
+                    try Some (Json.deserialize j)
+                    with e ->
+                        Log.warn "[Annotation] projected image entry could not be read, dropped: %s" e.Message
+                        None)
+            let metadata =
+                {
+                    confidence          = confidence
+                    comment             = comment |> Option.defaultValue ""
+                    shapeModel          = shapeModel
+                    projectedImagesUsed = projectedImagesUsed
+                }
 
             return {
                 version          = Annotation.current
@@ -1123,6 +1527,9 @@ with
                 fillAlpha            =
                     { Annotation.initialFillAlpha with
                         value = fillAlpha |> Option.defaultValue Annotation.initialFillAlpha.value }
+                geoUnit              = geoUnit
+                profileOf            = profileOf
+                metadata             = metadata
             }
         }
 
@@ -1196,6 +1603,25 @@ with
             do! Json.write "showFill"  x.showFill
             do! Json.write "fillColor" (x.fillColor.c.ToString())
             do! Json.write "fillAlpha" x.fillAlpha.value
+            match x.geoUnit with
+            | Some u -> do! Json.write "geoUnit" u
+            | None -> ()
+
+            match x.profileOf with
+            | Some link -> do! Json.write "profileOf" link
+            | None      -> ()
+
+            // #887: written only when set, so unrated annotations keep their old shape
+            match x.metadata.confidence with
+            | Some c -> do! Json.write "confidence" c
+            | None   -> ()
+            if not (String.IsNullOrEmpty x.metadata.comment) then
+                do! Json.write "comment" x.metadata.comment
+            match x.metadata.shapeModel with
+            | Some sm -> do! Json.write "shapeModel" sm
+            | None    -> ()
+            if not x.metadata.projectedImagesUsed.IsEmpty then
+                do! Json.write "projectedImagesUsed" x.metadata.projectedImagesUsed
         }
 
 module Annotation =
@@ -1282,25 +1708,37 @@ module Annotation =
             showFill             = false
             fillColor            = color
             fillAlpha            = Annotation.initialFillAlpha
+            geoUnit              = None
+            profileOf            = None
+            metadata             = AnnotationMetadata.empty
         }
 
     let initial =
         make Projection.Viewpoint None Geometry.Polyline None { c = C4b.Magenta } Initial.thickness ""
 
-    let retrievePoints (a : Annotation) =
-        let points = 
-            if a.segments.Count = 0 then
-                a.points |> IndexList.toSeq
-            else
-                a.segments 
-                |> IndexList.toSeq 
-                |> Seq.map(fun x -> 
-                    seq {
-                        yield x.startPoint
-                        yield! (x.points |> IndexList.toSeq)
-                        yield x.endPoint
-                    }
-                ) 
-                |> Seq.concat
+    /// Whether an annotation's segments form a closed ring. `closePolyline` appends one segment
+    /// joining the last point back to the first, so a ring has as many segments as points, an
+    /// open chain one fewer. Derived from the counts rather than from `geometry`, because that
+    /// is the invariant the segment indices rest on.
+    let hasClosingSegment (pointCount : int) (segmentCount : int) =
+        segmentCount >= pointCount
 
-        points |> Seq.toList
+    /// Whether segment `i` (`startPoint` -> `endPoint`) is a ring's closing segment as
+    /// `closePolyline` stores it: first -> last (#821), so it is read backwards to walk the ring.
+    /// The endpoints are checked too: a closing segment stored last -> first is left as it is.
+    let isReversedClosingSegment (points : IndexList<V3d>) (segmentCount : int) (i : int) (startPoint : V3d) (endPoint : V3d) =
+        hasClosingSegment points.Count segmentCount && i = segmentCount - 1
+        && IndexList.tryFirst points = Some startPoint && IndexList.tryLast points = Some endPoint
+
+    /// The sampled line in drawing order: each segment's start, samples and end - a ring's
+    /// closing segment backwards, so the line runs last point -> first point.
+    let retrievePoints (a : Annotation) =
+        if a.segments.Count = 0 then
+            a.points |> IndexList.toList
+        else
+            a.segments
+            |> IndexList.toList
+            |> List.indexed
+            |> List.collect (fun (i, x) ->
+                let ps = [ yield x.startPoint; yield! x.points |> IndexList.toSeq; yield x.endPoint ]
+                if isReversedClosingSegment a.points a.segments.Count i x.startPoint x.endPoint then List.rev ps else ps)

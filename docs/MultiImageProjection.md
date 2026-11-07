@@ -89,8 +89,8 @@ The frustum is drawn at the instrument's real standoff, so pull the camera back
 to see it whole — above, the camera is 795 m out and the projector 8.4 km.
 
 The outline appears only where a footprint *edge* falls on the terrain. The
-AFC-1 frames here were taken from 6.7–8.4 km; at 5.53° that is a footprint
-650–810 m across, which covers the 154 m body entirely, so none is drawn.
+AFC-1 frames here were taken from 6.7–8.4 km; at 5.5° that is a footprint
+644–807 m across, which covers the 154 m body entirely, so none is drawn.
 
 **Selecting** a row (its checkbox) is a different thing: it opens that image's 2D
 preview and makes its min/max and colour map drive the whole stack's legend. On

@@ -89,3 +89,39 @@ function startBusyIndicator(id, thresholdMs) {
 			.then(function () { inFlight = false; });
 	}, 200);
 }
+
+// --- Ctrl shortcuts ----------------------------------------------------------------
+//
+// Every page body has an onkeydown that asks this whether to send a Ctrl+Z/Y/S to the
+// server (Events.onCtrlShortcut, docs/KeyboardShortcuts.md). A text field's own undo is
+// the browser's default action, not a listener that could stop the event, so the target
+// decides: typing keeps Z/Y, and S never reaches the browser's "save page".
+
+function pro3dIsTextEntry(t) {
+	return !!t && (t.isContentEditable || t.tagName === 'TEXTAREA' ||
+		(t.tagName === 'INPUT' && /^(text|number|search|email|url|tel|password)$/.test(t.type)));
+}
+
+function pro3dCtrlShortcut(event) {
+	var k = event.keyCode;                                       // 90 Z, 89 Y, 83 S
+	if (event.repeat || !(event.ctrlKey || event.metaKey) || event.altKey) { return false; }
+	if (k !== 90 && k !== 89 && k !== 83) { return false; }
+	if (pro3dIsTextEntry(event.target)) {
+		if (k === 83) { event.preventDefault(); }
+		return false;
+	}
+	event.preventDefault();
+	return true;
+}
+
+// Delete with no modifier, on the pages that opt in (the 3D view, Annotations, Properties;
+// Events.onCtrlShortcutOrDelete): deletes the selected annotations. In a text field it
+// deletes text, and elsewhere - the Surfaces tree, say - it must not touch annotations.
+
+function pro3dDeleteKey(event) {
+	if (event.keyCode !== 46 || event.repeat) { return false; }
+	if (event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) { return false; }
+	if (pro3dIsTextEntry(event.target)) { return false; }
+	event.preventDefault();
+	return true;
+}

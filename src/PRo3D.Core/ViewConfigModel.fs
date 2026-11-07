@@ -90,6 +90,14 @@ type ViewConfigModel = {
     // preview intersection (3D Cursor)
     showPreviewIntersection : bool
     previewIntersectionWorldSize : NumericInput
+
+    // how far above and below its outline an annotation fill may colour terrain (#841):
+    // automatic from outline size and body, or fillReach metres
+    fillReachAuto           : bool
+    fillReach               : NumericInput
+
+    // sun-shadow depth bias, in shadow-map texels (SunShadowMap)
+    shadowBias              : NumericInput
 }
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
@@ -169,6 +177,25 @@ module ViewConfigModel =
         format  = "{0:0.00}"
     }
 
+    /// Metres; only used while fillReachAuto is off.
+    let initFillReach = {
+        value   = 10.0
+        min     = 0.0
+        max     = 100000.0
+        step    = 1.0
+        format  = "{0:0.0}"
+    }
+
+    /// Shadow-map texels; the shader slope-scales it per fragment. Higher: less acne,
+    /// shadows start further from their casters. 1.5 leaves no acne on Dimorphos (#878).
+    let initShadowBias = {
+        value   = 1.5
+        min     = 0.0
+        max     = 20.0
+        step    = 0.1
+        format  = "{0:0.0}"
+    }
+
     let current = 4
  
     let initial = {
@@ -191,6 +218,9 @@ module ViewConfigModel =
         showLeafLabels = false
         showPreviewIntersection = true
         previewIntersectionWorldSize = previewIntersectionWorldSize
+        fillReachAuto = true
+        fillReach = initFillReach
+        shadowBias = initShadowBias
     }
        
     module V0 =
@@ -227,6 +257,9 @@ module ViewConfigModel =
                     showLeafLabels        = false
                     showPreviewIntersection = true
                     previewIntersectionWorldSize = previewIntersectionWorldSize
+                    fillReachAuto = true
+                    fillReach = initFillReach
+                    shadowBias = initShadowBias
                 }
             }
     module V1 =
@@ -264,6 +297,9 @@ module ViewConfigModel =
                     showLeafLabels        = false
                     showPreviewIntersection = true
                     previewIntersectionWorldSize = previewIntersectionWorldSize
+                    fillReachAuto = true
+                    fillReach = initFillReach
+                    shadowBias = initShadowBias
                 }
             }
 
@@ -303,6 +339,9 @@ module ViewConfigModel =
                     showLeafLabels        = false
                     showPreviewIntersection = true
                     previewIntersectionWorldSize = previewIntersectionWorldSize
+                    fillReachAuto = true
+                    fillReach = initFillReach
+                    shadowBias = initShadowBias
                 }
             }
 
@@ -340,6 +379,9 @@ module ViewConfigModel =
                     showLeafLabels        = false
                     showPreviewIntersection = true
                     previewIntersectionWorldSize = previewIntersectionWorldSize
+                    fillReachAuto = true
+                    fillReach = initFillReach
+                    shadowBias = initShadowBias
                 }
             }
 
@@ -361,8 +403,11 @@ module ViewConfigModel =
                 let! showExplorationPointGui       = Json.tryRead "showExplorationPointGui"                   
                 
                 let! previewIntersectionWorldSize'  = Json.tryRead "previewIntersectionWorldSize"
-                let! (showPreviewIntersection' : Option<bool>) = Json.tryRead "showPreviewIntersection"           
-        
+                let! (showPreviewIntersection' : Option<bool>) = Json.tryRead "showPreviewIntersection"
+                let! (fillReachAuto' : Option<bool>) = Json.tryRead "fillReachAuto"
+                let! (fillReach' : Option<float>)    = Json.tryRead "fillReach"
+                let! (shadowBias' : Option<float>)   = Json.tryRead "shadowBias"
+
                 return {            
                     version                 = current
                     nearPlane               = nearPlane
@@ -382,6 +427,9 @@ module ViewConfigModel =
                     showLeafLabels          = false
                     showPreviewIntersection = Option.defaultValue true showPreviewIntersection'
                     previewIntersectionWorldSize = { previewIntersectionWorldSize with value = Option.defaultValue previewIntersectionWorldSize.value previewIntersectionWorldSize' }
+                    fillReachAuto = Option.defaultValue true fillReachAuto'
+                    fillReach = { initFillReach with value = Option.defaultValue initFillReach.value fillReach' }
+                    shadowBias = { initShadowBias with value = Option.defaultValue initShadowBias.value shadowBias' }
                 }
             }
 
@@ -417,4 +465,7 @@ type ViewConfigModel with
             do! Json.write "showExplorationPointGui" x.showExplorationPointGui
             do! Json.write "previewIntersectionWorldSize" x.previewIntersectionWorldSize.value
             do! Json.write "showPreviewIntersection" x.showPreviewIntersection
+            do! Json.write "fillReachAuto" x.fillReachAuto
+            do! Json.writeFloat "fillReach" x.fillReach.value
+            do! Json.writeFloat "shadowBias" x.shadowBias.value
         }

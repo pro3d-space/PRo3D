@@ -101,6 +101,37 @@ let tests =
             Expect.isTrue t'.showTrafoRefSys "placing a reference system should make it visible"
         }
 
+        test "TC-4.4 Yaw on Earth turns the surface around the local up, not Earth's spin axis" {
+            // A geocentric Earth scene at ~37 N (ExoMars field test site). Earth used to
+            // take the identity basis, so yaw rotated around ECEF z - 53 degrees off the
+            // local vertical - and the surface swung off sideways.
+            let pivot = V3d(5087315.589125863, -208810.77352202998, 3837346.3202168946)
+            let up    = pivot.Normalized
+            let north = V3d(-0.6017485208893706, 0.02469506020043715, 0.7983037464581708)
+            let north = (north - up * north.Dot(up)).Normalized
+            let east  = north.Cross(up).Normalized
+            let frame = Affine3d(M33d.FromCols(north, east, up), pivot)
+
+            let t = (makeSurface "surf").transformation
+            let t =
+                { t with
+                    pivotMode = PivotMode.PickPivot
+                    pivot     = { t.pivot with value = pivot }
+                    refSys    = Some frame
+                    yaw       = { t.yaw with value = 90.0 } }
+            let refSys = { ReferenceSystem.initial with planet = Planet.Earth; origin = pivot }
+
+            let trafo = TransformationApp.fullTrafo' t refSys None None
+            let onAxis = pivot + up * 10.0
+            let aside  = pivot + north * 10.0
+
+            Expect.isLessThan (Vec.distance (trafo.Forward.TransformPos pivot) pivot) 1e-6 "the pivot should stay put"
+            Expect.isLessThan (Vec.distance (trafo.Forward.TransformPos onAxis) onAxis) 1e-6 "a point above the pivot is on the yaw axis and should stay put"
+            let turned = trafo.Forward.TransformPos aside - pivot
+            Expect.isLessThan (abs (turned.Dot up)) 1e-6 "a point north of the pivot should stay in the horizontal plane"
+            Expect.isGreaterThan (abs (turned.Normalized.Dot east)) (1.0 - 1e-9) "a 90 degree yaw should turn north onto the east-west axis"
+        }
+
         // TC-4.5 Surface FillMode (Wireframe)
 
         test "TC-4.5 SetFillMode switches the surface to wireframe" {

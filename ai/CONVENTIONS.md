@@ -397,6 +397,7 @@ blocked) and require the label during the operation — see `watchBusy` in
 - **Immutability first** — models are immutable records; updates return new records. Reserve `mutable`/`ref`/caches for genuine performance needs (e.g. the KdTree cache), and keep them out of the persisted model.
 - **Delete dead code** rather than commenting it out (the codebase has accumulated commented blocks — don't add more).
 - Prefer extending the relevant **sub-app** over growing the monolithic viewer `update` (see [ARCHITECTURE.md](ARCHITECTURE.md#sub-app-composition)).
+- **Ask the user before placing a new feature's state, actions, update or UI**: its own sub-app in its own file(s), or cases inline in `Viewer.fs` / `ViewerGUI.fs` / `Viewer-Model.fs`. Default proposal: a separate file holding the feature's model, actions, `update` and `view` (e.g. `src/PRo3D.Viewer/PolygonImportApp.fs`), working on the sub-models it needs rather than the whole viewer `Model`, so the viewer only routes one `…Message` case and maps one view. Don't add dozens of match cases to the viewer without asking.
 
 ---
 
@@ -417,6 +418,28 @@ The scene graph (`ISg`) is adaptive, but it is **not free** — each render obje
 - **Filter / process large triangles in view space.** Operations like culling/filtering big triangles must be done in view space — world space suffers numerical problems at planetary scale.
 
 When you add geometry, a shader, or any per-vertex math: adopt the same discipline — local-space geometry + `Sg.trafo`, double-composed MVP (reuse `stableTrafo` / the existing pattern), and do per-vertex work (lighting, large-triangle filtering, screen-space scaling) in **view space**. If a feature seems to need world-space coordinates on the GPU, that's a red flag — raise it.
+
+### `Sg`: open `Aardvark.SceneGraph` before `Aardvark.UI`
+
+Both define a module `Sg`. F# resolves `Sg.f` in the **most recently opened** `Sg` that has
+an `f`, falling back to earlier ones. So the open order decides which scene graph you get:
+
+```fsharp
+open Aardvark.SceneGraph   // plain ISg: Sg.draw, Sg.fullScreenQuad, ...
+open Aardvark.UI           // last: Sg.* = aardvark.media's ISg<'msg> versions
+open Aardvark.UI.Primitives
+```
+
+With `Aardvark.UI` last, `Sg.*` builds message-carrying `ISg<'msg>` (events, `Sg.set`,
+`Sg.empty`, `Sg.onOff` all type-check together), and only what aardvark.media lacks
+(`Sg.fullScreenQuad`, ...) comes from Aardvark.SceneGraph - lift such a plain `ISg` with
+`Sg.noEvents`. An `ISg<'msg>` *is* an `ISg` (it inherits it), so offscreen passes that want a
+plain `ISg` (`runtime.CompileRender`, `OffscreenSurfaces.renderTargets`) take it with an upcast.
+
+The other order makes `Sg.set`/`Sg.empty` produce plain `ISg` and the message-carrying
+versions unreachable except by spelling out `Aardvark.UI.``F# Sg``.Sg.set` - if you find
+yourself writing that, fix the opens instead. (`PackedRendering.fs` still opens the other
+way round; it builds plain `ISg` only.)
 
 ### Optimizations
 

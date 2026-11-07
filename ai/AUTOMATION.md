@@ -16,6 +16,7 @@ Arguments are parsed at startup in `src/PRo3D.Viewer/Program.fs` via the parsers
 | `--snap <path>` | Load camera views (snapshot file) |
 | `--asnap <path>` | Load an animation snapshot (camera sequence) |
 | `--out <folder>` | Output directory for screenshots/snapshots |
+| `--screenshotDirectory <folder>` | Folder the *Screenshots* panel saves into (default: AppData), see [docs/Screenshots.md](../docs/Screenshots.md) |
 | `--port <n>` | Web server port |
 | `--samples <n>` | MSAA sample count |
 | `--backgroundColor <c>` | Background color |
@@ -47,7 +48,7 @@ Route groups under `/api`:
 | `/api/queries/findAnnotation`, `/queryAnnotationAsJson`, `/queryAnnotationAsObj` | Run [queries](DOMAIN.md#queries) against surfaces and return JSON/OBJ |
 | `/api/annotations/%s/points` | Per-annotation point data |
 
-The viewer also serves `/websocket` (UI updates), `/crash.txt`, and `/minilog.txt`. A separate **remote-control** app (`RemoteControlApp.fs`) exposes `POST /shots` and `POST /platformshots` for screenshot/platform-shot capture (`Program.fs:446`).
+The viewer also serves `/websocket` (UI updates), `/crash.txt`, `/minilog.txt`, `/busy` (the busy pill's source, docs/BusyIndicator.md) and `/activity` (counted running work, update queue and tool arming for automation that waits before its next input, docs/Activity.md) - the last two top level, without `-remoteApi`, and lock-free. A separate **remote-control** app (`RemoteControlApp.fs`) exposes `POST /shots` and `POST /platformshots` for screenshot/platform-shot capture (`Program.fs:446`).
 
 ---
 
@@ -56,6 +57,8 @@ The viewer also serves `/websocket` (UI updates), `/crash.txt`, and `/minilog.tx
 Two related mechanisms produce images without interactive use:
 
 - **In-viewer snapshots** — `Snapshot-Model.fs` (+ `ScreenshotModel`, `snapshotThreads` on the root model) define camera/surface state for batch capture. Sequenced bookmarks (see [DOMAIN.md](DOMAIN.md#bookmarks--sequenced-bookmarks)) can drive a sequence of snapshots / a panorama, rendering RGB and depth. Triggered interactively, via `--snap`/`--asnap`, or via the `/api/v2/*Snapshot` endpoints.
+- **`PRo3D.SceneRender`** (`src/PRo3D.SceneRender/`) — the in-process renderer: `SceneRenderer` opens a `.pro3d` headlessly through the viewer's update function and renders its plain bookmarks offscreen (synchronous patch loading, one frame per image); `JobFile`/`RenderJob` are the batch layer. Front end: `pro3d-tool render-bookmarks`. A fixed OPC level of detail goes through the process-wide `LodOverride.fixedLevel` (`Surface.Sg.fs`). Use it, not a new offscreen harness, for scene renders in tests. See `docs/Pro3DTool-RenderBookmarks.md`.
+  `OpcRenderer` (`pro3d-tool render-view`, `docs/Pro3DTool-RenderView.md`) renders bare OPCs, each placed by a `preTransform` set **before** import, from explicit cameras (`SetCamera`, then `ResizeMainControl`, then `SetFrustum` -- resizing rebuilds a symmetric frustum, so it must come first). Its sun comes from `Gis.SunOverride.direction` (process-wide, never persisted): `getSunDirection` returns it, `observedBody` gives body-less surfaces `SunOverride.BodyName` so they get sun uniforms, the shadow pass uses it directly. `SunShadowMap` is cached **per AdaptiveModel** (not per runtime) and released with `SunShadowMap.release` -- a second viewer model on one runtime used to get the first one's shadows.
 - **`PRo3D.Snapshots`** (`src/PRo3D.Snapshots/`) — a standalone headless tool that reads snapshot JSON and renders many viewpoints without the full interactive UI. **`PRo3D.SimulatedViews`** supplies the realistic rover/instrument camera models (e.g. mission instruments) used to define those viewpoints, and underpins view planning.
 
 The snapshot file formats mirror the camera/surface model state, so they round-trip with the same Chiron codecs as scenes.

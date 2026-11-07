@@ -129,6 +129,8 @@ module ViewerIO =
                         annotations     = annotations.annotations
                         dnsColorLegend  = annotations.dnsColorLegend
                         colorByCategory = annotations.colorByCategory
+                        // opened past the experimental notice: stays open for the session
+                        geologicalMaps  = { annotations.geologicalMaps with enabled = m.drawing.geologicalMaps.enabled }
                 }
          }  
 

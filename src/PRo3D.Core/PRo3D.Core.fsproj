@@ -28,6 +28,8 @@
     <Compile Include="Config.fs" />
     <Compile Include="UserPreferences.fs" />
     <Compile Include="Core-Types.fs" />
+    <!-- early: SurfaceApp (Source section) and the annotation properties read it -->
+    <Compile Include="OpcMetadata.fs" />
     <Compile Include="ReferenceSystem-Model.fs" />
     <Compile Include="ReferenceSystem-Model.g.fs" />
     <Compile Include="Transformation-Model.fs" />
@@ -41,6 +43,8 @@
     <Compile Include="SceneObjects-Model.g.fs" />
     <Compile Include="Bookmark-Model.fs" />
     <Compile Include="Bookmark-Model.g.fs" />
+    <Compile Include="GeologicalMap-Model.fs" />
+    <Compile Include="GeologicalMap-Model.g.fs" />
     <Compile Include="Groups-Model.fs" />
     <Compile Include="Groups-Model.g.fs" />
     <Compile Include="ScaleBars-Model.fs" />
@@ -77,6 +81,7 @@
     <Compile Include="Surface\Surface.Sg.fs" />
     <Compile Include="Surface\SurfaceApp.fs" />
     <Compile Include="Surface\SurfaceUtils.fs" />
+    <Compile Include="OffscreenSurfaces.fs" />
     <Compile Include="Drawing\Drawing-Properties.fs" />
     <Compile Include="Drawing\Drawing-Model.fs" />
 	<Compile Include="Drawing\Drawing-Model.g.fs" />
@@ -85,11 +90,12 @@
     <Compile Include="Drawing\Drawing.Sg.fs" />
     <Compile Include="Drawing\Drawing.IO.fs" />
     <Compile Include="Drawing\PackedRendering.fs" />
+    <Compile Include="Drawing\GeologicalMapApp.fs" />
     <Compile Include="Drawing\EllipseConstruction.fs" />
     <Compile Include="Drawing\EllipseAnnotation.fs" />
+    <Compile Include="Drawing\SupportingProfiles.fs" />
     <Compile Include="Drawing\Drawing-App.fs" />
     <Compile Include="InstrumentMetadata.fs" />
-    <Compile Include="OpcMetadata.fs" />
     <Compile Include="ProjectedImageList-Model.fs" />
 	<Compile Include="ProjectedImageList-Model.g.fs" />
     <Compile Include="GisApp-Model.fs" />
@@ -119,6 +125,7 @@
     <Compile Include="Importers/MeasurementsImporter.g.fs" />
     <Compile Include="Importers/SbmtImporter.fs" />
     <Compile Include="Importers/AnnotationGroupsImporter.fs" />
+    <Compile Include="Importers/PolygonCsvImporter.fs" />
     <Compile Include="Importers/SurfaceTrafoImporter.fs" />
     <Compile Include="Importers/SurfaceTrafoImporter.g.fs" />
     <Compile Include="Queries\TransferFunction.fs" />

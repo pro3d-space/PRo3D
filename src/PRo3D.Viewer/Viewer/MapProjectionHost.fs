@@ -69,7 +69,15 @@ module MapProjectionHost =
                 colorByCategory = m.drawing.colorByCategory
                 selected        = m.drawing.annotations.selectedLeaves |> ASet.map (fun l -> l.id)
             }
-        { planet = m.scene.referenceSystem.planet; surfaces = surfaces; annotations = annotations }
+        // the camera location is already in the frame the map projects: OPC global coordinates
+        // are body-fixed, and the placement puts every surface into the scene's frame with it
+        let camera = m.navigation.camera.view |> AVal.map (fun v -> Some v.Location)
+        // the preview pick's hit point, in the same frame. It only updates while picking (Ctrl
+        // held, or Direct Tool Mode with a tool armed), which is what the panel's *Follow cursor*
+        // follows; this only reads it, nothing here makes the viewer pick more often
+        let cursor = m.surfaceIntersection |> AVal.map (Option.map (fun s -> s.hitPoint))
+        { planet = m.scene.referenceSystem.planet; surfaces = surfaces; annotations = annotations
+          camera = camera; cursor = cursor }
 
     let view (m : AdaptiveModel) : DomNode<ViewerAction> =
         PRo3D.MapProjection.MapProjectionApp.view (inputs m) m.mapProjection

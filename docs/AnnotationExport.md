@@ -30,12 +30,15 @@ export rather than writing a file.
 ```
 File type      CSV table / GeoJSON / Attitude planes / Continuous GeoJSON
 Preset         Custom / GIS-QGIS / Annotation table / Profile / Boulders (ellipses) /
+               Craters (ellipses + profiles) / Lineaments (polylines + profiles) /
                Fractures (segments) / Attitude planes / Continuous GeoJSON
 Scope          All / Visible only / Selected only
-Annotation     all / ellipses only
+Annotation     all / ellipses only / lines only (no generated profiles)
   types
 Ellipse        ☐ statistics inside each ellipse (per-annotation exports; reads the OPC)
   statistics
+Generated      ☐ also write <file>_profiles.csv (per-annotation CSV exports)
+  profiles     ☐ Surface properties in <file>_profiles.csv (shown when the above is on)
 ─────────────────────────────────────────────────────────────
 Granularity    one record per annotation | one record per point |
                one record per segment (CSV only)
@@ -103,19 +106,22 @@ switches the preset back to *Custom*; nothing is locked.
 |---|---|
 | GIS / QGIS | GeoJSON, geographic, longitude *Native*, `colorHex` + `groupPath` + the common measurements |
 | Annotation table | CSV, per annotation, both coordinate kinds, all measurements |
-| Profile | CSV, per point, scope *Selected*, sampled points on, all point attributes incl. *ground distance* |
+| Profile | CSV, per point, scope *Selected*, sampled points on, all point attributes incl. *ground distance*; `key`, `text`, `surfaceName` and the generated-profile columns `parentKey`, `profileIndex`, `profileDirection`, `profileAzimuth`, `profileStation` (empty for a hand-drawn line) |
 | Fractures (segments) | CSV, per segment, scope *All*, both coordinate kinds, longitude *Native*; `key`, `text`, `surfaceName`, `wayLength`, `groupPath`, then the fixed segment columns |
 | Boulders (ellipses) | CSV, per annotation, scope *All*, annotation types *ellipses only*, both coordinate kinds, longitude *Native*; `key`, `text`, `surfaceName`, `groupPath`, `semiMajorAxis`, `semiMinorAxis`, `majorAxisAzimuth`, then the surface statistics inside each ellipse ([AnnotationExport-CSV.md](AnnotationExport-CSV.md#boulders-surface-statistics-inside-the-ellipse)) |
+| Craters (ellipses + profiles) | exactly *Boulders*, plus **generated profiles** on: a second file `<file>_profiles.csv` with the [supporting profiles](SupportingProfiles.md) generated from the exported ellipses, laid out like *Profile* (one row per point), with the main file's coordinate settings ([AnnotationExport-CSV.md](AnnotationExport-CSV.md#craters)) |
+| Lineaments (polylines + profiles) | CSV, per annotation, scope *All*, annotation types *lines only (no generated profiles)*, both coordinate kinds, longitude *Native*; `key`, `text`, `surfaceName`, `length`, `wayLength`, `bearing`, `groupPath`; **generated profiles** on: `<file>_profiles.csv` as for *Craters* ([AnnotationExport-CSV.md](AnnotationExport-CSV.md#lineaments)) |
 | Attitude planes | file type *Attitude planes* |
 | Continuous GeoJSON | file type *Continuous GeoJSON* — arms the background export |
 
 Every preset also sets the **signed −180…180 longitude range** and the **SPICE** lat/lon/alt
 source, both of which are the defaults anyway; only an explicit change (which switches the
-preset to *Custom*) moves off them. Every preset except *Boulders* sets **annotation types:
-all**, so leaving *Boulders* never keeps the ellipse filter on by surprise. Selecting *Custom*
+preset to *Custom*) moves off them. Every preset except *Boulders*, *Craters* and *Lineaments* sets **annotation types:
+all**, so leaving them never keeps a type filter on by surprise. Only *Craters* and
+*Lineaments* switch **generated profiles** on. Selecting *Custom*
 is not a preset and changes nothing.
 
-Every column of the *Profile* and *Boulders* CSV files is described in
+Every column of the *Profile*, *Boulders*, *Craters* and *Lineaments* CSV files is described in
 [AnnotationExport-CSV.md](AnnotationExport-CSV.md).
 
 ### Scope
@@ -277,6 +283,11 @@ This is the reason the setting is called *Lat/Lon/**Alt** Source*. `recpgr` give
 above the spheroid; `reclat` and the `LonLatRad` layer both give a **radial distance from
 the body centre**. The same column therefore holds different quantities depending on the
 body and the source — which is what the provenance column is for.
+
+None of these is an elevation above an equipotential surface: PRo3D computes no gravity
+potential. The potential-based height is the `surface_Elevation` column, when the OPC ships
+that layer. GeoJSON exports say what `alt` is in a collection-level `properties.altDefinition`,
+next to `planet`. See [HeightReference.md](HeightReference.md).
 
 #### The `latLonAltSource` column
 
@@ -577,7 +588,9 @@ kind (or narrow the scope) when that matters.
 
 ### Preparing for a later reimport
 
-There is no import path yet, but the export is shaped so one can be added:
+Per-point Cartesian CSV exports of polygons reimport through [Polygon CSV Import](./PolygonCsvImport.md)
+(`key` as the polygon id, `pointIndex` as the order). There is no general reimport yet, but
+the export is shaped so one can be added:
 
 - **`key` is always written**, whether or not it is ticked. It is the annotation's Guid and
   the only stable handle for matching a feature back to its annotation.
