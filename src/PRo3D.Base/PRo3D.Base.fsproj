@@ -40,6 +40,7 @@
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="ChironExt.fs" />
     <Compile Include="GuiEx.fs" />
+    <Compile Include="VirtualList.fs" />
     <Compile Include="Dialogs.fs" />
     <Compile Include="CooTransformation.fs" />
     <Compile Include="Serialization.fs" />
