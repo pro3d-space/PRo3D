@@ -231,6 +231,12 @@ module ViewerApp =
     /// `DrawingModel` no longer carries draw/pick flags. See docs/DirectToolMode.md.
     let toolArmed (m : Model) : bool = m.ctrlFlag <> m.directToolMode
 
+    /// The box rectangle needs the tool gate for its whole drag: when a Ctrl key event takes
+    /// the left button back for the camera, drop it at once instead of on the next move.
+    let dropBoxIfDisarmed (m : Model) : Model =
+        if m.multiSelectBox.IsSome && not (toolArmed m) then { m with multiSelectBox = None }
+        else m
+
     let mutable cache = HashMap.Empty
 
     let updateSceneWithNewSurface (m: Model) =
@@ -591,10 +597,16 @@ module ViewerApp =
             let frustum  = m.overlayFrustum |> Option.defaultValue m.frustum
             let viewProj = CameraView.viewTrafo m.navigation.camera.view * Frustum.projTrafo frustum
             let ndc      = Box2d.FromPoints(pixelToNdc viewportSize box.Min, pixelToNdc viewportSize box.Max)
-            m.drawing.annotations.flat
-            |> Leaf.toAnnotations
-            |> HashMap.toValueList
-            |> DrawingApp.annotationsTouchingRect viewProj viewportSize ndc (annotationPointVisible m viewProj)
+            let annotations = m.drawing.annotations.flat |> Leaf.toAnnotations |> HashMap.toValueList
+            // rays cast and time spent, logged per box: the cost of occlusion at scale
+            let mutable rays = 0
+            let visible = annotationPointVisible m viewProj
+            let counted p = rays <- rays + 1; visible p
+            let sw = Diagnostics.Stopwatch.StartNew()
+            let hits = DrawingApp.annotationsTouchingRect viewProj viewportSize ndc counted annotations
+            Log.line "[BoxSelection] %d of %d annotations, %d visibility rays, %.1f ms"
+                hits.Length annotations.Length rays sw.Elapsed.TotalMilliseconds
+            hits
 
     /// A Ctrl+click on an annotation counts only if the clicked part of it is visible: the
     /// annotation point nearest the click, tested against the surfaces with the click's own
@@ -612,9 +624,10 @@ module ViewerApp =
         | _ -> true
 
     /// What a finished box gesture does to the selection, if anything. A drag selects what the
-    /// rectangle touches (Alt toggles, else Shift adds, else it replaces). A click selects
-    /// nothing itself - a click on an annotation is PickDirectly's - but a plain click on empty
-    /// space clears the selection.
+    /// rectangle touches (Alt toggles, else Shift adds, else it replaces). A click does nothing
+    /// here - a click on an annotation is PickDirectly's. It deliberately does not clear the
+    /// selection on empty space: telling "empty" from a hit by a second hit test disagreed with
+    /// the pick pass's widened lines and points, and undid picks on release.
     let boxSelectionAction (m : Model) (box : MultiSelectionBox) (release : BoxPointer) : Option<DrawingAction> =
         let box    = { box with current = release.position }
         let pixels = MultiSelectionBox.pixelBox box
@@ -624,16 +637,8 @@ module ViewerApp =
                 elif release.shift then Drawing.SelectionMode.Add
                 else Drawing.SelectionMode.Replace
             Some (DrawingAction.SelectAnnotations(mode, annotationsInPixelBox m box.viewportSize pixels))
-        elif release.shift || release.alt then
-            None
         else
-            // about the half-width the pick pass widens lines to (PackedRendering: width + 5 +
-            // 10 * tolerance), so "nothing here" agrees with what a click could have picked
-            let radius = 3.0 + 5.0 * m.scene.config.pickingTolerance.value
-            let around = Box2d(release.position - V2d(radius, radius), release.position + V2d(radius, radius))
-            match annotationsInPixelBox m box.viewportSize around with
-            | [] -> Some (DrawingAction.SelectAnnotations(Drawing.SelectionMode.Replace, []))
-            | _  -> None
+            None
 
     let updateFrustumAspect m (windowSize : V2i) (viewPortSizeId : string) =
             let aspect = float windowSize.X / float windowSize.Y
@@ -1951,7 +1956,7 @@ module ViewerApp =
 
             let m =
                 match k with
-                | Keyboard.Modifier -> { m with ctrlFlag = true }
+                | Keyboard.Modifier -> dropBoxIfDisarmed { m with ctrlFlag = true }
                 | _ -> m
 
             let m =
@@ -2051,7 +2056,7 @@ module ViewerApp =
                 | _ -> m
 
             match k with
-            | Keyboard.Modifier -> { m with ctrlFlag = false }
+            | Keyboard.Modifier -> dropBoxIfDisarmed { m with ctrlFlag = false }
             | _ -> m
         | SetInteraction t,_ ->
                 
@@ -2246,12 +2251,17 @@ module ViewerApp =
                 { m with multiSelectBox = Some { startPoint = p.position; current = p.position; viewportSize = p.viewportSize } }
             else
                 m
+        // the gate is held for the whole drag: releasing Ctrl hands the left button back to the
+        // camera, so the rectangle would no longer match what is under it - drop it instead
+        | BoxSelectMove _,_ when m.multiSelectBox.IsSome && not (toolArmed m) ->
+            { m with multiSelectBox = None }
         | BoxSelectMove p,_ ->
             match m.multiSelectBox with
             | Some b -> { m with multiSelectBox = Some { b with current = p } }
             | None   -> m
         | BoxSelectEnd p,_ ->
             match m.multiSelectBox with
+            | Some _ when not (toolArmed m) -> { m with multiSelectBox = None }
             | Some b ->
                 let m = { m with multiSelectBox = None }
                 match boxSelectionAction m b p with
@@ -2587,6 +2597,13 @@ module ViewerApp =
             | ViewerAction.NavigationMessage _               -> Some "camera"
             | ViewerAction.PickSurface _
             | ViewerAction.PreviewPickSurfaceFinished _      -> Some "picking"
+            // the click's occlusion check casts a ray, so a cold patch loads its KdTree
+            | ViewerAction.DrawingMessage (DrawingAction.PickAnnotation _) -> Some "picking"
+            // one ray per sample, up to 32 per annotation, plus cold KdTree loads: seconds
+            // with thousands of annotations (docs/AnnotationBoxSelection.md). Sent on every
+            // pointerup on the render control, camera drags included; without a box it costs
+            // one write of the busy cell and never reaches the pill's threshold.
+            | ViewerAction.BoxSelectEnd _                    -> Some "selecting annotations"
             | ViewerAction.ImportSurface _
             | ViewerAction.DiscoverAndImportOpcs _
             | ViewerAction.ImportDiscoveredSurfacesThreads _ -> Some "importing surfaces"
@@ -2763,7 +2780,12 @@ module ViewerApp =
                     let drawingAction = getDrawingActionForKey (m.interaction |> AVal.force) k
                     [KeyDown k; DrawingMessage drawingAction]
                 )
-                onKeyUp   (KeyUp)        
+                onKeyUp   (KeyUp)
+                // Losing focus releases the modifiers: a key-up that happens elsewhere (Cmd+Tab,
+                // Alt+Tab, a dialog) never reaches this element, and a stuck ctrlFlag freezes
+                // the camera and arms every tool.
+                onEvent' "onblur" [] (fun _ ->
+                    seq [ KeyUp Aardvark.Application.Keys.LeftCtrl; KeyUp Aardvark.Application.Keys.LeftShift ])
                 clazz "mainrendercontrol"
                 onEvent "resizeControl"  [] (
                     fun p -> 

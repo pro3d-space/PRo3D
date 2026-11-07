@@ -1,3 +1,11 @@
+## Unreleased
+Key bindings change: please read on macOS.
+
+- Input: **Alt (Option on macOS) no longer acts as Ctrl.** The tool modifier is **Ctrl, and on macOS Cmd** (left or right; the right Cmd key is new). Until now Alt counted as Ctrl without being documented: Alt+click picked and drew, Alt+drag box-selected, Alt+S saved and Alt+Z undid. **Mac users who used Option instead of Cmd: use Cmd.** Alt now only does what a tool says it does, such as the toggle in box selection (Ctrl+Alt+drag, Cmd+Option+drag on macOS) (docs/DirectToolMode.md)
+- Input: in Direct Tool Mode, Alt no longer hands the left button back to the camera, so Alt+drag toggles a box selection there as documented
+- Input: **switching away with Ctrl held no longer leaves PRo3D stuck in tool mode.** When the 3D view loses focus (Cmd+Tab, Alt+Tab, a dialog) PRo3D treats Ctrl and Shift as released; before, the camera could stay frozen until Ctrl was pressed and released again
+- Annotations: a plain Ctrl+click in the 3D view selects **only** the clicked annotation and clears a multi-selection, so Delete removes only what looks selected; Shift+Ctrl+click adds to the whole selection and keeps the annotation selected by a plain click (docs/AnnotationBoxSelection.md)
+
 ## 6.3.0
 The first non-prerelease of the 6.3 line: a new window layout system, popouts, and the map projection view for small bodies. Everything from `6.3.0-prerelease001` and `-prerelease002` is included.
 

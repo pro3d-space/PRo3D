@@ -511,15 +511,17 @@ module DrawingApp =
                     let s = viewProj.Forward * V4d(origin + dir * t, 1.0)
                     let annotationDepth = (c.Z - depthOffsetClip) / c.W
                     let surfaceDepth    = s.Z / s.W
-                    annotationDepth <= surfaceDepth + 1e-7
+                    // no extra slack: depthOffsetClip already keeps an annotation on the terrain
+                    // in front, and a fixed NDC slack grows with distance squared (metres at range)
+                    annotationDepth <= surfaceDepth
 
     /// Box selection hit test: the visible annotations that a screen rectangle touches - a part
     /// of them inside it (a vertex, or a stretch of a segment crossing it) that `isVisible`
     /// accepts. `ndcRect` is in normalized device coordinates (-1..1, y up), `viewProj` the
     /// camera's view * projection, `viewportSize` the view in pixels (for the sample spacing).
     ///
-    /// Samples are tested in path order and the first visible one decides; at most
-    /// maxVisibilityRaysPerAnnotation are tested. `fun _ -> true` ignores occlusion.
+    /// The first visible sample decides. At most maxVisibilityRaysPerAnnotation are tested,
+    /// spread evenly over the samples in path order. `fun _ -> true` ignores occlusion.
     let annotationsTouchingRect
         (viewProj     : Trafo3d)
         (viewportSize : V2d)
@@ -532,43 +534,63 @@ module DrawingApp =
 
         let vertexInside (c : V4d) = c.W > behindEps && ndcRect.Contains (toNdc c)
 
-        // world points of the stretch of a segment inside the rectangle, about samplePixelSpacing apart
-        let segmentSamples (p0 : V3d) (p1 : V3d) (c0 : V4d) (c1 : V4d) : seq<V3d> =
+        // world points of the stretch of a segment inside the rectangle, about samplePixelSpacing
+        // apart, appended to `out`
+        let segmentSamples (out : ResizeArray<V3d>) (p0 : V3d) (p1 : V3d) (c0 : V4d) (c1 : V4d) =
             match clipToFront p0 p1 c0 c1 with
-            | None -> Seq.empty
+            | None -> ()
             | Some (p0, p1, c0, c1) ->
                 let a, b = toNdc c0, toNdc c1
                 match clipToRect ndcRect a b with
-                | None -> Seq.empty
+                | None -> ()
                 | Some (t0, t1) ->
                     let pixels = (toPixels ((b - a) * (t1 - t0))).Length
                     let n = int (ceil (pixels / samplePixelSpacing)) + 1 |> min maxVisibilityRaysPerAnnotation
-                    seq {
-                        for i in 0 .. n - 1 do
-                            let t = if n = 1 then 0.5 * (t0 + t1) else t0 + (t1 - t0) * float i / float (n - 1)
-                            let s = screenToSegmentParam c0.W c1.W t
-                            yield p0 + (p1 - p0) * s
-                    }
+                    for i in 0 .. n - 1 do
+                        let t = if n = 1 then 0.5 * (t0 + t1) else t0 + (t1 - t0) * float i / float (n - 1)
+                        let s = screenToSegmentParam c0.W c1.W t
+                        out.Add(p0 + (p1 - p0) * s)
 
-        let samples (a : Annotation) : seq<V3d> =
+        // one buffer for all annotations, refilled per annotation
+        let buffer = ResizeArray<V3d>()
+
+        // the samples of an annotation inside the rectangle, in path order, into `buffer`
+        let samples (a : Annotation) =
+            buffer.Clear()
             let path    = drawnPath a
-            let clipped = path |> Array.map (fun p -> m * V4d(p, 1.0))
-            seq {
-                if path.Length = 1 then
-                    if vertexInside clipped.[0] then yield path.[0]
-                else
-                    for i in 0 .. path.Length - 2 do
-                        if vertexInside clipped.[i] then yield path.[i]
-                        yield! segmentSamples path.[i] path.[i + 1] clipped.[i] clipped.[i + 1]
-                    if path.Length > 1 && vertexInside clipped.[path.Length - 1] then yield path.[path.Length - 1]
-            }
+            let clipped = Array.zeroCreate<V4d> path.Length
+            for i in 0 .. path.Length - 1 do clipped.[i] <- m * V4d(path.[i], 1.0)
+            if path.Length = 1 then
+                if vertexInside clipped.[0] then buffer.Add path.[0]
+            elif path.Length > 1 then
+                for i in 0 .. path.Length - 2 do
+                    if vertexInside clipped.[i] then buffer.Add path.[i]
+                    segmentSamples buffer path.[i] path.[i + 1] clipped.[i] clipped.[i + 1]
+                if vertexInside clipped.[path.Length - 1] then buffer.Add path.[path.Length - 1]
 
-        annotations
-        |> Seq.choose (fun a ->
-            if a.visible && (samples a |> Seq.truncate maxVisibilityRaysPerAnnotation |> Seq.exists isVisible)
-            then Some a.key
-            else None)
-        |> Seq.toList
+        // every k-th sample, so the ray budget covers the whole part inside the box rather than
+        // running out on its first, possibly hidden, stretch
+        // - spread from the first to the last sample, so a visible end is never skipped
+        let anyVisible () =
+            let n = buffer.Count
+            let budget = maxVisibilityRaysPerAnnotation
+            let sampleAt j =
+                if n <= budget then j
+                else int (round (float j * float (n - 1) / float (budget - 1)))
+            let count = min n budget
+            let mutable j = 0
+            let mutable found = false
+            while not found && j < count do
+                found <- isVisible buffer.[sampleAt j]
+                j <- j + 1
+            found
+
+        let mutable result = []
+        for a in annotations do
+            if a.visible then
+                samples a
+                if anyVisible () then result <- a.key :: result
+        List.rev result
 
     /// The point of an annotation drawn nearest to a screen position (`ndc`, normalized device
     /// coordinates): the part of it a click there lands on, so a click on the visible part of a
@@ -634,6 +656,54 @@ module DrawingApp =
                 | Some s when HashMap.containsKey s touched -> None
                 | s -> s
             { groups with selectedLeaves = HashSet.union kept switchOn; singleSelectLeaf = single }
+
+    /// Shift+click on an annotation in the viewport: toggle it in the *effective* selection -
+    /// the multi-selection plus the single (green) leaf, as SelectionMode.Toggle sees it.
+    ///
+    /// The green leaf joins the multi-selection first, so a plain click followed by a
+    /// Shift+click selects both. (GroupsApp.AddLeafToSelection made the new leaf green and left
+    /// the old green one out of the multi-selection, so it looked deselected.) Matching is by id;
+    /// entries carry the real group path, like the box selection's.
+    let shiftPickAnnotation (id : Guid) (groups : GroupsModel) : GroupsModel =
+        let paths = GroupsApp.leafPaths groups.rootGroup
+        let entry (leaf : Guid) = paths |> HashMap.tryFind leaf |> Option.map (fun p -> { id = leaf; path = p; name = "" })
+        let contains (leaf : Guid) (set : HashSet<TreeSelection>) = set |> HashSet.exists (fun ts -> ts.id = leaf)
+        let effective =
+            match groups.singleSelectLeaf with
+            | Some single when not (contains single groups.selectedLeaves) ->
+                match entry single with
+                | Some e -> HashSet.add e groups.selectedLeaves
+                | None   -> groups.selectedLeaves
+            | _ -> groups.selectedLeaves
+        if contains id effective then
+            { groups with
+                selectedLeaves   = effective |> HashSet.filter (fun ts -> ts.id <> id)
+                singleSelectLeaf = groups.singleSelectLeaf |> Option.filter (fun s -> s <> id) }
+        else
+            match entry id with
+            | Some e ->
+                { groups with
+                    selectedLeaves   = HashSet.add e effective
+                    singleSelectLeaf = Some id
+                    activeChild      = e
+                    lastSelectedItem = SelectedItem.Child }
+            | None -> groups
+
+    /// Plain click (no Shift) on an annotation in the viewport. With a multi-selection it starts
+    /// fresh: the multi-selection is cleared and only the clicked leaf is selected, as anywhere
+    /// else (and Delete, which removes multi plus green, then removes only what is visible as
+    /// selected). Without one it is the old single select, which toggles the green leaf.
+    let plainPickAnnotation (id : Guid) (groups : GroupsModel) : GroupsModel =
+        if groups.selectedLeaves.IsEmpty then
+            GroupsApp.update groups (GroupsAppAction.SingleSelectLeaf(List.empty, id, String.Empty))
+        else
+            let paths = GroupsApp.leafPaths groups.rootGroup
+            let path  = paths |> HashMap.tryFind id |> Option.defaultValue List.empty
+            { groups with
+                selectedLeaves   = HashSet.empty
+                singleSelectLeaf = Some id
+                activeChild      = { id = id; path = path; name = "" }
+                lastSelectedItem = SelectedItem.Child }
 
     // specifies which drawing actions trigger re-export of geo-json files.
     // the idea behind this is to keep out high-frequency updates (mouse move)
@@ -1047,10 +1117,10 @@ module DrawingApp =
                     let annotations =
                         if shiftFlag then
                             Log.line "[DrawingApp] multi select"
-                            GroupsApp.update model.annotations (GroupsAppAction.AddLeafToSelection(List.empty, ann.key, String.Empty))
+                            shiftPickAnnotation ann.key model.annotations
                         else
                             Log.line "[DrawingApp] single select"
-                            GroupsApp.update model.annotations (GroupsAppAction.SingleSelectLeaf(List.empty, ann.key, String.Empty))
+                            plainPickAnnotation ann.key model.annotations
                     
                     // selecting a different annotation abandons any control point being moved
                     { model with annotations = annotations; vertexGrab = None }

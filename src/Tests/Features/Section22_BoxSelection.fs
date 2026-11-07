@@ -154,11 +154,12 @@ let private selectionTests =
             | _ -> failtest "expected three lines"
         }
 
-        test "TC-22.2 Replace with nothing (click on empty space) clears both selection kinds" {
+        test "TC-22.2 Replace with nothing clears both selection kinds" {
             let m, keys = threeLines ()
             match keys with
             | [ a; b; _ ] ->
-                let m = m |> select SelectionMode.Add [ a ] |> fun m -> run m (DrawingAction.PickDirectly b)
+                // click first: a plain click on its own clears the multi-selection
+                let m = run m (DrawingAction.PickDirectly b) |> select SelectionMode.Add [ a ]
                 let m = m |> select SelectionMode.Replace []
                 Expect.isEmpty (selectedIds m) "no multi-selection"
                 Expect.isNone m.annotations.singleSelectLeaf "no single selection"
@@ -180,11 +181,57 @@ let private selectionTests =
             let m, keys = threeLines ()
             match keys with
             | [ a; b; c ] ->
-                let m = m |> select SelectionMode.Add [ a ] |> fun m -> run m (DrawingAction.PickDirectly c)
+                // click first: a plain click on its own clears the multi-selection
+                let m = run m (DrawingAction.PickDirectly c) |> select SelectionMode.Add [ a ]
                 Expect.equal m.annotations.singleSelectLeaf (Some c) "c is green"
                 let m = m |> select SelectionMode.Toggle [ a; b; c ]
                 Expect.equal (selectedIds m) [ b ] "a off, b on, c off"
                 Expect.isNone m.annotations.singleSelectLeaf "c was toggled off"
+            | _ -> failtest "expected three lines"
+        }
+
+        test "TC-22.2 a plain click with a multi-selection starts fresh: only the clicked one" {
+            let m, keys = threeLines ()
+            match keys with
+            | [ a; b; c ] ->
+                let m = m |> select SelectionMode.Replace [ a; b ]
+                let m = run m (DrawingAction.PickDirectly c)
+                Expect.isEmpty (selectedIds m) "the multi-selection is cleared"
+                Expect.equal m.annotations.singleSelectLeaf (Some c) "only c, green"
+                // clicking one of the boxed ones also starts fresh rather than toggling it off
+                let m = m |> select SelectionMode.Replace [ a; b ]
+                let m = run m (DrawingAction.PickDirectly a)
+                Expect.isEmpty (selectedIds m) "cleared again"
+                Expect.equal m.annotations.singleSelectLeaf (Some a) "only a"
+            | _ -> failtest "expected three lines"
+        }
+
+        test "TC-22.2 click, then Shift+click: both are selected (the green one is not dropped)" {
+            let m, keys = threeLines ()
+            match keys with
+            | [ a; b; c ] ->
+                let m = run m (DrawingAction.PickDirectly a)
+                Expect.equal m.annotations.singleSelectLeaf (Some a) "a is green"
+                let shift (id : System.Guid) (m : DrawingModel) = { m with annotations = DrawingApp.shiftPickAnnotation id m.annotations }
+                let m = m |> shift b
+                Expect.equal (selectedIds m) (List.sort [ a; b ]) "a stays, b added"
+                Expect.equal m.annotations.singleSelectLeaf (Some b) "the last one clicked is green"
+                let m = m |> shift c
+                Expect.equal (selectedIds m) (List.sort [ a; b; c ]) "and c"
+            | _ -> failtest "expected three lines"
+        }
+
+        test "TC-22.2 Shift+click toggles: the green one and a multi-selected one go off" {
+            let m, keys = threeLines ()
+            match keys with
+            | [ a; b; _ ] ->
+                let shift (id : System.Guid) (m : DrawingModel) = { m with annotations = DrawingApp.shiftPickAnnotation id m.annotations }
+                let m = run m (DrawingAction.PickDirectly a) |> shift a
+                Expect.isEmpty (selectedIds m) "Shift+click on the green one deselects it"
+                Expect.isNone m.annotations.singleSelectLeaf "nothing green"
+                let m = m |> shift a |> shift b |> shift a
+                Expect.equal (selectedIds m) [ b ] "a toggled off again, b stays"
+                Expect.equal m.annotations.singleSelectLeaf (Some b) "b stays green"
             | _ -> failtest "expected three lines"
         }
 
@@ -290,6 +337,28 @@ let private occlusionTests =
             Expect.isEmpty selected "hidden"
             Expect.isLessThanOrEqual rays DrawingApp.maxVisibilityRaysPerAnnotation "bounded by the cap"
             Expect.isGreaterThan rays 1 "but it did look at more than one sample"
+        }
+
+        test "TC-22.4 a long hidden stretch does not use up the ray cap before the visible part" {
+            // buried and densely sampled for its first half - far more samples than the cap - then
+            // above the terrain: the rays must be spread over the whole path to reach the visible half
+            let l =
+                anno Geometry.Polyline [
+                    for i in 0 .. 50 -> V3d(-9.0 + 0.18 * float i, 0.0, -1.0)
+                    for i in 1 .. 10 -> V3d(0.9 * float i, 0.0, 1.0)
+                ]
+            Expect.equal (occludedHits orthoViewProj fullScreen [ l ]) (Set.singleton l.key) "the visible half selects it"
+        }
+
+        test "TC-22.4 the ray budget reaches the last sample: a visible last vertex is found" {
+            // 80 buried vertices, densely sampled, then one above the terrain: the spread over
+            // the samples must include the very last one
+            let l =
+                anno Geometry.Polyline [
+                    for i in 0 .. 79 -> V3d(-9.0 + 0.2 * float i, 0.0, -1.0)
+                    yield V3d(7.0, 0.0, 1.0)
+                ]
+            Expect.equal (occludedHits orthoViewProj fullScreen [ l ]) (Set.singleton l.key) "the visible last vertex selects it"
         }
 
         test "TC-22.5 a click on the visible part of a partly buried annotation finds a visible point" {

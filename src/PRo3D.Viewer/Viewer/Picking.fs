@@ -88,6 +88,11 @@ module Picking =
     /// Occluders are the visible surfaces, as on screen, that have a KdTree. Surfaces without
     /// one are left out up front: doKdTreeIntersection logs an error per ray for an empty
     /// KdTree, and a box selection casts many rays.
+    ///
+    /// The nearest hit over all occluders wins (SurfaceIntersection.doKdTreeIntersectionNearest):
+    /// doKdTreeIntersection prefers the highest-priority surface over the nearest one, which is
+    /// right for picking but not for occlusion - a nearer low-priority surface still hides what
+    /// is behind it.
     let castToSurfaces (m : Model) (ray : Ray3d) : Option<float> =
         let observerSystem = Gis.GisApp.getObserverSystem m.scene.gisApp
         let observedSystem (v : SurfaceId) = Gis.GisApp.getSpiceReferenceSystem m.scene.gisApp v
@@ -97,9 +102,12 @@ module Picking =
             match s.picking with
             | PRo3D.Core.Surface.Picking.KdTree kd -> not kd.IsEmpty
             | _ -> false
-        match SurfaceIntersection.doKdTreeIntersection (Optic.get _surfacesModel m) m.scene.referenceSystem observedSystem observerSystem (FastRay3d ray) occluder cache false with
-        | Some hitInfo, c -> cache <- c; Some hitInfo.hit.RayHit.T
-        | None, c -> cache <- c; None
+        let hit, c =
+            SurfaceIntersection.doKdTreeIntersectionNearest
+                (Optic.get _surfacesModel m) m.scene.referenceSystem observedSystem observerSystem
+                (FastRay3d ray) occluder cache
+        cache <- c
+        hit |> Option.map (fun h -> h.hit.RayHit.T)
 
     let pickRay (m : Model) (r : FastRay3d) (surfaceName : Option<string>) =
         pickRayInfo m r surfaceName

@@ -371,9 +371,10 @@ module UI =
             |> AList.mapi (fun i v -> viewTree cbc (i::path) v model lookup)
                     
         let annos = 
-            group.leaves 
-            |> AList.filterA (fun x -> lookup |> AMap.keys |> ASet.contains x)
-            |> AList.map(fun x -> lookup |> AMap.find x |> AVal.force) 
+            // one lookup per leaf in the shared map content; a per-leaf `AMap.keys |> ASet.contains`
+            // built a reader over the whole map for every leaf - quadratic, minutes at 5000
+            group.leaves
+            |> AList.chooseA (fun x -> AMap.tryFind x lookup)
             |> viewAnnotationsInGroup cbc path model singleSelect multiSelect lift
 
         let nodes = annos |> AList.append subNodes
