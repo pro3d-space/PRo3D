@@ -158,7 +158,8 @@ let private selectionTests =
             let m, keys = threeLines ()
             match keys with
             | [ a; b; _ ] ->
-                let m = m |> select SelectionMode.Add [ a ] |> fun m -> run m (DrawingAction.PickDirectly b)
+                // click first: a plain click on its own clears the multi-selection
+                let m = run m (DrawingAction.PickDirectly b) |> select SelectionMode.Add [ a ]
                 let m = m |> select SelectionMode.Replace []
                 Expect.isEmpty (selectedIds m) "no multi-selection"
                 Expect.isNone m.annotations.singleSelectLeaf "no single selection"
@@ -180,11 +181,28 @@ let private selectionTests =
             let m, keys = threeLines ()
             match keys with
             | [ a; b; c ] ->
-                let m = m |> select SelectionMode.Add [ a ] |> fun m -> run m (DrawingAction.PickDirectly c)
+                // click first: a plain click on its own clears the multi-selection
+                let m = run m (DrawingAction.PickDirectly c) |> select SelectionMode.Add [ a ]
                 Expect.equal m.annotations.singleSelectLeaf (Some c) "c is green"
                 let m = m |> select SelectionMode.Toggle [ a; b; c ]
                 Expect.equal (selectedIds m) [ b ] "a off, b on, c off"
                 Expect.isNone m.annotations.singleSelectLeaf "c was toggled off"
+            | _ -> failtest "expected three lines"
+        }
+
+        test "TC-22.2 a plain click with a multi-selection starts fresh: only the clicked one" {
+            let m, keys = threeLines ()
+            match keys with
+            | [ a; b; c ] ->
+                let m = m |> select SelectionMode.Replace [ a; b ]
+                let m = run m (DrawingAction.PickDirectly c)
+                Expect.isEmpty (selectedIds m) "the multi-selection is cleared"
+                Expect.equal m.annotations.singleSelectLeaf (Some c) "only c, green"
+                // clicking one of the boxed ones also starts fresh rather than toggling it off
+                let m = m |> select SelectionMode.Replace [ a; b ]
+                let m = run m (DrawingAction.PickDirectly a)
+                Expect.isEmpty (selectedIds m) "cleared again"
+                Expect.equal m.annotations.singleSelectLeaf (Some a) "only a"
             | _ -> failtest "expected three lines"
         }
 

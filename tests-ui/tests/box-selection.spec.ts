@@ -588,6 +588,7 @@ test("modifier keys: Ctrl (Cmd on macOS) arms the tool, Alt toggles, focus loss 
         const cleared = await readWhen(reader, panel, (s) => s.total === 0, 60_000);
         expect(cleared.s.total, "starts with nothing selected").toBe(0);
 
+        let clickTarget: [number, number] = [0, 0];
         // 5b. click, then Shift+click: both stay selected. Shift used to start a new
         // multi-selection without the green (single) one, which then looked deselected.
         {
@@ -601,6 +602,7 @@ test("modifier keys: Ctrl (Cmd on macOS) arms the tool, Alt toggles, focus loss 
             expect(edges.length, "B annotations drawn (magenta)").toBeGreaterThan(20);
             const left = edges[Math.floor(edges.length * 0.1)];
             const right = edges[Math.floor(edges.length * 0.9)];
+            clickTarget = right;
             await ctrlClick(render, left[0], left[1]);
             const first = await readWhen(reader, panel, (s) => s.single, 60_000);
             expect(first.s.single, "Ctrl+click makes the first one green").toBe(true);
@@ -619,6 +621,28 @@ test("modifier keys: Ctrl (Cmd on macOS) arms the tool, Alt toggles, focus loss 
             await ctrlDrag(render, at(0.02, 0.03), at(0.1, 0.12));
             const none = await readWhen(reader, panel, (s) => s.total === 0 && !s.single, 60_000);
             expect(none.s.total, "cleared again").toBe(0);
+        }
+
+        // 5c. with a multi-selection, a plain click starts fresh: only the clicked one stays
+        {
+            await ctrlDrag(render, at(0.02, 0.03), at(0.88, 0.97));
+            const boxed = await readWhen(reader, panel, (s) => s.total >= sets.B.count, 120_000);
+            expect(boxed.s.total, "boxed all visible").toBe(sets.B.count);
+            await render.bringToFront();
+            await render.waitForTimeout(1500);
+            // selected lines are drawn green, so magenta may be gone: then use the B line point
+            // from 5b. Any B line will do, all of them are selected now.
+            const edges = magentaEdges(await render.screenshot())
+                .filter(([x, y]) => x > r.x + 0.1 * r.width && x < r.x + 0.85 * r.width && y > r.y + 0.1 * r.height && y < r.y + 0.9 * r.height);
+            const target = edges.length > 0 ? edges[Math.floor(edges.length / 2)] : null;
+            const [tx, ty] = target ?? clickTarget;
+            await ctrlClick(render, tx, ty);
+            const fresh = await readWhen(reader, panel, (s) => s.total === 0 && s.single, 60_000);
+            save("5c-plain-click-after-box.png", await render.screenshot());
+            expect(fresh.s.total, "a plain click clears the multi-selection").toBe(0);
+            expect(fresh.s.single, "and selects the clicked one").toBe(true);
+            await ctrlDrag(render, at(0.02, 0.03), at(0.1, 0.12));
+            await readWhen(reader, panel, (s) => s.total === 0 && !s.single, 60_000);
         }
 
         // ---- modifiers (Viewer-Utils.fs `Modifier`): only Ctrl (and Cmd on macOS) arms the

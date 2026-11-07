@@ -689,6 +689,22 @@ module DrawingApp =
                     lastSelectedItem = SelectedItem.Child }
             | None -> groups
 
+    /// Plain click (no Shift) on an annotation in the viewport. With a multi-selection it starts
+    /// fresh: the multi-selection is cleared and only the clicked leaf is selected, as anywhere
+    /// else (and Delete, which removes multi plus green, then removes only what is visible as
+    /// selected). Without one it is the old single select, which toggles the green leaf.
+    let plainPickAnnotation (id : Guid) (groups : GroupsModel) : GroupsModel =
+        if groups.selectedLeaves.IsEmpty then
+            GroupsApp.update groups (GroupsAppAction.SingleSelectLeaf(List.empty, id, String.Empty))
+        else
+            let paths = GroupsApp.leafPaths groups.rootGroup
+            let path  = paths |> HashMap.tryFind id |> Option.defaultValue List.empty
+            { groups with
+                selectedLeaves   = HashSet.empty
+                singleSelectLeaf = Some id
+                activeChild      = { id = id; path = path; name = "" }
+                lastSelectedItem = SelectedItem.Child }
+
     // specifies which drawing actions trigger re-export of geo-json files.
     // the idea behind this is to keep out high-frequency updates (mouse move)
     // but blacklist those
@@ -1104,7 +1120,7 @@ module DrawingApp =
                             shiftPickAnnotation ann.key model.annotations
                         else
                             Log.line "[DrawingApp] single select"
-                            GroupsApp.update model.annotations (GroupsAppAction.SingleSelectLeaf(List.empty, ann.key, String.Empty))
+                            plainPickAnnotation ann.key model.annotations
                     
                     // selecting a different annotation abandons any control point being moved
                     { model with annotations = annotations; vertexGrab = None }

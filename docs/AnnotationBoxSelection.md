@@ -14,8 +14,8 @@ click. In the classic mouse scheme that means **Ctrl held**; in
 | Ctrl+drag | drag | **replace** the selection with every annotation the rectangle touches |
 | Ctrl+Shift+drag | Shift+drag | **add** the touched annotations |
 | Ctrl+Alt+drag | Alt+drag | **toggle** each touched annotation: selected ones are deselected, the others selected |
-| Ctrl+click on an annotation | click on an annotation | select it (unchanged) |
-| Ctrl+Shift+click on an annotation | Shift+click on an annotation | toggle it in the multi-selection (unchanged) |
+| Ctrl+click on an annotation | click on an annotation | select **only** it: a multi-selection is cleared |
+| Ctrl+Shift+click on an annotation | Shift+click on an annotation | toggle it in the selection; the one selected by a plain click stays selected |
 | Esc while dragging | Esc while dragging | cancel the rectangle, selection unchanged |
 
 **Why not Ctrl for toggle?** Ctrl is already taken: in the classic scheme it arms the tool, and
