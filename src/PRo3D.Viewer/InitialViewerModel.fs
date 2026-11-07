@@ -192,6 +192,7 @@ module Viewer =
             roseEnabled     = false
             roseUsePolyline = false
             roseUseDnS      = true
+            annotationMetadata = AnnotationMetadataModel.initial
             userPreferences      = UserPreferences.load ()
         } |> applyProvenaceIfEnabled
 

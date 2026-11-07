@@ -175,8 +175,10 @@ for (p, _) in todo do
     printfn "Adapt: generating %s" proj
     // Builds the referenced projects only (not the project itself, whose *.g.fs are missing).
     // The restore also writes this project's assets file, without which Adaptify sees no
-    // NuGet references and silently finds no model types.
-    runOrFail [ "msbuild"; proj; "-restore"; "-t:ResolveProjectReferences"; "-p:Configuration=Release"; "-v:m"; "-nologo" ]
+    // NuGet references and silently finds no model types. The global paket restore ran just
+    // above, so skip the one Paket.Restore.targets forces in every restore evaluation (#891);
+    // the per-project paket step and the PackageReferences NuGet needs are unaffected.
+    runOrFail [ "msbuild"; proj; "-restore"; "-p:PaketDisableGlobalRestore=true"; "-t:ResolveProjectReferences"; "-p:Configuration=Release"; "-v:m"; "-nologo" ]
     runOrFail [ "adaptify"; "--lenses"; "--local"; "--force"; "--release"; proj ]
     for (g, s) in outdated p do
         failures.Add (describe g s)

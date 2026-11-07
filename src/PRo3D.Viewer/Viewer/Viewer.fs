@@ -83,6 +83,19 @@ module UserFeedback =
     let queueFeedback fb m =
         { m with scene = { m.scene with feedbackThreads = ThreadPool.add fb.id (fb |> createWorker) m.scene.feedbackThreads }}
 
+    /// As queueFeedback, shown `delayMs` later: for a message raised while another worker's
+    /// text may still be on its way, e.g. the import's "Importing OPCs..." (#898). The newest
+    /// text wins, so the later one has to arrive last.
+    let queueFeedbackAfter (delayMs : int) fb m =
+        let worker =
+            proclist {
+                do! Proc.Sleep delayMs
+                yield UpdateUserFeedback fb.text
+                do! Proc.Sleep fb.timeout
+                yield ThreadsDone fb.id
+            }
+        { m with scene = { m.scene with feedbackThreads = ThreadPool.add fb.id worker m.scene.feedbackThreads }}
+
 module ViewerApp =         
     let dataSamples = 4
 
@@ -200,7 +213,8 @@ module ViewerApp =
             getArrowThickness   = fun (x:AdaptiveViewConfigModel) -> x.arrowThickness.value
             getArrowLength      = fun (x:AdaptiveViewConfigModel) -> x.arrowLength.value
             getDnsPlaneSize     = fun (x:AdaptiveViewConfigModel) -> x.dnsPlaneSize.value
-            getOffset           = fun (x:AdaptiveViewConfigModel) -> AVal.constant(0.1)//x.offset.value
+            // shared with the CPU occlusion test of annotation selection (DrawingApp.pointVisible)
+            getOffset           = fun (x:AdaptiveViewConfigModel) -> AVal.constant PRo3D.Base.Shader.DepthOffset.annotationWorld //x.offset.value
             getPickingTolerance = fun (x:AdaptiveViewConfigModel) -> x.pickingTolerance.value
             getFillReach        = fun (x:AdaptiveViewConfigModel) ->
                                       (x.fillReachAuto, x.fillReach.value) ||> AVal.map2 (fun auto metres ->
@@ -233,7 +247,76 @@ module ViewerApp =
     /// `DrawingModel` no longer carries draw/pick flags. See docs/DirectToolMode.md.
     let toolArmed (m : Model) : bool = m.ctrlFlag <> m.directToolMode
 
+    /// The box rectangle needs the tool gate for its whole drag: when a Ctrl key event takes
+    /// the left button back for the camera, drop it at once instead of on the next move.
+    let dropBoxIfDisarmed (m : Model) : Model =
+        if m.multiSelectBox.IsSome && not (toolArmed m) then { m with multiSelectBox = None }
+        else m
+
     let mutable cache = HashMap.Empty
+
+    /// When the scene body became a small body (Phobos, Deimos, Didymos, Dimorphos), the main
+    /// view switches to MapView, the top-down north-up view these bodies are navigated in
+    /// (#898, docs/MapView.md). Only on a change of body and only from another mode; scene load
+    /// and bookmarks restore their saved mode without coming here. Returns whether it switched.
+    ///
+    /// `overview`: also move the camera out to an overview of the body -- same direction from
+    /// the centre, 3.5 body radii out -- for a freshly imported OPC, whose import framing puts
+    /// the camera at a corner of its bounding box, tens of metres above a small body.
+    let private withMapViewForSmallBody (overview : bool) (planetBefore : Planet) (m : Model) : Model * bool =
+        let planet = m.scene.referenceSystem.planet
+        if planet <> planetBefore
+           && CooTransformation.isSmallBody planet
+           && m.navigation.navigationMode <> NavigationMode.MapView then
+            let navigation =
+                let location = m.navigation.camera.view.Location
+                match overview, CooTransformation.tryGetBodyRadius planet location with
+                | true, Some radius when location.Length > 0.0 && location.Length < 3.5 * radius ->
+                    let view = CameraView.lookAt (location.Normalized * (3.5 * radius)) V3d.Zero m.navigation.camera.view.Up
+                    { m.navigation with camera = { m.navigation.camera with view = view } }
+                | _ -> m.navigation
+            let nav, _ =
+                Navigation.update m.scene.config m.scene.referenceSystem navConf m.userPreferences true None
+                    navigation (Navigation.Action.SetNavigationMode NavigationMode.MapView) (mouseScheme m)
+            Log.line "[SceneBody] %A is a small body: MapView" planet
+            ({ m with navigation = nav } |> Optic.set _animationView nav.camera.view), true
+        else m, false
+
+    /// A scene body change by the user (top bar, GIS view): MapView for a small body, said in
+    /// the top-right notice (#898).
+    let private afterSceneBodyChange (planetBefore : Planet) (m : Model) : Model =
+        match withMapViewForSmallBody false planetBefore m with
+        | m, true -> m |> logScreen 5000 (sprintf "Scene body %A: switched to MapView" m.scene.referenceSystem.planet)
+        | m, false -> m
+
+    /// On the first import into a scene that observes no body: the body the imported OPCs'
+    /// metadata names for sure (OpcMetadata.bodyOf), if PRo3D knows it, becomes the scene body
+    /// -- the planet and the GIS observing it in its fixed frame, as picking the planet does
+    /// (#894, docs/SceneBody.md). Nothing is set when no OPC names a body, or when two name
+    /// different ones. Returns what to tell the user.
+    let private withBodyFromOpcMetadata (m : Model) : Model * Option<string> =
+        let bodies =
+            m.scene.surfacesModel.surfaces.flat
+            |> HashMap.toList
+            |> List.choose (fun (_, leaf) ->
+                match leaf with
+                | Leaf.Surfaces s ->
+                    s.opcxPath
+                    |> Option.bind (fun opcx -> OpcMetadata.bodyOf opcx (OpcMetadata.tryReadForOpcxCached opcx))
+                    |> Option.bind (fun (name, source) ->
+                        PRo3D.Base.Gis.SceneBody.tryPlanet (EntitySpiceName name)
+                        |> Option.filter (fun p -> (PRo3D.Base.Gis.SceneBody.trySpice p).IsSome)
+                        |> Option.map (fun planet -> planet, source))
+                | _ -> None)
+        match bodies |> List.map fst |> List.distinct with
+        | [ planet ] ->
+            let source = bodies |> List.tryHead |> Option.map snd |> Option.defaultValue ""
+            Log.line "[SceneBody] first import: %A from %s" planet source
+            SceneBodySync.setPlanet planet m, Some (sprintf "Scene body set to %A, from %s" planet source)
+        | [] -> m, None
+        | several ->
+            Log.warn "[SceneBody] first import: the OPCs name different bodies %A, none set" several
+            m, None
 
     let updateSceneWithNewSurface (m: Model) =
         let sgSurfaces = 
@@ -252,6 +335,12 @@ module ViewerApp =
             // useful default viewpoint after 2nd import
             match m.scene.firstImport with                  
             | true -> 
+                // an empty scene takes the body its first OPCs name for sure (#894)
+                let planetBefore = m.scene.referenceSystem.planet
+                let m, bodyMessage =
+                    match m.scene.gisApp.defaultObservationInfo.observer with
+                    | None -> withBodyFromOpcMetadata m
+                    | Some _ -> m, None
                 // A scene body the GIS already observes was declared, not guessed: do not
                 // second-guess it from the data's radius, only place the cross (#758).
                 let refAction =
@@ -270,9 +359,22 @@ module ViewerApp =
                     navigation = navigation'
                     scene = { m.scene with referenceSystem = refSystem'; firstImport = false }
                 } 
-                |> SceneLoader.updateCameraUp 
+                |> SceneLoader.updateCameraUp
                 |> lookAtBoundingBox v.globalBB
-            | _-> m     
+                // a small body found above: MapView, after the camera is placed on the data (#898)
+                |> fun m ->
+                    let m, mapView =
+                        match bodyMessage with
+                        | Some _ -> withMapViewForSmallBody true planetBefore m
+                        | None -> m, false
+                    // shown after the import's own "Importing OPCs..." notice, which it would
+                    // otherwise race with
+                    let say text = m |> UserFeedback.queueFeedbackAfter 500 (UserFeedback.create 6000 text)
+                    match bodyMessage, mapView with
+                    | Some text, true -> say (text + " - switched to MapView")
+                    | Some text, false -> say text
+                    | None, _ -> m
+            | _-> m          
         | None -> m
 
     let isGrabbed (model: Model) =
@@ -389,6 +491,44 @@ module ViewerApp =
             }
             { m with drawing = drawing } |> UserFeedback.queueFeedback feedback
 
+    /// Shape model and projected images of the annotation drawing input just finished (#887).
+    let private withAnnotationMetadata (finished : Option<Annotation>) (m : Model) : Model =
+        match finished with
+        | None -> m
+        | Some _ ->
+            let drawing, cache =
+                AnnotationMetadataApp.captureFinished
+                    m.scene.gisApp m.scene.surfacesModel m.scene.referenceSystem Picking.cache finished m.drawing
+            Picking.cache <- cache
+            { m with drawing = drawing }
+
+    /// Confidence, comment and label toggle (#887): the app's update plus its short message.
+    let private updateAnnotationMetadata (msg : AnnotationMetadataAction) (m : Model) : Model =
+        let drawing, metadataModel, feedback = AnnotationMetadataApp.update m.drawing m.annotationMetadata msg
+        let m = { m with drawing = drawing; annotationMetadata = metadataModel }
+        match feedback with
+        | Some text -> m |> logScreen 2000 text
+        | None -> m
+
+    /// Keys 1-4 and C while annotations are selected and none is being drawn (#887), with any
+    /// tool: finishing an annotation selects it, so with the draw tool still active they rate
+    /// and comment the annotation just drawn -- the workflow is draw, rate, draw the next. The
+    /// digits set the semantic while an annotation is being drawn, or with nothing selected.
+    /// Esc in the 3D view closes an open comment dialog.
+    let private metadataKeyAction (m : Model) (k : Aardvark.Application.Keys) : Option<AnnotationMetadataAction> =
+        match m.annotationMetadata.comment, k with
+        | Some _, Aardvark.Application.Keys.Escape -> Some CancelComment
+        | Some _, _ -> None
+        | None, _ when m.ctrlFlag || not (AnnotationMetadataApp.takesKeys m.drawing) -> None
+        | None, _ ->
+            match k with
+            | Aardvark.Application.Keys.D1 | Aardvark.Application.Keys.NumPad1 -> Some (SetConfidence 1)
+            | Aardvark.Application.Keys.D2 | Aardvark.Application.Keys.NumPad2 -> Some (SetConfidence 2)
+            | Aardvark.Application.Keys.D3 | Aardvark.Application.Keys.NumPad3 -> Some (SetConfidence 3)
+            | Aardvark.Application.Keys.D4 | Aardvark.Application.Keys.NumPad4 -> Some (SetConfidence 4)
+            | Aardvark.Application.Keys.C -> Some OpenComment
+            | _ -> None
+
     let private matchPickingInteraction (bc: BlockingCollection<string>) (p: V3d) (referenceSystem : Option<SpiceReferenceSystem>) (hitFunction:(V3d -> V3d option)) (surf: Surface) (m: Model) = 
         match m.interaction, m.viewerMode with
         | Interactions.DrawAnnotation, _ ->
@@ -414,7 +554,7 @@ module ViewerApp =
             let msg = DrawingAction.AddPointAdv(p, hitFunction, referenceSystem, surf.name, None)
             let drawing, finished = DrawingApp.updateFinishing m.scene.referenceSystem drawingConfig referenceSystem bc view m.shiftFlag m.drawing msg
             //Log.stop()
-            let m = { m with drawing = drawing } |> withAutoProfiles bc view finished |> stash
+            let m = { m with drawing = drawing } |> withAnnotationMetadata finished |> withAutoProfiles bc view finished |> stash
             if linearContact then
                 m |> logScreen 6000 "Contact drawn with Linear projection: its straight segments leave the terrain, so it will not follow the units' edges. Choose Sky projection for contacts."
             else m
@@ -667,11 +807,77 @@ module ViewerApp =
         //    match m.interaction with                     
         //    | Interactions.PickAnnotation -> DrawingAction.StartPickingMulti
         //    | _ -> DrawingAction.Nop
-        | Aardvark.Application.Keys.D0 -> DrawingAction.SetSemantic Semantic.Horizon0
-        | Aardvark.Application.Keys.D1 -> DrawingAction.SetSemantic Semantic.Horizon1
-        | Aardvark.Application.Keys.D2 -> DrawingAction.SetSemantic Semantic.Horizon2
-        | Aardvark.Application.Keys.D3 -> DrawingAction.SetSemantic Semantic.Horizon3 
+        // 0-3 (semantic) are handled in the KeyDown update: with annotations selected and none
+        // being drawn, 1-4 rate them instead (#887, metadataKeyAction)
         | _  -> DrawingAction.Nop
+
+    // ---- box selection of annotations (docs/AnnotationBoxSelection.md) ------------------------
+
+    /// a release closer than this to the press (pixels, either axis) is a click, not a drag
+    let private boxSelectMinDrag = 4.0
+
+    /// Pixels relative to the render control -> normalized device coordinates (y up).
+    let private pixelToNdc (size : V2d) (p : V2d) =
+        V2d(2.0 * p.X / size.X - 1.0, 1.0 - 2.0 * p.Y / size.Y)
+
+    /// The annotations a pixel rectangle on the main render view touches, with the camera and
+    /// frustum that view renders with.
+    /// Whether an annotation point is visible from the camera `viewProj`, i.e. not hidden by a
+    /// surface - the same decision the depth test makes on screen, with the same depth offset.
+    let private annotationPointVisible (m : Model) (viewProj : Trafo3d) =
+        DrawingApp.pointVisible
+            viewProj
+            (PRo3D.Base.Shader.DepthOffset.toClip PRo3D.Base.Shader.DepthOffset.annotationWorld)
+            (Picking.castToSurfaces m)
+
+    let private annotationsInPixelBox (m : Model) (viewportSize : V2d) (box : Box2d) =
+        if viewportSize.X <= 0.0 || viewportSize.Y <= 0.0 then []
+        else
+            let frustum  = m.overlayFrustum |> Option.defaultValue m.frustum
+            let viewProj = CameraView.viewTrafo m.navigation.camera.view * Frustum.projTrafo frustum
+            let ndc      = Box2d.FromPoints(pixelToNdc viewportSize box.Min, pixelToNdc viewportSize box.Max)
+            let annotations = m.drawing.annotations.flat |> Leaf.toAnnotations |> HashMap.toValueList
+            // rays cast and time spent, logged per box: the cost of occlusion at scale
+            let mutable rays = 0
+            let visible = annotationPointVisible m viewProj
+            let counted p = rays <- rays + 1; visible p
+            let sw = Diagnostics.Stopwatch.StartNew()
+            let hits = DrawingApp.annotationsTouchingRect viewProj viewportSize ndc counted annotations
+            Log.line "[BoxSelection] %d of %d annotations, %d visibility rays, %.1f ms"
+                hits.Length annotations.Length rays sw.Elapsed.TotalMilliseconds
+            hits
+
+    /// A Ctrl+click on an annotation counts only if the clicked part of it is visible: the
+    /// annotation point nearest the click, tested against the surfaces with the click's own
+    /// camera. Fails open - an annotation or point that cannot be found keeps the click.
+    let private clickedPartVisible (m : Model) (hit : SceneHit) (id : Guid) =
+        let e = hit.event
+        match m.drawing.annotations.flat |> HashMap.tryFind id with
+        | Some (Leaf.Annotations a) when e.evtViewport.X > 0 && e.evtViewport.Y > 0 ->
+            let viewProj = e.evtView * e.evtProj
+            let size     = V2d e.evtViewport
+            let ndc      = pixelToNdc size (V2d e.evtPixel)
+            match DrawingApp.annotationPointUnderCursor viewProj size ndc a with
+            | Some p -> annotationPointVisible m viewProj p
+            | None   -> true
+        | _ -> true
+
+    /// What a finished box gesture does to the selection, if anything. A drag selects what the
+    /// rectangle touches (Alt toggles, else Shift adds, else it replaces). A click does nothing
+    /// here - a click on an annotation is PickDirectly's. It deliberately does not clear the
+    /// selection on empty space: telling "empty" from a hit by a second hit test disagreed with
+    /// the pick pass's widened lines and points, and undid picks on release.
+    let boxSelectionAction (m : Model) (box : MultiSelectionBox) (release : BoxPointer) : Option<DrawingAction> =
+        let box    = { box with current = release.position }
+        let pixels = MultiSelectionBox.pixelBox box
+        if pixels.Size.X >= boxSelectMinDrag || pixels.Size.Y >= boxSelectMinDrag then
+            let mode =
+                if release.alt then Drawing.SelectionMode.Toggle
+                elif release.shift then Drawing.SelectionMode.Add
+                else Drawing.SelectionMode.Replace
+            Some (DrawingAction.SelectAnnotations(mode, annotationsInPixelBox m box.viewportSize pixels))
+        else
+            None
 
     let updateFrustumAspect m (windowSize : V2i) (viewPortSizeId : string) =
             let aspect = float windowSize.X / float windowSize.Y
@@ -999,7 +1205,19 @@ module ViewerApp =
                     //{ m with correlationPlot = cp } |> shortFeedback msg
                     m
                 | None -> m
-                
+
+            // a Ctrl+click on an annotation (both renderers send PickAnnotation with the click's
+            // SceneHit): selects only if the clicked part is not hidden behind a surface - the
+            // pick pass that found the annotation contains no terrain (docs/AnnotationBoxSelection.md)
+            | Drawing.PickAnnotation (hit, id) ->
+                if clickedPartVisible m hit id then
+                    let drawing =
+                        DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue m.navigation.camera.view m.shiftFlag m.drawing (Drawing.PickDirectly id)
+                    { m with drawing = drawing } |> stash
+                else
+                    Log.line "[Viewer] ignoring click on a hidden part of annotation %A" id
+                    m
+
             | Drawing.UnionSelectedAnnotations None
             | Drawing.ApplyCutStroke None
             | Drawing.GenerateSupportingProfiles None ->
@@ -1051,7 +1269,7 @@ module ViewerApp =
                     DrawingApp.updateFinishing m.scene.referenceSystem drawingConfig None sendQueue view m.shiftFlag m.drawing msg
 
                 // Enter finishing a polyline: its toolbar profiles
-                { m with drawing = drawing; } |> withAutoProfiles sendQueue view finished |> stash
+                { m with drawing = drawing; } |> withAnnotationMetadata finished |> withAutoProfiles sendQueue view finished |> stash
         | SurfaceActions msg,_ ->
             
             let view = m.navigation.camera.view
@@ -2061,9 +2279,35 @@ module ViewerApp =
             { initialModel with recent = m.recent; layout = m.layout; mainViewScenes = m.mainViewScenes }
             |> ViewerIO.loadRoverData
 
+        | AnnotationMetadataMessage msg, _ ->
+            updateAnnotationMetadata msg m
         | KeyDown k, _ ->
+          match metadataKeyAction m k with
+          | Some msg -> updateAnnotationMetadata msg m
+          | None ->
+            // Escape abandons a box selection drag in progress
             let m =
                 match k with
+                | Aardvark.Application.Keys.Escape -> { m with multiSelectBox = None }
+                | _ -> m
+
+            let m =
+                match k with
+                // 0-3: the semantic of the next annotation drawn (keys 1-4 rate selected
+                // annotations instead, see metadataKeyAction)
+                | Aardvark.Application.Keys.D0 | Aardvark.Application.Keys.D1
+                | Aardvark.Application.Keys.D2 | Aardvark.Application.Keys.D3 ->
+                    let semantic, digit =
+                        match k with
+                        | Aardvark.Application.Keys.D0 -> Semantic.Horizon0, 0
+                        | Aardvark.Application.Keys.D1 -> Semantic.Horizon1, 1
+                        | Aardvark.Application.Keys.D2 -> Semantic.Horizon2, 2
+                        | _ -> Semantic.Horizon3, 3
+                    let drawing =
+                        DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue m.navigation.camera.view m.shiftFlag m.drawing (DrawingAction.SetSemantic semantic)
+                    // said on screen, as the same digits rate annotations at other times (#887)
+                    { m with drawing = drawing }
+                    |> logScreen 2500 (AnnotationMetadataApp.semanticMessage (string semantic) digit m.drawing)
                 | Aardvark.Application.Keys.LeftShift -> 
                     let m = { m with shiftFlag = true}
                     Log.line "[Viewer] ShiftFlag %A" m.shiftFlag
@@ -2080,7 +2324,7 @@ module ViewerApp =
 
             let m =
                 match k with
-                | Keyboard.Modifier -> { m with ctrlFlag = true }
+                | Keyboard.Modifier -> dropBoxIfDisarmed { m with ctrlFlag = true }
                 | _ -> m
 
             // N: next problem of the active geological map, while working on it
@@ -2167,7 +2411,7 @@ module ViewerApp =
                 | _ -> m
 
             match k with
-            | Keyboard.Modifier -> { m with ctrlFlag = false }
+            | Keyboard.Modifier -> dropBoxIfDisarmed { m with ctrlFlag = false }
             | _ -> m
         | CtrlShortcut (k, shift),_ ->
             let view =
@@ -2202,10 +2446,13 @@ module ViewerApp =
             { m with interaction = t; drawing = drawing } //|> UserFeedback.queueFeedback feedback
         | ReferenceSystemMessage a,_ ->                                
             // the planet is the scene body: picking it also points the GIS at that body (#758)
+            let planetBefore = m.scene.referenceSystem.planet
             m |> SceneLoader.withCameraSkyFollowing (fun m ->
                 match a with
                 | ReferenceSystemAction.SetPlanet planet -> SceneBodySync.setPlanet planet m
                 | _ -> SceneBodySync.applyReferenceSystemAction a m)
+            // a small body: MapView (#898)
+            |> afterSceneBodyChange planetBefore
         | ConfigPropertiesMessage a,_ -> 
             //Log.line "config message %A" a
             let c' = ConfigProperties.update m.scene.config a
@@ -2373,26 +2620,48 @@ module ViewerApp =
         //    | true ->
         //        Log.line "[Viewer] No shattercone updates found."
         //        m
+        // body-level mouse events. They used to clear multiSelectBox, which now belongs to the box
+        // selection: the body's mousedown arrives right after the render control's pointerdown and
+        // would wipe the box just started.
         | StartDragging _,_ ->
-            let m' =
-                match m.multiSelectBox with
-                | Some x -> { m with multiSelectBox = None }
-                | None -> m
-            m'
+            m
         | Dragging _,_ ->
-            let m' =
-                match m.multiSelectBox with
-                | Some x -> { m with multiSelectBox = None }
+            m
+        | EndDragging (mousePos, mouseButton),_ ->
+            {m with navigation = {m.navigation with camera = {m.navigation.camera with pan = false }}}
+
+        // box selection of annotations (docs/AnnotationBoxSelection.md): left drag with the tool
+        // armed in Select Annotation mode - the same gate as allowAnnotationPicking
+        | BoxSelectStart p,_ ->
+            if p.button = 0 && m.interaction = Interactions.PickAnnotation && toolArmed m then
+                { m with multiSelectBox = Some { startPoint = p.position; current = p.position; viewportSize = p.viewportSize } }
+            else
+                m
+        // the gate is held for the whole drag: releasing Ctrl hands the left button back to the
+        // camera, so the rectangle would no longer match what is under it - drop it instead
+        | BoxSelectMove _,_ when m.multiSelectBox.IsSome && not (toolArmed m) ->
+            { m with multiSelectBox = None }
+        | BoxSelectMove p,_ ->
+            match m.multiSelectBox with
+            | Some b -> { m with multiSelectBox = Some { b with current = p } }
+            | None   -> m
+        | BoxSelectEnd p,_ ->
+            match m.multiSelectBox with
+            | Some _ when not (toolArmed m) -> { m with multiSelectBox = None }
+            | Some b ->
+                let m = { m with multiSelectBox = None }
+                match boxSelectionAction m b p with
+                | Some action ->
+                    let drawing =
+                        DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue m.navigation.camera.view m.shiftFlag m.drawing action
+                    { m with drawing = drawing } |> stash
                 | None -> m
-            m'
-        | EndDragging (mousePos, mouseButton),_ -> 
-          let m' =
-                match m.multiSelectBox with
-                | Some x -> { m with multiSelectBox = None }
-                | None -> m
-          let m' = 
-            {m' with navigation = {m'.navigation with camera = {m'.navigation.camera with pan = false }}}
-          m'
+            | None -> m
+        | BoxSelectCancel,_ ->
+            // also sent after every ordinary release (the pointer capture ends): keep it a no-op then
+            match m.multiSelectBox with
+            | Some _ -> { m with multiSelectBox = None }
+            | None   -> m
         | MouseIn _,_ ->
             {m with navigation = {m.navigation with camera = {m.navigation.camera with pan = true }}}
         | MouseOut _,_ ->
@@ -2691,7 +2960,10 @@ module ViewerApp =
             match msg with
             | Gis.GisAppAction.ObservationInfoMessage (Gis.ObservationInfoAction.SetObserver _)
             | Gis.GisAppAction.ObservationInfoMessage (Gis.ObservationInfoAction.SetReferenceFrame _) ->
+                let planetBefore = m.scene.referenceSystem.planet
                 m |> SceneLoader.withCameraSkyFollowing SceneBodySync.followObservation
+                // a small body: MapView (#898)
+                |> afterSceneBodyChange planetBefore
             | _ -> m
         | unknownAction, _ ->
             Log.line "[Viewer] Message not handled: %s" (string unknownAction)
@@ -2715,6 +2987,13 @@ module ViewerApp =
             | ViewerAction.NavigationMessage _               -> Some "camera"
             | ViewerAction.PickSurface _
             | ViewerAction.PreviewPickSurfaceFinished _      -> Some "picking"
+            // the click's occlusion check casts a ray, so a cold patch loads its KdTree
+            | ViewerAction.DrawingMessage (DrawingAction.PickAnnotation _) -> Some "picking"
+            // one ray per sample, up to 32 per annotation, plus cold KdTree loads: seconds
+            // with thousands of annotations (docs/AnnotationBoxSelection.md). Sent on every
+            // pointerup on the render control, camera drags included; without a box it costs
+            // one write of the busy cell and never reaches the pill's threshold.
+            | ViewerAction.BoxSelectEnd _                    -> Some "selecting annotations"
             | ViewerAction.ImportSurface _
             | ViewerAction.DiscoverAndImportOpcs _
             | ViewerAction.ImportDiscoveredSurfacesThreads _ -> Some "importing surfaces"
@@ -2786,6 +3065,48 @@ module ViewerApp =
         }
         |> Sg.noEvents
         |> Sg.trafo(trafo)
+    
+    /// DOM pointer events for the box selection (docs/AnnotationBoxSelection.md). Aardvark's
+    /// mouse events report page coordinates and no modifier keys, so these read what they need
+    /// straight off the event: the position relative to the render control (the selection
+    /// overlay shares its origin), the control's size, the button and Shift/Alt.
+    module private BoxSelectEvents =
+        let private relX = "(function(){var r=event.currentTarget.getBoundingClientRect(); return event.clientX - r.left;})()"
+        let private relY = "(function(){var r=event.currentTarget.getBoundingClientRect(); return event.clientY - r.top;})()"
+        // a left press captures the pointer, so a drag that leaves the view keeps reporting
+        let private captureAndButton =
+            "(function(){ if (event.button === 0) { try { event.currentTarget.setPointerCapture(event.pointerId); } catch (e) {} } return event.button; })()"
+
+        // the values arrive as JSON text; parsed by hand like GeometryLab's relative events,
+        // since an integral pixel coordinate is not a float to FsPickler
+        let private number (s : string) =
+            match Double.TryParse(s.Trim().Trim('"'), Globalization.NumberStyles.Float, Globalization.CultureInfo.InvariantCulture) with
+            | true, v -> v
+            | _ -> 0.0
+        let private flag (s : string) = s.Trim().Trim('"') = "true"
+
+        let private pointer (kind : string) (button : string) (cb : BoxPointer -> 'msg) =
+            onEvent kind
+                [ button; relX; relY; "event.currentTarget.clientWidth"; "event.currentTarget.clientHeight"; "event.shiftKey"; "event.altKey" ]
+                (fun args ->
+                    match args with
+                    | b :: x :: y :: w :: h :: shift :: alt :: _ ->
+                        cb { button = int (number b); position = V2d(number x, number y); viewportSize = V2d(number w, number h)
+                             shift = flag shift; alt = flag alt }
+                    | _ -> cb { button = -1; position = V2d.Zero; viewportSize = V2d.Zero; shift = false; alt = false })
+
+        let onDown cb = pointer "onpointerdown" captureAndButton cb
+        let onUp   cb = pointer "onpointerup" "event.button" cb
+
+        let onMove (cb : V2d -> 'msg) =
+            onEvent "onpointermove" [ relX; relY ] (fun args ->
+                match args with
+                | x :: y :: _ -> cb (V2d(number x, number y))
+                | _ -> cb V2d.Zero)
+
+        let onCancel (msg : 'msg) =
+            [ onEvent "onpointercancel" [] (fun _ -> msg)
+              onEvent "onlostpointercapture" [] (fun _ -> msg) ]
 
     /// Ctrl/Shift held while focus leaves a render control are released elsewhere; that
     /// KeyUp never arrives here, and a stale ctrlFlag/shiftFlag would keep picking armed.
@@ -2794,6 +3115,21 @@ module ViewerApp =
             [KeyUp Aardvark.Application.Keys.LeftCtrl; KeyUp Aardvark.Application.Keys.LeftShift])
 
     let renderControlAttributes (id : string) (m: AdaptiveModel) =
+
+        // Moves are sent only while a box is being dragged, so an idle view sends no move
+        // traffic. Up and cancel stay attached: the handler set changes only once the server has
+        // processed BoxSelectStart, and a quick click would otherwise lose its release.
+        let boxSelectAtts =
+            amap {
+                yield BoxSelectEvents.onDown BoxSelectStart
+                yield BoxSelectEvents.onUp BoxSelectEnd
+                yield! BoxSelectEvents.onCancel BoxSelectCancel
+                let! box = m.multiSelectBox
+                if box.IsSome then
+                    yield BoxSelectEvents.onMove BoxSelectMove
+            }
+            |> AttributeMap.ofAMap
+            |> AttributeMap.mapAttributes (AttributeValue.map ViewerMessage)
 
         let renderControlAtts (model: AdaptiveNavigationModel) =
             amap {
@@ -2832,13 +3168,16 @@ module ViewerApp =
             renderControlAtts m.navigation
                 |> AttributeMap.mapAttributes (AttributeValue.map ViewerMessage)
 
+            boxSelectAtts
+
             AttributeMap.ofList [
                 attribute "style" "width:100%; height: 100%; float:left; background-color: #222222"
                 attribute "data-samples" (sprintf "%i" dataSamples)
                 attribute "useMapping" "true"
                 // Pull keyboard focus onto the render control as soon as the cursor enters,
                 // so modifier keys (ctrlFlag, drawing-key shortcuts) work without a prior click.
-                attribute "onmouseenter" "this.focus()"
+                // ... unless the comment dialog floating over the view has it (#887)
+                attribute "onmouseenter" "if (!(document.activeElement && document.activeElement.closest && document.activeElement.closest('.annotation-comment-dialog'))) this.focus()"
                 //attribute "showFPS" "true"
                 //attribute "data-renderalways" "true"
                 Aardvark.UI.Events.onKeyDown' (fun k ->
@@ -2954,6 +3293,7 @@ module ViewerApp =
                 m.scene.config
                 mdrawingConfig
                 view 
+                (m.annotationMetadata |> AVal.map (fun s -> s.showConfidenceLabels))
                 m.drawing            
             
         let scaleBarTexts = 

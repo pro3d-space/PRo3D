@@ -298,7 +298,7 @@ let private libraryTests =
                 Expect.isTrue (File.Exists (LayoutLibrary.currentPath dir + ".corrupt")) "kept aside"
                 Expect.isFalse (File.Exists (LayoutLibrary.currentPath dir)) "moved away"
                 match m.dialog with
-                | LayoutDialog.Notice (message, LayoutDialog.None) -> Expect.stringContains message "could not be read" "the user is told at start"
+                | LayoutDialog.Notice (_, message, LayoutDialog.None) -> Expect.stringContains message "could not be read" "the user is told at start"
                 | other -> failtestf "expected a notice, got %A" other
                 Expect.equal (LayoutApp.initial dir).dialog LayoutDialog.None "and only once"
 
@@ -493,6 +493,21 @@ let private sidecarTests =
                 match m2.dialog with
                 | LayoutDialog.SceneLayout p -> Expect.isTrue p.alreadyInLibrary "recognized"
                 | other -> failtestf "expected the dialog, got %A" other
+            )
+        }
+
+        test "the scene layout prompt waits behind every queued notice" {
+            Fixture.withLayoutDir (fun dir ->
+                let scene = Path.Combine(dir, "s.pro3d")
+                Fixture.ok (SceneLayoutSidecar.tryWrite scene (LayoutOps.sanitize DashboardModes.core.layout)) "write"
+                let m =
+                    LayoutApp.initial dir
+                    |> LayoutApp.notify "first" "a"
+                    |> LayoutApp.notify "second" "b"
+                let offered, _ = LayoutApp.sceneOpened dir scene m
+                match offered.dialog with
+                | LayoutDialog.Notice ("first", _, LayoutDialog.Notice ("second", _, LayoutDialog.SceneLayout _)) -> ()
+                | other -> failtestf "expected both notices, then the prompt; got %A" other
             )
         }
 

@@ -66,7 +66,7 @@ with the tool's click gesture (Ctrl+click, or a plain click in
 |---|---|
 | **click** a unit | it takes the active unit |
 | **drag** across units | every unit the cursor passes takes the active unit |
-| **Alt+click** a unit | eyedropper: its unit becomes the active legend entry (a click with no legend entry active does the same) |
+| **Alt+click** a unit (Ctrl+Alt+click; Cmd+Option+click on macOS; Alt+click in Direct Tool Mode) | eyedropper: its unit becomes the active legend entry (a click with no legend entry active does the same). Alt alone does not arm the tool ([the modifier key](DirectToolMode.md#the-modifier-key)) |
 | hover | the unit under the cursor is highlighted |
 
 Under the hood a unit's unit is its label point: clicking a unit without one places a label point

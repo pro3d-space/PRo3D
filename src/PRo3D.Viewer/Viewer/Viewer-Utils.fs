@@ -1652,13 +1652,15 @@ module ViewerUtils =
         // interactive viewer and PRo3D.Snapshots, which both assemble surfaces here.
         let sunShadow = SunShadowMap.get runtime m
 
-        // one stack texture array for all surfaces: slice i = stack layer i's
-        // image band, index-aligned with each surface's per-patch matrix array
-        // (both derive from the same filtered effectiveStack)
-        let projectedStackTextures =
+        // one stack texture array for all surfaces, a slot per image; layer i
+        // reads slot slices.[i] -- index-aligned with each surface's per-patch
+        // matrix array (both derive from the same filtered effectiveStack)
+        let projectedStack =
             PRo3D.InstrumentProjection.Visualization.createProjectedStackTextureArray
                 runtime
                 (PRo3D.GIS.ProjectedImagesListAppHelper.getStackTextureLayers m.scene.gisApp)
+        let projectedStackTextures = projectedStack |> AVal.map (fun s -> s.texture)
+        let projectedStackSlices = projectedStack |> AVal.map (fun s -> s.slices)
 
 
         // per surface, shared by the per-patch applicator, the frustum wireframe and
@@ -1681,6 +1683,7 @@ module ViewerUtils =
                     )
                 )
                 |> Sg.texture "ProjectedStackTextures" projectedStackTextures
+                |> Sg.uniform "ProjectedStackSlices" projectedStackSlices
                 |> Sg.uniform' "ProjectedImageModelViewProjValid" (PRo3D.GIS.ProjectedImagesListAppHelper.getSelectedImage  m.scene.gisApp.projectedImageList |> AVal.map Option.isSome)
                 |>  PRo3D.InstrumentVisualization.InstrumentImageVisualization.applyProperties {  imageProperties with instrumentImage = projectedTexture }
                 |> Sg.noEvents
@@ -2173,8 +2176,19 @@ module Keyboard =
 
     let isMac = RuntimeInformation.IsOSPlatform(OSPlatform.OSX)
 
+    /// The tool modifier (Model.ctrlFlag, docs/DirectToolMode.md): Ctrl, and on macOS also Cmd.
+    ///
+    /// Browsers send keyCode 17 for both Ctrls (-> LeftCtrl). Alt/Option is deliberately NOT a
+    /// modifier: it used to be one, undocumented, which made Alt arm every tool, Alt+S save and
+    /// Alt+Z undo, and stole Alt from box selection's toggle (docs/AnnotationBoxSelection.md).
+    ///
+    /// macOS: Ctrl+click is a right-click there, so Cmd is the key Mac users have. Chromium
+    /// (Electron) sends keyCode 91 for left Cmd (-> LWin) and 93 for right Cmd (-> Apps);
+    /// Aardvark's KeyConverter has no entry for Firefox's 224. RWin is kept for keyboards that
+    /// report 92. `isMac` is the server's OS, which is the client's in the Electron app; on
+    /// Windows these keys stay out, since the Windows key opens the Start menu and its key-up
+    /// would be lost, leaving the flag stuck.
     let (|Modifier|_|) (k : Keys) =
         if k = Keys.LeftCtrl then Some Modifier
-        elif k = Keys.LeftAlt then Some Modifier
-        elif int k = 70 && isMac then Some Modifier
+        elif isMac && (k = Keys.LWin || k = Keys.RWin || k = Keys.Apps) then Some Modifier
         else None

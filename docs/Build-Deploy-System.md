@@ -10,7 +10,7 @@ In order to deploy all supported architectures using github actions is the prefe
 
 Deployments are triggered by github actions. 
 There are two release types:
- 1. public releases: add a new top entry (with the new version) to [PRODUCT_RELEASE_NOTES.md](https://github.com/pro3d-space/PRo3D/blob/develop/PRODUCT_RELEASE_NOTES.md), commit and push. The CI builds a multiplatform build with installers and the result appears as a draft on the github release page.
+ 1. public releases: add a new top entry (with the new version) to [PRODUCT_RELEASE_NOTES.md](https://github.com/pro3d-space/PRo3D/blob/develop/PRODUCT_RELEASE_NOTES.md), with the bullets collected in [NEXT_RELEASE_NOTES.md](https://github.com/pro3d-space/PRo3D/blob/develop/NEXT_RELEASE_NOTES.md) (then leave that file with its header and an empty list), commit and push. The CI builds a multiplatform build with installers and the result appears as a draft on the github release page.
 
 > **You no longer need to edit `aardium/package.json`.** `PRODUCT_RELEASE_NOTES.md` is the single source of truth for the release version: the build syncs `package.json`'s `version` from it automatically (see *How a release is crafted* below). A push that touches `PRODUCT_RELEASE_NOTES.md` is enough to trigger the deploy workflow.
 
@@ -70,6 +70,11 @@ For development use `./build.sh CopyToElectron`, switch into the aardium directo
 ## Release notes
 
 tags and release notes taken from PRODCT_RELEASE_NOTES.md
+
+Between releases, each PR adds its user-visible changes to `NEXT_RELEASE_NOTES.md`, not to
+`PRODUCT_RELEASE_NOTES.md`: `ReleaseNotes.load` parses every `##` heading of the latter as a
+version, so an `## Unreleased` section fails every build. Releasing moves those bullets into the
+new version's section.
 
 ## Version numbers
 
@@ -171,3 +176,28 @@ separator, a case-sensitive file name, a GL driver difference) is caught when th
 `develop`, or by the nightly run — not on the PR itself. If a change is likely to be
 platform-sensitive, add the `ci: full-matrix` label before asking for a review. Nothing reaches a
 release branch without the full matrix having run on it.
+
+## Paket restore inside msbuild (#891)
+
+`Paket.Restore.targets` is supposed to skip `dotnet paket restore` when `paket.lock` matches the
+`projectsRestoredHash` in `paket-files/paket.restore.cached`. That works in msbuild's build pass, but
+in the **restore** pass (`msbuild -restore`, `dotnet build`, `dotnet run`, `dotnet test`) the targets
+force a global restore anyway, once per project in the reference graph, and in parallel. Every one of
+those starts a `dotnet paket` process that prints "The last full restore is still up to date" and
+exits. On the macos-15 (ARM) runners one of them was occasionally SIGKILLed a fraction of a second
+after starting (`"dotnet paket restore" exited with code 137`), which failed the job.
+
+So wherever a global restore has demonstrably already happened, the build passes
+`-p:PaketDisableGlobalRestore=true`:
+
+- `utilities/Adapt.fsx` runs `dotnet paket restore` once at the top and then passes it to every
+  per-project `msbuild -restore`.
+- `runTests.cmd` / `runTests.sh` run Adapt first, then pass it to `dotnet run`.
+- `Build.fs` passes it to every `DotNet.build` / `test` / `publish` (`skipGlobalPaketRestore`), but
+  only when the hash check above holds. When it does not hold, for example after a `git pull` that
+  changed `paket.lock` without running the build scripts, msbuild restores as before.
+
+This property skips **only** the global Exec. Paket's per-project step, which re-restores a project
+whose `paket.references` changed and hands its packages to NuGet as `PackageReference`s, still runs.
+Do not use `PaketRestoreDisabled=true` instead: it turns off that step too, NuGet then writes
+`project.assets.json` without any packages, and Adaptify silently finds no model types.

@@ -63,6 +63,7 @@
     <Compile Include="ProvenanceModel.fs" />
     <Compile Include="ProvenanceModel.g.fs" />
     <Compile Include="PolygonImportApp.fs" />
+    <Compile Include="AnnotationMetadata-Model.fs" />
     <Compile Include="Viewer-Model.fs" />
     <Compile Include="Viewer-Model.g.fs" />
     <Compile Include="Busy.fs" />
@@ -74,6 +75,7 @@
     <Compile Include="Viewer\SunShadowMap.fs" />
     <Compile Include="Viewer\MapProjectionHost.fs" />
     <Compile Include="Viewer\ImageInspector.fs" />
+    <Compile Include="Viewer\AnnotationMetadataApp.fs" />
     <Compile Include="Viewer\Viewer-Utils.fs" />
     <Compile Include="Viewer\SurfaceEffectHarness.fs" />
     <Compile Include="SceneBodySync.fs" />

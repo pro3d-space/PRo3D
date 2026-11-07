@@ -35,6 +35,26 @@ let toolNotes = ReleaseNotes.load "TOOL_RELEASE_NOTES.md"
 
 printfn "tool %A" toolNotes
 
+/// Paket.Restore.targets forces a global `dotnet paket restore` in every msbuild restore
+/// evaluation, even when everything is restored, so each build/test/publish starts one
+/// paket process per project. On the macos-15 runners one of them gets SIGKILLed now and
+/// then (exit 137, #891). When paket.lock matches what was last restored, skip that global
+/// Exec; the per-project check and the PackageReference injection NuGet needs still run.
+/// When it does not match, leave msbuild alone so it restores as before.
+let skipGlobalPaketRestore (p : MSBuild.CliArguments) =
+    let restored =
+        try
+            let lockHash =
+                use s = File.OpenRead "paket.lock"
+                use sha = System.Security.Cryptography.SHA256.Create()
+                Convert.ToHexString(sha.ComputeHash s)
+            let cached = File.ReadAllText(Path.Combine("paket-files", "paket.restore.cached"))
+            let m = Regex.Match(cached, @"""projectsRestoredHash""\s*:\s*""([0-9A-Fa-f]+)""")
+            m.Success && String.Equals(m.Groups.[1].Value, lockHash, StringComparison.OrdinalIgnoreCase)
+        with _ -> false
+    if restored then { p with Properties = ("PaketDisableGlobalRestore", "true") :: p.Properties }
+    else p
+
 let solutionName = "src/PRo3D.sln"
 let framework = "net9.0"
 let aardiumPath = Path.Combine("aardium", "Aardium")
@@ -142,10 +162,11 @@ Target.create "Compile" (fun _ ->
             NoRestore = false 
             Configuration = if debug then DotNet.BuildConfiguration.Debug else DotNet.BuildConfiguration.Release
             MSBuildParams =
-                { o.MSBuildParams with
-                    Properties = props
-                    DisableInternalBinLog = true
-                }
+                skipGlobalPaketRestore
+                    { o.MSBuildParams with
+                        Properties = props
+                        DisableInternalBinLog = true
+                    }
         }
     )
 )
@@ -325,9 +346,10 @@ Target.create "Tests" (fun _ ->
         { o with
             NoRestore = false 
             MSBuildParams =
-                { o.MSBuildParams with
-                    DisableInternalBinLog = true
-                }
+                skipGlobalPaketRestore
+                    { o.MSBuildParams with
+                        DisableInternalBinLog = true
+                    }
         }
     ) "./src/Tests/Tests.fsproj"
 )
@@ -400,7 +422,7 @@ Target.create "CopyToElectron" (fun _ ->
                  Configuration = DotNet.BuildConfiguration.Release
                  VersionSuffix = Some notes.NugetVersion
                  OutputPath = Some dotnetOutputPath
-                 MSBuildParams = { o.MSBuildParams with DisableInternalBinLog = true }
+                 MSBuildParams = skipGlobalPaketRestore { o.MSBuildParams with DisableInternalBinLog = true }
              }
          )
          copyMacNativeLibs arch dotnetOutputPath
@@ -417,7 +439,7 @@ Target.create "CopyToElectron" (fun _ ->
                     Configuration = DotNet.BuildConfiguration.Release
                     VersionSuffix = Some notes.NugetVersion
                     OutputPath = Some dotnetOutputPath
-                    MSBuildParams = { o.MSBuildParams with DisableInternalBinLog = true } 
+                    MSBuildParams = skipGlobalPaketRestore { o.MSBuildParams with DisableInternalBinLog = true } 
                 }
         )
         for f in System.IO.Directory.GetFiles("./lib/Native/JR.Wrappers/linux/AMD64") do    
@@ -436,7 +458,7 @@ Target.create "CopyToElectron" (fun _ ->
                 Configuration = DotNet.BuildConfiguration.Release
                 VersionSuffix = Some notes.NugetVersion
                 OutputPath = Some dotnetOutputPath
-                MSBuildParams = { o.MSBuildParams with DisableInternalBinLog = true } 
+                MSBuildParams = skipGlobalPaketRestore { o.MSBuildParams with DisableInternalBinLog = true } 
             }
         )
         // snapshots CLI (PRo3D.Snapshots.exe) — same as in the standalone "Publish" target,
@@ -449,7 +471,7 @@ Target.create "CopyToElectron" (fun _ ->
                 Configuration = DotNet.BuildConfiguration.Release
                 VersionSuffix = Some notes.NugetVersion
                 OutputPath = Some dotnetOutputPath
-                MSBuildParams = { o.MSBuildParams with DisableInternalBinLog = true }
+                MSBuildParams = skipGlobalPaketRestore { o.MSBuildParams with DisableInternalBinLog = true }
             }
         )
 
@@ -491,7 +513,7 @@ Target.create "Publish" (fun _ ->
             Configuration = DotNet.BuildConfiguration.Release
             VersionSuffix = Some notes.NugetVersion
             OutputPath = Some "bin/publish/win-x64"
-            MSBuildParams = { o.MSBuildParams with DisableInternalBinLog = true } 
+            MSBuildParams = skipGlobalPaketRestore { o.MSBuildParams with DisableInternalBinLog = true } 
         }
     )
 
@@ -505,7 +527,7 @@ Target.create "Publish" (fun _ ->
             Configuration = DotNet.BuildConfiguration.Release
             VersionSuffix = Some notes.NugetVersion
             OutputPath = Some "bin/publish/win-x64"
-            MSBuildParams = { o.MSBuildParams with DisableInternalBinLog = true } 
+            MSBuildParams = skipGlobalPaketRestore { o.MSBuildParams with DisableInternalBinLog = true } 
             
         }
     )
@@ -520,7 +542,7 @@ Target.create "Publish" (fun _ ->
             Configuration = DotNet.BuildConfiguration.Release
             VersionSuffix = Some notes.NugetVersion
             OutputPath = Some "bin/publish/mac-x64"
-            MSBuildParams = { o.MSBuildParams with DisableInternalBinLog = true }
+            MSBuildParams = skipGlobalPaketRestore { o.MSBuildParams with DisableInternalBinLog = true }
         }
     )
     copyMacNativeLibs Architecture.X64 "bin/publish/mac-x64"
@@ -536,7 +558,7 @@ Target.create "Publish" (fun _ ->
             Configuration = DotNet.BuildConfiguration.Release
             VersionSuffix = Some notes.NugetVersion
             OutputPath = Some "bin/publish/mac-arm64"
-            MSBuildParams = { o.MSBuildParams with DisableInternalBinLog = true }
+            MSBuildParams = skipGlobalPaketRestore { o.MSBuildParams with DisableInternalBinLog = true }
         }
     )
     copyMacNativeLibs Architecture.Arm64 "bin/publish/mac-arm64"
@@ -619,10 +641,11 @@ Target.create "CompileDebug" (fun _ ->
             NoRestore = true 
             Configuration = DotNet.BuildConfiguration.Debug
             MSBuildParams =
-                { o.MSBuildParams with
-                    Properties = props
-                    DisableInternalBinLog = true
-                }
+                skipGlobalPaketRestore
+                    { o.MSBuildParams with
+                        Properties = props
+                        DisableInternalBinLog = true
+                    }
         }
     )
 )
@@ -655,10 +678,11 @@ Target.create "CompileInstruments" (fun _ ->
             NoRestore = false 
             Configuration = DotNet.BuildConfiguration.Debug
             MSBuildParams =
-                { o.MSBuildParams with
-                    Properties = props
-                    DisableInternalBinLog = true
-                }
+                skipGlobalPaketRestore
+                    { o.MSBuildParams with
+                        Properties = props
+                        DisableInternalBinLog = true
+                    }
         }
     )
 
@@ -667,10 +691,11 @@ Target.create "CompileInstruments" (fun _ ->
             NoRestore = false 
             Configuration = DotNet.BuildConfiguration.Release
             MSBuildParams =
-                { o.MSBuildParams with
-                    Properties = props
-                    DisableInternalBinLog = true
-                }
+                skipGlobalPaketRestore
+                    { o.MSBuildParams with
+                        Properties = props
+                        DisableInternalBinLog = true
+                    }
         }
     )
 

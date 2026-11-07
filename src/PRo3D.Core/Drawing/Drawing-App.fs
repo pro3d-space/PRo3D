@@ -494,6 +494,293 @@ module DrawingApp =
         | None -> fun (a : Annotation) -> multiSelected |> HashSet.contains a.key
         | Some s -> fun (a : Annotation) -> a.key = s || multiSelected |> HashSet.contains a.key
 
+    // ---- selection hit tests (docs/AnnotationBoxSelection.md) ---------------------------------
+    // All on the CPU in double: annotation points are planetary-scale world coordinates.
+
+    /// clip-space w below which a point counts as behind the camera
+    let private behindEps = 1e-9
+
+    /// Ray casts the box selection spends at most on one annotation before deciding it is
+    /// hidden, so a box over many fully occluded annotations stays bounded.
+    let maxVisibilityRaysPerAnnotation = 32
+
+    /// screen distance (pixels) between the samples taken along a segment inside the box
+    let private samplePixelSpacing = 8.0
+
+    /// The world points of the path an annotation is drawn along: draped segments where there
+    /// are any, otherwise the points (point annotations, ellipses - whose points are the sampled
+    /// outline - and annotations not draped yet).
+    let private drawnPath (a : Annotation) : V3d[] =
+        if a.segments.IsEmpty then a.points |> IndexList.toArray
+        else
+            a.segments
+            |> IndexList.toArray
+            |> Array.collect (fun s ->
+                Array.concat [ [| s.startPoint |]; s.points |> IndexList.toArray; [| s.endPoint |] ])
+
+    let private toNdc (c : V4d) = V2d(c.X / c.W, c.Y / c.W)
+
+    /// A world segment clipped against w > 0, so geometry behind the camera cannot wrap onto
+    /// the screen: its world end points and their clip-space images, or None if fully behind.
+    let private clipToFront (p0 : V3d) (p1 : V3d) (c0 : V4d) (c1 : V4d) =
+        if c0.W <= behindEps && c1.W <= behindEps then None
+        elif c0.W > behindEps && c1.W > behindEps then Some (p0, p1, c0, c1)
+        else
+            // clip space is linear in world space, so the cut is the same parameter in both
+            let t     = (behindEps - c0.W) / (c1.W - c0.W)
+            let pCut  = p0 + (p1 - p0) * t
+            let cCut  = c0 + (c1 - c0) * t
+            if c0.W > behindEps then Some (p0, pCut, c0, cCut) else Some (pCut, p1, cCut, c1)
+
+    /// Perspective-correct mapping: parameter t along the *projected* segment -> parameter s
+    /// along the world (and clip) segment, for end points with clip w0 and w1.
+    let private screenToSegmentParam (w0 : float) (w1 : float) (t : float) =
+        let den = t * w0 + (1.0 - t) * w1
+        if abs den < 1e-300 then t else t * w0 / den
+
+    /// Liang-Barsky: the parameter interval of the 2D segment a-b inside `rect`, if any.
+    let private clipToRect (rect : Box2d) (a : V2d) (b : V2d) : Option<float * float> =
+        let d = b - a
+        let rec clip t0 t1 (constraints : list<float * float>) =
+            match constraints with
+            | [] -> if t0 <= t1 then Some (t0, t1) else None
+            | (p, q) :: rest ->
+                if p = 0.0 then
+                    if q < 0.0 then None else clip t0 t1 rest
+                else
+                    let r = q / p
+                    if p < 0.0 then
+                        if r > t1 then None else clip (max t0 r) t1 rest
+                    else
+                        if r < t0 then None else clip t0 (min t1 r) rest
+        clip 0.0 1.0 [
+            (-d.X, a.X - rect.Min.X)
+            ( d.X, rect.Max.X - a.X)
+            (-d.Y, a.Y - rect.Min.Y)
+            ( d.Y, rect.Max.Y - a.Y)
+        ]
+
+    /// Whether the world point `p` is visible from the camera, i.e. not hidden by the surface -
+    /// the CPU twin of the depth test that hides annotations on screen.
+    ///
+    /// `castRay` returns the distance to the first surface hit along a ray with normalized
+    /// direction, or None. The ray starts where `p` unprojects onto the near plane, so this works
+    /// for any projection. A hit before `p` occludes it only if the annotation's depth, offset
+    /// exactly like depthOffsetFS does on the GPU (`depthOffsetClip` subtracted from clip z
+    /// before the divide), is behind the surface's: an annotation lying on the terrain stays
+    /// visible, as it does on screen.
+    let pointVisible (viewProj : Trafo3d) (depthOffsetClip : float) (castRay : Ray3d -> Option<float>) (p : V3d) : bool =
+        let c = viewProj.Forward * V4d(p, 1.0)
+        if c.W <= behindEps then false
+        else
+            let ndc    = toNdc c
+            let origin = viewProj.Backward.TransformPosProj(V3d(ndc.X, ndc.Y, -1.0))
+            let toP    = p - origin
+            let dist   = toP.Length
+            if dist <= 0.0 then true
+            else
+                let dir = toP / dist
+                match castRay (Ray3d(origin, dir)) with
+                | None -> true
+                | Some t when t >= dist -> true
+                | Some t ->
+                    let s = viewProj.Forward * V4d(origin + dir * t, 1.0)
+                    let annotationDepth = (c.Z - depthOffsetClip) / c.W
+                    let surfaceDepth    = s.Z / s.W
+                    // no extra slack: depthOffsetClip already keeps an annotation on the terrain
+                    // in front, and a fixed NDC slack grows with distance squared (metres at range)
+                    annotationDepth <= surfaceDepth
+
+    /// Box selection hit test: the visible annotations that a screen rectangle touches - a part
+    /// of them inside it (a vertex, or a stretch of a segment crossing it) that `isVisible`
+    /// accepts. `ndcRect` is in normalized device coordinates (-1..1, y up), `viewProj` the
+    /// camera's view * projection, `viewportSize` the view in pixels (for the sample spacing).
+    ///
+    /// The first visible sample decides. At most maxVisibilityRaysPerAnnotation are tested,
+    /// spread evenly over the samples in path order. `fun _ -> true` ignores occlusion.
+    let annotationsTouchingRect
+        (viewProj     : Trafo3d)
+        (viewportSize : V2d)
+        (ndcRect      : Box2d)
+        (isVisible    : V3d -> bool)
+        (annotations  : seq<Annotation>) : list<Guid> =
+
+        let m = viewProj.Forward
+        let toPixels (v : V2d) = V2d(v.X * viewportSize.X * 0.5, v.Y * viewportSize.Y * 0.5)
+
+        let vertexInside (c : V4d) = c.W > behindEps && ndcRect.Contains (toNdc c)
+
+        // world points of the stretch of a segment inside the rectangle, about samplePixelSpacing
+        // apart, appended to `out`
+        let segmentSamples (out : ResizeArray<V3d>) (p0 : V3d) (p1 : V3d) (c0 : V4d) (c1 : V4d) =
+            match clipToFront p0 p1 c0 c1 with
+            | None -> ()
+            | Some (p0, p1, c0, c1) ->
+                let a, b = toNdc c0, toNdc c1
+                match clipToRect ndcRect a b with
+                | None -> ()
+                | Some (t0, t1) ->
+                    let pixels = (toPixels ((b - a) * (t1 - t0))).Length
+                    let n = int (ceil (pixels / samplePixelSpacing)) + 1 |> min maxVisibilityRaysPerAnnotation
+                    for i in 0 .. n - 1 do
+                        let t = if n = 1 then 0.5 * (t0 + t1) else t0 + (t1 - t0) * float i / float (n - 1)
+                        let s = screenToSegmentParam c0.W c1.W t
+                        out.Add(p0 + (p1 - p0) * s)
+
+        // one buffer for all annotations, refilled per annotation
+        let buffer = ResizeArray<V3d>()
+
+        // the samples of an annotation inside the rectangle, in path order, into `buffer`
+        let samples (a : Annotation) =
+            buffer.Clear()
+            let path    = drawnPath a
+            let clipped = Array.zeroCreate<V4d> path.Length
+            for i in 0 .. path.Length - 1 do clipped.[i] <- m * V4d(path.[i], 1.0)
+            if path.Length = 1 then
+                if vertexInside clipped.[0] then buffer.Add path.[0]
+            elif path.Length > 1 then
+                for i in 0 .. path.Length - 2 do
+                    if vertexInside clipped.[i] then buffer.Add path.[i]
+                    segmentSamples buffer path.[i] path.[i + 1] clipped.[i] clipped.[i + 1]
+                if vertexInside clipped.[path.Length - 1] then buffer.Add path.[path.Length - 1]
+
+        // every k-th sample, so the ray budget covers the whole part inside the box rather than
+        // running out on its first, possibly hidden, stretch
+        // - spread from the first to the last sample, so a visible end is never skipped
+        let anyVisible () =
+            let n = buffer.Count
+            let budget = maxVisibilityRaysPerAnnotation
+            let sampleAt j =
+                if n <= budget then j
+                else int (round (float j * float (n - 1) / float (budget - 1)))
+            let count = min n budget
+            let mutable j = 0
+            let mutable found = false
+            while not found && j < count do
+                found <- isVisible buffer.[sampleAt j]
+                j <- j + 1
+            found
+
+        let mutable result = []
+        for a in annotations do
+            if a.visible then
+                samples a
+                if anyVisible () then result <- a.key :: result
+        List.rev result
+
+    /// The point of an annotation drawn nearest to a screen position (`ndc`, normalized device
+    /// coordinates): the part of it a click there lands on, so a click on the visible part of a
+    /// partly hidden annotation can be told from a click on its hidden part. None if nothing of
+    /// it is in front of the camera.
+    let annotationPointUnderCursor (viewProj : Trafo3d) (viewportSize : V2d) (ndc : V2d) (a : Annotation) : Option<V3d> =
+        let m        = viewProj.Forward
+        let toPixels (v : V2d) = V2d(v.X * viewportSize.X * 0.5, v.Y * viewportSize.Y * 0.5)
+        let cursor   = toPixels ndc
+        let path     = drawnPath a
+        let clipped  = path |> Array.map (fun p -> m * V4d(p, 1.0))
+
+        // (pixel distance, world point) of the nearest point on each piece
+        let candidates =
+            if path.Length = 1 then
+                if clipped.[0].W > behindEps then [| (toPixels (toNdc clipped.[0]) - cursor).Length, path.[0] |] else [||]
+            else
+                Array.init (max 0 (path.Length - 1)) id
+                |> Array.choose (fun i ->
+                    clipToFront path.[i] path.[i + 1] clipped.[i] clipped.[i + 1]
+                    |> Option.map (fun (p0, p1, c0, c1) ->
+                        let a, b = toPixels (toNdc c0), toPixels (toNdc c1)
+                        let d    = b - a
+                        let len2 = d.LengthSquared
+                        let t    = if len2 <= 0.0 then 0.0 else clamp 0.0 1.0 (Vec.dot (cursor - a) d / len2)
+                        let s    = screenToSegmentParam c0.W c1.W t
+                        (a + d * t - cursor).Length, p0 + (p1 - p0) * s))
+
+        if candidates.Length = 0 then None
+        else candidates |> Array.minBy fst |> snd |> Some
+
+    /// Combine `ids` with the multi-selection (SelectionMode). Works by id: a leaf selected
+    /// earlier from the viewport carries the root path, so it is dropped and re-added under its
+    /// real group path rather than ending up in the set twice. Unknown ids are ignored.
+    let selectAnnotations (mode : SelectionMode) (ids : list<Guid>) (groups : GroupsModel) : GroupsModel =
+        let paths = GroupsApp.leafPaths groups.rootGroup
+        let touched =
+            ids
+            |> List.choose (fun id ->
+                paths |> HashMap.tryFind id |> Option.map (fun p -> id, { id = id; path = p; name = "" }))
+            |> HashMap.ofList
+        let isTouched (ts : TreeSelection) = HashMap.containsKey ts.id touched
+        let touchedSet = touched |> HashMap.toValueList |> HashSet.ofList
+
+        match mode with
+        | SelectionMode.Replace ->
+            { groups with selectedLeaves = touchedSet; singleSelectLeaf = None }
+        | SelectionMode.Add ->
+            let kept = groups.selectedLeaves |> HashSet.filter (isTouched >> not)
+            { groups with selectedLeaves = HashSet.union kept touchedSet }
+        | SelectionMode.Toggle ->
+            // "selected" is the effective selection, multi plus the single (green) leaf - the set
+            // isSelected and DeleteSelectedAnnotations use - so toggling the green leaf deselects it
+            let wasSelected =
+                let multi = groups.selectedLeaves |> HashSet.map (fun ts -> ts.id)
+                match groups.singleSelectLeaf with
+                | Some s -> multi |> HashSet.add s
+                | None   -> multi
+            let kept     = groups.selectedLeaves |> HashSet.filter (isTouched >> not)
+            let switchOn = touchedSet |> HashSet.filter (fun ts -> not (HashSet.contains ts.id wasSelected))
+            let single =
+                match groups.singleSelectLeaf with
+                | Some s when HashMap.containsKey s touched -> None
+                | s -> s
+            { groups with selectedLeaves = HashSet.union kept switchOn; singleSelectLeaf = single }
+
+    /// Shift+click on an annotation in the viewport: toggle it in the *effective* selection -
+    /// the multi-selection plus the single (green) leaf, as SelectionMode.Toggle sees it.
+    ///
+    /// The green leaf joins the multi-selection first, so a plain click followed by a
+    /// Shift+click selects both. (GroupsApp.AddLeafToSelection made the new leaf green and left
+    /// the old green one out of the multi-selection, so it looked deselected.) Matching is by id;
+    /// entries carry the real group path, like the box selection's.
+    let shiftPickAnnotation (id : Guid) (groups : GroupsModel) : GroupsModel =
+        let paths = GroupsApp.leafPaths groups.rootGroup
+        let entry (leaf : Guid) = paths |> HashMap.tryFind leaf |> Option.map (fun p -> { id = leaf; path = p; name = "" })
+        let contains (leaf : Guid) (set : HashSet<TreeSelection>) = set |> HashSet.exists (fun ts -> ts.id = leaf)
+        let effective =
+            match groups.singleSelectLeaf with
+            | Some single when not (contains single groups.selectedLeaves) ->
+                match entry single with
+                | Some e -> HashSet.add e groups.selectedLeaves
+                | None   -> groups.selectedLeaves
+            | _ -> groups.selectedLeaves
+        if contains id effective then
+            { groups with
+                selectedLeaves   = effective |> HashSet.filter (fun ts -> ts.id <> id)
+                singleSelectLeaf = groups.singleSelectLeaf |> Option.filter (fun s -> s <> id) }
+        else
+            match entry id with
+            | Some e ->
+                { groups with
+                    selectedLeaves   = HashSet.add e effective
+                    singleSelectLeaf = Some id
+                    activeChild      = e
+                    lastSelectedItem = SelectedItem.Child }
+            | None -> groups
+
+    /// Plain click (no Shift) on an annotation in the viewport. With a multi-selection it starts
+    /// fresh: the multi-selection is cleared and only the clicked leaf is selected, as anywhere
+    /// else (and Delete, which removes multi plus green, then removes only what is visible as
+    /// selected). Without one it is the old single select, which toggles the green leaf.
+    let plainPickAnnotation (id : Guid) (groups : GroupsModel) : GroupsModel =
+        if groups.selectedLeaves.IsEmpty then
+            GroupsApp.update groups (GroupsAppAction.SingleSelectLeaf(List.empty, id, String.Empty))
+        else
+            let paths = GroupsApp.leafPaths groups.rootGroup
+            let path  = paths |> HashMap.tryFind id |> Option.defaultValue List.empty
+            { groups with
+                selectedLeaves   = HashSet.empty
+                singleSelectLeaf = Some id
+                activeChild      = { id = id; path = path; name = "" }
+                lastSelectedItem = SelectedItem.Child }
+
     // specifies which drawing actions trigger re-export of geo-json files.
     // the idea behind this is to keep out high-frequency updates (mouse move)
     // but blacklist those
@@ -663,6 +950,9 @@ module DrawingApp =
                     // one snapshot for the whole batch, so a single undo restores all of them
                     { model with annotations = after; vertexGrab = grab }
                     |> pushUndo (SnapshotDelta(before, after))
+            | SelectAnnotations (mode, ids) ->
+                // like a pick, changing the selection abandons any control point being moved
+                { model with annotations = selectAnnotations mode ids model.annotations; vertexGrab = None }
             | DrawingAction.Nop -> model
             | Undo ->
                 match model.undoStack with
@@ -1103,10 +1393,14 @@ module DrawingApp =
                     let annotations =
                         if shiftFlag then
                             Log.line "[DrawingApp] multi select"
-                            GroupsApp.update model.annotations (GroupsAppAction.AddLeafToSelection(List.empty, ann.key, String.Empty))
+                            shiftPickAnnotation ann.key model.annotations
                         else
                             Log.line "[DrawingApp] single select"
-                            GroupsApp.update model.annotations (GroupsAppAction.SingleSelectLeaf(List.empty, ann.key, String.Empty))
+                            let selected = plainPickAnnotation ann.key model.annotations
+                            // open its folder, so the list can scroll to it (#900); not when
+                            // the pick toggled it off, or folders the user closed would reopen
+                            if selected.singleSelectLeaf = Some ann.key then GroupsApp.expandToLeaf ann.key selected
+                            else selected
                     
                     // selecting a different annotation abandons any control point being moved
                     { model with annotations = annotations; vertexGrab = None }
@@ -1275,10 +1569,31 @@ module DrawingApp =
         | AdaptiveAnnotations ann -> Some ann
         | _ -> None
        
+    /// The label drawn at an annotation: its text when shown, plus its confidence as "[C3]"
+    /// when confidence labels are on (#887). Empty when there is nothing to show.
+    let private labelText (showConfidence : aval<bool>) (anno : AdaptiveAnnotation) : aval<string> =
+        adaptive {
+            let! text = anno.text
+            let! showText = anno.showText
+            let! showConfidence = showConfidence
+            let! metadata = anno.metadata
+            let text = if showText then text else ""
+            let confidence =
+                match showConfidence, metadata.confidence with
+                | true, Some c -> sprintf "C%d" c
+                | _ -> ""
+            return
+                match String.IsNullOrEmpty text, String.IsNullOrEmpty confidence with
+                | _, true    -> text
+                | true, false -> confidence
+                | false, false -> sprintf "%s [%s]" text confidence
+        }
+
     let viewTextLabels<'ma> 
         (mbigConfig       : 'ma)
         (msmallConfig     : MSmallConfig<'ma>)
         (view             : aval<CameraView>)      
+        (showConfidence   : aval<bool>)
         (model            : AdaptiveDrawingModel) =
 
         let config : Sg.innerViewConfig = 
@@ -1299,8 +1614,10 @@ module DrawingApp =
                 match anno |> tryToAnnotation with
                 | None -> AVal.constant None
                 | Some v -> 
-                    Sg.shouldTextBeRendered v 
-                    |> AVal.map (function | true -> Some (Sg.drawText view config v) | _ -> None)
+                    let text = labelText showConfidence v
+                    (text, v.visible)
+                    ||> AVal.map2 (fun t visible -> visible && not (String.IsNullOrEmpty t))
+                    |> AVal.map (function | true -> Some (Sg.drawText' view config text v) | _ -> None)
                ) 
             |> Sg.set
 
@@ -1438,7 +1755,10 @@ module DrawingApp =
                                     Seq.empty
                             with e -> Seq.empty
                        )
-                       Sg.onMouseDown (fun b p ->
+                       // the whole SceneHit rather than Sg.onMouseDown's button and point: a body
+                       // click is sent as PickAnnotation with the click's camera and pixel, so the
+                       // viewer can reject it when the clicked part is hidden behind the surface
+                       simple SceneEventKind.Down (fun (evt : SceneHit) -> Seq.singleton (
                             let id = hoveredAnnotation.GetValue()
                             let ids = pickIds.GetValue()
                             let vertex = hoveredVertex.GetValue()
@@ -1446,7 +1766,7 @@ module DrawingApp =
                             let alreadyGrabbed = grabbedVertex.GetValue() >= 0
                             // selecting and grabbing are left-button gestures; the middle and
                             // right buttons drive the camera in every mouse scheme
-                            if b <> Aardvark.Application.MouseButtons.Left then
+                            if evt.buttons <> Aardvark.Application.MouseButtons.Left then
                                 DrawingAction.Nop
                             elif alreadyGrabbed then
                                 // a grab is live: the drop belongs to the viewer's surface-click
@@ -1467,10 +1787,10 @@ module DrawingApp =
                                     // a click on the body still re-selects, so you can move
                                     // between annotations without leaving edit mode
                                     Log.line "clickhit %A" (id, ids.[id])
-                                    DrawingAction.PickDirectly(ids.[id])
+                                    DrawingAction.PickAnnotation(evt, ids.[id])
                             else
                                 DrawingAction.Nop
-                       )
+                       ))
                 ]
             let packedPoints =
                 PackedRendering.points model.colorByCategory (model.annotations.selectedLeaves |> ASet.map (fun l -> l.id)) (annoSet |> ASet.map ((fun (g, (s,t)) -> g,s))) config.offset viewMatrix

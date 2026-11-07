@@ -117,14 +117,13 @@ module ImageInspector =
                 Gis.GisApp.getSpiceReferenceSystem gis sid
                 |> Option.map (fun r -> sid, r.referenceFrame))
 
-    let tryContext (gis : Gis.GisApp) (surfaces : SurfaceModel) (refSystem : ReferenceSystem) : Result<Context, string> =
+    /// The context of any library image, e.g. each image of the projection stack (#887).
+    let tryContextFor (gis : Gis.GisApp) (surfaces : SurfaceModel) (refSystem : ReferenceSystem) (image : ProjectedImageModel) : Result<Context, string> =
         let list = gis.projectedImageList
-        let image = list.selectedImage |> Option.bind (fun id -> ProjectedImageListModel.tryFind id list)
-        match image, Gis.GisApp.getObserverSystem gis, projectionSurface gis surfaces with
-        | None, _, _ -> Result.Error "no image selected"
-        | _, None, _ -> Result.Error "no observed body set"
-        | _, _, None -> Result.Error "no surface bound to a SPICE body"
-        | Some image, Some observerSystem, Some (surfaceId, frame) ->
+        match Gis.GisApp.getObserverSystem gis, projectionSurface gis surfaces with
+        | None, _ -> Result.Error "no observed body set"
+        | _, None -> Result.Error "no surface bound to a SPICE body"
+        | Some observerSystem, Some (surfaceId, frame) ->
             let (EntitySpiceName observer) = observerSystem.body
             let b = list.boresightAdjustment
             let boresightKey = (b.roll.value, b.pitch.value, b.yaw.value)
@@ -163,6 +162,13 @@ module ImageInspector =
                 Ok { imageId = image.id; full = full; toWorld = toWorld; size = size
                      sun = sun; centre = toWorld.Forward.TransformPos V3d.Zero
                      texture = image.texture; channel = image.selectedChannel.idx }
+
+    /// The context of the selected library image.
+    let tryContext (gis : Gis.GisApp) (surfaces : SurfaceModel) (refSystem : ReferenceSystem) : Result<Context, string> =
+        let list = gis.projectedImageList
+        match list.selectedImage |> Option.bind (fun id -> ProjectedImageListModel.tryFind id list) with
+        | None -> Result.Error "no image selected"
+        | Some image -> tryContextFor gis surfaces refSystem image
 
     /// Camera ray through a projector NDC point, render space.
     let ray (ctx : Context) (ndc : V2d) : Ray3d =

@@ -78,6 +78,18 @@ type AnnotationField =
     | ProfileAzimuth    = 45
     /// m along the parent polyline
     | ProfileStation    = 46
+    // annotation metadata (#887, docs/AnnotationMetadata.md)
+    /// 1-4, empty when not rated
+    | Confidence        = 47
+    | Comment           = 48
+    /// SPC model name (FITS DATASRCV), else the OPC product
+    | ShapeModel        = 49
+    /// FITS MAP_VER, or the vNNN of the SPC file name
+    | ShapeModelVersion = 50
+    /// image file names, separated by "; "
+    | ProjectedImages   = 51
+    /// who made the shape model: stated by the product, else its archive's citation
+    | ShapeModelCredit  = 52
 
 /// Per-point attributes, available when the export granularity is "one record
 /// per point". Which of `Cartesian` / `Geographic` actually produce columns is
@@ -129,7 +141,10 @@ module AnnotationFields =
         | AnnotationField.GroupPath | AnnotationField.SurfaceName | AnnotationField.Geometry
         | AnnotationField.Semantic | AnnotationField.Projection | AnnotationField.Color
         | AnnotationField.ColorHex | AnnotationField.Visible
-        | AnnotationField.PointCount -> Identity
+        | AnnotationField.PointCount
+        | AnnotationField.Confidence | AnnotationField.Comment | AnnotationField.ShapeModel
+        | AnnotationField.ShapeModelVersion | AnnotationField.ProjectedImages
+        | AnnotationField.ShapeModelCredit -> Identity
         | AnnotationField.SemiMajorAxis | AnnotationField.SemiMinorAxis
         | AnnotationField.MajorAxisAzimuth -> Ellipse
         | AnnotationField.DipAngle | AnnotationField.DipAzimuth
@@ -181,6 +196,12 @@ module AnnotationFields =
         | AnnotationField.ProfileDirection  -> "profileDirection"
         | AnnotationField.ProfileAzimuth    -> "profileAzimuth"
         | AnnotationField.ProfileStation    -> "profileStation"
+        | AnnotationField.Confidence        -> "confidence"
+        | AnnotationField.Comment           -> "comment"
+        | AnnotationField.ShapeModel        -> "shapeModel"
+        | AnnotationField.ShapeModelVersion -> "shapeModelVersion"
+        | AnnotationField.ProjectedImages   -> "projectedImages"
+        | AnnotationField.ShapeModelCredit  -> "shapeModelCredit"
         | _                                 -> sprintf "%A" field
 
     /// Human-readable label with unit, shown next to the checkbox.
@@ -226,6 +247,12 @@ module AnnotationFields =
         | AnnotationField.ProfileDirection  -> "Profile direction (N-S, ...)"
         | AnnotationField.ProfileAzimuth    -> "Profile azimuth, centre to start (deg)"
         | AnnotationField.ProfileStation    -> "Profile station along the parent (m)"
+        | AnnotationField.Confidence        -> "Confidence (1-4)"
+        | AnnotationField.Comment           -> "Comment"
+        | AnnotationField.ShapeModel        -> "Shape model"
+        | AnnotationField.ShapeModelVersion -> "Shape model version"
+        | AnnotationField.ProjectedImages   -> "Projected images used"
+        | AnnotationField.ShapeModelCredit  -> "Shape model credit"
         | _                                 -> sprintf "%A" field
 
     /// Tooltip of a field's checkbox, where the label alone does not say what is measured
@@ -392,5 +419,25 @@ module AnnotationFields =
 
         | AnnotationField.ParentKey | AnnotationField.ProfileIndex | AnnotationField.ProfileDirection
         | AnnotationField.ProfileAzimuth | AnnotationField.ProfileStation -> profileValue field a
+
+        | AnnotationField.Confidence ->
+            match a.metadata.confidence with
+            | Some c -> VInt c
+            | None   -> VMissing
+        | AnnotationField.Comment -> VText a.metadata.comment
+        | AnnotationField.ShapeModel ->
+            match a.metadata.shapeModel with
+            | Some sm -> VText (sm.modelName |> Option.defaultValue sm.product)
+            | None    -> VMissing
+        | AnnotationField.ShapeModelVersion ->
+            match a.metadata.shapeModel |> Option.bind (fun sm -> sm.version) with
+            | Some v -> VText v
+            | None   -> VMissing
+        | AnnotationField.ProjectedImages ->
+            VText (a.metadata.projectedImagesUsed |> List.map (fun i -> i.image) |> String.concat "; ")
+        | AnnotationField.ShapeModelCredit ->
+            match a.metadata.shapeModel |> Option.bind (fun sm -> sm.credit) with
+            | Some c -> VText c
+            | None   -> VMissing
 
         | _ -> VMissing

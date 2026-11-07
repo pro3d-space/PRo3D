@@ -639,7 +639,7 @@ module PackedRendering =
               |> Sg.uniform "LineWidths" (instanceAttribs |> AVal.map (fun i -> i.lineWidths))
               |> Sg.uniform "Colors" (instanceAttribs |> AVal.map (fun i -> i.colors))
               |> Sg.uniform "Tolerances" (instanceAttribs |> AVal.map (fun i -> i.tolerances))
-              |> Sg.uniform "DepthOffset" (depthOffset |> AVal.map (fun depthWorld -> depthWorld / (100.0 - 0.1))) 
+              |> Sg.uniform "DepthOffset" (depthOffset |> AVal.map PRo3D.Base.Shader.DepthOffset.toClip) 
               |> Sg.uniform "SelectedId" selectedAnnotation
           sg, (instanceAttribs |> AVal.map (fun i -> i.ids )), boundingBox
 
@@ -739,7 +739,7 @@ module PackedRendering =
               |> Sg.vertexAttribute (Sym.ofString "ObjId") (instanceAttribs |> AVal.map (fun i -> i.annoId))
               |> Sg.vertexAttribute DefaultSemantic.Colors (instanceAttribs |> AVal.map (fun i -> i.colors))
               |> Sg.vertexAttribute (Sym.ofString "PickingTolerance") (instanceAttribs |> AVal.map (fun i -> i.tolerances))
-              |> Sg.uniform "DepthOffset" (depthOffset |> AVal.map (fun depthWorld -> depthWorld / (100.0 - 0.1))) 
+              |> Sg.uniform "DepthOffset" (depthOffset |> AVal.map PRo3D.Base.Shader.DepthOffset.toClip) 
               |> Sg.uniform "MV" mv
               |> Sg.uniform "SelectedId" selectedAnnotation
 
@@ -967,7 +967,7 @@ module PackedRendering =
             |> Sg.vertexAttribute (Sym.ofString "ObjId")    (data |> AVal.map (fun d -> d.capIds))
             |> Sg.uniform "MV" mv
             |> Sg.uniform "DepthOffset"
-                (depthOffset |> AVal.map (fun d -> (d * fillDepthOffsetFactor) / (100.0 - 0.1)))
+                (depthOffset |> AVal.map (fun d -> PRo3D.Base.Shader.DepthOffset.toClip (d * fillDepthOffsetFactor)))
 
         // one buffer for all prisms, drawn as one range per fill (packedFillRender)
         let volPositions = data |> AVal.map (fun d -> d.volPositions)
@@ -1494,7 +1494,7 @@ module PackedRendering =
         |> Sg.vertexAttribute DefaultSemantic.Colors colors
         |> Sg.vertexAttribute "Sizes" sizes
         // scaled like the lines and fills, now that the dots bias their depth the same way
-        |> Sg.uniform "DepthOffset" (depthOffset |> AVal.map (fun depthWorld -> depthWorld / (100.0 - 0.1)))
+        |> Sg.uniform "DepthOffset" (depthOffset |> AVal.map PRo3D.Base.Shader.DepthOffset.toClip)
 
     let points (cbc : AdaptiveColorByCategoryModel) (selected : aset<Guid>) (annoSet: aset<Guid * AdaptiveAnnotation>) (depthOffset : aval<float>) (view : aval<M44d>) =
         pointsGeometry cbc selected annoSet depthOffset view

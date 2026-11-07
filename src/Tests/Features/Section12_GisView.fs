@@ -115,6 +115,121 @@ let tests =
             Expect.isFalse restoredOld.projectedImageList.windingCorrection "old scenes: off"
         }
 
+        test "TC-12.3 projected-image folder survives save/load; absent when never chosen" {
+            let m = GisApp.initial None
+            let unset = m |> Json.serialize |> Json.formatWith JsonFormattingOptions.SingleLine
+            Expect.isFalse (unset.Contains "projectedImagesDirectory") "not written when never chosen (old scenes look the same)"
+            let restoredUnset : GisApp = unset |> Json.parse |> Json.deserialize
+            Expect.isNone restoredUnset.projectedImageList.imageDirectory "old scenes: no folder"
+
+            let dir = @"C:\data\AFC_2027-03-21"
+            let set = { m with projectedImageList = { m.projectedImageList with imageDirectory = Some dir } }
+            let restored : GisApp =
+                set |> Json.serialize |> Json.formatWith JsonFormattingOptions.SingleLine |> Json.parse |> Json.deserialize
+            Expect.equal restored.projectedImageList.imageDirectory (Some dir) "folder survives save/load"
+        }
+
+        test "TC-12.3 the projection stack is saved as file names and restored in order" {
+            // native paths: Path.GetFileName splits on '\' only on Windows, so a "C:\..." fixture
+            // fails on the Linux and macOS runners although the code under test is right
+            let dir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "imgs")
+            let img (name : string) =
+                { PRo3D.ImageMapping.ProjectedImageApp.initial with id = Guid.NewGuid(); texture = System.IO.Path.Combine(dir, name) }
+            let a, b, c = img "a.png", img "B.tif", img "c.png"
+            let list =
+                { PRo3D.ImageMapping.ProjectedImageListModel.initial with
+                    images = FSharp.Data.Adaptive.IndexList.ofList [ a; b; c ]
+                    imageDirectory = Some dir
+                    stack = FSharp.Data.Adaptive.IndexList.ofList [ c.id; a.id ] } // bottom -> top
+            Expect.equal (PRo3D.ImageMapping.ProjectedImageListModel.stackFileNames list) [ "c.png"; "a.png" ] "file names, bottom -> top"
+
+            // JSON roundtrip: written under its own key, read back as pending
+            let m = GisApp.initial None
+            let serialized =
+                { m with projectedImageList = list } |> Json.serialize |> Json.formatWith JsonFormattingOptions.SingleLine
+            Expect.stringContains serialized "projectedImagesStack" "own key"
+            let restored : GisApp = serialized |> Json.parse |> Json.deserialize
+            Expect.equal restored.projectedImageList.pendingStack [ "c.png"; "a.png" ] "pending until the folder is imported"
+            let unset = m |> Json.serialize |> Json.formatWith JsonFormattingOptions.SingleLine
+            Expect.isFalse (unset.Contains "projectedImagesStack") "not written for an empty stack"
+
+            // re-import mints new ids: map names back, case-insensitively, skip the gone ones
+            let a', b', c' = img "a.png", img "B.tif", img "c.png"
+            let reimported = { PRo3D.ImageMapping.ProjectedImageListModel.initial with images = FSharp.Data.Adaptive.IndexList.ofList [ a'; b'; c' ] }
+            let r, missing =
+                PRo3D.ImageMapping.ProjectedImageListModel.restoreStack [ "b.TIF"; "gone.png"; "c.png"; "b.tif" ] reimported
+            Expect.equal (FSharp.Data.Adaptive.IndexList.toList r.stack) [ b'.id; c'.id ] "order kept, duplicates dropped"
+            Expect.equal missing [ "gone.png" ] "missing reported"
+            Expect.isEmpty r.pendingStack "consumed"
+        }
+
+        test "TC-12.3 dragging a stack row previews the drop; cancel restores, drop commits" {
+            let img (name : string) =
+                { PRo3D.ImageMapping.ProjectedImageApp.initial with id = Guid.NewGuid(); texture = name }
+            let a, b, c = img "a.png", img "b.png", img "c.png"
+            let m =
+                { PRo3D.ImageMapping.ProjectedImageListModel.initial with
+                    images = FSharp.Data.Adaptive.IndexList.ofList [ a; b; c ]
+                    stack = FSharp.Data.Adaptive.IndexList.ofList [ a.id; b.id; c.id ] } // bottom -> top
+            let update = PRo3D.ImageMapping.ProjectedImageListApp.update
+            let effective m = PRo3D.ImageMapping.ProjectedImageListModel.effectiveStack m |> FSharp.Data.Adaptive.IndexList.toList
+            let focus = PRo3D.ImageMapping.ProjectedImageListModel.stackFocus
+
+            let dragging = update m (PRo3D.ImageMapping.StackDragStart a.id)
+            Expect.equal (effective dragging) [ a.id; b.id; c.id ] "no target yet: committed order"
+            Expect.equal dragging.hoveredImage (Some a.id) "the dragged image is the hovered one (footprint, frustum)"
+            Expect.equal (focus dragging) (Some (a.id, PRo3D.ImageMapping.ProjectedImages.fadeForStackFocus)) "strong fade"
+
+            let over = update dragging (PRo3D.ImageMapping.StackDragOver 2)
+            Expect.equal (effective over) [ b.id; c.id; a.id ] "previewed at the top"
+            Expect.equal (FSharp.Data.Adaptive.IndexList.toList over.stack) [ a.id; b.id; c.id ] "not committed"
+
+            let cancelled = update over PRo3D.ImageMapping.StackDragEnd
+            Expect.equal (effective cancelled) [ a.id; b.id; c.id ] "cancel: back to the committed order"
+            Expect.isNone cancelled.stackDrag "drag over"
+            Expect.isNone (focus cancelled) "nothing faded"
+
+            let dropped = update over (PRo3D.ImageMapping.StackDrop (a.id, 2))
+            Expect.equal (FSharp.Data.Adaptive.IndexList.toList dropped.stack) [ b.id; c.id; a.id ] "drop commits"
+            Expect.isNone dropped.stackDrag "and ends the drag"
+            Expect.equal (effective (update dropped PRo3D.ImageMapping.StackDragEnd)) (effective dropped) "a late dragend changes nothing"
+
+            // a library image (not in the stack) is previewed on top with a light fade
+            let d = img "d.png"
+            let withLib = { m with images = FSharp.Data.Adaptive.IndexList.add d m.images; hoveredImage = Some d.id }
+            Expect.equal (effective withLib) [ a.id; b.id; c.id; d.id ] "preview layer on top"
+            Expect.equal (focus withLib) (Some (d.id, PRo3D.ImageMapping.ProjectedImages.fadeForLibraryFocus)) "light fade"
+            Expect.isNone (update m (PRo3D.ImageMapping.StackDragStart d.id)).stackDrag "only stack rows can be dragged"
+        }
+
+        test "TC-12.3 re-import and sort give the library fresh indices (library rows keep their ids per index)" {
+            // ProjectedImageModel.id is NonAdaptive: a row built for an index keeps its id.
+            // Reusing an index for another image made +/fly-to act on the wrong image.
+            let img (name : string) (d : float) =
+                { PRo3D.ImageMapping.ProjectedImageApp.initial with id = Guid.NewGuid(); texture = name; distance = d }
+            let indices (l : FSharp.Data.Adaptive.IndexList<_>) =
+                FSharp.Data.Adaptive.IndexList.toSeqIndexed l |> Seq.map fst |> Set.ofSeq
+            let m =
+                { PRo3D.ImageMapping.ProjectedImageListModel.initial with
+                    images = FSharp.Data.Adaptive.IndexList.ofList [ img "a" 3.0; img "b" 1.0; img "c" 2.0 ] }
+            let reimported = PRo3D.ImageMapping.ProjectedImageListModel.replaceImages [ img "x" 1.0; img "y" 2.0 ] m
+            Expect.isTrue (Set.intersect (indices m.images) (indices reimported)).IsEmpty "re-import: no index reused"
+            Expect.equal (reimported |> FSharp.Data.Adaptive.IndexList.toList |> List.map (fun i -> i.texture)) [ "x"; "y" ] "the new images, in order"
+
+            let sorted = PRo3D.ImageMapping.ProjectedImageListApp.update m PRo3D.ImageMapping.SortEntriesByDistance
+            Expect.isTrue (Set.intersect (indices m.images) (indices sorted.images)).IsEmpty "sort: no index reused"
+            Expect.equal (sorted.images |> FSharp.Data.Adaptive.IndexList.toList |> List.map (fun i -> i.texture)) [ "b"; "c"; "a" ] "sorted"
+        }
+
+        test "TC-12.3 loading a missing image folder keeps the library and does not throw" {
+            let m = { PRo3D.ImageMapping.ProjectedImageListModel.initial with imageDirectory = Some "kept" }
+            let m' =
+                PRo3D.ImageMapping.ProjectedImageListApp.update m
+                    (PRo3D.ImageMapping.ProjectedImageListMessage.LoadImagesDir @"Z:\does\not\exist\anywhere")
+            Expect.equal m'.imageDirectory (Some "kept") "unchanged"
+            Expect.equal m'.images.Count 0 "no images"
+        }
+
         test "TC-12.3 camera follows camera source survives save/load and defaults to on" {
             let m = GisApp.initial None
             Expect.isTrue m.cameraFollowsSource "a new scene follows"

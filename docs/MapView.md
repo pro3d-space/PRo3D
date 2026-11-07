@@ -11,6 +11,17 @@ icon, third in the navigation group).
 For the frame and camera state MapView shares with the other two modes, see
 [Camera & Navigation](Navigation.md).
 
+**Small bodies switch to MapView by themselves** ([#898](https://github.com/pro3d-space/PRo3D/issues/898)):
+when the scene body becomes Phobos, Deimos, Didymos or Dimorphos -- picked in the top bar,
+picked as the observed body in the GIS view, or found in the first imported OPC
+([SceneBody.md](SceneBody.md)) -- the main view switches to MapView, and the top-right notice
+says so (*Scene body Dimorphos: switched to MapView*). It does not switch when the body stays
+the same, when a scene is loaded or a bookmark played (they keep their saved mode), or for
+Mars, Earth and the Moon. Switch back with the tool strip as usual. After an import the camera
+also moves out to an overview -- the same direction from the body centre, 3.5 body radii out --
+since the import's own framing leaves it a few tens of metres above a small body; picking the
+body keeps the camera where it is.
+
 MapView needs a body: it is unavailable while the planet is `None`. The planet is the
 [scene body](SceneBody.md), so choosing the observed body in the GIS view enables MapView
 just as choosing the planet in the top bar does. A GIS scene observed in a frame other
@@ -29,10 +40,12 @@ wrong axis. The GIS view says so and switches the frame on request.
 | Input | Effect |
 |-------|--------|
 | Left-drag | Move over the ground (grab-and-drag: the terrain follows the cursor) |
-| Middle-drag | Same as left-drag |
+| Middle-drag | **Pan**: shift the view rigidly, without turning the camera |
+| `Shift` + right-drag | Pan, as middle-drag — in Direct Tool Mode too |
 | Right-drag | Zoom in/out |
 | Mouse wheel | Zoom in/out |
 | `W` `A` `S` `D` | Move north / west / south / east |
+| `R` | Reset: drop the pan — straight down at the body centre, north up, same distance |
 
 The WASD axes can be inverted per computer under *User Preferences* — see
 `UserPreferences.remapMapViewKey`. Those are machine-local settings and are not
@@ -41,16 +54,59 @@ stored in the scene.
 ## The camera constraint
 
 After every mouse move, key release and animation tick,
-`updateCameraForMapView` re-derives the camera pose from its position alone:
+`updateCameraForMapView` re-derives the camera orientation from its position:
 
 ```
-frame  = mapFrame planet cameraLocation      // local east / north / up
-camera = CameraView.lookAt cameraLocation V3d.OOO frame.north
+centred = cameraLocation + pan                // un-pan (see below)
+frame   = mapFrame planet centred             // local east / north / up
+camera  = CameraView.lookAt centred V3d.OOO frame.north
+camera  = camera moved by -pan in its own right/up plane
 ```
 
-So the camera's position is the only free state; orientation is a function of
-it. Navigating therefore means *moving the camera over the body*, never turning
-it — which is what makes the view stay map-like.
+So the camera's position and the pan are the only free state; orientation is a
+function of them. Navigating therefore means *moving the camera over the body*,
+never turning it — which is what makes the view stay map-like.
+
+### Pan
+
+A pan is a rigid translation of the view: the camera moves sideways in its own
+image plane and does not turn, so the whole picture shifts on screen and the body
+centre is no longer in the middle. The ground under the cursor follows it (one
+window width of drag = `2 · tan(hfov / 2) · height` of ground).
+
+The pan is **not stored separately** — it is encoded in the view itself.
+`panOffset` reads it back as the position of the frame origin in the camera's
+right/up plane; `updateCameraForMapView` un-pans, re-aims and re-pans by that
+offset, and orbiting (left-drag, WASD) rotates the camera *rigidly* about the
+centre (forward included) instead of re-aiming it, so the pan survives both. Since
+it lives in the `CameraView`, bookmarks and scenes keep it without any format
+change. Entering MapView from another mode starts centred (`switchToMapViewController`).
+
+When a pan starts from the centred view, the top-right overlay (the one that says
+"scene saved") shows *Map View panned - press R to reset* for a few seconds: once
+after entering MapView and again after each reset, not on every drag.
+
+`R` (`recentre`) drops the pan: it moves the camera back to the un-panned
+position, so the body keeps its size, and aims it straight down, north up — the
+Google Earth / Cesium "reset view" convention. Like those viewers, PRo3D does not
+force other camera changes back into a nadir view: a view set by a gizmo snap, a
+fly-to or the remote API while in MapView keeps its direction (it only gets north
+turned up, since any view with the origin ahead reads as a panned map view).
+Press `R` to get the map view back.
+
+Pan speed uses the camera's height above the ground *along the view axis*
+(`depthAboveSurface`), not its distance from the centre, which grows as you pan.
+The pole guard (`blocksPole`) checks the view direction for the same reason: once
+panned, it differs from the direction to the centre, and it is the view direction
+whose north-up frame degenerates at the pole. It also rejects a step whose
+horizontal view direction reverses: a fast drag can jump right over the pole and
+land on the far side below the threshold. Wheel zoom, like right-drag zoom,
+never moves the camera past the plane through the centre.
+
+Wheel and right-drag zoom move along the view direction, i.e. towards the
+screen centre, not towards the body centre. The vertical axis lock does not apply
+during a pure pan (a translation has no rotation to constrain); a pan held
+together with an orbit is still locked.
 
 ### The map frame
 
@@ -156,6 +212,14 @@ orbit about the body spin axis (`mapFrame.polarAxis`), i.e. longitude-only motio
 The two horizontal edges are not lockable in MapView. The lock is a post-filter on
 the camera in `Navigation.update` and is transient (see NavigationGizmo.md for the
 clearing rules).
+
+`Shift` + right is the pan gesture in both mouse schemes because the right button
+always belongs to the camera (zoom normally, look in Direct Tool Mode), so Shift only
+switches it to pan. `Shift` + left is left alone: in Direct Tool Mode it is the tool's
+click, and with *Pick Annotation* active Shift+click multi-selects.
+
+Middle-drag used to repeat left-drag (in a view always aimed at the centre,
+"pan" and "orbit" were the same motion); it now pans.
 
 ## Tests
 

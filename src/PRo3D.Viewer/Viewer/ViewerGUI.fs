@@ -147,24 +147,24 @@ module Gui =
         Incremental.Svg.svg falseColorAttributes legend
 
     
+    /// The box selection rectangle (docs/AnnotationBoxSelection.md), drawn while a drag is in
+    /// progress. Same origin as the render control, which is where the drag coordinates are taken.
     let selectionRectangle (m : AdaptiveModel) =
-        
-        let box = 
-            m.multiSelectBox 
-            |> AVal.map(fun x -> 
-                x 
-                |> Option.map(fun x -> x.renderBox) 
-                |> Option.defaultValue Box2i.Invalid
-            )
 
-        let attr = 
+        let attr =
             amap{
                 yield style "fill:white;stroke:green;stroke-width:2;fill-opacity:0.1;stroke-opacity:0.9"
-                let! b = box
-                yield attribute "x" (sprintf "%ipx" b.Min.X)
-                yield attribute "y" (sprintf "%ipx" b.Min.Y)
-                yield attribute "width" (sprintf "%ipx" b.SizeX)
-                yield attribute "height" (sprintf "%ipx" b.SizeY)
+                let! box = m.multiSelectBox
+                match box with
+                | Some b ->
+                    let p = MultiSelectionBox.pixelBox b
+                    let f (v : float) = v.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture)
+                    yield attribute "x" (f p.Min.X)
+                    yield attribute "y" (f p.Min.Y)
+                    yield attribute "width" (f p.SizeX)
+                    yield attribute "height" (f p.SizeY)
+                | None ->
+                    yield attribute "visibility" "hidden"
             } |> AttributeMap.ofAMap
 
         let selectionRectangle = Incremental.Svg.rect attr //Incremental.Svg.rect attr AList.empty
@@ -999,7 +999,10 @@ module Gui =
             | Interactions.PickExploreCenter     -> sprintf "%s to place arcball center" click
             | Interactions.PlaceCoordinateSystem -> sprintf "%s to place coordinate cross" click
             | Interactions.DrawAnnotation        -> sprintf "%s to pick point on surface" click
-            | Interactions.PickAnnotation        -> sprintf "%s on annotation to select" click
+            | Interactions.PickAnnotation        ->
+                // the drag gesture is armed exactly like the click (docs/AnnotationBoxSelection.md)
+                let drag = click.Replace("click", "drag").Replace("Click", "Drag")
+                sprintf "%s on annotation to select, %s to box-select (+SHIFT add, +ALT toggle)" click drag
             | Interactions.CutAnnotation         -> sprintf "%s to draw separating polyline" click
             | Interactions.PickSurface           -> sprintf "%s on surface to select" click
             | Interactions.PlaceRover            -> sprintf "%s to (1) place rover and (2) pick lookat" click
@@ -1339,7 +1342,7 @@ module Gui =
                     // --- reference systems & camera ---------------------------------------
                     tool "pro3d-coordinate-cross" "Place coordinate cross" Interactions.PlaceCoordinateSystem
                     tool "pro3d-surface-ref-sys" "Place an additional reference system on a surface" Interactions.PickSurfaceRefSys
-                    tool "bullseye"   "Pick the ArcBall orbit centre. Press 'C' to set the pivot point to the body center" Interactions.PickExploreCenter
+                    tool "bullseye"   "Pick the ArcBall orbit centre. Press 'C' (no annotation selected) to set the pivot point to the body center" Interactions.PickExploreCenter
                   ]
                 ]
             )
@@ -1789,6 +1792,9 @@ module Gui =
                 GuiEx.accordion "Curtain Settings" "Expand" false [
                     CrossSectionApp.viewCurtainSettings m.scene.crossSectionModel |> UI.map CrossSectionMessage
                 ]
+                GuiEx.accordion "Confidence & Comments" "comment outline" false [
+                    AnnotationMetadataApp.viewSettings m.annotationMetadata |> UI.map AnnotationMetadataMessage
+                ]
                 GuiEx.accordion "Dip&Strike ColorLegend" "paint brush" false [
                     Incremental.div AttributeMap.empty (AList.ofAValSingle(viewDnSColorLegendUI m))
                 ] 
@@ -2199,6 +2205,22 @@ module Gui =
                                 yield scalarsColorLegend m
                                 yield projectedColorLegend m
                                 yield selectionRectangle m
+                                // comment dialog floating next to the selected annotation (#887)
+                                let commentEditor = m.annotationMetadata |> AVal.map (fun s -> s.comment)
+                                let commentPosition =
+                                    adaptive {
+                                        match! commentEditor with
+                                        | None -> return None
+                                        | Some ed ->
+                                            let! view = m.navigation.camera.view
+                                            let! frustum = m.frustum
+                                            return AnnotationMetadataApp.screenPosition view frustum ed.anchor
+                                    }
+                                yield AnnotationMetadataApp.commentDialog commentEditor commentPosition (AnnotationMetadataMessage >> ViewerMessage)
+                                // the bubble confirming a rating beside each rated annotation (#887)
+                                yield AnnotationMetadataApp.ratingBalloons
+                                        (m.annotationMetadata |> AVal.map (fun s -> s.balloon))
+                                        m.navigation.camera.view m.frustum
                                 // navigation + interaction selector, overlaid on the right edge
                                 yield ToolStrip.view m |> UI.map ViewerMessage
                                 // axis gizmo, bottom-left corner: click an axis to look along it

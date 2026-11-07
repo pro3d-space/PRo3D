@@ -120,6 +120,7 @@ PRo3D uses an **issue + feature-branch + PR** workflow (full details in [CONTRIB
 - **Never commit directly to `main`/`develop`.** Work on a branch named `features/[issue#]_name` or `bugs/[issue#]_name`, and open a Pull Request for review.
 - A PR is expected to include the corresponding [`docs/`](docs/) page for any feature it adds or changes (see rule 7 above).
 - Releases are driven by editing `PRODUCT_RELEASE_NOTES.md` / `aardium/Aardium/package.json` (CI builds and tags). See [docs/Build-Deploy-System.md](docs/Build-Deploy-System.md).
+- **Release notes for unreleased changes go into [`NEXT_RELEASE_NOTES.md`](NEXT_RELEASE_NOTES.md)**, one bullet per user-visible change, added in the same PR. Never add an unreleased section to `PRODUCT_RELEASE_NOTES.md`: `Build.fs` parses every `##` heading there as a version and an `## Unreleased` heading fails the build. A release moves the bullets into its new version section and empties the file.
 
 ## Common Failures
 
@@ -127,6 +128,7 @@ PRo3D uses an **issue + feature-branch + PR** workflow (full details in [CONTRIB
 |---------|-------|-----|
 | Build fails: missing packages | Paket restore not run | `dotnet paket restore` |
 | Build fails: missing tools | Tools not restored | `dotnet tool restore` |
+| CI: `"dotnet paket restore" exited with code 137` | A redundant paket process SIGKILLed on the macOS runner | Pass `-p:PaketDisableGlobalRestore=true` after a global restore, never `PaketRestoreDisabled` — see [docs/Build-Deploy-System.md](docs/Build-Deploy-System.md#paket-restore-inside-msbuild-891) |
 | `*.g.fs` not found / type errors referencing `Adaptive*` types | Missing/stale `*.g.fs` (not checked in) | `adapt.cmd` / `adapt.sh`; if the model file itself is unchanged, `adapt.cmd --all` |
 | `adapt` fails: "Adaptify did not produce up-to-date output" | Adaptify could not type-check the models (it still exits 0) | Rerun that project with `--verbose` as the message says — see [docs/ModelTypes.md](docs/ModelTypes.md) |
 | Old scene fails to load | New field read with `Json.read` instead of `Json.tryRead` (no default), or a breaking change without a version bump | Use `Json.tryRead`+default for additive fields; add a `readN` + bump `current` for breaking changes |

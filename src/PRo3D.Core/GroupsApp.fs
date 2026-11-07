@@ -69,6 +69,15 @@ module GroupsApp =
 
         loop target |> IndexList.ofList
 
+    /// The group path of every leaf in the tree, in the innermost-first order the tree view
+    /// builds (`i :: path`) and updateNodeAt expects. One walk, for callers that turn many ids
+    /// into TreeSelections at once.
+    let leafPaths (root : Node) : HashMap<Guid, list<Index>> =
+        let rec loop (path : list<Index>) (n : Node) (acc : HashMap<Guid, list<Index>>) =
+            let acc = n.leaves |> IndexList.fold (fun acc id -> HashMap.add id path acc) acc
+            n.subNodes |> IndexList.toSeqIndexed |> Seq.fold (fun acc (i, sub) -> loop (i :: path) sub acc) acc
+        loop [] root HashMap.empty
+
     let updateLeaf' id f model =
         let update = 
             (fun (d:option<Leaf>) ->
@@ -276,6 +285,21 @@ module GroupsApp =
                 flat             = model.flat |> HashMap.filter (fun id _ -> not (ids |> HashSet.contains id))
                 singleSelectLeaf = (match model.singleSelectLeaf with Some s when ids |> HashSet.contains s -> None | s -> s)
                 selectedLeaves   = model.selectedLeaves |> HashSet.filter (fun ts -> not (ids |> HashSet.contains ts.id)) }
+
+    /// Expands every group from the root down to the one holding leaf `id`, so the list shows
+    /// it (#900: a single pick in 3D opens its folder). Groups off that path are untouched;
+    /// the model comes back unchanged when no group holds the leaf.
+    let expandToLeaf (id : Guid) (model : GroupsModel) : GroupsModel =
+        let rec go (n : Node) : Option<Node> =
+            if n.leaves |> IndexList.exists (fun _ leaf -> leaf = id) then
+                Some { n with expanded = true }
+            else
+                n.subNodes
+                |> IndexList.tryPick (fun i child -> go child |> Option.map (fun child -> i, child))
+                |> Option.map (fun (i, child) -> { n with expanded = true; subNodes = n.subNodes |> IndexList.set i child })
+        match go model.rootGroup with
+        | Some root -> { model with rootGroup = root }
+        | None      -> model
 
     let rec removeSelected (selection:list<TreeSelection>) (removeFromFlat:bool) (m:GroupsModel)  =
         match selection with

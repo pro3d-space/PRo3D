@@ -33,10 +33,27 @@ surface) it does nothing, and in a text field it deletes text. Modifiers turn it
 Ctrl+Delete and the like are ignored. On a Mac keyboard the key labelled *delete* is Backspace;
 Delete is fn+delete there.
 
+## 1–4 and C: confidence and comments
+
+With annotations selected **and none being drawn** (any tool; finishing an annotation selects
+it), **1**–**4** in the 3D view rate the selected annotations (confidence, one undo step), and **C** opens a comment dialog next to
+the single selected annotation ([AnnotationMetadata.md](AnnotationMetadata.md)). Otherwise the
+keys keep their old meaning: **0**–**3** set the semantic of the next annotation (a message
+says which, and why the digit did not rate), **C**
+re-centres the orbit; with Ctrl held, too. While the comment dialog is open, Enter saves,
+Shift+Enter starts a new line and Esc cancels, in the dialog and in the 3D view; other keys go
+to the text.
+
+## R: reset the Map View
+
+In **Map View**, **R** drops the pan (Shift + right-drag or middle-drag) and returns to the
+straight-down, north-up view centred on the body, at the same distance
+([MapView.md](MapView.md#pan)). In the other navigation modes R does nothing.
+
 ## Keys handled only by the 3D view
 
 Everything else (F1–F4 interaction modes, Enter / Backspace / Escape while drawing, 0–3
-semantics, C, PageUp / PageDown, MapView WASD, …) is still handled by the render control.
+semantics, 1–4 confidence, C, PageUp / PageDown, MapView WASD and R, …) is still handled by the render control.
 These keys only work while the 3D view has keyboard focus, which it takes as soon as the cursor
 enters it. Ctrl+click picking also depends on that focus, because the 3D view tracks whether
 Ctrl is held. When the view loses focus, for example because you click a dock panel, it

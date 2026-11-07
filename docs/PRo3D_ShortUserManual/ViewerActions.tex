@@ -15,6 +15,9 @@ Once the surface is loaded there are different actions to choose (Figure~\ref{fi
 \furtherreading{\onlinedoc{ToolStrip.md}{ToolStrip.md} --- the icon rail on the right edge
 of the render view, which offers the same actions without leaving the 3D view;
 \onlinedoc{DirectToolMode.md}{DirectToolMode.md} --- picking without holding CTRL.}
+
+On macOS, use \textbf{Cmd} wherever this manual says CTRL; \textbf{Alt}/\textbf{Option} is not a
+substitute for it (Table~\ref{table:keyboardShortscuts}).
 %----------------------------------------------------------------------------------------
 %	SubSection: Pick Explore Center
 %----------------------------------------------------------------------------------------
@@ -43,6 +46,11 @@ The Free Fly Mode is the standard 3D fly-through navigation, as for instance, in
 \subsubsection{ArcBall}
 
 When the viewer is in ArcBall mode the camera can be rotated around the explore center by holding down the LMB. Panning and strafing are possible as described above, but be aware that this moves the explore center (otherwise panning would break the view matrix of the camera). To set a new explore point, make sure the ``PickExploreCenter'' action is active (as shown in Figure~\ref{fig:exploreCenter}) and press CTRL + LMB on the surface. The explore center is indicated by a pink dot. Forward and backward movement is performed either by the keys W/S, rotating the mouse wheel, or clicking the RMB.
+
+%----------------------------------------------------------------------------------------Map View-
+\subsubsection{MapView}
+
+MapView shows the body like a map: the camera looks straight down at the body centre with north up. Holding the LMB moves over the ground (the camera orbits the body centre), W/A/S/D move north/west/south/east, and the mouse wheel or the RMB zooms. Holding SHIFT + RMB, or the middle mouse button, pans: the view is shifted sideways without turning the camera. Press R to reset the pan and look straight down at the body centre again.
 
 \furtherreading{\onlinedoc{Navigation.md}{Navigation.md} --- how the camera works, which
 frame it lives in and all navigation settings;

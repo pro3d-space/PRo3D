@@ -29,6 +29,8 @@ let featureTests () : Test =
         PRo3D.Tests.Section20_BooleanOperations.tests
         PRo3D.Tests.Section21_OutcropTraces.tests
         PRo3D.Tests.Section22_SupportingProfiles.tests
+        PRo3D.Tests.Section23_AnnotationMetadata.tests
+        PRo3D.Tests.Section24_BoxSelection.tests
     ]
 
 let allTests (parameters : TestUtils.TestParameters) : Test =
