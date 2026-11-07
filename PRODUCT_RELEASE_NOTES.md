@@ -1,3 +1,23 @@
+## 6.4.1
+Box selection of annotations; confidence, comments and shape model for every annotation; an annotations list that shows thousands at once; Map View pan and an automatic switch for small bodies; drag & drop in the projection stack. **macOS: the tool key is Cmd, no longer Option** (see Input below).
+
+- Annotations: **box selection.** In *Select Annotation* mode, Ctrl+drag a rectangle to select every annotation it touches; Ctrl+Shift+drag adds, Ctrl+Alt+drag toggles, Esc cancels (in Direct Tool Mode without Ctrl). Annotations hidden behind a surface are not selected, decided with the surfaces' KdTrees the way the depth test decides on screen; a Ctrl+click on the hidden part of an annotation no longer selects it either. Delete removes the selection, one Ctrl+Z restores it (#849, #854, docs/AnnotationBoxSelection.md)
+- Annotations: **confidence, comment, shape model and images used for every annotation.** With annotations selected, keys **1–4** rate them (a fading *C3* bubble confirms it), **C** opens a comment next to the annotation; the shape model and its credit are taken from the OPC, and the projected images under each point are recorded. All four show in Properties and in the export (six new columns) (#887, docs/AnnotationMetadata.md)
+- Surfaces: **Source & Credits** shows the selected OPC's credit, shape model, version, dates, GSD, mission and target (#887)
+- Annotations: **the annotations list shows thousands of annotations within a second** (5000 took the browser 2.5-4.5 minutes): each folder lists its annotations in its own scroll box and only the rows in view are in the page. Selecting an annotation elsewhere scrolls the list to it, and a single pick in the 3D view also opens the folders down to it (#900, docs/AnnotationList.md)
+- Map View: **small bodies switch to Map View by themselves** when the scene body becomes Phobos, Deimos, Didymos or Dimorphos (top bar, GIS view, or the first imported OPC), with a notice saying so; after an import the camera moves out to an overview (#898, docs/MapView.md)
+- Scenes: **the scene body is set from the first imported OPC** (its DSK body, FITS `TARGET` or product name) (#894, docs/SceneBody.md)
+- Map View: **pan** with Shift+right-drag or middle-drag; **R** resets the view to straight down, north up, centred (#896, docs/MapView.md)
+- Projection stack: **drag & drop** to reorder images (☰ handle); the 3D view shows the new order while dragging, Esc restores it. Hovering an image fades the other layers. Reordering no longer re-uploads the images (#902, docs/MultiImageProjection.md)
+- Projection stack: **the image folder and the stack are saved with the scene** and restored when it is opened; a missing folder or image gives a notice (#902)
+- Projection stack: after re-importing a folder or sorting the library, **+** and fly-to could act on another image or do nothing (why HSH-1B frames could not be projected after AFC1-1B); fixed (#902)
+- Input: **Alt (Option on macOS) no longer acts as Ctrl.** The tool modifier is **Ctrl, and on macOS Cmd** (left or right; the right Cmd key is new). Until now Alt counted as Ctrl without being documented: Alt+click picked and drew, Alt+drag box-selected, Alt+S saved and Alt+Z undid. **Mac users who used Option instead of Cmd: use Cmd.** Alt now only does what a tool says it does, such as the toggle in box selection (Ctrl+Alt+drag, Cmd+Option+drag on macOS) (docs/DirectToolMode.md)
+- Input: in Direct Tool Mode, Alt no longer hands the left button back to the camera, so Alt+drag toggles a box selection there as documented
+- Annotations: a plain Ctrl+click in the 3D view selects **only** the clicked annotation and clears a multi-selection, so Delete removes only what looks selected; Shift+Ctrl+click adds to the whole selection and keeps the annotation selected by a plain click (docs/AnnotationBoxSelection.md)
+- Geological maps: the *Assign unit* eyedropper is **Ctrl+Alt+click** (Cmd+Option+click on macOS), or Alt+click in Direct Tool Mode, now that Alt alone no longer arms the tool (docs/GeologicalMap.md)
+- Busy indicator: box selection reads *selecting annotations*, and a Ctrl+click on an annotation that loads part of the surface reads *picking*
+- Scenes and annotation files saved with 6.4.1 still open in earlier versions: the new data is stored under new keys they skip
+
 ## 6.4.0
 The first non-prerelease of the 6.4 line. Everything from `6.4.0-prerelease001` and `-prerelease002` is included: fills that lie on the terrain, supporting profiles, the Image Inspector with shadow measurements, surface comparison, the LatLon grid over projected images and the experimental geological maps (see below). New since `-prerelease002`:
 
