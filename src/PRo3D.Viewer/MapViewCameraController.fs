@@ -192,6 +192,15 @@ module MapViewController =
         if Vec.dot toOrigin view.Forward <= 0.0 then None
         else Some (V2d(Vec.dot toOrigin view.Right, Vec.dot toOrigin view.Up))
 
+    /// True when the view is not panned (up to rounding).
+    let isCentred (view : CameraView) =
+        match panOffset view with
+        | Some offset -> offset.Length <= 1e-6 * max 1.0 view.Location.Length
+        | None -> false
+
+    /// The hint shown when a pan starts, so the reset is discoverable.
+    let panHint = "Map View panned - press R to reset"
+
     /// Re-establish the map-view invariant - looking at the frame origin, north
     /// up - while keeping the current pan: un-pan, re-aim, pan again by the same
     /// amount in the new camera plane.

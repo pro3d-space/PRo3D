@@ -287,7 +287,16 @@ module Navigation =
                         { cam with view = NavigationConstraint.constrainRotationToAxis model.camera.view cam.view axisDir V3d.OOO }
                     | _ -> cam
 
-                { model with camera = cam }, None
+                // Nothing on screen says R resets a pan, so say it when a pan
+                // starts from the centred view: once after entering MapView and
+                // again after each reset - not on every drag, which would pile
+                // up toasts.
+                let feedback =
+                    if cam.pan && not model.camera.pan && MapViewController.isCentred model.camera.view then
+                        Some MapViewController.panHint
+                    else None
+
+                { model with camera = cam }, feedback
 
         | SetNavigationMode mode ->
             // A camera-mode switch always clears the gizmo axis lock.

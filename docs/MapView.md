@@ -71,6 +71,10 @@ centre (forward included) instead of re-aiming it, so the pan survives both. Sin
 it lives in the `CameraView`, bookmarks and scenes keep it without any format
 change. Entering MapView from another mode starts centred (`switchToMapViewController`).
 
+When a pan starts from the centred view, the top-right overlay (the one that says
+"scene saved") shows *Map View panned - press R to reset* for a few seconds: once
+after entering MapView and again after each reset, not on every drag.
+
 `R` (`recentre`) drops the pan: it moves the camera back to the un-panned
 position, so the body keeps its size, and aims it straight down, north up — the
 Google Earth / Cesium "reset view" convention. Like those viewers, PRo3D does not

@@ -520,6 +520,25 @@ let tests =
                 "the right release, remapped to Left in direct tool mode, must end the pan"
         }
 
+        test "TC-2.5 starting a pan from the centred view hints at R, later pans do not" {
+            let entered, _ =
+                Nav.run false None false Nav.aboveMars
+                    (Navigation.Action.SetNavigationMode NavigationMode.MapView)
+            let run m msg = Nav.runSized Nav.refSystem Navigation.MouseScheme.full m (Navigation.Action.MapViewControllerAction msg)
+            let pan m =
+                let pressed, hint = run m (MapViewController.Message.ShiftDown (MouseButtons.Right, V2i(100, 100)))
+                let moved, _      = run pressed (MapViewController.Message.Move (V2i(160, 130)))
+                let released, _   = run moved (MapViewController.Message.Up MouseButtons.Right)
+                released, hint
+            let panned, firstHint = pan entered
+            Expect.equal firstHint (Some MapViewController.panHint) "the first pan says that R resets it"
+            let _, secondHint = pan panned
+            Expect.isNone secondHint "panning an already panned view stays quiet"
+            let reset, _ = run panned (MapViewController.Message.KeyDown Keys.R)
+            let _, afterReset = pan reset
+            Expect.equal afterReset (Some MapViewController.panHint) "after R the next pan hints again"
+        }
+
         test "TC-2.5 R recentres a panned MapView: straight down, north up, same distance" {
             let entered, _ =
                 Nav.run false None false Nav.aboveMars
