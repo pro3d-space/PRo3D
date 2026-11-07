@@ -1039,7 +1039,7 @@ module Gui =
             | _ ->
             match i with
             | Interactions.EditAnnotation when grabbed -> sprintf "%s to drop the point, ESC to cancel" click
-            | Interactions.EditAnnotation -> sprintf "%s a vertex of the selected annotation to move it" click
+            | Interactions.EditAnnotation -> sprintf "%s a vertex of the selected annotation to move it, its line to add one, a grey sample dot to make it a vertex" click
             | Interactions.AssignUnit -> sprintf "%s or drag across units of the active map to give them the active unit, Alt+%s to pick a unit" click click
             | _ -> interactionText directToolMode i
 
@@ -1051,7 +1051,7 @@ module Gui =
             | Interactions.DrawAnnotation        -> "Choose an annotation mode to draw an annotation on a surface."
             | Interactions.PlaceRover            -> "Select a rover model in the rover menu."
             | Interactions.PickAnnotation        -> "Select an annotation in the main view. The selected annotation will be highlighted green."
-            | Interactions.EditAnnotation        -> "Move the vertices of the selected annotation. Its control points appear as handles; click one to pick it up, move the cursor over the surface and click again to put it down. Clicking an annotation selects it."
+            | Interactions.EditAnnotation        -> "Move the vertices of the selected annotation. Its control points appear as handles; click one to pick it up, move the cursor over the surface and click again to put it down. Click its line to add a point there; near the cursor its terrain samples show as grey dots, and clicking one makes it a vertex where it is. Clicking another annotation selects it."
             | Interactions.AssignUnit            -> "Geological maps: click a unit of the active map to give it the active legend unit (Geological Maps panel), or drag across several. Alt+click makes the unit under the cursor the active one."
             | Interactions.PickSurface           -> "Select a surface in the main view. The selected surface will be highlighted green."
             | Interactions.SelectArea            -> "Place areas for the Comparison panel (Surface Comparison dashboard). Pick both surfaces there, then press Update Measurements to colour each area by the distance between them."

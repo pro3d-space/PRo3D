@@ -103,6 +103,13 @@ type VertexGrab = {
     /// between makes the sequence order-independent, and "drop only after you have moved it" is
     /// what the gesture means anyway.
     movedSinceGrab : bool
+
+    /// True for a point being *added* (#639): Ctrl+click on a segment of the annotation. The
+    /// point does not exist in the annotation yet - it is inserted only on the drop, at
+    /// `pointIndex`, splitting the segment between points[pointIndex - 1] and points[pointIndex]
+    /// (for a ring's closing segment `pointIndex` is the point count: it is appended).
+    /// `original` is where the segment was clicked. Cancelling forgets it, as for a move.
+    inserting : bool
 }
 
 /// How a batch of annotations (e.g. everything a selection rectangle touches) is combined with
@@ -150,6 +157,13 @@ type DrawingAction =
 // vertex editing (Interactions.EditAnnotation)
 | GrabVertex             of Guid * int
 | MoveVertex             of Guid * int * V3d * (V3d -> Option<V3d>)
+/// A Ctrl+click on the line of the annotation being edited (#639), in the click's camera:
+/// view-projection, viewport size in pixels, cursor in normalized device coordinates. Near a terrain sample
+/// (DrawingApp.sampleSnapPixels) the sample becomes a control point where it is; elsewhere a
+/// new point is picked up on the nearest segment (VertexGrab.inserting).
+| ClickSegment           of Guid * Trafo3d * V2d * V2d
+/// Drop the point a ClickSegment picked up: insert it at the index, re-sample its two segments.
+| InsertVertex           of Guid * int * V3d * (V3d -> Option<V3d>)
 | ArmVertexGrab
 | CancelVertexEdit
 | Finish
