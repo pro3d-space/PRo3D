@@ -190,6 +190,18 @@ type ProjectedImageListModel =
 
 module ProjectedImageListModel =
 
+    /// `images` as the new library, under indices the current library never used.
+    ///
+    /// ProjectedImageModel.id is NonAdaptive: the adaptive row built for an index
+    /// keeps the id it was created with. IndexList.ofList / sortBy hand out the
+    /// SAME indices every time, so a re-import or a sort would update the existing
+    /// rows in place -- new texture, old id -- and +, fly-to and the stack would act
+    /// on a different image than the row shows (or on none). Appending after the
+    /// old list and dropping it gives every entry a fresh index, so the rows are
+    /// rebuilt with the right ids.
+    let replaceImages (images : seq<ProjectedImageModel>) (m : ProjectedImageListModel) : IndexList<ProjectedImageModel> =
+        IndexList.append m.images (IndexList.ofSeq images) |> IndexList.skip m.images.Count
+
     let tryFind (id : Guid) (m : ProjectedImageListModel) =
         m.images |> IndexList.tryFind (fun _ i -> i.id = id)
 

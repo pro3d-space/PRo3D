@@ -52,15 +52,17 @@ module ProjectedImageListApp =
             m
         | LoadImagesDir directory -> 
             let imageExts = [".tif";".tiff";".jpg";".jpeg";".png";".exr"]
-            let images' = 
-                Directory.EnumerateFiles(directory) 
+            let loaded =
+                Directory.EnumerateFiles(directory)
                 |> Seq.filter (fun p ->
                     let e = (Path.GetExtension p).ToLowerInvariant()
                     List.contains e imageExts
                 )
-                |> Seq.map (fun path -> 
+                |> Seq.map (fun path ->
                     ProjectedImageApp.loadFile(path)
-                ) |> IndexList.ofSeq
+                )
+            // fresh indices, so no library row keeps an id of the previous import
+            let images' = ProjectedImageListModel.replaceImages loaded m
             let first = images' |> IndexList.tryFirst |> Option.map (fun i -> i.id)
 
             // a fresh library invalidates every id the old one handed out
@@ -120,10 +122,12 @@ module ProjectedImageListApp =
         // Sorting permutes the library only. selectedImage/editImages/stack are
         // keyed by Guid, so none of them needs remapping any more -- this used
         // to be ~30 lines of index bookkeeping per sort, via a partial Seq.head.
+        // Fresh indices (replaceImages): sortBy reuses the old ones, which left
+        // every row with the id of the image that used to be there.
         | SortEntriesByDistance ->
-            { m with images = m.images |> IndexList.sortBy (fun p -> p.distance) }
+            { m with images = ProjectedImageListModel.replaceImages (m.images |> IndexList.sortBy (fun p -> p.distance)) m }
         | SortEntriesByDate ->
-            { m with images = m.images |> IndexList.sortBy (fun p -> p.time) }
+            { m with images = ProjectedImageListModel.replaceImages (m.images |> IndexList.sortBy (fun p -> p.time)) m }
 
     /// Adaptive counterpart of ProjectedImageListModel.tryFind. `id` is
     /// NonAdaptive, so this is a plain lookup inside a single AVal.map rather

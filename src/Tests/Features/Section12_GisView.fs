@@ -199,6 +199,25 @@ let tests =
             Expect.isNone (update m (PRo3D.ImageMapping.StackDragStart d.id)).stackDrag "only stack rows can be dragged"
         }
 
+        test "TC-12.3 re-import and sort give the library fresh indices (library rows keep their ids per index)" {
+            // ProjectedImageModel.id is NonAdaptive: a row built for an index keeps its id.
+            // Reusing an index for another image made +/fly-to act on the wrong image.
+            let img (name : string) (d : float) =
+                { PRo3D.ImageMapping.ProjectedImageApp.initial with id = Guid.NewGuid(); texture = name; distance = d }
+            let indices (l : FSharp.Data.Adaptive.IndexList<_>) =
+                FSharp.Data.Adaptive.IndexList.toSeqIndexed l |> Seq.map fst |> Set.ofSeq
+            let m =
+                { PRo3D.ImageMapping.ProjectedImageListModel.initial with
+                    images = FSharp.Data.Adaptive.IndexList.ofList [ img "a" 3.0; img "b" 1.0; img "c" 2.0 ] }
+            let reimported = PRo3D.ImageMapping.ProjectedImageListModel.replaceImages [ img "x" 1.0; img "y" 2.0 ] m
+            Expect.isTrue (Set.intersect (indices m.images) (indices reimported)).IsEmpty "re-import: no index reused"
+            Expect.equal (reimported |> FSharp.Data.Adaptive.IndexList.toList |> List.map (fun i -> i.texture)) [ "x"; "y" ] "the new images, in order"
+
+            let sorted = PRo3D.ImageMapping.ProjectedImageListApp.update m PRo3D.ImageMapping.SortEntriesByDistance
+            Expect.isTrue (Set.intersect (indices m.images) (indices sorted.images)).IsEmpty "sort: no index reused"
+            Expect.equal (sorted.images |> FSharp.Data.Adaptive.IndexList.toList |> List.map (fun i -> i.texture)) [ "b"; "c"; "a" ] "sorted"
+        }
+
         test "TC-12.3 loading a missing image folder keeps the library and does not throw" {
             let m = { PRo3D.ImageMapping.ProjectedImageListModel.initial with imageDirectory = Some "kept" }
             let m' =
