@@ -657,6 +657,38 @@ module DrawingApp =
                 | s -> s
             { groups with selectedLeaves = HashSet.union kept switchOn; singleSelectLeaf = single }
 
+    /// Shift+click on an annotation in the viewport: toggle it in the *effective* selection -
+    /// the multi-selection plus the single (green) leaf, as SelectionMode.Toggle sees it.
+    ///
+    /// The green leaf joins the multi-selection first, so a plain click followed by a
+    /// Shift+click selects both. (GroupsApp.AddLeafToSelection made the new leaf green and left
+    /// the old green one out of the multi-selection, so it looked deselected.) Matching is by id;
+    /// entries carry the real group path, like the box selection's.
+    let shiftPickAnnotation (id : Guid) (groups : GroupsModel) : GroupsModel =
+        let paths = GroupsApp.leafPaths groups.rootGroup
+        let entry (leaf : Guid) = paths |> HashMap.tryFind leaf |> Option.map (fun p -> { id = leaf; path = p; name = "" })
+        let contains (leaf : Guid) (set : HashSet<TreeSelection>) = set |> HashSet.exists (fun ts -> ts.id = leaf)
+        let effective =
+            match groups.singleSelectLeaf with
+            | Some single when not (contains single groups.selectedLeaves) ->
+                match entry single with
+                | Some e -> HashSet.add e groups.selectedLeaves
+                | None   -> groups.selectedLeaves
+            | _ -> groups.selectedLeaves
+        if contains id effective then
+            { groups with
+                selectedLeaves   = effective |> HashSet.filter (fun ts -> ts.id <> id)
+                singleSelectLeaf = groups.singleSelectLeaf |> Option.filter (fun s -> s <> id) }
+        else
+            match entry id with
+            | Some e ->
+                { groups with
+                    selectedLeaves   = HashSet.add e effective
+                    singleSelectLeaf = Some id
+                    activeChild      = e
+                    lastSelectedItem = SelectedItem.Child }
+            | None -> groups
+
     // specifies which drawing actions trigger re-export of geo-json files.
     // the idea behind this is to keep out high-frequency updates (mouse move)
     // but blacklist those
@@ -1069,7 +1101,7 @@ module DrawingApp =
                     let annotations =
                         if shiftFlag then
                             Log.line "[DrawingApp] multi select"
-                            GroupsApp.update model.annotations (GroupsAppAction.AddLeafToSelection(List.empty, ann.key, String.Empty))
+                            shiftPickAnnotation ann.key model.annotations
                         else
                             Log.line "[DrawingApp] single select"
                             GroupsApp.update model.annotations (GroupsAppAction.SingleSelectLeaf(List.empty, ann.key, String.Empty))

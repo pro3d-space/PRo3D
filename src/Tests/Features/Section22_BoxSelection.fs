@@ -188,6 +188,35 @@ let private selectionTests =
             | _ -> failtest "expected three lines"
         }
 
+        test "TC-22.2 click, then Shift+click: both are selected (the green one is not dropped)" {
+            let m, keys = threeLines ()
+            match keys with
+            | [ a; b; c ] ->
+                let m = run m (DrawingAction.PickDirectly a)
+                Expect.equal m.annotations.singleSelectLeaf (Some a) "a is green"
+                let shift (id : System.Guid) (m : DrawingModel) = { m with annotations = DrawingApp.shiftPickAnnotation id m.annotations }
+                let m = m |> shift b
+                Expect.equal (selectedIds m) (List.sort [ a; b ]) "a stays, b added"
+                Expect.equal m.annotations.singleSelectLeaf (Some b) "the last one clicked is green"
+                let m = m |> shift c
+                Expect.equal (selectedIds m) (List.sort [ a; b; c ]) "and c"
+            | _ -> failtest "expected three lines"
+        }
+
+        test "TC-22.2 Shift+click toggles: the green one and a multi-selected one go off" {
+            let m, keys = threeLines ()
+            match keys with
+            | [ a; b; _ ] ->
+                let shift (id : System.Guid) (m : DrawingModel) = { m with annotations = DrawingApp.shiftPickAnnotation id m.annotations }
+                let m = run m (DrawingAction.PickDirectly a) |> shift a
+                Expect.isEmpty (selectedIds m) "Shift+click on the green one deselects it"
+                Expect.isNone m.annotations.singleSelectLeaf "nothing green"
+                let m = m |> shift a |> shift b |> shift a
+                Expect.equal (selectedIds m) [ b ] "a toggled off again, b stays"
+                Expect.equal m.annotations.singleSelectLeaf (Some b) "b stays green"
+            | _ -> failtest "expected three lines"
+        }
+
         test "TC-22.2 a selected leaf in a sub-group gets its real group path" {
             let m0 = DrawingModel.initialdrawing
             let g1 = GroupsApp.update m0.annotations (GroupsAppAction.AddGroup rootPath)

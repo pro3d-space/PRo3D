@@ -588,6 +588,39 @@ test("modifier keys: Ctrl (Cmd on macOS) arms the tool, Alt toggles, focus loss 
         const cleared = await readWhen(reader, panel, (s) => s.total === 0, 60_000);
         expect(cleared.s.total, "starts with nothing selected").toBe(0);
 
+        // 5b. click, then Shift+click: both stay selected. Shift used to start a new
+        // multi-selection without the green (single) one, which then looked deselected.
+        {
+            // the render page must be in front, or its stream is not live
+            await render.bringToFront();
+            await render.waitForTimeout(1500);
+            const shot = await render.screenshot();
+            const edges = magentaEdges(shot)
+                .filter(([x, y]) => x > r.x + 0.1 * r.width && x < r.x + 0.85 * r.width && y > r.y + 0.1 * r.height && y < r.y + 0.9 * r.height)
+                .sort((p, q) => p[0] - q[0]);
+            expect(edges.length, "B annotations drawn (magenta)").toBeGreaterThan(20);
+            const left = edges[Math.floor(edges.length * 0.1)];
+            const right = edges[Math.floor(edges.length * 0.9)];
+            await ctrlClick(render, left[0], left[1]);
+            const first = await readWhen(reader, panel, (s) => s.single, 60_000);
+            expect(first.s.single, "Ctrl+click makes the first one green").toBe(true);
+            await focusAt(render, right[0], right[1]);
+            await render.keyboard.down("Control");
+            await render.keyboard.down("Shift");
+            await render.waitForTimeout(250);
+            await render.mouse.click(right[0], right[1]);
+            await render.waitForTimeout(250);
+            await render.keyboard.up("Shift");
+            await render.keyboard.up("Control");
+            const both = await readWhen(reader, panel, (s) => s.total >= 2, 60_000);
+            save("5b-click-then-shift-click.png", await render.screenshot());
+            expect(both.s.total, "click, then Shift+click: both are in the selection").toBe(2);
+            // clear for the steps below
+            await ctrlDrag(render, at(0.02, 0.03), at(0.1, 0.12));
+            const none = await readWhen(reader, panel, (s) => s.total === 0 && !s.single, 60_000);
+            expect(none.s.total, "cleared again").toBe(0);
+        }
+
         // ---- modifiers (Viewer-Utils.fs `Modifier`): only Ctrl (and Cmd on macOS) arms the
         // tool. Alt used to as well, which broke the Alt toggle below.
 
