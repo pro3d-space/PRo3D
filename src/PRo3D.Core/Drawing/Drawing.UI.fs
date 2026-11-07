@@ -242,18 +242,18 @@ module UI =
             ]
         )
                      
-    let viewAnnotationsInGroup
+    /// height of one annotation row in the list; rows are windowed (#900) and must not vary
+    let annotationRowHeight = 42.0
+
+    let viewAnnotationItem
         (cbc          : AdaptiveColorByCategoryModel)
         (path         : list<Index>)
         (model        : AdaptiveGroupsModel)
         (singleSelect : AdaptiveAnnotation*list<Index> -> DrawingAction)
         (multiSelect  : AdaptiveAnnotation*list<Index> -> DrawingAction)
         (lift         : GroupsAppAction -> DrawingAction) 
-        (annotations  : alist<AdaptiveAnnotation>) 
-        : alist<DomNode<DrawingAction>> =
-    
-        annotations 
-        |> AList.map(fun a ->
+        (a            : AdaptiveAnnotation) 
+        : DomNode<DrawingAction> =
             
             let singleSelect = fun _ -> singleSelect(a,path)
             let multiSelect  = fun _ -> multiSelect(a,path)
@@ -320,7 +320,7 @@ module UI =
             
                 }
             
-            div [clazz "item"] [
+            div [clazz "item"; style (VirtualList.rowStyle annotationRowHeight)] [
                 Incremental.i iconAttributes AList.empty
                 div [clazz "content"] [                  
                 
@@ -329,7 +329,8 @@ module UI =
                         alist {                          
                             //yield div[][
                             let! hc = headerColor
-                            yield div [clazz "header"; style hc] [
+                            // inline, so the icons share its line and the row keeps its fixed height (#900)
+                            yield div [clazz "header"; style (hc + "; display: inline-block; margin-right: 4px")] [
                                 Incremental.span headerAttributes ([Incremental.text headerText] |> AList.ofList)
                             ]
                             yield Incremental.i visibleIcon AList.empty 
@@ -345,7 +346,6 @@ module UI =
                     yield div [clazz "description";style ac ] [Incremental.text desc]
                 ]
             ]                            
-        )     
 
     let staticClickIcon (icon : string) (toolTipText : string) (onClickAction : 'a) : DomNode<'a> =
         if toolTipText.IsEmptyOrNull() then
@@ -415,14 +415,22 @@ module UI =
             group.subNodes 
             |> AList.mapi (fun i v -> viewTree cbc (i::path) v model lookup)
                     
-        let annos = 
-            // one lookup per leaf in the shared map content; a per-leaf `AMap.keys |> ASet.contains`
-            // built a reader over the whole map for every leaf - quadratic, minutes at 5000
-            group.leaves
-            |> AList.chooseA (fun x -> AMap.tryFind x lookup)
-            |> viewAnnotationsInGroup cbc path model singleSelect multiSelect lift
+        // leaves whose annotation exists, in leaf order; one O(n) pass per change instead of
+        // an adaptive lookup per leaf. IndexList.choose keeps the leaves' indices, so an edit
+        // stays a one-row delta.
+        let annos =
+            AVal.map2 (fun (leaves : IndexList<Guid>) (flat : HashMap<Guid, AdaptiveAnnotation>) ->
+                leaves |> IndexList.choose (fun id -> HashMap.tryFind id flat)
+            ) group.leaves.Content lookup.Content
+            |> AList.ofAVal
 
-        let nodes = annos |> AList.append subNodes
+        // only the rows in view reach the DOM (#900): thousands of annotations used to take
+        // the browser minutes to lay out
+        let annoList =
+            annos
+            |> VirtualList.view "list" "60vh" annotationRowHeight
+                (fun a -> a.key) model.singleSelectLeaf // follows a selection made in 3D
+                (viewAnnotationItem cbc path model singleSelect multiSelect lift)
 
         div [ clazz "item"] [
             Incremental.i itemAttributes AList.empty
@@ -431,9 +439,15 @@ module UI =
                 Incremental.div (AttributeMap.ofAMap childrenAttribs) <|
                     alist {
                         let! expanded = group.expanded
-                        if expanded then yield! nodes
+                        if expanded then yield! subNodes
                         else ()
-                    } //(nodes)
+                    }
+                Incremental.div AttributeMap.empty <|
+                    alist {
+                        let! expanded = group.expanded
+                        if expanded then yield annoList
+                        else ()
+                    }
             ]
         ]
           

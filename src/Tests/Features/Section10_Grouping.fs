@@ -127,8 +127,73 @@ let private tc10Tests =
         }
     ]
 
+/// #900: a single pick in 3D opens the folders down to the picked annotation.
+let private expandToLeafTests =
+    testList "expandToLeaf" [
+        let leaf = System.Guid.NewGuid()
+        let group name leaves subNodes =
+            { GroupsApp.createEmptyGroup () with
+                name = name; expanded = false
+                leaves = IndexList.ofList leaves; subNodes = IndexList.ofList subNodes }
+        let deep  = group "deep" [ leaf ] []
+        let a     = group "a" [] [ deep ]
+        let b     = group "b" [ System.Guid.NewGuid() ] []
+        let model = { initGroups () with rootGroup = group "root" [] [ b; a ] }
+
+        test "expands every group on the path to the leaf, nothing else" {
+            let root = (GroupsApp.expandToLeaf leaf model).rootGroup
+            let subs = root.subNodes |> IndexList.toList
+            Expect.isTrue root.expanded "root"
+            match subs with
+            | [ b'; a' ] ->
+                Expect.isFalse b'.expanded "b is off the path"
+                Expect.equal b' b "b unchanged"
+                Expect.isTrue a'.expanded "a"
+                match a'.subNodes |> IndexList.toList with
+                | [ deep' ] -> Expect.isTrue deep'.expanded "the group holding the leaf"
+                | _ -> failtest "a lost its subgroup"
+            | _ -> failtest "root lost its subgroups"
+        }
+
+        test "an unknown leaf changes nothing" {
+            Expect.equal (GroupsApp.expandToLeaf (System.Guid.NewGuid()) model) model "model"
+        }
+
+        test "a leaf held by the root expands only the root" {
+            let rootLeaf = System.Guid.NewGuid()
+            let m = { initGroups () with rootGroup = group "root" [ rootLeaf ] [ a ] }
+            let root = (GroupsApp.expandToLeaf rootLeaf m).rootGroup
+            Expect.isTrue root.expanded "root"
+            Expect.equal (root.subNodes |> IndexList.toList) [ a ] "subgroups untouched"
+        }
+    ]
+
+/// #900: the rows a windowed list renders for a scroll position
+let private virtualListWindowTests =
+    testList "VirtualList.window" [
+        let w top height n = VirtualList.window 42.0 top height n
+        test "top of a long list: the visible rows and the overscan below" {
+            Expect.equal (w 0.0 420.0 5000) (struct (0, 20)) "rows 0-9 visible, 10 overscan"
+        }
+        test "middle: overscan on both sides" {
+            Expect.equal (w 4200.0 420.0 5000) (struct (90, 30)) "rows 100-109 visible"
+        }
+        test "end: clamped to the list" {
+            Expect.equal (w (42.0 * 4990.0) 420.0 5000) (struct (4980, 20)) "the last rows"
+        }
+        test "empty list and hidden box" {
+            Expect.equal (w 0.0 420.0 0) (struct (0, 0)) "no rows"
+            Expect.equal (w 0.0 0.0 5000) (struct (0, 10)) "overscan only"
+        }
+        test "scrolled past the end (list shrank): no rows, no negative count" {
+            Expect.equal (w 1.0e6 420.0 10) (struct (10, 0)) "nothing"
+        }
+    ]
+
 let tests =
     testList "Section 10 — Grouping" [
         tc10Tests
         crudTests
+        expandToLeafTests
+        virtualListWindowTests
     ]

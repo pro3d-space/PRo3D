@@ -1,4 +1,4 @@
-import { test, expect, Page } from "@playwright/test";
+import { test, expect, Page, BrowserContext } from "@playwright/test";
 import { Pro3d } from "../src/pro3d";
 import { awaitIdle, clickTool, drawingScene, openDrawingViewer } from "../src/drawing";
 import { PNG } from "pngjs";
@@ -27,8 +27,8 @@ import * as path from "path";
  * the expensive part; the viewer logs the cost (`[BoxSelection] ... visibility rays, ... ms`)
  * and the spec prints it.
  *
- * PRO3D_BOX_SCALE multiplies the set sizes (default 1: 2000 + 1000 + 2000 polylines). The
- * selection is read per set from the annotations list, which also has to open at that size.
+ * PRO3D_BOX_SCALE multiplies the set sizes (default 1: 2000 + 1000 + 2000 polylines). How the
+ * selection is read: see `selectionReader`.
  */
 
 const artifacts = path.join(__dirname, "..", "artifacts", "box-selection");
@@ -277,56 +277,18 @@ async function rectangleShown(page: Page) {
     );
 }
 
-interface Row {
-    name: string;
-    cube: string;
-    header: string;
-}
-
-/** Per annotation on the annotations page: its name (the set letter and an index), its cube
- *  icon colour (green when in the multi-selection) and its header colour (green when
- *  single-selected). */
-async function listState(page: Page): Promise<Row[]> {
-    return page.evaluate(() =>
-        Array.from(document.querySelectorAll(".item"))
-            .filter((it) => it.firstElementChild?.matches("i.cube.icon"))
-            .map((it) => {
-                const header = it.querySelector(".header") as HTMLElement | null;
-                return {
-                    name: ((header?.textContent ?? "").trim().split(" ")[0]) ?? "",
-                    cube: (it.firstElementChild as HTMLElement).style.color,
-                    header: header?.style.color ?? "",
-                };
-            })
-    );
-}
-
-interface Selection {
-    multi: Record<SetName, number>;
-    multiTotal: number;
-    single: number;
-}
-
-/** Selection relative to the state at load, when nothing was selected. */
-async function selection(page: Page, baseline: Map<string, Row>): Promise<Selection> {
-    const now = await listState(page);
-    const multi: Record<SetName, number> = { A: 0, B: 0, C: 0 };
-    let single = 0;
-    for (const row of now) {
-        const base = baseline.get(row.name);
-        if (!base) continue;
-        if (row.cube !== base.cube) multi[row.name[0] as SetName]++;
-        if (row.header !== base.header) single++;
-    }
-    return { multi, multiTotal: multi.A + multi.B + multi.C, single };
-}
-
+/**
+ * What is selected, read from the UI. The annotations list is virtual (#900): only the rows in
+ * view are in the DOM, so the multi-selection is counted from the Properties page instead -
+ * the Bulk Edit header "N annotations selected" (in a collapsed accordion, hence textContent;
+ * it appears from two on) - and the single (green) selection from the list, which scrolls to
+ * the selected annotation. Which annotations are selected is checked in the render: selected
+ * lines are drawn highlighted, so none of the visible (magenta) set may stay magenta.
+ */
 interface Readout {
-    /** multi-selected per set */
-    perSet: Record<SetName, number>;
-    /** multi-selected in all */
+    /** multi-selected in all; 0 also stands for 1 */
     total: number;
-    /** something is single-selected */
+    /** something is single-selected (a green name in the list) */
     single: boolean;
 }
 
@@ -334,14 +296,45 @@ interface Reader {
     read(): Promise<Readout>;
 }
 
-async function listReader(page: Page): Promise<Reader> {
-    const baseline = new Map((await listState(page)).map((r) => [r.name, r] as [string, Row]));
+function selectionReader(annotations: Page, properties: Page): Reader {
     return {
         read: async () => {
-            const s = await selection(page, baseline);
-            return { perSet: s.multi, total: s.multiTotal, single: s.single > 0 };
+            const text = (await properties.evaluate(() => document.body.textContent ?? "")) as string;
+            const m = text.match(/(\d+) annotations selected/);
+            const single = (await annotations.evaluate(() =>
+                Array.from(document.querySelectorAll(".item .header")).some((h) => {
+                    const c = (h as HTMLElement).style.color.replace(/\s/g, "");
+                    return c !== "" && c !== "rgb(128,128,128)";
+                })
+            )) as boolean;
+            return { total: m ? Number(m[1]) : 0, single };
         },
     };
+}
+
+/** Opens the annotations list and the Properties page and waits until the list is up. */
+async function openSelectionPages(context: BrowserContext, app: Pro3d) {
+    const annotations = await context.newPage();
+    await annotations.goto(app.url + "?page=annotations");
+    const properties = await context.newPage();
+    await properties.goto(app.url + "?page=properties");
+    const t0 = Date.now();
+    await expect
+        .poll(() => annotations.evaluate(() => document.querySelectorAll("i.cube.icon").length), {
+            timeout: 300_000,
+            message: "annotations listed",
+        })
+        .toBeGreaterThan(0);
+    console.log(`[box-selection] annotations list up after ${Date.now() - t0} ms`);
+    return { panel: annotations, reader: selectionReader(annotations, properties) };
+}
+
+/** Magenta (the visible set's colour) edge pixels left in the view: selected lines are drawn
+ *  highlighted, so after selecting the whole visible set this falls to (almost) nothing. */
+async function magentaLeft(render: Page): Promise<number> {
+    await render.bringToFront();
+    await render.waitForTimeout(1500);
+    return magentaEdges(await render.screenshot()).length;
 }
 
 /** Polls until `done` holds, returns the readout and how long that took. */
@@ -455,17 +448,10 @@ test("box selection: thousands of annotations, occlusion by the body, gestures",
     const total = SETS.A.count + SETS.B.count + SETS.C.count;
     const { app, context, render } = await openDrawingViewer(browser, sceneWithAnnotations("box", SETS), "loaded.png", save);
     try {
-        const panel = await context.newPage();
-        await panel.goto(app.url + "?page=annotations");
-        const tList = Date.now();
-        await expect
-            .poll(async () => (await listState(panel)).length, { timeout: 300_000, message: "annotations listed" })
-            .toBe(total);
-        console.log(`[box-selection] annotations list of ${total} up after ${Date.now() - tList} ms`);
+        const { panel, reader } = await openSelectionPages(context, app);
         await clickTool(render, "Select annotation");
         await awaitIdle(render, app);
         await render.waitForTimeout(2000);
-        const reader = await listReader(panel);
         const shot = await render.screenshot();
         save("annotations.png", shot);
 
@@ -508,7 +494,13 @@ test("box selection: thousands of annotations, occlusion by the body, gestures",
         save("2-box-all.png", await render.screenshot());
         console.log(`[box-selection] ${total} annotations: selection on the page ${all.ms} ms after release`);
         for (const l of boxSelectionLog(app)) console.log(`[box-selection] viewer: ${l.trim()}`);
-        expect(allFinal.perSet, "box over the view selects exactly the visible set").toEqual({ A: 0, B: SETS.B.count, C: 0 });
+        // exactly the visible set: as many as B has, and every B line drawn selected - so no
+        // hidden (A, C) annotation can be among them
+        expect(allFinal.total, "box over the view selects as many as are visible").toBe(SETS.B.count);
+        const before = magentaEdges(shot).length;
+        const left = await magentaLeft(render);
+        console.log(`[box-selection] magenta edge pixels before ${before}, after ${left}`);
+        expect(left, "every visible line is selected").toBeLessThan(before * 0.02);
 
         // 3. Ctrl+click on empty space (a sky corner): selection unchanged
         await ctrlClick(render, ...at(0.04, 0.95));
@@ -562,22 +554,15 @@ test("box selection: thousands of annotations, occlusion by the body, gestures",
 });
 
 test("modifier keys: Ctrl (Cmd on macOS) arms the tool, Alt toggles, focus loss releases", async ({ browser }) => {
-    // Small on purpose: these are gesture checks, and at thousands of annotations the main
-    // page (which embeds the annotation list, #900) is too busy to take the Direct Tool Mode
-    // click for minutes.
+    // Small on purpose: these are gesture checks and need no scale.
     const sets = SMALL;
     const total = sets.A.count + sets.B.count + sets.C.count;
     const { app, context, render } = await openDrawingViewer(browser, sceneWithAnnotations("modifiers", sets), "modifiers-loaded.png", save);
     try {
-        const panel = await context.newPage();
-        await panel.goto(app.url + "?page=annotations");
-        await expect
-            .poll(async () => (await listState(panel)).length, { timeout: 300_000, message: "annotations listed" })
-            .toBe(total);
+        const { panel, reader } = await openSelectionPages(context, app);
         await clickTool(render, "Select annotation");
         await awaitIdle(render, app);
         await render.waitForTimeout(2000);
-        const reader = await listReader(panel);
         const r = await renderRect(render);
         const at = (fx: number, fy: number): [number, number] => [r.x + r.width * fx, r.y + r.height * fy];
 
@@ -688,7 +673,7 @@ test("modifier keys: Ctrl (Cmd on macOS) arms the tool, Alt toggles, focus loss 
         await render.keyboard.up("Alt");
         await render.keyboard.up("Control");
         const toggled = await readWhen(reader, panel, (s) => s.total >= sets.B.count, 120_000);
-        expect(toggled.s.perSet, "Ctrl+Alt+drag toggles the visible set on").toEqual({ A: 0, B: sets.B.count, C: 0 });
+        expect(toggled.s.total, "Ctrl+Alt+drag toggles the visible set on").toBe(sets.B.count);
 
         // 8. Direct Tool Mode: Alt+drag is the toggle (no Ctrl). Alt used to disarm the tool and
         // orbit the camera instead.
@@ -712,7 +697,7 @@ test("modifier keys: Ctrl (Cmd on macOS) arms the tool, Alt toggles, focus loss 
         const toggledOff = await readWhen(reader, panel, (s) => s.total === 0, 120_000);
         save("8-dtm-alt-drag.png", await render.screenshot());
         expect(shownDtm, "Direct Tool Mode: Alt+drag draws the rectangle").toBe(true);
-        expect(toggledOff.s.perSet, "Direct Tool Mode: Alt+drag toggles the visible set off").toEqual({ A: 0, B: 0, C: 0 });
+        expect(toggledOff.s.total, "Direct Tool Mode: Alt+drag toggles the visible set off").toBe(0);
         const { diffPng } = require("../src/image");
         expect(diffPng(beforeAltDrag, await render.screenshot()).changedFraction, "the camera did not move").toBeLessThan(0.05);
         expect(await toggleDirectToolMode(main), "Direct Tool Mode off").not.toMatch(/check/);

@@ -188,8 +188,9 @@ by construction:
 In order, it checks that:
 
 - a Ctrl+click on the edge of a B line selects it, and it stays selected after the release;
-- a Ctrl+drag over the whole view selects exactly B: A 0, B 1000, C 0, read per annotation from
-  the annotations list;
+- a Ctrl+drag over the whole view selects exactly B: 1000 selected (the Properties page's Bulk
+  Edit count) and every B line drawn selected, so no hidden annotation can be among them. The
+  annotations list is virtual (only rows in view are in the page), so it is not read row by row;
 - a Ctrl+click on empty space changes nothing;
 - releasing Ctrl mid-drag hides the rectangle at once and changes nothing;
 - a Ctrl+drag over empty space clears the selection.
@@ -206,8 +207,8 @@ While it runs, the busy indicator reads `selecting annotations` ([BusyIndicator]
 and the spec checks that `/busy` reports it.
 
 A second test in the same spec checks the modifier keys on 100 annotations
-([DirectToolMode.md](DirectToolMode.md#the-modifier-key)). At 5000 annotations the main page is
-too busy building its annotation list (#900) to take the Direct Tool Mode click. It checks that:
+([DirectToolMode.md](DirectToolMode.md#the-modifier-key)); gesture checks need no scale. It
+checks that:
 
 - Alt+click without Ctrl picks nothing;
 - in Ctrl+Alt+drag, letting go of Alt keeps the rectangle (Ctrl still holds it), and the

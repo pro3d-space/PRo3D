@@ -1652,13 +1652,15 @@ module ViewerUtils =
         // interactive viewer and PRo3D.Snapshots, which both assemble surfaces here.
         let sunShadow = SunShadowMap.get runtime m
 
-        // one stack texture array for all surfaces: slice i = stack layer i's
-        // image band, index-aligned with each surface's per-patch matrix array
-        // (both derive from the same filtered effectiveStack)
-        let projectedStackTextures =
+        // one stack texture array for all surfaces, a slot per image; layer i
+        // reads slot slices.[i] -- index-aligned with each surface's per-patch
+        // matrix array (both derive from the same filtered effectiveStack)
+        let projectedStack =
             PRo3D.InstrumentProjection.Visualization.createProjectedStackTextureArray
                 runtime
                 (PRo3D.GIS.ProjectedImagesListAppHelper.getStackTextureLayers m.scene.gisApp)
+        let projectedStackTextures = projectedStack |> AVal.map (fun s -> s.texture)
+        let projectedStackSlices = projectedStack |> AVal.map (fun s -> s.slices)
 
 
         // per surface, shared by the per-patch applicator, the frustum wireframe and
@@ -1681,6 +1683,7 @@ module ViewerUtils =
                     )
                 )
                 |> Sg.texture "ProjectedStackTextures" projectedStackTextures
+                |> Sg.uniform "ProjectedStackSlices" projectedStackSlices
                 |> Sg.uniform' "ProjectedImageModelViewProjValid" (PRo3D.GIS.ProjectedImagesListAppHelper.getSelectedImage  m.scene.gisApp.projectedImageList |> AVal.map Option.isSome)
                 |>  PRo3D.InstrumentVisualization.InstrumentImageVisualization.applyProperties {  imageProperties with instrumentImage = projectedTexture }
                 |> Sg.noEvents

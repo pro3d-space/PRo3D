@@ -825,6 +825,7 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
                         | _ -> [||])
                 stackCoverageEnabled = AVal.constant false
                 hoveredProjection = AVal.constant None
+                stackFocus = AVal.constant (-1, 1.0f)
                 windingCorrection = AVal.constant false
                 sunDirection = AVal.constant (Some sun)
                 sunLightEnabled = AVal.constant true
@@ -910,9 +911,11 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
                 do! DefaultSurfaces.constantColor C4f.Black
                 do! ImageProjection.Shaders.stableImageProjectionStack
             }
-            |> Sg.texture "ProjectedStackTextures"
-                (PRo3D.InstrumentProjection.Visualization.createProjectedStackTextureArray
-                    runtime (AVal.constant [| imagePath, 0 |]))
+            |> (let stack =
+                    PRo3D.InstrumentProjection.Visualization.createProjectedStackTextureArray
+                        runtime (AVal.constant [| imagePath, 0 |])
+                Sg.texture "ProjectedStackTextures" (stack |> AVal.map (fun s -> s.texture))
+                >> Sg.uniform "ProjectedStackSlices" (stack |> AVal.map (fun s -> s.slices)))
             |> Sg.uniform' "ProjectedImageOpacity2" 1.0f
             // same neutralisation as the single-image path, so the two are comparable
             |> Sg.uniform' "UseFalseColor" false
