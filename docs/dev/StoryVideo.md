@@ -21,7 +21,7 @@ default; the published video uses the Mars swing-by:
 
 ```
 set PRO3D_STACK_STORY_SCENE=C:\pro3ddata\HERA\workshop4\marsCorrectHSH.pro3d
-set PRO3D_STACK_STORY_IMAGES=...\Mars-Swing-By\HSH-1BB
+set PRO3D_STACK_STORY_IMAGES=...\Mars-Swing-By\HSH-1B\1B
 set PRO3D_STACK_STORY_FROM=T121545
 npx playwright test projection-stack-story
 ```
