@@ -277,6 +277,21 @@ module GroupsApp =
                 singleSelectLeaf = (match model.singleSelectLeaf with Some s when ids |> HashSet.contains s -> None | s -> s)
                 selectedLeaves   = model.selectedLeaves |> HashSet.filter (fun ts -> not (ids |> HashSet.contains ts.id)) }
 
+    /// Expands every group from the root down to the one holding leaf `id`, so the list shows
+    /// it (#900: a single pick in 3D opens its folder). Groups off that path are untouched;
+    /// the model comes back unchanged when no group holds the leaf.
+    let expandToLeaf (id : Guid) (model : GroupsModel) : GroupsModel =
+        let rec go (n : Node) : Option<Node> =
+            if n.leaves |> IndexList.exists (fun _ leaf -> leaf = id) then
+                Some { n with expanded = true }
+            else
+                n.subNodes
+                |> IndexList.tryPick (fun i child -> go child |> Option.map (fun child -> i, child))
+                |> Option.map (fun (i, child) -> { n with expanded = true; subNodes = n.subNodes |> IndexList.set i child })
+        match go model.rootGroup with
+        | Some root -> { model with rootGroup = root }
+        | None      -> model
+
     let rec removeSelected (selection:list<TreeSelection>) (removeFromFlat:bool) (m:GroupsModel)  =
         match selection with
         | x::rest ->                

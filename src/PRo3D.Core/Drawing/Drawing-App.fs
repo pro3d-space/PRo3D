@@ -1106,7 +1106,11 @@ module DrawingApp =
                             GroupsApp.update model.annotations (GroupsAppAction.AddLeafToSelection(List.empty, ann.key, String.Empty))
                         else
                             Log.line "[DrawingApp] single select"
-                            GroupsApp.update model.annotations (GroupsAppAction.SingleSelectLeaf(List.empty, ann.key, String.Empty))
+                            let selected = GroupsApp.update model.annotations (GroupsAppAction.SingleSelectLeaf(List.empty, ann.key, String.Empty))
+                            // open its folder, so the list can scroll to it (#900); not when
+                            // the pick toggled it off, or folders the user closed would reopen
+                            if selected.singleSelectLeaf = Some ann.key then GroupsApp.expandToLeaf ann.key selected
+                            else selected
                     
                     // selecting a different annotation abandons any control point being moved
                     { model with annotations = annotations; vertexGrab = None }
