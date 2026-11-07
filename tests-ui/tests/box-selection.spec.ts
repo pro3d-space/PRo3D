@@ -33,12 +33,19 @@ import * as path from "path";
 
 const artifacts = path.join(__dirname, "..", "artifacts", "box-selection");
 const scale = Number(process.env.PRO3D_BOX_SCALE ?? "1");
-const SETS = {
-    A: { count: Math.round(2000 * scale), radius: 30, side: 1, cone: 180 },
-    B: { count: Math.round(1000 * scale), radius: 120, side: 1, cone: 40 },
-    C: { count: Math.round(2000 * scale), radius: 120, side: -1, cone: 20 },
-} as const;
-type SetName = keyof typeof SETS;
+function setsFor(scale: number) {
+    return {
+        A: { count: Math.round(2000 * scale), radius: 30, side: 1, cone: 180 },
+        B: { count: Math.round(1000 * scale), radius: 120, side: 1, cone: 40 },
+        C: { count: Math.round(2000 * scale), radius: 120, side: -1, cone: 20 },
+    } as const;
+}
+type Sets = ReturnType<typeof setsFor>;
+type SetName = keyof Sets;
+/** the scale test's sets (PRO3D_BOX_SCALE) */
+const SETS = setsFor(scale);
+/** the modifier-key test's sets: 100 annotations, so every page stays responsive */
+const SMALL = setsFor(0.02);
 const POINTS_PER_LINE = 12;
 /** angular length of one polyline, degrees */
 const LINE_SPAN = 3;
@@ -155,12 +162,12 @@ const annotationFileTemplate = JSON.parse(
  * The annotation file PRo3D loads with `scene` (`<scene>.ann`): the three sets around
  * `toCamera`, the unit direction from the body centre to the camera.
  */
-function writeAnnotations(scene: string, toCamera: V3) {
+function writeAnnotations(scene: string, toCamera: V3, sets: Sets) {
     const r = rng(854);
     const flat: any[] = [];
     const colours: Record<SetName, [number, number, number]> = { A: [0, 160, 255], B: [255, 0, 255], C: [255, 160, 0] };
-    for (const name of Object.keys(SETS) as SetName[]) {
-        const s = SETS[name];
+    for (const name of Object.keys(sets) as SetName[]) {
+        const s = sets[name];
         const axis = mul(toCamera, s.side) as V3;
         for (let i = 0; i < s.count; i++)
             flat.push(polyline(randomUUID(), `${name}${i}`, arc(inCone(axis, s.cone, r), s.radius, r), colours[name]));
@@ -191,12 +198,12 @@ function writeAnnotations(scene: string, toCamera: V3) {
 
 /** The drawing scene (camera CAMERA_DISTANCE from the body centre, looking at it) with the
  *  synthetic annotations beside it. */
-function sceneWithAnnotations(name: string): string {
+function sceneWithAnnotations(name: string, sets: Sets): string {
     let toCamera: V3 = [0, 0, 1];
     const scene = drawingScene(artifacts, name, (d) => {
         toCamera = norm(JSON.parse(d.cameraView.view[1]) as V3);
     });
-    writeAnnotations(scene, toCamera);
+    writeAnnotations(scene, toCamera, sets);
     return scene;
 }
 
@@ -406,6 +413,35 @@ function watchBusy(app: Pro3d) {
     };
 }
 
+/**
+ * Clicks the "Direct Tool Mode" checkbox on the main page and returns its class afterwards
+ * ("check square outline icon" when on). The checkbox is the square-outline icon nearest to
+ * that label; the label sits in a top-menu dropdown, so it is located by text, not position.
+ */
+async function toggleDirectToolMode(main: Page): Promise<string> {
+    const find = `(() => {
+        const icons = Array.from(document.querySelectorAll("i")).filter((i) => /square outline icon/.test(i.className));
+        let best = null, bestLen = 1e9;
+        for (const i of icons) {
+            let n = i;
+            for (let k = 0; k < 4 && n; k++) {
+                n = n.parentElement;
+                const t = (n && n.textContent) || "";
+                if (t.includes("Direct Tool Mode")) { if (t.length < bestLen) { best = i; bestLen = t.length; } break; }
+            }
+        }
+        return best;
+    })()`;
+    const state = async () => (await main.evaluate(`(() => { const b = ${find}; return b ? b.className : "none"; })()`)) as string;
+    const before = await state();
+    const clicked = await main.evaluate(`(() => { const b = ${find}; if (b) b.click(); return !!b; })()`);
+    expect(clicked, "Direct Tool Mode checkbox").toBe(true);
+    // the page reflects the toggle over the incremental DOM channel; with thousands of
+    // annotations that takes seconds, so wait for the change rather than a fixed time
+    await expect.poll(state, { timeout: 60_000, intervals: [250, 500, 1000] }).not.toBe(before);
+    return await state();
+}
+
 /** The viewer's own measurement of the last box hit tests. */
 function boxSelectionLog(app: Pro3d): string[] {
     try {
@@ -417,7 +453,7 @@ function boxSelectionLog(app: Pro3d): string[] {
 
 test("box selection: thousands of annotations, occlusion by the body, gestures", async ({ browser }) => {
     const total = SETS.A.count + SETS.B.count + SETS.C.count;
-    const { app, context, render } = await openDrawingViewer(browser, sceneWithAnnotations("box"), "loaded.png", save);
+    const { app, context, render } = await openDrawingViewer(browser, sceneWithAnnotations("box", SETS), "loaded.png", save);
     try {
         const panel = await context.newPage();
         await panel.goto(app.url + "?page=annotations");
@@ -518,6 +554,136 @@ test("box selection: thousands of annotations, occlusion by the body, gestures",
         await ctrlDrag(render, at(0.02, 0.03), at(0.1, 0.12));
         const cleared = await readWhen(reader, panel, (s) => s.total === 0, 60_000);
         expect(cleared.s.total, "box over empty sky clears").toBe(0);
+
+    } finally {
+        await context.close();
+        await app.stop();
+    }
+});
+
+test("modifier keys: Ctrl (Cmd on macOS) arms the tool, Alt toggles, focus loss releases", async ({ browser }) => {
+    // Small on purpose: these are gesture checks, and at thousands of annotations the main
+    // page (which embeds the annotation list, #900) is too busy to take the Direct Tool Mode
+    // click for minutes.
+    const sets = SMALL;
+    const total = sets.A.count + sets.B.count + sets.C.count;
+    const { app, context, render } = await openDrawingViewer(browser, sceneWithAnnotations("modifiers", sets), "modifiers-loaded.png", save);
+    try {
+        const panel = await context.newPage();
+        await panel.goto(app.url + "?page=annotations");
+        await expect
+            .poll(async () => (await listState(panel)).length, { timeout: 300_000, message: "annotations listed" })
+            .toBe(total);
+        await clickTool(render, "Select annotation");
+        await awaitIdle(render, app);
+        await render.waitForTimeout(2000);
+        const reader = await listReader(panel);
+        const r = await renderRect(render);
+        const at = (fx: number, fy: number): [number, number] => [r.x + r.width * fx, r.y + r.height * fy];
+
+        // warm the KdTrees the gestures below hit, so their timing is not a patch load
+        await ctrlDrag(render, at(0.02, 0.03), at(0.88, 0.97));
+        await readWhen(reader, panel, (s) => s.total >= sets.B.count, 120_000);
+        await ctrlDrag(render, at(0.02, 0.03), at(0.1, 0.12));
+        const cleared = await readWhen(reader, panel, (s) => s.total === 0, 60_000);
+        expect(cleared.s.total, "starts with nothing selected").toBe(0);
+
+        // ---- modifiers (Viewer-Utils.fs `Modifier`): only Ctrl (and Cmd on macOS) arms the
+        // tool. Alt used to as well, which broke the Alt toggle below.
+
+        // 6. Alt+click on a B line, no Ctrl: Alt is not the tool modifier, nothing is picked
+        const picks = () => (fs.readFileSync(app.logFile, "utf-8").match(/\[DrawingApp\] (single|multi) select/g) ?? []).length;
+        const edges2 = magentaEdges(await render.screenshot()).filter(
+            ([x, y]) => x > r.x + 0.1 * r.width && x < r.x + 0.85 * r.width && y > r.y + 0.1 * r.height && y < r.y + 0.9 * r.height
+        );
+        const [ax, ay] = edges2[Math.floor(edges2.length / 3)];
+        const picks0 = picks();
+        await focusAt(render, ax, ay);
+        await render.keyboard.down("Alt");
+        await render.waitForTimeout(250);
+        await render.mouse.click(ax, ay);
+        await render.waitForTimeout(250);
+        await render.keyboard.up("Alt");
+        await render.waitForTimeout(3000);
+        await awaitIdle(render, app, 2000);
+        expect(picks() - picks0, "Alt+click without Ctrl picks nothing").toBe(0);
+        expect((await reader.read()).total, "and selects nothing").toBe(0);
+
+        // 7. Ctrl+Alt+drag (toggle), Alt released before the mouse: Ctrl still holds the gesture
+        await focusAt(render, ...at(0.02, 0.03));
+        await render.keyboard.down("Control");
+        await render.waitForTimeout(250);
+        await render.keyboard.down("Alt");
+        await render.waitForTimeout(250);
+        await render.mouse.down();
+        await render.waitForTimeout(600);
+        await render.mouse.move(...at(0.88, 0.97), { steps: 10 });
+        await render.waitForTimeout(500);
+        await render.keyboard.up("Alt");
+        await render.waitForTimeout(600);
+        expect(await rectangleShown(render), "releasing Alt keeps the rectangle while Ctrl is held").toBe(true);
+        // the toggle reads Alt at the release, so press it again for the release (as a user would
+        // hold it); the point above is only that the Alt key-up does not cancel the gesture
+        await render.keyboard.down("Alt");
+        await render.waitForTimeout(250);
+        await render.mouse.up();
+        await render.waitForTimeout(150);
+        await render.keyboard.up("Alt");
+        await render.keyboard.up("Control");
+        const toggled = await readWhen(reader, panel, (s) => s.total >= sets.B.count, 120_000);
+        expect(toggled.s.perSet, "Ctrl+Alt+drag toggles the visible set on").toEqual({ A: 0, B: sets.B.count, C: 0 });
+
+        // 8. Direct Tool Mode: Alt+drag is the toggle (no Ctrl). Alt used to disarm the tool and
+        // orbit the camera instead.
+        const main = await context.newPage();
+        await main.goto(app.url);
+        await main.waitForTimeout(3000);
+        expect(await toggleDirectToolMode(main), "Direct Tool Mode on").toMatch(/check/);
+        await render.bringToFront();
+        const beforeAltDrag = await render.screenshot();
+        await focusAt(render, ...at(0.02, 0.03));
+        await render.keyboard.down("Alt");
+        await render.waitForTimeout(250);
+        await render.mouse.down();
+        await render.waitForTimeout(600);
+        await render.mouse.move(...at(0.88, 0.97), { steps: 10 });
+        await render.waitForTimeout(500);
+        const shownDtm = await rectangleShown(render);
+        await render.mouse.up();
+        await render.waitForTimeout(150);
+        await render.keyboard.up("Alt");
+        const toggledOff = await readWhen(reader, panel, (s) => s.total === 0, 120_000);
+        save("8-dtm-alt-drag.png", await render.screenshot());
+        expect(shownDtm, "Direct Tool Mode: Alt+drag draws the rectangle").toBe(true);
+        expect(toggledOff.s.perSet, "Direct Tool Mode: Alt+drag toggles the visible set off").toEqual({ A: 0, B: 0, C: 0 });
+        const { diffPng } = require("../src/image");
+        expect(diffPng(beforeAltDrag, await render.screenshot()).changedFraction, "the camera did not move").toBeLessThan(0.05);
+        expect(await toggleDirectToolMode(main), "Direct Tool Mode off").not.toMatch(/check/);
+        await render.bringToFront();
+
+        // 9. Losing focus releases Ctrl: a key-up elsewhere (Cmd+Tab, Alt+Tab) must not leave
+        // ctrlFlag stuck, which would freeze the camera. Hold Ctrl, move focus away, let go
+        // there, then a plain drag must move the camera and draw no rectangle.
+        await focusAt(render, ...at(0.5, 0.5));
+        await render.keyboard.down("Control");
+        await render.waitForTimeout(300);
+        await main.bringToFront();
+        await main.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+        await render.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+        await render.waitForTimeout(300);
+        await main.keyboard.up("Control");
+        await render.bringToFront();
+        await render.waitForTimeout(800);
+        const beforePlain = await render.screenshot();
+        await render.mouse.move(...at(0.4, 0.5));
+        await render.mouse.down();
+        await render.mouse.move(...at(0.6, 0.55), { steps: 10 });
+        const shownPlain = await rectangleShown(render);
+        await render.mouse.up();
+        await render.waitForTimeout(1500);
+        const moved = diffPng(beforePlain, await render.screenshot()).changedFraction;
+        expect(shownPlain, "after focus loss, a plain drag is not a box").toBe(false);
+        expect(moved, "after focus loss, a plain drag moves the camera (Ctrl not stuck)").toBeGreaterThan(0.05);
     } finally {
         await context.close();
         await app.stop();

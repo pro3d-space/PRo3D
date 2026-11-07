@@ -22,6 +22,10 @@ click. In the classic mouse scheme that means **Ctrl held**; in
 in Direct Tool Mode it hands the left button back to the camera. Alt is the toggle key instead.
 
 A release within 4 px of the press counts as a click. If both Alt and Shift are held, Alt wins.
+
+On macOS, use **Cmd** where this page says Ctrl (Ctrl+click is a right-click there), and
+**Option** for Alt: Cmd+drag replaces, Cmd+Option+drag toggles. See the modifier key in
+[DirectToolMode.md](DirectToolMode.md#the-modifier-key).
 A click on empty space leaves the selection alone.
 
 The camera is unaffected. In the classic scheme a held Ctrl already switches the camera off, and
@@ -193,12 +197,23 @@ In order, it checks that:
 It prints the viewer's own measurement (`[BoxSelection] ... visibility rays, ... ms`). A
 hidden annotation is tested at every sample up to the ray budget before it counts as hidden,
 so the hidden ones dominate. Measured at 5000
-annotations: 129,000 rays (4000 hidden x 32, plus one per visible annotation) took about
-1.3 s, roughly 10 microseconds each. The first box also loads the KdTree patches the rays
-touch: four here, 3 to 9 s in all depending on the disk cache. Picking loads the same patches
+annotations: 129,000 rays (4000 hidden x 32, plus one per visible annotation) took 1.3 to
+4.8 s over several runs, roughly 10 to 40 microseconds each. The first box also loads the
+KdTree patches the rays touch: four here, 3 to 11 s in all depending on the disk cache. Picking loads the same patches
 lazily too, so a later box costs only the rays.
 
 While it runs, the busy indicator reads `selecting annotations` ([BusyIndicator](BusyIndicator.md)),
 and the spec checks that `/busy` reports it.
+
+A second test in the same spec checks the modifier keys on 100 annotations
+([DirectToolMode.md](DirectToolMode.md#the-modifier-key)). At 5000 annotations the main page is
+too busy building its annotation list (#900) to take the Direct Tool Mode click. It checks that:
+
+- Alt+click without Ctrl picks nothing;
+- in Ctrl+Alt+drag, letting go of Alt keeps the rectangle (Ctrl still holds it), and the
+  gesture toggles;
+- in Direct Tool Mode, Alt+drag toggles, and the camera does not move;
+- with Ctrl held, moving focus away and letting go there leaves Ctrl released: a plain drag
+  then moves the camera.
 
 The manual steps are in the test protocol as TC-62 (Box Selection of Annotations).

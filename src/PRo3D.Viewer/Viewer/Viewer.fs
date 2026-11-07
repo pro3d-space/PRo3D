@@ -2780,7 +2780,12 @@ module ViewerApp =
                     let drawingAction = getDrawingActionForKey (m.interaction |> AVal.force) k
                     [KeyDown k; DrawingMessage drawingAction]
                 )
-                onKeyUp   (KeyUp)        
+                onKeyUp   (KeyUp)
+                // Losing focus releases the modifiers: a key-up that happens elsewhere (Cmd+Tab,
+                // Alt+Tab, a dialog) never reaches this element, and a stuck ctrlFlag freezes
+                // the camera and arms every tool.
+                onEvent' "onblur" [] (fun _ ->
+                    seq [ KeyUp Aardvark.Application.Keys.LeftCtrl; KeyUp Aardvark.Application.Keys.LeftShift ])
                 clazz "mainrendercontrol"
                 onEvent "resizeControl"  [] (
                     fun p -> 
