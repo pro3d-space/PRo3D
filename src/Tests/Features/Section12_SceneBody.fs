@@ -192,8 +192,9 @@ let tests =
             let gis = m.scene.gisApp
             let m =
                 { m with
-                    scene = { m.scene with gisApp = { gis with projectedImageList = { gis.projectedImageList with imageDirectory = Some missing } } } }
+                    scene = { m.scene with gisApp = { gis with projectedImageList = { gis.projectedImageList with imageDirectory = Some missing; pendingStack = [ "a.png"; "b.png" ] } } } }
             let m = SceneLoader.updateGisApp m
+            Expect.equal (PRo3D.ImageMapping.ProjectedImageListModel.stackFileNames m.scene.gisApp.projectedImageList) [ "a.png"; "b.png" ] "stack kept for the next save"
             match m.layout.dialog with
             | LayoutDialog.Notice ("Projected Images", message, _) -> Expect.stringContains message missing "names the folder"
             | other -> failtestf "expected a notice, got %A" other
@@ -213,6 +214,14 @@ let tests =
                 let m = SceneLoader.updateGisApp m
                 Expect.equal m.layout.dialog LayoutDialog.None "no notice"
                 Expect.equal m.scene.gisApp.projectedImageList.imageDirectory (Some dir) "folder kept"
+
+                // a stack entry whose file is no longer in the folder is reported
+                let gis = m.scene.gisApp
+                let m = { m with scene = { m.scene with gisApp = { gis with projectedImageList = { gis.projectedImageList with pendingStack = [ "gone.png" ] } } } }
+                let m = SceneLoader.updateGisApp m
+                match m.layout.dialog with
+                | LayoutDialog.Notice ("Projected Images", message, _) -> Expect.stringContains message "gone.png" "names the image"
+                | other -> failtestf "expected a notice, got %A" other
             finally
                 Directory.Delete(dir, true)
         }

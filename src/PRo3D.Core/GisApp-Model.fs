@@ -179,6 +179,8 @@ module GisAppJson =
             // additive: only the folder is stored; the images themselves are
             // re-imported from it when the scene is applied (SceneLoader.updateGisApp)
             let! (imageDirectory : Option<string>) = Json.tryRead "projectedImagesDirectory"
+            // additive: stack file names bottom -> top, mapped back to the re-imported images
+            let! (stackFiles : Option<list<string>>) = Json.tryRead "projectedImagesStack"
 
             return {
                 version                = GisApp.current
@@ -195,7 +197,8 @@ module GisAppJson =
                     { ProjectedImageListModel.initial with
                         lightingMode = lightingMode
                         windingCorrection = Option.defaultValue false windingCorrection
-                        imageDirectory = imageDirectory }
+                        imageDirectory = imageDirectory
+                        pendingStack = Option.defaultValue [] stackFiles }
                 showMarkers            = Option.defaultValue false showMarkers
 
                 selectedMissionTimeRow = None
@@ -225,6 +228,9 @@ type GisApp with
             match x.projectedImageList.imageDirectory with
             | Some dir -> do! Json.write "projectedImagesDirectory" dir
             | None -> ()
+            let stackFiles = ProjectedImageListModel.stackFileNames x.projectedImageList
+            if not stackFiles.IsEmpty then
+                do! Json.write "projectedImagesStack" stackFiles
         }
     static member FromJson (_ : GisApp) =
         json {

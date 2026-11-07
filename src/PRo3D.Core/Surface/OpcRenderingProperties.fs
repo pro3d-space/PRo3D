@@ -60,6 +60,10 @@ module SgExtensions =
                 /// InstrumentVisibilityMode.RelativeCount: tint fragments by
                 /// how many stack layers cover them (projectedStackCoverage)
                 stackCoverageEnabled : aval<bool>
+                /// The stack layer in focus (index into stackProjections, -1: none)
+                /// and the opacity factor for every other layer -- the hovered or
+                /// dragged image stays at full strength, the rest fade.
+                stackFocus : aval<int * float32>
                 /// The hovered image's own projector (surface frame, its obs
                 /// time) -- drives the hover-only footprint outline uniform and
                 /// the frustum wireframe (D5). None when nothing is hovered or

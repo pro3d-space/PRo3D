@@ -15,6 +15,19 @@ npx playwright test geological-map-story
 Result: `tests-ui/artifacts/geological-map-story/geological-map-story.mp4` (1920×1080, H.264).
 Without `PRO3D_VIDEO` the spec takes the pictures, as before.
 
+The projection stack story (`tests-ui/tests/projection-stack-story.spec.ts`) works the same
+way: drag & drop reordering with the fade and the live 3D preview. It runs on the test data by
+default; the published video uses the Mars swing-by:
+
+```
+set PRO3D_STACK_STORY_SCENE=C:\pro3ddata\HERA\workshop4\marsCorrectHSH.pro3d
+set PRO3D_STACK_STORY_IMAGES=...\Mars-Swing-By\HSH-1BB
+set PRO3D_STACK_STORY_FROM=T121545
+npx playwright test projection-stack-story
+```
+
+(`..._FROM`: the first of four consecutive frames - the 12:15-12:36 ones overlap well.)
+
 ## Pacing: machine time is cut, viewer time is explicit
 
 - waits on PRo3D (`until`, `idle`, `panelHas`, the settling in `shot`) keep 0.35 s, and nothing

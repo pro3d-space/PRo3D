@@ -383,10 +383,20 @@ module SceneLoader =
                 scene  = { m.scene with gisApp = gisApp }
                 layout = LayoutApp.notify "Projected Images" message m.layout }
         | Some dir ->
+            let pending = gisApp.projectedImageList.pendingStack
             let images =
                 PRo3D.ImageMapping.ProjectedImageListApp.update
                     gisApp.projectedImageList (PRo3D.ImageMapping.ProjectedImageListMessage.LoadImagesDir dir)
-            { m with scene = { m.scene with gisApp = { gisApp with projectedImageList = images } } }
+            let images, missing = PRo3D.ImageMapping.ProjectedImageListModel.restoreStack pending images
+            let m = { m with scene = { m.scene with gisApp = { gisApp with projectedImageList = images } } }
+            match missing with
+            | [] -> m
+            | _ ->
+                Log.warn "[SceneLoader] projected-image stack entries not found in %s: %A" dir missing
+                let message =
+                    sprintf "%d image(s) of this scene's projection stack are no longer in %s and were left out: %s"
+                        missing.Length dir (String.concat ", " missing)
+                { m with layout = LayoutApp.notify "Projected Images" message m.layout }
         | None ->
             { m with scene = { m.scene with gisApp = gisApp }}
 

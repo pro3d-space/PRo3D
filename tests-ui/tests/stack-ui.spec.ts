@@ -69,9 +69,9 @@ async function clickStackIcon(gis: Page, imageName: string, iconClass: string) {
 /** drag the stack row of `from` onto the row of `onto`. Dispatches the HTML5
  *  drag events with one shared DataTransfer (single-shot, like the clicks
  *  above), so the rows' own dragstart/drop handlers are what is tested. */
-async function dragStackRow(gis: Page, from: string, onto: string) {
+async function dragStackRow(gis: Page, from: string, onto: string, drop = true) {
     const result = await gis.evaluate(
-        ({ from, onto }) => {
+        ({ from, onto, drop }) => {
             const row = (name: string) =>
                 Array.from(document.querySelectorAll('div[draggable="true"]')).find(
                     (d) => (d.textContent ?? "").trim() === name
@@ -87,11 +87,12 @@ async function dragStackRow(gis: Page, from: string, onto: string) {
             fire(src, "dragstart");
             fire(dst, "dragenter");
             fire(dst, "dragover");
-            fire(dst, "drop");
+            // no drop: released elsewhere / Esc -- only the dragend arrives
+            if (drop) fire(dst, "drop");
             fire(src, "dragend");
             return "dropped";
         },
-        { from, onto }
+        { from, onto, drop }
     );
     expect(result, `drag ${from} onto ${onto}`).toBe("dropped");
 }
@@ -180,6 +181,16 @@ test("stack add / reorder / remove through the GIS tab", async ({ browser }) => 
     await dragStackRow(gis, a, b);
     await expectStack(gis, [a, b]);
     // and back
+    await dragStackRow(gis, a, b);
+    await expectStack(gis, [b, a]);
+
+    // a cancelled drag (no drop) leaves the order alone ...
+    await dragStackRow(gis, a, b, false);
+    await gis.waitForTimeout(1000);
+    await expectStack(gis, [b, a]);
+    // ... and the next drag works as before
+    await dragStackRow(gis, a, b);
+    await expectStack(gis, [a, b]);
     await dragStackRow(gis, a, b);
     await expectStack(gis, [b, a]);
 

@@ -118,6 +118,23 @@ module ProjectedImages =
     [<Literal>]
     let maxCount = 32
 
+    /// How strongly the stack layers other than the one in focus are faded
+    /// (their opacity factor): strongly while a stack image is hovered or
+    /// dragged, slightly while a library image is previewed.
+    [<Literal>]
+    let fadeForStackFocus = 0.35
+    [<Literal>]
+    let fadeForLibraryFocus = 0.75
+
+/// A stack row being dragged (drag & drop reordering). Transient UI state, never
+/// saved. `target`: the stack position (0 = bottom) the row would be dropped at,
+/// previewed in effectiveStack; None until the drag enters a row.
+type StackDrag =
+    {
+        image  : Guid
+        target : Option<int>
+    }
+
 [<ModelType>]
 type ProjectedImageListModel =
     {
@@ -127,6 +144,12 @@ type ProjectedImageListModel =
         /// The folder the library was imported from. Saved with the scene
         /// (GisApp "projectedImagesDirectory") and re-imported on load.
         imageDirectory       : Option<string>
+        /// Stack file names (bottom -> top) read from a scene, waiting for the
+        /// library to be imported from imageDirectory (restoreStack). Stays set
+        /// while that folder is missing, so saving the scene keeps the stack.
+        /// Empty otherwise.
+        [<NonAdaptive>]
+        pendingStack         : list<string>
         /// Draw order, bottom -> top; the topmost layer covering a fragment
         /// wins. Holds ids into `images`, so sorting the library leaves it
         /// alone. Never longer than ProjectedImages.maxCount.
@@ -134,6 +157,9 @@ type ProjectedImageListModel =
         /// Library or stack entry under the mouse. Previewed on top of the
         /// stack and given a footprint; see ProjectedImageListModel.effectiveStack.
         hoveredImage         : Option<Guid>
+        /// A stack row being dragged; its drop position is previewed by
+        /// effectiveStack. None when no drag is in progress.
+        stackDrag            : Option<StackDrag>
         /// Target of the edit panel / 2D preview.
         selectedImage        : Option<Guid>
         /// Library rows whose inline edit panel is expanded. A set, not a list:
@@ -170,25 +196,85 @@ module ProjectedImageListModel =
     let isInStack (id : Guid) (m : ProjectedImageListModel) =
         m.stack |> IndexList.exists (fun _ i -> i = id)
 
+    /// `stack` with `id` moved to `position` (0 = bottom, clamped): removed, then
+    /// inserted, so the entries between the old and the new place shift by one.
+    /// Unchanged when `id` is not in the stack.
+    let moveInStack (id : Guid) (position : int) (stack : IndexList<Guid>) : IndexList<Guid> =
+        match stack |> IndexList.tryFindIndex id with
+        | None -> stack
+        | Some idx ->
+            let without = stack |> IndexList.remove idx
+            let position = position |> max 0 |> min without.Count
+            without |> IndexList.insertAt position id
+
+    /// The image the projection is focused on -- the dragged stack row, else the
+    /// hovered row -- and the opacity factor for every *other* layer
+    /// (ProjectedImages.fadeFor*). None: nothing faded.
+    let stackFocus (m : ProjectedImageListModel) : Option<Guid * float> =
+        match m.stackDrag with
+        | Some d -> Some (d.image, ProjectedImages.fadeForStackFocus)
+        | None ->
+            m.hoveredImage |> Option.map (fun id ->
+                if isInStack id m then id, ProjectedImages.fadeForStackFocus
+                else id, ProjectedImages.fadeForLibraryFocus)
+
     /// What actually gets projected: the stack, plus the hovered image on top
     /// as a preview when it is not already part of the stack (D4). Hovering an
     /// image that *is* in the stack must not duplicate its layer -- it only
     /// drives the footprint and the UI badge -- so it is filtered out here.
     /// Truncated to the cap, dropping from the bottom so the preview is always
     /// the layer you see.
+    /// While a stack row is dragged, the stack is shown as it would be after the
+    /// drop (live preview); cancelling the drag simply clears stackDrag.
     let effectiveStack (m : ProjectedImageListModel) : IndexList<Guid> =
+        let committed =
+            match m.stackDrag with
+            | Some { image = id; target = Some p } -> moveInStack id p m.stack
+            | _ -> m.stack
         let stack =
             match m.hoveredImage with
-            | Some h when not (isInStack h m) -> m.stack |> IndexList.add h
-            | _ -> m.stack
+            | Some h when not (isInStack h m) -> committed |> IndexList.add h
+            | _ -> committed
         let overflow = stack.Count - ProjectedImages.maxCount
         if overflow > 0 then stack |> IndexList.skip overflow else stack
+
+    let private fileKey (path : string) = (System.IO.Path.GetFileName path).ToLowerInvariant()
+
+    /// The stack as file names, bottom -> top -- what a scene stores (ids are
+    /// minted per import). A stack still waiting for its folder is passed through.
+    let stackFileNames (m : ProjectedImageListModel) : list<string> =
+        if not m.pendingStack.IsEmpty then m.pendingStack
+        else
+            m.stack
+            |> IndexList.toList
+            |> List.choose (fun id -> tryFind id m |> Option.map (fun i -> System.IO.Path.GetFileName i.texture))
+
+    /// Rebuilds the stack from file names after the library was imported.
+    /// Returns the names not found in the library (matched case-insensitively).
+    let restoreStack (names : list<string>) (m : ProjectedImageListModel) : ProjectedImageListModel * list<string> =
+        let byName =
+            m.images
+            |> IndexList.toList
+            |> List.map (fun i -> fileKey i.texture, i.id)
+            |> HashMap.ofList
+        let ids, missing =
+            names
+            |> List.distinctBy fileKey
+            |> List.fold (fun (ids, missing) name ->
+                match HashMap.tryFind (fileKey name) byName with
+                | Some id -> id :: ids, missing
+                | None -> ids, name :: missing
+            ) ([], [])
+        let stack = ids |> List.rev |> List.truncate ProjectedImages.maxCount |> IndexList.ofList
+        { m with stack = stack; pendingStack = [] }, List.rev missing
 
     let initial : ProjectedImageListModel = {
         images = IndexList.Empty;
         imageDirectory = None;
+        pendingStack = [];
         stack = IndexList.Empty;
         hoveredImage = None;
+        stackDrag = None;
         selectedImage = None;
         editImages = HashSet.empty;
         projectionOpacity = { Numeric.init with min = 0.0; max = 1.0; step = 0.01; value = 1.0 }
@@ -227,6 +313,16 @@ type ProjectedImageListMessage =
     | RemoveFromStack of Guid
     /// Move a stack entry to the given position, 0 = bottom. Clamped.
     | MoveInStack of Guid * int
+    /// Drag & drop in the stack panel: a row starts being dragged ...
+    | StackDragStart of Guid
+    /// ... enters the row at this stack position (previewed live) ...
+    | StackDragOver of int
+    /// ... is dropped there: moves it and ends the drag, in one message (the
+    /// move rebuilds the panel, so the source row may never see its dragend) ...
+    | StackDrop of Guid * int
+    /// ... or the drag ends without a drop (Esc, released elsewhere): back to
+    /// the committed order.
+    | StackDragEnd
     /// Mouse entered/left a library or stack row; drives the preview layer and
     /// the footprint. None on leave.
     | HoverImage of Option<Guid>

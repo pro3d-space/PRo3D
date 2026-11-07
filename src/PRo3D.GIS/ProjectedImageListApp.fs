@@ -67,7 +67,9 @@ module ProjectedImageListApp =
             { m with
                 images = images'
                 imageDirectory = Some directory
+                pendingStack = []
                 stack = IndexList.Empty
+                stackDrag = None
                 hoveredImage = None
                 editImages = HashSet.empty
                 selectedImage = first }
@@ -91,12 +93,25 @@ module ProjectedImageListApp =
         | RemoveFromStack id ->
             { m with stack = m.stack |> IndexList.filter ((<>) id) }
         | MoveInStack (id, position) ->
-            match m.stack |> IndexList.tryFindIndex id with
+            { m with stack = ProjectedImageListModel.moveInStack id position m.stack }
+        | StackDragStart id when ProjectedImageListModel.isInStack id m ->
+            // mouse events pause during a native drag: hold the dragged image as
+            // the hovered one, for its footprint and frustum
+            { m with stackDrag = Some { image = id; target = None }; hoveredImage = Some id }
+        | StackDragStart _ -> m
+        | StackDragOver position ->
+            match m.stackDrag with
+            | Some d -> { m with stackDrag = Some { d with target = Some position } }
             | None -> m
-            | Some idx ->
-                let without = m.stack |> IndexList.remove idx
-                let position = position |> max 0 |> min without.Count
-                { m with stack = without |> IndexList.insertAt position id }
+        | StackDrop (id, position) ->
+            { m with
+                stack = ProjectedImageListModel.moveInStack id position m.stack
+                stackDrag = None
+                hoveredImage = None }
+        | StackDragEnd ->
+            match m.stackDrag with
+            | Some _ -> { m with stackDrag = None; hoveredImage = None }
+            | None -> m
         | HoverImage id ->
             { m with hoveredImage = id }
         | FlyToImage _ ->
@@ -167,29 +182,52 @@ module ProjectedImageListApp =
 
         /// HTML5 drag & drop on a stack row. The dragged row carries its Guid in
         /// the DataTransfer; dropping it onto another row moves it to that
-        /// row's position (MoveInStack's remove-then-insert does the rest: the
-        /// target and everything between shift by one). The drop highlight is
-        /// purely client-side so dragging over 32 rows costs no round trips.
+        /// row's position (moveInStack: the rows in between shift by one).
+        ///
+        /// While dragging, entering a row previews the drop in 3D (StackDragOver
+        /// -> effectiveStack) -- sent only when the target row changes, since
+        /// dragover fires continuously and dragenter fires for every child icon.
+        /// The panel itself keeps the committed order until the drop: rebuilding
+        /// it mid-drag would replace the row the browser is dragging.
+        /// window.__pro3dStackDrag marks a drag that started here, so foreign
+        /// drags (files) are ignored, and lets dragend tell a cancel from a drop.
         let stackDragDrop (id : Guid) (stackPos : int) : list<Attribute<ProjectedImageListMessage>> =
             // works whether the handler sees the native or a jQuery-wrapped event
             let ev = "var e=(event.originalEvent||event);"
             let highlight = "e.currentTarget.style.boxShadow='inset 0 0 0 2px #2185d0';"
             let clear = "e.currentTarget.style.boxShadow='';"
+            // only for drags that started in this panel
+            let ours (body : string) = "if(window.__pro3dStackDrag){" + body + "}"
             [
                 attribute "draggable" "true"
-                clientEvent "ondragstart" (ev + $"e.dataTransfer.setData('text/plain','{id}'); e.dataTransfer.effectAllowed='move';")
-                clientEvent "ondragenter" (ev + "e.preventDefault();" + highlight)
-                clientEvent "ondragover" (ev + "e.preventDefault(); e.dataTransfer.dropEffect='move';" + highlight)
+                clientEvent "ondragstart" (
+                    ev + $"e.dataTransfer.setData('text/plain','{id}'); e.dataTransfer.effectAllowed='move';"
+                    + "window.__pro3dStackDrag=true; window.__pro3dStackTarget=null; e.currentTarget.style.opacity='0.4';"
+                    + "aardvark.processEvent('__ID__','stackdragstart');")
+                clientEvent "ondragenter" (
+                    ev + ours ("e.preventDefault();" + highlight
+                    + $"if(window.__pro3dStackTarget!=={stackPos}){{window.__pro3dStackTarget={stackPos}; aardvark.processEvent('__ID__','stackdragover');}}"))
+                clientEvent "ondragover" (ev + ours ("e.preventDefault(); e.dataTransfer.dropEffect='move';" + highlight))
                 clientEvent "ondragleave" (ev + clear)
-                clientEvent "ondrop" (ev + "e.preventDefault();" + clear + "aardvark.processEvent('__ID__','stackdrop',e.dataTransfer.getData('text/plain'));")
+                clientEvent "ondrop" (
+                    ev + ours ("e.preventDefault();" + clear + "window.__pro3dStackDrag=false;"
+                    + "aardvark.processEvent('__ID__','stackdrop',e.dataTransfer.getData('text/plain'));"))
+                clientEvent "ondragend" (
+                    ev + "e.currentTarget.style.opacity='';"
+                    + "if(window.__pro3dStackDrag){window.__pro3dStackDrag=false; aardvark.processEvent('__ID__','stackdragend');}")
+                onEvent' "stackdragstart" [] (fun _ -> Seq.singleton (StackDragStart id))
+                onEvent' "stackdragover" [] (fun _ -> Seq.singleton (StackDragOver stackPos))
+                onEvent' "stackdragend" [] (fun _ -> Seq.singleton StackDragEnd)
                 onEvent' "stackdrop" [] (fun args ->
-                    // processEvent JSON-encodes its arguments, hence the quotes
+                    // processEvent JSON-encodes its arguments, hence the quotes;
+                    // a drop onto itself still ends the drag (moving to its own
+                    // position is a no-op)
                     match args with
                     | [ s ] ->
                         match Guid.TryParse (s.Trim('"')) with
-                        | true, src when src <> id -> Seq.singleton (MoveInStack (src, stackPos))
-                        | _ -> Seq.empty
-                    | _ -> Seq.empty
+                        | true, src -> Seq.singleton (StackDrop (src, stackPos))
+                        | _ -> Seq.singleton StackDragEnd
+                    | _ -> Seq.singleton StackDragEnd
                 )
             ]
 
