@@ -130,13 +130,16 @@ let tests =
         }
 
         test "TC-12.3 the projection stack is saved as file names and restored in order" {
+            // native paths: Path.GetFileName splits on '\' only on Windows, so a "C:\..." fixture
+            // fails on the Linux and macOS runners although the code under test is right
+            let dir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "imgs")
             let img (name : string) =
-                { PRo3D.ImageMapping.ProjectedImageApp.initial with id = Guid.NewGuid(); texture = @"C:\data\imgs\" + name }
+                { PRo3D.ImageMapping.ProjectedImageApp.initial with id = Guid.NewGuid(); texture = System.IO.Path.Combine(dir, name) }
             let a, b, c = img "a.png", img "B.tif", img "c.png"
             let list =
                 { PRo3D.ImageMapping.ProjectedImageListModel.initial with
                     images = FSharp.Data.Adaptive.IndexList.ofList [ a; b; c ]
-                    imageDirectory = Some @"C:\data\imgs"
+                    imageDirectory = Some dir
                     stack = FSharp.Data.Adaptive.IndexList.ofList [ c.id; a.id ] } // bottom -> top
             Expect.equal (PRo3D.ImageMapping.ProjectedImageListModel.stackFileNames list) [ "c.png"; "a.png" ] "file names, bottom -> top"
 
