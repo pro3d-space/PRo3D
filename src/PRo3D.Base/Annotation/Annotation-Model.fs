@@ -643,11 +643,26 @@ module EllipseEdit =
         && projection = Projection.Sky
         && (match r with Some r -> (tryFrame r).IsSome | None -> false)
 
+    /// Where the centre handle is: the middle of the draped outline (the mean of its points, the
+    /// closing duplicate left out), so it sits where the ellipse is seen. The plane's centre can
+    /// be metres off the terrain the outline is stamped onto - the plane is frozen, and an end
+    /// dragged onto higher ground or a move takes the outline away from it - and in an oblique
+    /// view a handle there looked far from its ellipse. The plane centre when there is no outline.
+    let outlineCentre (r : EllipticAnnotationResult) (outline : V3d[]) : V3d =
+        let n =
+            if outline.Length > 1 && outline.[0] = outline.[outline.Length - 1] then outline.Length - 1
+            else outline.Length
+        if n = 0 then r.center
+        else
+            let mutable sum = V3d.Zero
+            for i in 0 .. n - 1 do sum <- sum + outline.[i]
+            sum / float n
+
     /// The handles where they are drawn and grabbed: each axis end replaced by the closest
     /// point of the draped outline, so the handle sits on the terrain the outline sits on,
     /// not on the (possibly buried or floating) plane. Falls back to the plane point when the
     /// outline is empty. 4 x outline length distance tests; the outline has 200 points.
-    /// The centre stays the plane's centre, where the axes cross.
+    /// The centre is `outlineCentre`.
     let handlesOnOutline (r : EllipticAnnotationResult) (outline : V3d[]) : V3d[] =
         match tryPlaneHandles r with
         | None -> [||]
@@ -663,21 +678,23 @@ module EllipseEdit =
                             best <- outline.[i]
                             bestD <- d
                     best
-                handles |> Array.mapi (fun index h -> if index = CentreHandle then h else nearest h)
+                handles |> Array.mapi (fun index h -> if index = CentreHandle then outlineCentre r outline else nearest h)
 
     /// The three construction points (major end, major end, minor end - the clicks of the
     /// AxisEllipse tool) on the construction plane after handle `index` is dropped at `drop`.
     ///
     /// Dragging a major end keeps the opposite end and the minor length; dragging a minor end
     /// keeps the major axis and sets only the minor length (the drop's distance from the major
-    /// axis); dragging the centre moves the whole ellipse within the plane, to the drop's
-    /// orthogonal projection onto it, axes unchanged. `None` for an unknown handle or a drop
-    /// that collapses an axis.
-    let tryMoveHandle (r : EllipticAnnotationResult) (index : int) (drop : V3d) : Option<V3d[]> =
+    /// axis); dragging the centre moves the whole ellipse within the plane by as much as the
+    /// handle was moved, both ends projected onto it: from `outlineCentre` (where the handle is
+    /// drawn and grabbed) to the drop. A drop where the handle is, is no move. `None` for an
+    /// unknown handle or a drop that collapses an axis.
+    let tryMoveHandle (r : EllipticAnnotationResult) (outline : V3d[]) (index : int) (drop : V3d) : Option<V3d[]> =
         match tryFrame r with
         | None -> None
         | Some (c, a, b, n) ->
-            let onPlane = drop - n * Vec.dot (drop - c) n
+            let toPlane (p : V3d) = p - n * Vec.dot (p - c) n
+            let onPlane = toPlane drop
             match index with
             | 0 | 1 ->
                 let fixedEnd = if index = 0 then c - a else c + a
@@ -696,15 +713,51 @@ module EllipseEdit =
                 if perpendicular.Length <= 1e-9 * a.Length then None
                 else Some [| c - a; c + a; c + perpendicular |]
             | CentreHandle ->
-                Some [| onPlane - a; onPlane + a; onPlane + b |]
+                let centre = c + (onPlane - toPlane (outlineCentre r outline))
+                Some [| centre - a; centre + a; centre + b |]
             | _ -> None
+
+    /// A moved ellipse re-fitted to the terrain at its new place, as the tool fits a drawn one:
+    /// the plane through `draped`, the three construction points of the move (`tryMoveHandle`)
+    /// stamped onto the terrain, which play the part of the three clicks. Unlike a redraw the
+    /// ellipse keeps its size: the axis lengths are kept exactly, the major axis turned as
+    /// little as possible into the new plane (its old direction projected onto it), the minor
+    /// axis at right angles to it on the same side; the centre is the old one projected onto
+    /// the new plane. So a move changes where the ellipse is and how it is tilted - dip and
+    /// strike of the new spot - but not its axes or axis ratio.
+    ///
+    /// Returns the new plane and the construction points on it. `None` when the draped points
+    /// span no plane, or the new plane stands at right angles to the old one.
+    let tryRefit (r : EllipticAnnotationResult) (moved : V3d[]) (draped : V3d[]) : Option<Plane3d * V3d[]> =
+        match tryFrame r, moved, draped with
+        | Some (_, a, b, n), [| m0; m1; _ |], [| p0; p1; p2 |] ->
+            let normal = Vec.cross (p1 - p0) (p2 - p0)
+            let scale = (p1 - p0).Length * (p2 - p0).Length
+            if scale <= 0.0 || normal.Length <= 1e-9 * scale then None
+            else
+                // on the side of the old normal, so the minor axis keeps its side too
+                let normal = normal.Normalized
+                let normal = if Vec.dot normal n < 0.0 then -normal else normal
+                let plane = Plane3d(normal, p0)
+                let toPlane (p : V3d) = p - normal * plane.Height p
+                let majorDir = a - normal * Vec.dot a normal
+                if majorDir.Length <= 1e-6 * a.Length then None
+                else
+                    let major = majorDir.Normalized * a.Length
+                    let minorDir =
+                        let d = (Vec.cross normal major).Normalized
+                        if Vec.dot d b < 0.0 then -d else d
+                    let centre = toPlane ((m0 + m1) * 0.5)
+                    Some (plane, [| centre - major; centre + major; centre + minorDir * b.Length |])
+        | _ -> None
 
     /// Where the outline lies once the centre is dropped at `drop`, before it is draped again:
     /// the draped outline shifted within the plane by the move `tryMoveHandle` makes. The preview
     /// of a centre drag; `None` when the stored shape defines no plane.
     let tryMovedOutline (r : EllipticAnnotationResult) (outline : V3d[]) (drop : V3d) : Option<V3d[]> =
         tryFrame r |> Option.map (fun (c, _, _, n) ->
-            let shift = (drop - n * Vec.dot (drop - c) n) - c
+            let toPlane (p : V3d) = p - n * Vec.dot (p - c) n
+            let shift = toPlane drop - toPlane (outlineCentre r outline)
             outline |> Array.map (fun p -> p + shift))
 
 

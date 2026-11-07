@@ -202,6 +202,26 @@ function redDistance(png: Buffer, p: Px, radius = 30): number {
 }
 
 /**
+ * The third click of an AxisEllipse. It was lost now and then with nothing in the log: it comes
+ * during the burst of surface extraction that follows the first picks. Repeated while no
+ * annotation has appeared - a click too many after a finished ellipse would only start a new one.
+ */
+async function closeEllipse(render: Page, app: Pro3d, context: BrowserContext, p: Px) {
+    for (let attempt = 0; attempt < 3; attempt++) {
+        await awaitIdle(render, app);
+        await pick(render, p.x, p.y);
+        await awaitIdle(render, app);
+        // finishing may generate profiles too: give it time before calling the click lost
+        const finished = await expect
+            .poll(async () => (await annotationPointCounts(context, app)).length, { timeout: 45_000, intervals: [3000] })
+            .toBeGreaterThan(0)
+            .then(() => true, () => false);
+        if (finished) return;
+        console.log(`closing pick ${attempt + 1} did not finish the ellipse, again`);
+    }
+}
+
+/**
  * Picks the handle at `from` up and puts it down at `to`, as a user does.
  *
  * The pick-up is an ordinary Ctrl+click. The drop is not: a grab only becomes droppable once a
@@ -294,11 +314,11 @@ test("an AxisEllipse is reshaped by dragging its axis ends, and Ctrl+Z restores 
             x: Math.round(cx + ((2 * ay) / len) * minor),
             y: Math.round(cy + ((2 * ax) / len) * minor),
         };
-        for (const p of [majorA, majorB, minorEnd]) {
+        for (const p of [majorA, majorB]) {
             await awaitIdle(render, app);
             await pick(render, p.x, p.y);
         }
-        await awaitIdle(render, app);
+        await closeEllipse(render, app, context, minorEnd);
         await expect
             .poll(() => annotationPointCounts(context, app), { timeout: 180_000, intervals: [5000] })
             .toEqual([OUTLINE_POINTS]);
@@ -561,21 +581,7 @@ test("the centre handle moves the whole ellipse, its crater profiles follow, and
             await awaitIdle(render, app);
             await pick(render, p.x, p.y);
         }
-        // The closing click was lost once with nothing in the log: it came during the burst of
-        // surface extraction that follows the first picks. It is repeated while no annotation
-        // has appeared - a click too many after a finished ellipse would only start a new one.
-        for (let attempt = 0; attempt < 3; attempt++) {
-            await awaitIdle(render, app);
-            await pick(render, minorEnd.x, minorEnd.y);
-            await awaitIdle(render, app);
-            // finishing generates the profiles too: give it time before calling the click lost
-            const finished = await expect
-                .poll(async () => (await annotationPointCounts(context, app)).length, { timeout: 45_000, intervals: [3000] })
-                .toBeGreaterThan(0)
-                .then(() => true, () => false);
-            if (finished) break;
-            console.log(`closing pick ${attempt + 1} did not finish the ellipse, again`);
-        }
+        await closeEllipse(render, app, context, minorEnd);
         await expect
             .poll(async () => (await annotationPointCounts(context, app)).length, { timeout: 180_000, intervals: [5000] })
             .toBe(5);

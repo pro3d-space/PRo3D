@@ -182,8 +182,22 @@ module DrawingApp =
         match a.ellipticResults with
         | None -> a
         | Some r ->
-            match EllipseEdit.tryPlane r, EllipseEdit.tryMoveHandle r index drop with
-            | Some plane, Some construction ->
+            let moved = EllipseEdit.tryMoveHandle r (IndexList.toArray a.points) index drop
+            // Axis ends keep the plane: small fitting tweaks must not tilt the ellipse. A move of
+            // the whole ellipse fits the plane to the terrain at its new place, as if drawn
+            // there: it is on another boulder now, with that boulder's dip and strike.
+            let planeAndConstruction =
+                match EllipseEdit.tryPlane r, moved with
+                | Some plane, Some construction when index <> EllipseEdit.CentreHandle -> Some (plane, construction)
+                | Some _, Some construction ->
+                    match construction |> Array.map samplePoint with
+                    | [| Some p0; Some p1; Some p2 |] -> EllipseEdit.tryRefit r construction [| p0; p1; p2 |]
+                    | _ ->
+                        Log.warn "[Drawing] the moved ellipse's axis ends miss the surface; move discarded"
+                        None
+                | _ -> None
+            match planeAndConstruction, moved with
+            | Some (plane, construction), _ ->
                 match EllipticAnnotations.constructAndSampleFromPlane plane construction samplePoint with
                 | Some c when c.surfaceProjectedEllipsePoints.Length >= 3 ->
                     let a =
@@ -197,7 +211,8 @@ module DrawingApp =
                     Log.warn "[Drawing] edited ellipse outline could not be projected onto the surface (%d sampled points); edit discarded" c.surfaceProjectedEllipsePoints.Length
                     a
                 | None -> a
-            | _ ->
+            | None, Some _ -> a
+            | None, None ->
                 Log.warn "[Drawing] ellipse handle %d dropped where it would collapse an axis; edit discarded" index
                 a
 

@@ -587,8 +587,59 @@ let private offLine (p : V3d) (a : Annotation) =
     let d = (e - s).Normalized
     (p - s - d * Vec.dot (p - s) d).Length
 
+/// grab handle `i` of the single ellipse and drop it at `target`, draped with `sampler`
+let private dropWith (sampler : V3d -> Option<V3d>) (i : int) (target : V3d) (m : DrawingModel) =
+    let refSystem = Draw.refSystemMars
+    let a = theEllipse "dropWith" m
+    m
+    |> fun m -> Draw.run refSystem m (DrawingAction.GrabVertex(a.key, i))
+    |> fun m -> Draw.run refSystem m DrawingAction.ArmVertexGrab
+    |> fun m -> Draw.run refSystem m (DrawingAction.MoveVertex(a.key, i, target, sampler))
+
+/// Terrain that is a plane through the ellipse centre, tilted 0.2 rad about y against the
+/// ellipse's plane (z = const), with points stamped onto it straight along its normal.
+let private tiltedNormal = V3d(sin 0.2, 0.0, cos 0.2)
+let private tiltedTerrain : V3d -> Option<V3d> =
+    fun p -> Some (p - tiltedNormal * Vec.dot (p - ellipseCenter) tiltedNormal)
+
+let private normalOf (r : EllipticAnnotationResult) = (Vec.cross r.semiMajorAxis r.semiMinorAxis).Normalized
+
 let private ellipseMoveTests =
     testList "moving a three-point ellipse" [
+
+        test "a move fits the plane to the terrain at the new place, axes kept" {
+            let c = ellipseCenter
+            let m = drawEllipse ()
+            let r0 = shapeOf "start" m
+            let r = m |> dropWith tiltedTerrain EllipseEdit.CentreHandle (c + V3d(30.0, -20.0, 0.0)) |> shapeOf "moved"
+            Expect.isGreaterThan (abs (Vec.dot (normalOf r) tiltedNormal)) (1.0 - 1e-9) "the ellipse lies in the terrain's plane now"
+            Expect.isLessThan (abs (Vec.dot (r.center - c) tiltedNormal)) 1e-6 "its centre on the terrain"
+            Expect.floatClose Accuracy.medium r.semiMajorAxis.Length r0.semiMajorAxis.Length "semi-major length kept"
+            Expect.floatClose Accuracy.medium r.semiMinorAxis.Length r0.semiMinorAxis.Length "semi-minor length kept"
+            Expect.isGreaterThan (Vec.dot r.semiMajorAxis.Normalized r0.semiMajorAxis.Normalized |> abs) 0.97 "the major axis turned only by the tilt"
+        }
+
+        test "an axis-end drag keeps the plane, whatever the terrain" {
+            let c = ellipseCenter
+            let m = drawEllipse ()
+            let r0 = shapeOf "start" m
+            let i = handleAt (c + V3d(0.0, 35.0, 0.0)) m
+            let r = m |> dropWith tiltedTerrain i (c + V3d(0.0, 45.0, 0.0)) |> shapeOf "widened"
+            Expect.isGreaterThan (abs (Vec.dot (normalOf r) (normalOf r0))) (1.0 - 1e-12) "not tilted"
+        }
+
+        test "the centre handle sits in the middle of the draped outline" {
+            let c = ellipseCenter
+            // after a tilted move the outline is on the terrain; the handle is its middle
+            let moved = drawEllipse () |> dropWith tiltedTerrain EllipseEdit.CentreHandle (c + V3d(30.0, -20.0, 0.0))
+            let a = theEllipse "moved" moved
+            let outline = IndexList.toArray a.points
+            let ring = if outline.Length > 1 && outline.[0] = outline.[outline.Length - 1] then outline.[.. outline.Length - 2] else outline
+            let middle = (ring |> Array.fold (+) V3d.Zero) / float ring.Length
+            match DrawingApp.editHandles a |> Array.tryItem EllipseEdit.CentreHandle with
+            | Some h -> close "the centre handle" middle h
+            | None -> failtest "no centre handle"
+        }
 
         test "dragging the centre moves the whole ellipse in its plane, axes and orientation kept" {
             let c = ellipseCenter
