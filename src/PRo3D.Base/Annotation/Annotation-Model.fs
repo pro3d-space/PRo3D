@@ -722,13 +722,15 @@ module EllipseEdit =
     /// stamped onto the terrain, which play the part of the three clicks. Unlike a redraw the
     /// ellipse keeps its size: the axis lengths are kept exactly, the major axis turned as
     /// little as possible into the new plane (its old direction projected onto it), the minor
-    /// axis at right angles to it on the same side; the centre is the old one projected onto
-    /// the new plane. So a move changes where the ellipse is and how it is tilted - dip and
-    /// strike of the new spot - but not its axes or axis ratio.
+    /// axis at right angles to it on the same side. The centre is where the sky ray through the
+    /// moved centre - `up`, the direction the Sky projection drapes along - meets the new plane,
+    /// so on sloped terrain it stays under the cursor (along the plane normal it would slide
+    /// sideways by the height step times the slope). So a move changes where the ellipse is and
+    /// how it is tilted - dip and strike of the new spot - but not its axes or axis ratio.
     ///
     /// Returns the new plane and the construction points on it. `None` when the draped points
-    /// span no plane, or the new plane stands at right angles to the old one.
-    let tryRefit (r : EllipticAnnotationResult) (moved : V3d[]) (draped : V3d[]) : Option<Plane3d * V3d[]> =
+    /// span no plane, the new plane stands at right angles to the old one, or it is vertical.
+    let tryRefit (r : EllipticAnnotationResult) (up : V3d) (moved : V3d[]) (draped : V3d[]) : Option<Plane3d * V3d[]> =
         match tryFrame r, moved, draped with
         | Some (_, a, b, n), [| m0; m1; _ |], [| p0; p1; p2 |] ->
             let normal = Vec.cross (p1 - p0) (p2 - p0)
@@ -739,15 +741,17 @@ module EllipseEdit =
                 let normal = normal.Normalized
                 let normal = if Vec.dot normal n < 0.0 then -normal else normal
                 let plane = Plane3d(normal, p0)
-                let toPlane (p : V3d) = p - normal * plane.Height p
+                let u = up.Normalized
+                let along = Vec.dot u normal
                 let majorDir = a - normal * Vec.dot a normal
-                if majorDir.Length <= 1e-6 * a.Length then None
+                if majorDir.Length <= 1e-6 * a.Length || abs along < 1e-3 || u.AnyNaN then None
                 else
                     let major = majorDir.Normalized * a.Length
                     let minorDir =
                         let d = (Vec.cross normal major).Normalized
                         if Vec.dot d b < 0.0 then -d else d
-                    let centre = toPlane ((m0 + m1) * 0.5)
+                    let movedCentre = (m0 + m1) * 0.5
+                    let centre = movedCentre - u * (plane.Height movedCentre / along)
                     Some (plane, [| centre - major; centre + major; centre + minorDir * b.Length |])
         | _ -> None
 

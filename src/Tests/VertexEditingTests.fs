@@ -597,10 +597,14 @@ let private dropWith (sampler : V3d -> Option<V3d>) (i : int) (target : V3d) (m 
     |> fun m -> Draw.run refSystem m (DrawingAction.MoveVertex(a.key, i, target, sampler))
 
 /// Terrain that is a plane through the ellipse centre, tilted 0.2 rad about y against the
-/// ellipse's plane (z = const), with points stamped onto it straight along its normal.
+/// ellipse's plane (z = const). Points are stamped onto it along the local up, as the Sky
+/// projection does - not along its normal, which would hide a centre that slides sideways.
 let private tiltedNormal = V3d(sin 0.2, 0.0, cos 0.2)
+let private skyUp =
+    let u, _ = Calculations.localFrame ReferenceSystem.initial.planet ReferenceSystem.initial.up.value ReferenceSystem.initial.north.value ellipseCenter
+    u.Normalized
 let private tiltedTerrain : V3d -> Option<V3d> =
-    fun p -> Some (p - tiltedNormal * Vec.dot (p - ellipseCenter) tiltedNormal)
+    fun p -> Some (p - skyUp * (Vec.dot (p - ellipseCenter) tiltedNormal / Vec.dot skyUp tiltedNormal))
 
 let private normalOf (r : EllipticAnnotationResult) = (Vec.cross r.semiMajorAxis r.semiMinorAxis).Normalized
 
@@ -613,10 +617,34 @@ let private ellipseMoveTests =
             let r0 = shapeOf "start" m
             let r = m |> dropWith tiltedTerrain EllipseEdit.CentreHandle (c + V3d(30.0, -20.0, 0.0)) |> shapeOf "moved"
             Expect.isGreaterThan (abs (Vec.dot (normalOf r) tiltedNormal)) (1.0 - 1e-9) "the ellipse lies in the terrain's plane now"
-            Expect.isLessThan (abs (Vec.dot (r.center - c) tiltedNormal)) 1e-6 "its centre on the terrain"
+            match tiltedTerrain (c + V3d(30.0, -20.0, 0.0)) with
+            | Some underCursor -> Expect.isLessThan (r.center - underCursor).Length 1e-3 "its centre on the terrain under the drop, not slid sideways"
+            | None -> failtest "terrain"
             Expect.floatClose Accuracy.medium r.semiMajorAxis.Length r0.semiMajorAxis.Length "semi-major length kept"
             Expect.floatClose Accuracy.medium r.semiMinorAxis.Length r0.semiMinorAxis.Length "semi-minor length kept"
             Expect.isGreaterThan (Vec.dot r.semiMajorAxis.Normalized r0.semiMajorAxis.Normalized |> abs) 0.97 "the major axis turned only by the tilt"
+        }
+
+        test "dropping the centre where it is changes nothing, even on tilted terrain" {
+            let start = drawEllipse ()
+            let undoBefore = List.length start.undoStack
+            let repeated =
+                [ 0 .. 9 ] |> List.fold (fun m _ ->
+                    match DrawingApp.editHandles (theEllipse "repeat" m) |> Array.tryItem EllipseEdit.CentreHandle with
+                    | Some h -> dropWith tiltedTerrain EllipseEdit.CentreHandle h m
+                    | None   -> failtest "no centre handle") start
+            Expect.equal (shapeOf "repeated" repeated) (shapeOf "start" start) "not re-fitted, not moved"
+            Expect.equal (List.length repeated.undoStack) undoBefore "nothing to undo"
+        }
+
+        test "a refused move says why" {
+            let c = ellipseCenter
+            let m = drawEllipse ()
+            let missing : V3d -> Option<V3d> = fun _ -> None
+            let refused = m |> dropWith missing EllipseEdit.CentreHandle (c + V3d(30.0, -20.0, 0.0))
+            Expect.equal (shapeOf "refused" refused) (shapeOf "start" m) "the ellipse stayed"
+            Expect.equal (List.length refused.undoStack) (List.length m.undoStack) "nothing to undo"
+            Expect.stringContains (refused.supportingProfiles.message |> Option.defaultValue "") "refused" "says so"
         }
 
         test "an axis-end drag keeps the plane, whatever the terrain" {

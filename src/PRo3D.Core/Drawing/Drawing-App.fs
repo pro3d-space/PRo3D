@@ -171,50 +171,63 @@ module DrawingApp =
     /// the outline is re-sampled and draped with `samplePoint` (the Sky projection), the
     /// stored shape, dip and strike and the results are recomputed.
     ///
-    /// The annotation is returned unchanged when the drop would collapse an axis or the new
-    /// outline cannot be draped - a half-built ellipse is worse than a refused edit.
+    /// `Error` with the reason when the edit is refused: a drop that would collapse an axis, a
+    /// moved ellipse whose axis ends miss the surface or span no plane, an outline that cannot
+    /// be draped - a half-built ellipse is worse than a refused edit. `Ok a` itself (the same
+    /// object, so no undo entry) for a centre dropped where it already is.
     let moveEllipseHandle
         (up : V3d) (north : V3d) (planet : Planet)
         (samplePoint : V3d -> Option<V3d>)
         (index : int) (drop : V3d)
-        (a : Annotation) : Annotation =
+        (a : Annotation) : Result<Annotation, string> =
 
         match a.ellipticResults with
-        | None -> a
+        | None -> Result.Error "the ellipse has no stored shape"
         | Some r ->
             let moved = EllipseEdit.tryMoveHandle r (IndexList.toArray a.points) index drop
+            // a centre move shorter than a hundredth of the minor semi-axis is a drop in place:
+            // a move re-fits the plane (below), and that must not happen on a grab-and-release
+            let inPlace =
+                match moved with
+                | Some [| m0; m1; _ |] when index = EllipseEdit.CentreHandle ->
+                    ((m0 + m1) * 0.5 - r.center).Length < 0.01 * r.semiMinorAxis.Length
+                | _ -> false
             // Axis ends keep the plane: small fitting tweaks must not tilt the ellipse. A move of
             // the whole ellipse fits the plane to the terrain at its new place, as if drawn
             // there: it is on another boulder now, with that boulder's dip and strike.
             let planeAndConstruction =
                 match EllipseEdit.tryPlane r, moved with
-                | Some plane, Some construction when index <> EllipseEdit.CentreHandle -> Some (plane, construction)
+                | _, None -> Result.Error "that would collapse an axis"
+                | None, _ -> Result.Error "the ellipse has no stored shape"
+                | Some plane, Some construction when index <> EllipseEdit.CentreHandle -> Result.Ok (plane, construction)
                 | Some _, Some construction ->
                     match construction |> Array.map samplePoint with
-                    | [| Some p0; Some p1; Some p2 |] -> EllipseEdit.tryRefit r construction [| p0; p1; p2 |]
-                    | _ ->
-                        Log.warn "[Drawing] the moved ellipse's axis ends miss the surface; move discarded"
-                        None
-                | _ -> None
-            match planeAndConstruction, moved with
-            | Some (plane, construction), _ ->
-                match EllipticAnnotations.constructAndSampleFromPlane plane construction samplePoint with
-                | Some c when c.surfaceProjectedEllipsePoints.Length >= 3 ->
-                    let a =
-                        { a with
-                            points          = IndexList.ofArray c.surfaceProjectedEllipsePoints
-                            ellipticResults = Some (EllipticAnnotations.Measures.ofConstructed planet up north c)
-                            // the construction points lie on the plane, so this is that plane again
-                            dnsResults      = IndexList.ofArray construction |> DipAndStrike.calculateDipAndStrikeResults up north }
-                    { a with results = Some (Calculations.calculateAnnotationResults a up north planet) }
-                | Some c ->
-                    Log.warn "[Drawing] edited ellipse outline could not be projected onto the surface (%d sampled points); edit discarded" c.surfaceProjectedEllipsePoints.Length
-                    a
-                | None -> a
-            | None, Some _ -> a
-            | None, None ->
-                Log.warn "[Drawing] ellipse handle %d dropped where it would collapse an axis; edit discarded" index
-                a
+                    | [| Some p0; Some p1; Some p2 |] ->
+                        let skyUp, _ = Calculations.localFrame planet up north ((construction.[0] + construction.[1]) * 0.5)
+                        match EllipseEdit.tryRefit r skyUp construction [| p0; p1; p2 |] with
+                        | Some fitted -> Result.Ok fitted
+                        | None -> Result.Error "the terrain there gives no plane for it"
+                    | _ -> Result.Error "its axis ends would miss the surface"
+            if inPlace then Result.Ok a
+            else
+                match planeAndConstruction with
+                | Result.Error why ->
+                    Log.warn "[Drawing] ellipse handle %d: %s; edit discarded" index why
+                    Result.Error why
+                | Result.Ok (plane, construction) ->
+                    match EllipticAnnotations.constructAndSampleFromPlane plane construction samplePoint with
+                    | Some c when c.surfaceProjectedEllipsePoints.Length >= 3 ->
+                        let a =
+                            { a with
+                                points          = IndexList.ofArray c.surfaceProjectedEllipsePoints
+                                ellipticResults = Some (EllipticAnnotations.Measures.ofConstructed planet up north c)
+                                // the construction points lie on the plane, so this is that plane again
+                                dnsResults      = IndexList.ofArray construction |> DipAndStrike.calculateDipAndStrikeResults up north }
+                        Result.Ok { a with results = Some (Calculations.calculateAnnotationResults a up north planet) }
+                    | Some c ->
+                        Log.warn "[Drawing] edited ellipse outline could not be projected onto the surface (%d sampled points); edit discarded" c.surfaceProjectedEllipsePoints.Length
+                        Result.Error "its outline would miss the surface"
+                    | None -> Result.Error "it could not be constructed"
 
     /// Lays the supporting profiles of an edited ellipse (#833) across it again, so its craters
     /// export still matches it. Its profiles are found by their link, and each keeps its key,
@@ -261,9 +274,14 @@ module DrawingApp =
                                     profileOf  = Some { spec.link with index = link.index } }
                             let a = { a with dnsResults = a.points |> DipAndStrike.calculateDipAndStrikeResults up north }
                             id, { a with results = Some (Calculations.calculateAnnotationResults a up north planet) }))
-                let groups =
-                    rebuilt |> Array.fold (fun g (id, a) -> g |> Groups.updateLeaf id (fun _ -> Leaf.Annotations a)) groups
-                Result.Ok (groups, rebuilt.Length)
+                // all or nothing: a profile whose direction is not in the new set (a link edited
+                // by hand, a renamed label) must not stay behind while the ellipse moves
+                if rebuilt.Length <> profiles.Length then
+                    Result.Error (sprintf "%d of its %d profiles have a direction that cannot be rebuilt" (profiles.Length - rebuilt.Length) profiles.Length)
+                else
+                    let groups =
+                        rebuilt |> Array.fold (fun g (id, a) -> g |> Groups.updateLeaf id (fun _ -> Leaf.Annotations a)) groups
+                    Result.Ok (groups, rebuilt.Length)
 
     /// The surface sampler of the working annotation's last click, keyed by its annotation. A
     /// polygon is finished by Enter (`Finish`), which carries no sampler, yet its closing edge
@@ -1508,14 +1526,26 @@ module DrawingApp =
 
                     let edited =
                         if Geometry.isVertexEditable ann.geometry then
-                            moveVertex up north planet model.samplingDistance samplePoint pointIndex position ann
+                            Result.Ok (moveVertex up north planet model.samplingDistance samplePoint pointIndex position ann)
                         else
                             moveEllipseHandle up north planet samplePoint pointIndex position ann
 
-                    // a refused ellipse edit returns the annotation itself: no change, no undo entry
-                    if LanguagePrimitives.PhysicalEquality edited ann then
+                    let label =
+                        if String.IsNullOrWhiteSpace ann.text then sprintf "%A %s" ann.geometry (ann.key.ToString().Substring(0, 8))
+                        else ann.text
+                    // An ellipse edit says what became of it in the panel's message, which the viewer
+                    // shows as a notice: refused and why, or how many profiles followed.
+                    let say (message : string) (m : DrawingModel) =
+                        { m with supportingProfiles = { m.supportingProfiles with message = Some message } }
+
+                    match edited with
+                    | Result.Error why ->
                         { model with vertexGrab = None }
-                    else
+                        |> say (sprintf "Edit of %s refused: %s." label why)
+                    // the annotation itself back: nothing changed, no undo entry
+                    | Result.Ok edited when LanguagePrimitives.PhysicalEquality edited ann ->
+                        { model with vertexGrab = None }
+                    | Result.Ok edited ->
                         let before = model.annotations
                         let after = before |> Groups.updateLeaf id (fun _ -> Leaf.Annotations edited)
 
@@ -1524,12 +1554,6 @@ module DrawingApp =
                         let after =
                             if Geometry.isVertexEditable ann.geometry then Result.Ok (after, 0)
                             else regenerateEllipseProfiles up north planet model.samplingDistance samplePoint edited after
-
-                        let label =
-                            if String.IsNullOrWhiteSpace edited.text then sprintf "%A %s" edited.geometry (edited.key.ToString().Substring(0, 8))
-                            else edited.text
-                        let say (message : string) (m : DrawingModel) =
-                            { m with supportingProfiles = { m.supportingProfiles with message = Some message } }
 
                         match after with
                         | Result.Error why ->
