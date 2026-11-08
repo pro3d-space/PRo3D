@@ -15,3 +15,5 @@ release folds them into `PRODUCT_RELEASE_NOTES.md`.
 
 ## Pending
 
+- Surfaces: **surfaces offscreen (#841) failed to render on macOS** - every surface disappeared (the render task errored with `[GL] Shader compiler returned errors`) because the copy-back shader queried a multisample texture's sample count with a GL extension macOS's OpenGL doesn't have. The count is now passed in directly, needing no extension.
+
