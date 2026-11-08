@@ -1,3 +1,8 @@
+## 6.4.2
+A macOS-only fix: surfaces no longer disappear in the main and instrument views.
+
+- Surfaces: **surfaces offscreen (#841) failed to render on macOS** - every surface disappeared (the render task errored with `[GL] Shader compiler returned errors`) because the copy-back shader queried a multisample texture's sample count with a GL extension macOS's OpenGL doesn't have. The count is now passed in directly, needing no extension (#908)
+
 ## 6.4.1
 Box selection of annotations; confidence, comments and shape model for every annotation; an annotations list that shows thousands at once; Map View pan and an automatic switch for small bodies; drag & drop in the projection stack. **macOS: the tool key is Cmd, no longer Option** (see Input below).
 
