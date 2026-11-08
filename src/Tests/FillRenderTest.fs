@@ -87,7 +87,7 @@ let private deferredScene' runtime (offscreenSamples : int) (signature : IFrameb
     let withCamera sg = sg |> Sg.viewTrafo viewTrafo |> Sg.projTrafo projTrafo
     let color, depth = OffscreenSurfaces.render runtime offscreenSamples (AVal.constant size) (withCamera terrain)
     [
-        OffscreenSurfaces.blit signature.Samples color depth
+        OffscreenSurfaces.blit offscreenSamples signature.Samples color depth
         match fills with
         | Some f -> PackedRendering.DeferredFills.render runtime f depth (AVal.constant size) viewTrafo projTrafo
         | None -> ()
@@ -277,7 +277,7 @@ let tests () =
                 let groups =
                     OffscreenSurfaces.inPriorityGroups viewTrafo projTrafo (AList.ofList [ terrain; patch ])
                 let color, depth = OffscreenSurfaces.render runtime signature.Samples (AVal.constant size) groups
-                use target = new Target(runtime, signature, [ OffscreenSurfaces.blit signature.Samples color depth ])
+                use target = new Target(runtime, signature, [ OffscreenSurfaces.blit signature.Samples signature.Samples color depth ])
                 target.Frame()
                 let image = target.Image()
                 // terrain only: a point well outside the patch, on the centre row
@@ -318,7 +318,7 @@ let tests () =
                 let copied =
                     let groups = OffscreenSurfaces.inPriorityGroups viewTrafo projTrafo (AList.ofList [ terrain; glass ])
                     let color, depth = OffscreenSurfaces.render runtime signature.Samples (AVal.constant size) groups
-                    use target = new Target(runtime, signature, [ OffscreenSurfaces.blit signature.Samples color depth ], background)
+                    use target = new Target(runtime, signature, [ OffscreenSurfaces.blit signature.Samples signature.Samples color depth ], background)
                     target.Frame()
                     target.Image()
 
@@ -351,7 +351,7 @@ let tests () =
                         t.Image()
                     let copied, filled =
                         let color, depth = OffscreenSurfaces.render runtime signature.Samples (AVal.constant size) (withCamera terrain)
-                        use t = new Target(runtime, target, [ OffscreenSurfaces.blit samples color depth ])
+                        use t = new Target(runtime, target, [ OffscreenSurfaces.blit signature.Samples samples color depth ])
                         t.Frame()
                         let copied = t.Image()
                         // and the fills against it, drawn into the target as in the viewer
