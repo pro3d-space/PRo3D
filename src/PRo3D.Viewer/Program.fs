@@ -202,8 +202,8 @@ let main argv =
         Log.line "PRo3D Viewer - Version: %s; powered by Aardvark" viewerVersion
         let titlestr = 
                 match startupArgs.port with
-                | Some p -> "PRo3D by VRVis and open source contributors - " + viewerVersion + " - listening: http://localhost:" + p
-                | None -> "PRo3D by VRVis and open source contributors - " + viewerVersion
+                | Some p -> "PRo3D by VRVis supported by community and open source contributors - " + viewerVersion + " - listening: http://localhost:" + p
+                | None -> "PRo3D by VRVis supported by community and open source contributors - " + viewerVersion
 
         Config.title <- titlestr
     

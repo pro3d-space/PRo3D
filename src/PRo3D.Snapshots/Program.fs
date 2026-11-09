@@ -208,7 +208,7 @@ let startApplication (startupArgs : CLStartupArgs) =
 
         Log.line "serving at: %s" uri
 
-        let titlestr = "PRo3D by VRVis and open source contributors - " + viewerVersion
+        let titlestr = "PRo3D by VRVis supported by community and open source contributors - " + viewerVersion
 
 
         Sg.useAsyncLoading <- false // need this for rendering without gui!
