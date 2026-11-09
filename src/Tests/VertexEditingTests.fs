@@ -3,6 +3,7 @@ module VertexEditingTests
 open System
 open Expecto
 open Aardvark.Base
+open Aardvark.Rendering
 open FSharp.Data.Adaptive
 
 open PRo3D.Base
@@ -530,6 +531,248 @@ let private ellipseTests =
         }
     ]
 
+// ---------------------------------------------------------------------------------------------
+// adding points (#639): Ctrl+click on a segment, or on a terrain sample
+// ---------------------------------------------------------------------------------------------
+
+/// A camera looking straight down at the z = 0 plane over (cx, cy) from `height`, on a square
+/// 1000 px viewport: (view-projection, viewport size).
+let private camera (cx : float) (cy : float) (height : float) =
+    let view = CameraView.lookAt (V3d(cx, cy, height)) (V3d(cx, cy, 0.0)) V3d.OIO
+    let proj = Frustum.perspective 60.0 0.1 10000.0 1.0
+    CameraView.viewTrafo view * Frustum.projTrafo proj, V2d(1000.0, 1000.0)
+
+/// Where `p` lands on screen, in normalized device coordinates, offset by `pixels`.
+let private ndcOf (viewProj : Trafo3d) (size : V2d) (pixels : V2d) (p : V3d) =
+    let c = viewProj.Forward * V4d(p, 1.0)
+    V2d(c.X / c.W, c.Y / c.W) + V2d(2.0 * pixels.X / size.X, 2.0 * pixels.Y / size.Y)
+
+/// Ctrl+click at world point `p` (shifted by `pixels` on screen) on the single annotation
+let private clickLine (cam : Trafo3d * V2d) (pixels : V2d) (p : V3d) (m : DrawingModel) =
+    let viewProj, size = cam
+    let a = theOnly "clickLine" m
+    Draw.run Draw.refSystemFlat (startEditing m) (DrawingAction.ClickSegment(a.key, viewProj, size, ndcOf viewProj size pixels p))
+
+/// arm the grab a ClickSegment started, then drop the new point at `target`
+let private dropInserted (target : V3d) (sampler : V3d -> Option<V3d>) (m : DrawingModel) =
+    let refSystem = Draw.refSystemFlat
+    match m.vertexGrab with
+    | Some g when g.inserting ->
+        m
+        |> fun m -> Draw.run refSystem m DrawingAction.ArmVertexGrab
+        |> fun m -> Draw.run refSystem m (DrawingAction.InsertVertex(g.annotation, g.pointIndex, target, sampler))
+    | other -> failtestf "expected a point being added in hand, got %A" other
+
+/// The drawn line with the repeated end/start point of consecutive segments removed.
+let private drawnLine (a : Annotation) =
+    Annotation.retrievePoints a
+    |> List.fold (fun (acc : list<V3d>) (p : V3d) -> match acc with q :: _ when (q - p).Length < 1e-12 -> acc | _ -> p :: acc) []
+    |> List.rev
+
+/// Every segment runs between the control points it is indexed by (closing: first -> last).
+let private expectChained (a : Annotation) =
+    let segs = IndexList.toArray a.segments
+    for i in 0 .. segs.Length - 1 do
+        match DrawingApp.segmentEndpoints a.points segs.Length i with
+        | Some (s, e) ->
+            Expect.equal segs.[i].startPoint s (sprintf "segment %d starts at its point" i)
+            Expect.equal segs.[i].endPoint e (sprintf "segment %d ends at its point" i)
+        | None -> failtestf "segment %d has no end points" i
+
+/// What an edit may change: geometry, points, segments.
+let private shapeOfLine (a : Annotation) = a.geometry, a.points, a.segments
+
+let private straightSegments = [ V3d.Zero; V3d(10,0,0); V3d(20,0,0); V3d(30,0,0) ]
+
+let private sampleOf (segment : int) (sample : int) (a : Annotation) =
+    match IndexList.tryAt segment a.segments |> Option.bind (fun s -> IndexList.tryAt sample s.points) with
+    | Some p -> p
+    | None -> failtestf "no sample %d on segment %d" sample segment
+
+let private insertTests =
+    // From 20 m up the 1 m samples are ~43 px apart: far enough apart to snap to, and a click
+    // between two of them is a segment click. From 100 m they are ~8.7 px apart.
+    let near = camera 15.0 0.0 20.0
+    let far  = camera 15.0 0.0 100.0
+
+    testList "adding a point on a segment" [
+
+        test "a click on an edge of a Linear polyline picks up a new point there; nothing is written yet" {
+            let m = Draw.drawFull Draw.refSystemFlat Geometry.Polyline false [ V3d.Zero; V3d(10,0,0); V3d(20,0,0) ]
+            let before = theOnly "drawn" m
+            let clicked = m |> clickLine near V2d.Zero (V3d(5.0, 0.0, 0.0))
+            match clicked.vertexGrab with
+            | Some g ->
+                Expect.isTrue g.inserting "a point being added"
+                Expect.equal g.pointIndex 1 "goes in between points 0 and 1"
+                Expect.isLessThan (g.original - V3d(5.0, 0.0, 0.0)).Length 1e-6 "where the line was clicked"
+            | None -> failtest "nothing in hand"
+            Expect.equal (shapeOfLine (theOnly "after click" clicked)) (shapeOfLine before) "the annotation is untouched until the drop"
+        }
+
+        test "the drop inserts it, pushes one undo entry, and undo removes it" {
+            let m = Draw.drawFull Draw.refSystemFlat Geometry.Polyline false [ V3d.Zero; V3d(10,0,0); V3d(20,0,0) ]
+            let undoBefore = List.length m.undoStack
+            let target = V3d(5.0, 3.0, 0.0)
+            let dropped = m |> clickLine near V2d.Zero (V3d(5.0, 0.0, 0.0)) |> dropInserted target Draw.identityHit
+            let a = theOnly "dropped" dropped
+            Expect.equal (IndexList.toList a.points) [ V3d.Zero; target; V3d(10,0,0); V3d(20,0,0) ] "inserted at index 1"
+            Expect.isTrue a.segments.IsEmpty "a Linear annotation grows no segments"
+            Expect.isNone dropped.vertexGrab "released"
+            Expect.equal (List.length dropped.undoStack) (undoBefore + 1) "one entry"
+            match a.results with
+            | Some r -> Expect.floatClose Accuracy.medium r.wayLength (2.0 * sqrt 34.0 + 10.0) "length along the line recomputed"
+            | None -> failtest "no results"
+            let undone = Draw.run Draw.refSystemFlat dropped DrawingAction.Undo
+            Expect.equal (IndexList.count (theOnly "undone" undone).points) 3 "back to three points"
+        }
+
+        test "ESC after the click leaves the annotation exactly as it was" {
+            let m = Draw.drawFull Draw.refSystemFlat Geometry.Polyline false [ V3d.Zero; V3d(10,0,0); V3d(20,0,0) ]
+            let before = theOnly "drawn" m
+            let cancelled =
+                m |> clickLine near V2d.Zero (V3d(15.0, 0.0, 0.0))
+                |> fun m -> Draw.run Draw.refSystemFlat m DrawingAction.ArmVertexGrab
+                |> fun m -> Draw.run Draw.refSystemFlat m DrawingAction.CancelVertexEdit
+            Expect.isNone cancelled.vertexGrab "released"
+            Expect.equal (shapeOfLine (theOnly "after" cancelled)) (shapeOfLine before) "identical"
+            Expect.equal (List.length cancelled.undoStack) (List.length m.undoStack) "no undo entry"
+        }
+
+        test "a line becomes a polyline" {
+            let m = Draw.drawFull Draw.refSystemFlat Geometry.Line true [ V3d.Zero; V3d(20,0,0) ]
+            let a = m |> clickLine near V2d.Zero (V3d(10.0, 0.0, 0.0)) |> dropInserted (V3d(10.0, 2.0, 0.0)) Draw.identityHit |> theOnly "dropped"
+            Expect.equal a.geometry Geometry.Polyline "three points are a polyline"
+            Expect.equal (IndexList.count a.points) 3 "three points"
+        }
+
+        test "a click inside a polygon, away from its edges, adds nothing" {
+            // a filled polygon is picked by its fill with the annotation's id too
+            let m = Draw.drawFull Draw.refSystemFlat Geometry.Polygon false [ V3d.Zero; V3d(20,0,0); V3d(20,20,0); V3d(0,20,0) ]
+            let clicked = m |> clickLine (camera 10.0 10.0 20.0) V2d.Zero (V3d(10.0, 10.0, 0.0))
+            Expect.isNone clicked.vertexGrab "nothing picked up in the middle"
+        }
+
+        test "a point annotation gets nothing" {
+            let m = Draw.drawFull Draw.refSystemFlat Geometry.Point true [ V3d(10,0,0) ]
+            let clicked = m |> clickLine near V2d.Zero (V3d(10.0, 0.0, 0.0))
+            Expect.isNone clicked.vertexGrab "no point to add to a point"
+        }
+
+        test "on a draped polyline the clicked segment is split and both halves re-sampled; the others stay" {
+            let m = drawProjected Geometry.Polyline straightSegments
+            let before = theOnly "drawn" m
+            // halfway between samples 4 and 5 of segment 1 (10 -> 20)
+            let dropped =
+                m |> clickLine near V2d.Zero (V3d(14.5, 0.0, 0.0))
+                |> dropInserted (V3d(14.5, 4.0, 0.0)) flattenToGround
+            let a = theOnly "dropped" dropped
+            Expect.equal (IndexList.count a.points) 5 "one more point"
+            Expect.equal (IndexList.count a.segments) 4 "one more segment"
+            expectChained a
+            Expect.equal (IndexList.tryAt 0 a.segments) (IndexList.tryAt 0 before.segments) "segment 0 untouched"
+            Expect.equal (IndexList.tryAt 3 a.segments) (IndexList.tryAt 2 before.segments) "the last segment untouched"
+            for i in [1; 2] do
+                match IndexList.tryAt i a.segments with
+                | Some s -> Expect.isGreaterThan (IndexList.count s.points) 2 (sprintf "half %d re-sampled" i)
+                | None -> failtest "missing half"
+        }
+
+        test "on a draped ring the closing segment can be split too" {
+            let m = drawProjected Geometry.Polygon [ V3d.Zero; V3d(20,0,0); V3d(20,20,0) ]
+            // the closing edge runs (20,20) -> (0,0); click it between two samples
+            let cam = camera 10.0 10.0 20.0
+            let clicked = m |> clickLine cam V2d.Zero (V3d(10.25, 10.25, 0.0))
+            match clicked.vertexGrab with
+            | Some g -> Expect.equal g.pointIndex 3 "appended after the last point"
+            | None -> failtest "nothing in hand"
+            let target = V3d(8.0, 12.0, 0.0)
+            let a = clicked |> dropInserted target flattenToGround |> theOnly "dropped"
+            Expect.equal (IndexList.count a.points) 4 "four points"
+            Expect.equal (IndexList.count a.segments) 4 "still a closed ring"
+            expectChained a
+            let line = drawnLine a
+            Expect.equal (List.tryLast line) (Some V3d.Zero) "the ring still closes on the first point"
+            Expect.isTrue (line |> List.contains target) "and runs through the new one"
+        }
+
+        test "where the samples run together on screen, a click on one adds a point rather than converting it" {
+            let m = drawProjected Geometry.Polyline straightSegments
+            let before = theOnly "drawn" m
+            // from 100 m up the 1 m samples are 8.7 px apart, under sampleMinSpacingPixels
+            let clicked = m |> clickLine far V2d.Zero (sampleOf 1 4 before)
+            match clicked.vertexGrab with
+            | Some g -> Expect.isTrue g.inserting "a point being added"
+            | None -> failtest "nothing picked up"
+            Expect.equal (shapeOfLine (theOnly "after" clicked)) (shapeOfLine before) "nothing converted"
+        }
+    ]
+
+let private ringWithSampleOnClosingEdge (turn : bool) =
+    let m = drawProjected Geometry.Polygon [ V3d.Zero; V3d(20,0,0); V3d(20,20,0) ]
+    let m =
+        if not turn then m
+        else
+            // a closing segment stored last -> first, as some older scenes have it
+            let a = theOnly "drawn" m
+            let k = IndexList.count a.segments - 1
+            let turned =
+                match IndexList.tryAt k a.segments with
+                | Some s -> { startPoint = s.endPoint; endPoint = s.startPoint; points = s.points |> IndexList.toList |> List.rev |> IndexList.ofList }
+                | None -> failtest "no closing segment"
+            let a' = { a with segments = a.segments |> IndexList.setAt k turned }
+            { m with annotations = m.annotations |> Groups.updateLeaf a.key (fun _ -> Leaf.Annotations a') }
+    let a = theOnly "ring" m
+    m, a, sampleOf (IndexList.count a.segments - 1) 5 a
+
+let private promoteTests =
+    let cam = camera 15.0 0.0 20.0
+
+    testList "turning a terrain sample into a control point" [
+
+        test "the sample becomes a control point where it is, and the drawn line does not move" {
+            let m = drawProjected Geometry.Polyline straightSegments
+            let before = theOnly "drawn" m
+            let sample = sampleOf 1 3 before
+            // 3 px off the sample: inside the snap radius
+            let promoted = m |> clickLine cam (V2d(3.0, 0.0)) sample
+            let a = theOnly "promoted" promoted
+            Expect.isNone promoted.vertexGrab "nothing picked up"
+            Expect.equal (IndexList.tryAt 2 a.points) (Some sample) "the sample is control point 2"
+            Expect.equal (IndexList.count a.segments) 4 "segment 1 split in two"
+            expectChained a
+            Expect.equal (drawnLine a) (drawnLine before) "not a single sample moved"
+            Expect.equal (List.length promoted.undoStack) (List.length m.undoStack + 1) "one undo entry"
+            let undone = Draw.run Draw.refSystemFlat promoted DrawingAction.Undo
+            Expect.equal (theOnly "undone" undone).points before.points "undo takes it back"
+        }
+
+        test "a line with a sample converted becomes a polyline" {
+            let m = drawProjected Geometry.Line [ V3d.Zero; V3d(20,0,0) ]
+            let before = theOnly "drawn" m
+            let a = m |> clickLine (camera 10.0 0.0 20.0) V2d.Zero (sampleOf 0 7 before) |> theOnly "promoted"
+            Expect.equal a.geometry Geometry.Polyline "three points are a polyline"
+            Expect.equal (drawnLine a) (drawnLine before) "same line"
+        }
+
+        test "a sample on the closing segment (stored first -> last) is appended, and the ring is unchanged" {
+            let m, before, sample = ringWithSampleOnClosingEdge false
+            let a = m |> clickLine (camera sample.X sample.Y 20.0) V2d.Zero sample |> theOnly "promoted"
+            Expect.equal (IndexList.tryLast a.points) (Some sample) "the new last point"
+            Expect.equal (IndexList.count a.segments) 4 "still a closed ring"
+            expectChained a
+            Expect.equal (drawnLine a) (drawnLine before) "the ring runs through the same points"
+        }
+
+        test "a sample on a closing segment stored last -> first is appended, and the ring is unchanged" {
+            let m, before, sample = ringWithSampleOnClosingEdge true
+            let a = m |> clickLine (camera sample.X sample.Y 20.0) V2d.Zero sample |> theOnly "promoted"
+            Expect.equal (IndexList.tryLast a.points) (Some sample) "the new last point"
+            Expect.equal (IndexList.count a.segments) 4 "still a closed ring"
+            Expect.equal (drawnLine a) (drawnLine before) "the ring runs through the same points"
+        }
+    ]
+
 let tests () =
     testList "vertex editing" [
         touchedSegmentTests
@@ -539,4 +782,6 @@ let tests () =
         segmentUpdateTests
         closingEdgeTests
         ellipseTests
+        insertTests
+        promoteTests
     ]

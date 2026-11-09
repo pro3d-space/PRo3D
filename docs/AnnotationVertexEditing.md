@@ -1,14 +1,15 @@
 # Annotation vertex editing
 
-Move the individual points of an annotation after it has been drawn.
+Move the individual points of an annotation after it has been drawn, and add new ones.
 
 Until this feature, an annotation's points were fixed the moment you finished it. A vertex clicked
 a few metres off meant deleting the whole annotation and drawing it again. This adds an editing
 mode in which the points you originally clicked come back as handles you can pick up and put down
 somewhere else on the surface.
 
-This is the "move" half of [#639](https://github.com/pro3d-space/PRo3D/issues/639). Adding and
-removing points build on the same machinery and are not implemented yet — see
+This is [#639](https://github.com/pro3d-space/PRo3D/issues/639): moving points, and
+[adding points](#adding-points) on a segment or from the terrain samples of a draped line.
+Removing points builds on the same machinery and is not implemented yet — see
 [Not yet](#not-yet).
 
 ## Using it
@@ -37,8 +38,9 @@ The hint line at the right of the Tool Settings row says which of the two states
 - **The 3D cursor is switched on for you** while you are in this mode, whatever the scene's
   "preview intersection" setting says — the drop needs a live surface hit. Your setting is read,
   never overwritten, and applies again as soon as you leave the mode.
-- **Clicking an annotation's body selects it** instead of grabbing anything, so you can move from
-  one annotation to the next without leaving the mode.
+- **Clicking another annotation's body selects it** instead of grabbing anything, so you can move
+  from one annotation to the next without leaving the mode. Clicking the line of the annotation
+  you are editing [adds a point](#adding-points).
 - **You have to move the cursor between picking a point up and putting it down.** A pick-up
   followed by an immediate click on the same spot leaves the point in hand.
 - **Clicking where there is no surface does nothing** — the point stays in hand until you click
@@ -63,6 +65,44 @@ store the fitted shape are not editable.
 Dip-and-strike and true-thickness annotations are also excluded: their points mean "samples of a
 fitted plane" rather than "corners of a polyline", so moving one individually is not a meaningful
 operation.
+
+## Adding points
+
+With a line, polyline or polygon selected in **Edit Annotation**:
+
+- **Hovering its line** shows a **blue dot** on the line where a click would add a point.
+- **Ctrl+click on its line** picks up a new point there. It is not part of the annotation yet: the
+  green line runs from the cursor to the two points either side of where you clicked. Ctrl+click on
+  the surface to put it down, exactly like a moved point. **Escape** forgets it — nothing was
+  added — and **Ctrl+Z** takes back an added point.
+- **Terrain samples** — the points PRo3D generated along a Viewpoint or Sky projected line to follow
+  the terrain — show as **small grey dots near the cursor** (within 80 px). Ctrl+click on one (it
+  turns **blue** when the click will hit it, within 8 px — not the yellow of a hovered control
+  point, so converting is not mistaken for picking a point up) and it becomes a control point
+  **where it is**: no pick-up, and the drawn line does not move by a pixel. It is a normal white handle from
+  then on, to move like any other. One Ctrl+Z takes it back.
+
+Notes:
+
+- **A line that gets a third point becomes a polyline.** Exports, profiles and geological maps
+  treat the two alike; the annotation's geometry says Polyline from then on.
+- **Dots are only shown where they can be told apart.** At the default sampling of 1 m most views
+  put the samples a few pixels apart — a dot is drawn, and can be clicked, only when its
+  neighbours along the line are 16 px away or more. Where they are not, a click on the line adds
+  a point instead. Zoom in to convert a particular sample.
+- **Annotations drawn with the Linear projection have no samples**, so they show no dots; points
+  are added on their straight edges. A Linear polygon's closing edge (to the repeated first point)
+  is an edge like the others.
+- **On a closed ring the closing segment can be split too**: the new point becomes the last one,
+  between the old last point and the first.
+
+What is written:
+
+- **Adding on a segment** splits it at the new point and re-samples both halves onto the terrain,
+  as a move re-samples the segments either side of a point. The other segments are untouched.
+- **Converting a sample** splits its segment at the sample and keeps every sample either side
+  exactly — nothing is re-sampled.
+- In both cases the measurements are recomputed and **one undo entry** is pushed.
 
 ## What happens on drop
 
@@ -155,6 +195,33 @@ outcome. `VertexGrab.movedSinceGrab` removes the ambiguity: a drop is only accep
 preview cursor has produced a fresh hit after the grab. Both orderings then behave identically, and
 "move it before you drop it" is what the gesture means anyway.
 
+"Fresh" is measured on screen: the hit has to be more than 0.5° (about 7 px) from where the grab
+began. The last hover hit before the click can be processed *after* the grab, and it lies at the
+click itself; arming on it would let the click's own surface hit drop the point on the spot — for
+a point being [added](#adding-points), adding it although you pressed Escape.
+
+### Adding points: segment or sample, on the CPU
+
+Which segment — or which sample — a click on the line hit is decided on the CPU
+(`DrawingApp.segmentUnderCursor`) from the click's view-projection and pixel, the same way the
+box selection's `annotationPointUnderCursor` finds the clicked part of an annotation. The pick
+buffer only says *that* the line of the edited annotation was hit (alpha = its id, red = -1);
+the readback then sends `ClickSegment` instead of doing nothing. Carrying a segment index per
+vertex in the line pick pass would have cost every vertex of every annotation an attribute, for
+one annotation's benefit.
+
+The sample dots ride in the handle draw with `SubId = -2`, together with their two neighbours on
+the line (`HandlePrev`, `HandleNext`). The vertex shader hides a dot that is more than 80 px from
+the cursor (`HandleCursor`, set by the hover readback) or closer than 16 px to a neighbour, and
+colours it blue within 8 px. `segmentUnderCursor` applies the same three thresholds
+(`sampleShowPixels`, `sampleMinSpacingPixels`, `sampleSnapPixels`), so a blue dot is exactly what
+a click converts. The dots are **not** drawn into the pick pass: deciding there which are near the
+cursor would make the whole pick pass depend on the cursor and re-render on every mouse move.
+
+A new point is a grab with `VertexGrab.inserting = true` and `pointIndex` = where it will be
+inserted. The annotation is not touched until the drop (`InsertVertex`), so cancelling is the same
+free operation as for a move.
+
 ### Model
 
 `DrawingModel.vertexGrab : Option<VertexGrab>` holds the annotation id, the control point index,
@@ -169,10 +236,8 @@ small rubber-band scene graph depends on it.
 
 ## Not yet
 
-- **Adding and removing points**, the rest of #639. Removing is straightforward on this base — drop
-  the point, merge the two segments either side and re-sample. Adding needs picking a *segment*
-  rather than a vertex, which means either a second sub-index in the pick buffer or a
-  nearest-segment test on the CPU.
+- **Removing points**, the rest of #639. Straightforward on this base — drop the point, merge the
+  two segments either side and re-sample.
 - **Editing an annotation while you are still drawing it.** Handles appear only on finished
   annotations. Backspace still removes the last point mid-draw.
 - **Dragging** (press, move, release) rather than click-to-grab, click-to-drop.

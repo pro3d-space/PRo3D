@@ -53,6 +53,13 @@ module Geometry =
         | Geometry.Point | Geometry.Line | Geometry.Polyline | Geometry.Polygon -> true
         | _ -> false
 
+    /// Whether a point can be added to an annotation of this geometry (#639). A line that gets a
+    /// third point becomes a polyline - exports, profiles and geological maps treat the two alike.
+    let canInsertVertex (geometry : Geometry) =
+        match geometry with
+        | Geometry.Line | Geometry.Polyline | Geometry.Polygon -> true
+        | _ -> false
+
     /// The projection modes that produce a well-defined annotation for this geometry.
     ///
     /// The ellipse tools are fitted in a plane through the picked points and are only

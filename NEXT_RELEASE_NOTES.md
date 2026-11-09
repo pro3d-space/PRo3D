@@ -16,3 +16,4 @@ release folds them into `PRODUCT_RELEASE_NOTES.md`.
 ## Pending
 
 - Export: **the Boulders, Craters, Lineaments and Fractures presets now include the annotation metadata columns** (confidence, comment, shape model, shape model version, projected images, credit); before, only the Annotation table preset had them (#887, docs/AnnotationExport-CSV.md)
+- Annotations: **add points to a finished line, polyline or polygon.** In *Edit Annotation*, Ctrl+click on the selected annotation's line picks up a new point there, and a Ctrl+click on the surface puts it down (Esc cancels). The terrain samples of a Viewpoint/Sky line show as grey dots near the cursor; Ctrl+click one (blue under the cursor) to turn it into a control point where it is, without moving the line. A line that gets a third point becomes a polyline. One Ctrl+Z per added point (#639, docs/AnnotationVertexEditing.md)

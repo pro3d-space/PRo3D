@@ -425,6 +425,12 @@ module PackedRendering =
                 /// Radius in pixels. Per vertex; the pick pass inflates it.
                 [<Semantic("Sizes")>] size : float32
 
+                /// For a terrain sample dot (#639): its neighbours along the drawn line, local
+                /// space like `pos`. A dot is shown only where they are far enough apart on screen
+                /// to be told apart. Unused (the handle's own position) for control points.
+                [<Semantic("HandlePrev")>] prev : V3f
+                [<Semantic("HandleNext")>] next : V3f
+
                 [<Color>] c : V4f
 
                 /// Which corner of the quad this vertex is, in [-1,1]^2. Supplied per vertex by
@@ -462,6 +468,10 @@ module PackedRendering =
             /// buffer - and the quad has to be scaled by the size of whichever one it is in.
             member x.HandleViewport : V2f = uniform?HandleViewport
 
+            /// The cursor in pixels of the render control (origin top left). Terrain sample dots
+            /// (SubId <= -2, #639) are drawn only near it.
+            member x.HandleCursor : V2f = uniform?HandleCursor
+
         // Everything below is written out inline rather than sharing a [<ReflectedDefinition>]
         // helper or module-level colour constants: FShade has to be able to inline the whole body,
         // and self-contained shader code removes that question entirely.
@@ -486,14 +496,40 @@ module PackedRendering =
                 let dx = v.corner.X * v.size * 2.0f / vpX * clip.W
                 let dy = v.corner.Y * v.size * 2.0f / vpY * clip.W
 
+                // A terrain sample dot (#639) is shown only within 80 px of the cursor
+                // (DrawingApp.sampleShowPixels), and only where its neighbours on the line are
+                // 16 px away or more (DrawingApp.sampleMinSpacingPixels) - closer, the dots merge
+                // into the line and a click adds a point instead. It turns blue within 8 px
+                // (DrawingApp.sampleSnapPixels): the radius in which a click converts it.
+                // The same rules as DrawingApp.segmentUnderCursor, which decides the click.
+                // SubId -3 is the insert preview (insertPreview): drawn as is, in its own colour
+                let isSample = v.subId = -2
+                let centre =
+                    V2f((clip.X / clip.W + 1.0f) * 0.5f * vpX, (1.0f - clip.Y / clip.W) * 0.5f * vpY)
+                let toCursor = (centre - uniform.HandleCursor).Length
+                let cp = uniform.ProjTrafo * (mv * V4f(v.prev, 1.0f))
+                let cn = uniform.ProjTrafo * (mv * V4f(v.next, 1.0f))
+                let pp = V2f((cp.X / cp.W + 1.0f) * 0.5f * vpX, (1.0f - cp.Y / cp.W) * 0.5f * vpY)
+                let pn = V2f((cn.X / cn.W + 1.0f) * 0.5f * vpX, (1.0f - cn.Y / cn.W) * 0.5f * vpY)
+                let spacing = min (pp - centre).Length (pn - centre).Length
+                let hidden =
+                    isSample && (clip.W <= 0.0f || cp.W <= 0.0f || cn.W <= 0.0f || toCursor > 80.0f || spacing < 16.0f)
+
+                // the dot a click would convert is blue - not the yellow of a hovered control
+                // point, so converting a sample is not mistaken for picking a point up. Not orange:
+                // a hovered line is red on yellow-green, and their blend is orange.
                 let c =
-                    if v.subId = uniform.GrabbedVertex then V4f(0.2f, 0.8f, 0.2f, 1.0f)
+                    if isSample then
+                        if toCursor <= 8.0f then V4f(0.15f, 0.55f, 1.0f, 1.0f) else v.c
+                    elif v.subId = uniform.GrabbedVertex then V4f(0.2f, 0.8f, 0.2f, 1.0f)
                     elif v.subId = uniform.HoveredVertex then V4f(1.0f, 0.85f, 0.1f, 1.0f)
                     // idle: the colour vertexHandles chose - white, or the axis colour of an
                     // ellipse axis end (EllipseEditColors)
                     else v.c
 
-                return { v with pos = V4f(clip.X + dx, clip.Y + dy, clip.Z, clip.W); c = c }
+                // a hidden dot collapses all six vertices onto one point outside the clip volume
+                let pos = if hidden then V4f(2.0f, 2.0f, 2.0f, 1.0f) else V4f(clip.X + dx, clip.Y + dy, clip.Z, clip.W)
+                return { v with pos = pos; c = c }
             }
 
         /// As handleVertex, but fattens the quad so a handle is forgiving to click, and forwards the
@@ -511,7 +547,12 @@ module PackedRendering =
                 let dx = v.corner.X * size * 2.0f / vpX * clip.W
                 let dy = v.corner.Y * size * 2.0f / vpY * clip.W
 
-                return { v with pos = V4f(clip.X + dx, clip.Y + dy, clip.Z, clip.W); id = v.obId }
+                // Terrain sample dots (#639) are not in the pick pass: a click near one lands on
+                // the line, and DrawingApp.segmentUnderCursor tells sample from segment on the
+                // CPU. Making them pickable would need the cursor here, and re-render the whole
+                // pick pass on every mouse move.
+                let pos = if v.subId <= -2 then V4f(2.0f, 2.0f, 2.0f, 1.0f) else V4f(clip.X + dx, clip.Y + dy, clip.Z, clip.W)
+                return { v with pos = pos; id = v.obId }
             }
 
         /// Shades the sprite as a flat disc and discards outside it, so the pickable region is
@@ -1314,6 +1355,7 @@ module PackedRendering =
     let vertexHandles
         (depthOffset : aval<float>)
         (selected    : aval<Option<Guid>>)
+        (showSamples : aval<bool>)
         (ordered     : aval<(Guid * AdaptiveAnnotation)[]>)
         (view        : aval<M44d>) =
 
@@ -1321,6 +1363,7 @@ module PackedRendering =
             AVal.custom (fun t ->
                 let annos    = ordered.GetValue(t)
                 let selected = selected.GetValue(t)
+                let showSamples = showSamples.GetValue(t)
 
                 let positions = List<V3f>()
                 let subIds    = List<int>()
@@ -1328,6 +1371,8 @@ module PackedRendering =
                 let sizes     = List<float32>()
                 let colors    = List<C4f>()
                 let corners   = List<V2f>()
+                let prevs     = List<V3f>()
+                let nexts     = List<V3f>()
                 let mutable pivotTrafo = None
 
                 // the object id *is* the index into the shared ordering
@@ -1363,6 +1408,8 @@ module PackedRendering =
                             let local = pivot.Backward.TransformPos p |> V3f
                             for c in quad do
                                 positions.Add local
+                                prevs.Add local
+                                nexts.Add local
                                 corners.Add c
                                 subIds.Add i
                                 objIds.Add oid
@@ -1371,12 +1418,43 @@ module PackedRendering =
                                 colors.Add(if isEllipse then (EllipseEditColors.ofHandle i).ToC4f() else C4f(1.0f, 1.0f, 1.0f, 1.0f))
                             i <- i + 1
 
+                        // Terrain samples of a draped polyline/polygon as small grey dots (#639),
+                        // SubId -2: the shader shows them only near the cursor, and the pick pass
+                        // leaves them out (DrawingApp.segmentUnderCursor finds them on the CPU).
+                        // All of them go in: the buffer then changes with the annotation, not with
+                        // every mouse move.
+                        if showSamples && Geometry.canInsertVertex (anno.geometry.GetValue(t)) then
+                            let sampleSize = 4.0f
+                            let grey = C4f(0.8f, 0.8f, 0.8f, 1.0f)
+                            let toLocal (p : V3d) = pivot.Backward.TransformPos p |> V3f
+                            for seg in anno.segments.Content.GetValue(t) do
+                                // start, samples, end: each sample's neighbours along the line
+                                let path =
+                                    Array.concat [ [| seg.startPoint.GetValue(t) |]
+                                                   seg.points.Content.GetValue(t) |> IndexList.toArray
+                                                   [| seg.endPoint.GetValue(t) |] ]
+                                for k in 1 .. path.Length - 2 do
+                                    let local = toLocal path.[k]
+                                    let prev  = toLocal path.[k - 1]
+                                    let next  = toLocal path.[k + 1]
+                                    for c in quad do
+                                        positions.Add local
+                                        prevs.Add prev
+                                        nexts.Add next
+                                        corners.Add c
+                                        subIds.Add -2
+                                        objIds.Add oid
+                                        sizes.Add sampleSize
+                                        colors.Add grey
+
                 {| points     = positions.ToArray()
                    corners    = corners.ToArray()
                    subIds     = subIds.ToArray()
                    objIds     = objIds.ToArray()
                    sizes      = sizes.ToArray()
                    colors     = colors.ToArray()
+                   prevs      = prevs.ToArray()
+                   nexts      = nexts.ToArray()
                    modelTrafo = Option.defaultValue Trafo3d.Identity pivotTrafo |})
 
         let mv = (data, view) ||> AVal.map2 (fun d v -> v * d.modelTrafo.Forward)
@@ -1388,6 +1466,38 @@ module PackedRendering =
         |> Sg.vertexAttribute (Sym.ofString "SubId")      (data |> AVal.map (fun d -> d.subIds))
         |> Sg.vertexAttribute (Sym.ofString "Sizes")      (data |> AVal.map (fun d -> d.sizes))
         |> Sg.vertexAttribute DefaultSemantic.Colors      (data |> AVal.map (fun d -> d.colors))
+        |> Sg.vertexAttribute (Sym.ofString "HandlePrev") (data |> AVal.map (fun d -> d.prevs))
+        |> Sg.vertexAttribute (Sym.ofString "HandleNext") (data |> AVal.map (fun d -> d.nexts))
+        |> Sg.uniform "MV" mv
+
+    /// Where a click on the line of the annotation being edited would add a point (#639): one
+    /// blue handle-sized dot, the colour of a terrain sample a click would convert - both mean
+    /// "a click makes a control point here". `preview` is the world point on the line and the
+    /// annotation's thickness, from DrawingApp.segmentUnderCursorOn on hover. SubId -3 keeps it
+    /// out of the pick pass, so the click still lands on the line under it.
+    let insertPreview (preview : aval<Option<V3d * float>>) (view : aval<M44d>) =
+        let quad =
+            [| V2f(-1.0f, -1.0f); V2f(1.0f, -1.0f); V2f(1.0f, 1.0f)
+               V2f(-1.0f, -1.0f); V2f(1.0f, 1.0f); V2f(-1.0f, 1.0f) |]
+        let n = preview |> AVal.map (function Some _ -> quad.Length | None -> 0)
+        let size = preview |> AVal.map (function Some (_, thickness) -> float32 thickness + handleSizeBonus | None -> 0.0f)
+        // the point itself is the model origin, so the dot is exact at any distance from the
+        // scene origin: the translation goes into MV, composed in double
+        let mv =
+            (preview, view) ||> AVal.map2 (fun p v ->
+                match p with
+                | Some (pos, _) -> v * Trafo3d.Translation(pos).Forward
+                | None -> v)
+        let attr (f : int -> 'a) = n |> AVal.map (fun n -> Array.init n f)
+        Sg.draw IndexedGeometryMode.TriangleList
+        |> Sg.vertexAttribute DefaultSemantic.Positions     (attr (fun _ -> V3f.Zero))
+        |> Sg.vertexAttribute (Sym.ofString "HandleCorner") (attr (fun i -> quad.[i]))
+        |> Sg.vertexAttribute (Sym.ofString "ObjId")        (attr (fun _ -> 0))
+        |> Sg.vertexAttribute (Sym.ofString "SubId")        (attr (fun _ -> -3))
+        |> Sg.vertexAttribute (Sym.ofString "Sizes")        ((n, size) ||> AVal.map2 Array.replicate)
+        |> Sg.vertexAttribute DefaultSemantic.Colors        (attr (fun _ -> C4f(0.15f, 0.55f, 1.0f, 1.0f)))
+        |> Sg.vertexAttribute (Sym.ofString "HandlePrev")   (attr (fun _ -> V3f.Zero))
+        |> Sg.vertexAttribute (Sym.ofString "HandleNext")   (attr (fun _ -> V3f.Zero))
         |> Sg.uniform "MV" mv
 
     /// The handles draw after everything in the main pass. Listing them after the lines in an
@@ -1402,10 +1512,11 @@ module PackedRendering =
 
     /// Visible pass for the vertex handles. `hovered` and `grabbed` are control point indices, or
     /// -1; the shader compares them per vertex the way SelectedId works for lines.
-    let packedVertexHandleRender (hovered : aval<int>) (grabbed : aval<int>) (viewport : aval<V2i>) handles =
+    let packedVertexHandleRender (hovered : aval<int>) (grabbed : aval<int>) (cursor : aval<V2d>) (viewport : aval<V2i>) handles =
         handles
         |> Sg.uniform "HoveredVertex" hovered
         |> Sg.uniform "GrabbedVertex" grabbed
+        |> Sg.uniform "HandleCursor" cursor
         |> Sg.uniform "HandleViewport" (viewport |> AVal.map (fun (v : V2i) -> V2d(float v.X, float v.Y)))
         |> Sg.shader {
             do! VertexHandleShader.handleVertex
