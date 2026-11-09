@@ -76,8 +76,36 @@ module ViewerIO =
                 annotationDepr      = scenepath |> Serialization.changeExtension ".ann_old" 
             }   
 
-    let saveVersioned' (model : DrawingModel) (paths : ScenePaths) =      
-        PRo3D.Core.Drawing.IO.saveVersioned model paths.annotations                
+    let saveVersioned' (model : DrawingModel) (paths : ScenePaths) =
+        PRo3D.Core.Drawing.IO.saveVersioned model paths.annotations
+
+    /// Saves the annotation file. One annotation that cannot be serialized (e.g. a NaN in a
+    /// field: Chiron cannot write NaN/Infinity, #834) must not stop the save of all others.
+    /// It is left out of the file, stays in the session, and is returned so the user can be
+    /// told. The file is only written after serializing succeeded, so it is never truncated.
+    let saveAnnotations (model : DrawingModel) (paths : ScenePaths) : DrawingModel * list<string> =
+        try
+            saveVersioned' model paths, []
+        with e ->
+            Log.error "[ViewerIO] annotations could not be serialized: %s; looking for the broken ones" e.Message
+            let broken =
+                model.annotations.flat |> HashMap.toList |> List.choose (fun (id, leaf) ->
+                    try leaf |> Json.serialize |> ignore; None
+                    with e ->
+                        let name =
+                            match leaf with
+                            | Leaf.Annotations a when not (String.IsNullOrWhiteSpace a.text) -> sprintf "'%s'" a.text
+                            | Leaf.Annotations a -> sprintf "%A" a.geometry
+                            | _ -> string id
+                        Log.error "[ViewerIO] annotation %s (%A) not saved: %s" name id e.Message
+                        Some (id, name))
+            // the failure is not in an annotation (legend, colour by category, maps):
+            // nothing to leave out, fail as before
+            if List.isEmpty broken then reraise ()
+            let ids = broken |> List.map fst |> HashSet.ofList
+            let saveable = { model with annotations = GroupsApp.removeLeavesById ids model.annotations }
+            saveVersioned' saveable paths |> ignore
+            model, broken |> List.map snd
         
         
     let tryLoadAnnotations (scenePath : string) : option<Annotations> =
@@ -300,8 +328,9 @@ module ViewerIO =
 
         { sceneAsJson = sceneJson; drawingAsJson = drawingJson; version = "1" }
 
-    let saveEverything (path:string) (m:Model) =         
-        if path.IsEmptyOrNull() then m
+    /// Returns the model and the annotations that could not be saved (see `saveAnnotations`).
+    let saveEverything (path:string) (m:Model) : Model * list<string> =
+        if path.IsEmptyOrNull() then m, []
         else
            //saving scene
             let scenePaths = path |> ScenePaths.create             
@@ -326,8 +355,8 @@ module ViewerIO =
             //|> Serialization.Chiron.writeToFile scenePaths.correlations
 
             //saving annotations
-            let drawing =                 
-                scenePaths |> saveVersioned' m.drawing
+            let drawing, unsaved =
+                scenePaths |> saveAnnotations m.drawing
             
             ////saving minerva session
             //let minerva = 
@@ -348,19 +377,21 @@ module ViewerIO =
                 //correlationPlot = { m.correlationPlot with semanticApp = m.correlationPlot.semanticApp }
                 drawing      = drawing }
                 //minervaModel = minerva }
-            |> Model.stashAndSaveRecent path
+            |> Model.stashAndSaveRecent path,
+            unsaved
 
     /// `saveEverything`, then the window layout beside the scene (docs/WindowLayouts.md).
     /// The sidecar is written only once the scene is saved and cannot fail the save: a
-    /// failure is logged and returned for user feedback.
-    let saveEverythingWithLayout (path : string) (m : Model) : Model * Option<string> =
-        let m = saveEverything path m
+    /// failure is logged and returned for user feedback. Also returns the annotations that
+    /// could not be saved.
+    let saveEverythingWithLayout (path : string) (m : Model) : Model * Option<string> * list<string> =
+        let m, unsaved = saveEverything path m
         match m.scene.scenePath with
         | Some scenePath when not (path.IsEmptyOrNull()) ->
             match SceneLayoutSidecar.tryWrite scenePath m.layout.current with
-            | Result.Ok () -> m, None
+            | Result.Ok () -> m, None, unsaved
             | Result.Error e ->
                 Log.warn "[Layouts] scene saved, but not the layout beside it (%s): %s" (SceneLayoutSidecar.path scenePath) e
-                m, Some e
-        | _ -> m, None
+                m, Some e, unsaved
+        | _ -> m, None, unsaved
 

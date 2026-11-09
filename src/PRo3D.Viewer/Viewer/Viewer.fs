@@ -786,9 +786,21 @@ module ViewerApp =
     /// Saves the scene and writes its window layout beside it. The layout sidecar can
     /// never fail the save; if it could not be written the user is told.
     let private saveScene (path : string) (m : Model) =
-        match ViewerIO.saveEverythingWithLayout path m with
-        | m, None -> m
-        | m, Some _ -> m |> shortFeedback "Scene saved, but its window layout could not be stored beside it (see log)."
+        let m, layoutError, unsaved = ViewerIO.saveEverythingWithLayout path m
+        let m =
+            match layoutError with
+            | None -> m
+            | Some _ -> m |> shortFeedback "Scene saved, but its window layout could not be stored beside it (see log)."
+        match unsaved with
+        | [] -> m
+        | names ->
+            // must not pass by unnoticed: these annotations are not in the file (#834)
+            let text =
+                sprintf "%d annotation(s) are broken and could NOT be saved: %s. Everything else was saved. Please contact pro3d@vrvis.at and attach the log."
+                    names.Length (names |> List.truncate 5 |> String.concat ", ")
+            // delayed so it arrives after a "scene saved" queued by the caller: the newest
+            // text wins, and that must be this one
+            m |> UserFeedback.queueFeedbackAfter 500 (UserFeedback.create 30000 text)
 
     /// A scene was opened: offer the window layout stored beside it (docs/WindowLayouts.md).
     let sceneOpened (m : Model) =
