@@ -1035,7 +1035,8 @@ module Gui =
                 match grabbedIndex with
                 | 0 | 1 -> sprintf "%s to drop this end of the major axis (%.2f m) - the opposite end stays, the minor axis keeps its length; ESC to cancel" click major
                 | 2 | 3 -> sprintf "%s to set the minor axis (%.2f m) - it stays at right angles to the major axis; ESC to cancel" click minor
-                | _ -> sprintf "%s an axis end to move it: %s = major axis (%.2f m), %s = minor axis (%.2f m)" click (fst colors) major (snd colors) minor
+                | EllipseEdit.CentreHandle -> sprintf "%s to move the ellipse here - axes kept, fitted to the terrain there on drop; ESC to cancel" click
+                | _ -> sprintf "%s a handle to move it: %s = major axis (%.2f m), %s = minor axis (%.2f m), %s = centre (moves the whole ellipse)" click (fst colors) major (snd colors) minor PackedRendering.EllipseEditColors.centreName
             | _ ->
             match i with
             | Interactions.EditAnnotation when grabbed -> sprintf "%s to drop the point, ESC to cancel" click

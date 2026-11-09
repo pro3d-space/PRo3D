@@ -1321,7 +1321,11 @@ module PackedRendering =
         let majorName = "magenta"
         let minorName = "cyan"
         /// handles 0 and 1 end the major axis, 2 and 3 the minor (EllipseEdit.tryPlaneHandles)
-        let ofHandle (index : int) = if index < 2 then major else minor
+        /// the centre, which moves the whole ellipse, is white like a polyline vertex
+        let centre = C4b(255, 255, 255)
+        let centreName = "white"
+        let ofHandle (index : int) =
+            if index < 2 then major elif index < EllipseEdit.CentreHandle then minor else centre
 
     /// Where the edit handles of `anno` are, in handle-index order (the index GrabVertex and
     /// MoveVertex receive); empty when it cannot be edited. Polyline-like: the clicked control

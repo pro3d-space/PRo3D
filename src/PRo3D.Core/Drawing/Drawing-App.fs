@@ -294,35 +294,118 @@ module DrawingApp =
     /// the outline is re-sampled and draped with `samplePoint` (the Sky projection), the
     /// stored shape, dip and strike and the results are recomputed.
     ///
-    /// The annotation is returned unchanged when the drop would collapse an axis or the new
-    /// outline cannot be draped - a half-built ellipse is worse than a refused edit.
+    /// `Error` with the reason when the edit is refused: a drop that would collapse an axis, a
+    /// moved ellipse whose axis ends miss the surface or span no plane, an outline that cannot
+    /// be draped - a half-built ellipse is worse than a refused edit. `Ok a` itself (the same
+    /// object, so no undo entry) for a centre dropped where it already is.
     let moveEllipseHandle
         (up : V3d) (north : V3d) (planet : Planet)
         (samplePoint : V3d -> Option<V3d>)
         (index : int) (drop : V3d)
-        (a : Annotation) : Annotation =
+        (a : Annotation) : Result<Annotation, string> =
 
         match a.ellipticResults with
-        | None -> a
+        | None -> Result.Error "the ellipse has no stored shape"
         | Some r ->
-            match EllipseEdit.tryPlane r, EllipseEdit.tryMoveHandle r index drop with
-            | Some plane, Some construction ->
-                match EllipticAnnotations.constructAndSampleFromPlane plane construction samplePoint with
-                | Some c when c.surfaceProjectedEllipsePoints.Length >= 3 ->
-                    let a =
-                        { a with
-                            points          = IndexList.ofArray c.surfaceProjectedEllipsePoints
-                            ellipticResults = Some (EllipticAnnotations.Measures.ofConstructed planet up north c)
-                            // the construction points lie on the plane, so this is that plane again
-                            dnsResults      = IndexList.ofArray construction |> DipAndStrike.calculateDipAndStrikeResults up north }
-                    { a with results = Some (Calculations.calculateAnnotationResults a up north planet) }
-                | Some c ->
-                    Log.warn "[Drawing] edited ellipse outline could not be projected onto the surface (%d sampled points); edit discarded" c.surfaceProjectedEllipsePoints.Length
-                    a
-                | None -> a
-            | _ ->
-                Log.warn "[Drawing] ellipse handle %d dropped where it would collapse an axis; edit discarded" index
-                a
+            let outline = IndexList.toArray a.points
+            let moved = EllipseEdit.tryMoveHandle r outline index drop
+            // A drop less than a hundredth of the minor semi-axis from where the handle is (both
+            // projected onto the plane) is a drop in place: every edit re-fits the plane (below),
+            // and a grab-and-release must not tilt the ellipse.
+            let inPlace =
+                match EllipseEdit.tryPlane r, EllipseEdit.handlesOnOutline r outline |> Array.tryItem index with
+                | Some plane, Some handle ->
+                    let toPlane (p : V3d) = p - plane.Normal * plane.Height p
+                    (toPlane drop - toPlane handle).Length < 0.01 * r.semiMinorAxis.Length
+                | _ -> false
+            // Every edit fits the plane to the terrain under the ellipse's new points, as the tool
+            // fits a drawn one through its clicks: the orientation always matches the points.
+            let planeAndConstruction =
+                match EllipseEdit.tryPlane r, moved with
+                | _, None -> Result.Error "that would collapse an axis"
+                | None, _ -> Result.Error "the ellipse has no stored shape"
+                | Some _, Some construction ->
+                    match construction |> Array.map samplePoint with
+                    | [| Some p0; Some p1; Some p2 |] ->
+                        let skyUp, _ = Calculations.localFrame planet up north ((construction.[0] + construction.[1]) * 0.5)
+                        match EllipseEdit.tryRefit r skyUp construction [| p0; p1; p2 |] with
+                        | Some fitted -> Result.Ok fitted
+                        | None -> Result.Error "the terrain there gives no plane for it"
+                    | _ -> Result.Error "its axis ends would miss the surface"
+            if inPlace then Result.Ok a
+            else
+                match planeAndConstruction with
+                | Result.Error why ->
+                    Log.warn "[Drawing] ellipse handle %d: %s; edit discarded" index why
+                    Result.Error why
+                | Result.Ok (plane, construction) ->
+                    match EllipticAnnotations.constructAndSampleFromPlane plane construction samplePoint with
+                    | Some c when c.surfaceProjectedEllipsePoints.Length >= 3 ->
+                        let a =
+                            { a with
+                                points          = IndexList.ofArray c.surfaceProjectedEllipsePoints
+                                ellipticResults = Some (EllipticAnnotations.Measures.ofConstructed planet up north c)
+                                // the construction points lie on the plane, so this is that plane again
+                                dnsResults      = IndexList.ofArray construction |> DipAndStrike.calculateDipAndStrikeResults up north }
+                        Result.Ok { a with results = Some (Calculations.calculateAnnotationResults a up north planet) }
+                    | Some c ->
+                        Log.warn "[Drawing] edited ellipse outline could not be projected onto the surface (%d sampled points); edit discarded" c.surfaceProjectedEllipsePoints.Length
+                        Result.Error "its outline would miss the surface"
+                    | None -> Result.Error "it could not be constructed"
+
+    /// Lays the supporting profiles of an edited ellipse (#833) across it again, so its craters
+    /// export still matches it. Its profiles are found by their link, and each keeps its key,
+    /// group, colour, thickness and label: only the line, its measurements and the stored
+    /// azimuth are replaced. The set keeps its directions: a compass set stays compass, an axis
+    /// set follows the axes - whatever the Supporting Profiles panel is set to now.
+    ///
+    /// All or nothing, like generating them: `Error` (and nothing changed) when one cannot be
+    /// rebuilt. `Ok` with the count regenerated, 0 for an ellipse without profiles.
+    let regenerateEllipseProfiles
+        (up : V3d) (north : V3d) (planet : Planet)
+        (samplingDistance : float) (samplePoint : V3d -> Option<V3d>)
+        (parent : Annotation) (groups : GroupsModel) : Result<GroupsModel * int, string> =
+
+        let profiles =
+            SupportingProfiles.profilesOf parent.key groups
+            |> HashSet.toArray
+            |> Array.choose (fun id ->
+                match groups.flat |> HashMap.tryFind id with
+                | Some (Leaf.Annotations a) -> a.profileOf |> Option.map (fun link -> id, a, link)
+                | _ -> None)
+
+        if profiles.Length = 0 then Result.Ok (groups, 0)
+        else
+            let axisLabels = SupportingProfiles.majorAxis |> Array.map fst
+            let mode =
+                if profiles |> Array.exists (fun (_, _, l) -> Array.contains l.direction axisLabels)
+                then EllipseProfileMode.MajorAxis
+                else EllipseProfileMode.Compass
+            match SupportingProfiles.forEllipse planet up north mode parent with
+            | Result.Error why -> Result.Error why
+            | Result.Ok specs ->
+                let rebuilt =
+                    profiles |> Array.choose (fun (id, a, link) ->
+                        specs
+                        |> List.tryFind (fun spec -> spec.link.direction = link.direction)
+                        |> Option.map (fun spec ->
+                            let a =
+                                { a with
+                                    points     = IndexList.ofList [ spec.start; spec.stop ]
+                                    segments   = IndexList.single (resampleSegment samplingDistance samplePoint spec.start spec.stop)
+                                    modelTrafo = Trafo3d.Translation spec.start
+                                    // the index it was generated with names it (p<label>_<index>)
+                                    profileOf  = Some { spec.link with index = link.index } }
+                            let a = { a with dnsResults = a.points |> DipAndStrike.calculateDipAndStrikeResults up north }
+                            id, { a with results = Some (Calculations.calculateAnnotationResults a up north planet) }))
+                // all or nothing: a profile whose direction is not in the new set (a link edited
+                // by hand, a renamed label) must not stay behind while the ellipse moves
+                if rebuilt.Length <> profiles.Length then
+                    Result.Error (sprintf "%d of its %d profiles have a direction that cannot be rebuilt" (profiles.Length - rebuilt.Length) profiles.Length)
+                else
+                    let groups =
+                        rebuilt |> Array.fold (fun g (id, a) -> g |> Groups.updateLeaf id (fun _ -> Leaf.Annotations a)) groups
+                    Result.Ok (groups, rebuilt.Length)
 
     /// The surface sampler of the working annotation's last click, keyed by its annotation. A
     /// polygon is finished by Enter (`Finish`), which carries no sampler, yet its closing edge
@@ -1655,20 +1738,61 @@ module DrawingApp =
 
                     let edited =
                         if Geometry.isVertexEditable ann.geometry then
-                            moveVertex up north planet model.samplingDistance samplePoint pointIndex position ann
+                            Result.Ok (moveVertex up north planet model.samplingDistance samplePoint pointIndex position ann)
                         else
                             moveEllipseHandle up north planet samplePoint pointIndex position ann
 
-                    // a refused ellipse edit returns the annotation itself: no change, no undo entry
-                    if LanguagePrimitives.PhysicalEquality edited ann then
+                    let label =
+                        if String.IsNullOrWhiteSpace ann.text then sprintf "%A %s" ann.geometry (ann.key.ToString().Substring(0, 8))
+                        else ann.text
+                    // An ellipse edit says what became of it in the panel's message, which the viewer
+                    // shows as a notice: refused and why, or how many profiles followed.
+                    let say (message : string) (m : DrawingModel) =
+                        { m with supportingProfiles = { m.supportingProfiles with message = Some message } }
+
+                    match edited with
+                    | Result.Error why ->
                         { model with vertexGrab = None }
-                    else
+                        |> say (sprintf "Edit of %s refused: %s." label why)
+                    // the annotation itself back: nothing changed, no undo entry
+                    | Result.Ok edited when LanguagePrimitives.PhysicalEquality edited ann ->
+                        { model with vertexGrab = None }
+                    | Result.Ok edited ->
                         let before = model.annotations
                         let after = before |> Groups.updateLeaf id (fun _ -> Leaf.Annotations edited)
 
-                        // one atomic update, and therefore one undo entry, per drop
-                        { model with annotations = after; vertexGrab = None }
-                        |> pushUndo (SnapshotDelta(before, after))
+                        // an ellipse takes its supporting profiles along; one that cannot follow
+                        // refuses the whole edit, as one that cannot be built refuses a generation
+                        let after =
+                            if Geometry.isVertexEditable ann.geometry then Result.Ok (after, 0)
+                            else regenerateEllipseProfiles up north planet model.samplingDistance samplePoint edited after
+
+                        match after with
+                        | Result.Error why ->
+                            Log.warn "[Drawing] ellipse edit refused, its supporting profiles cannot follow: %s" why
+                            { model with vertexGrab = None }
+                            |> say (sprintf "Edit of %s refused: its supporting profiles cannot follow (%s)." label why)
+                        | Result.Ok (after, regenerated) ->
+                            // one atomic update, and therefore one undo entry, per drop - the
+                            // profiles included
+                            let model =
+                                { model with annotations = after; vertexGrab = None }
+                                |> pushUndo (SnapshotDelta(before, after))
+                            if Geometry.isVertexEditable ann.geometry then model
+                            else
+                                // every ellipse edit re-fits its plane: say so, with the dip it
+                                // had and has, so a changed orientation is never a surprise
+                                let dip (x : Annotation) =
+                                    x.dnsResults |> Option.map (fun d -> sprintf "%.1f° towards %.0f°" d.dipAngle d.dipAzimuth)
+                                let refitted =
+                                    match dip ann, dip edited with
+                                    | Some was, Some now -> sprintf "%s re-fitted to the terrain: dip %s (was %s)" label now was
+                                    | _ -> sprintf "%s re-fitted to the terrain" label
+                                let profiles =
+                                    if regenerated = 0 then ""
+                                    else sprintf "; %d profiles regenerated" regenerated
+                                Log.line "[Drawing] %s%s" refitted profiles
+                                model |> say (sprintf "%s%s." refitted profiles)
                 | _ ->
                     { model with vertexGrab = None }
 
