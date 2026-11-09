@@ -655,8 +655,8 @@ test("the centre handle moves the whole ellipse, its crater profiles follow, and
         await expect
             .poll(async () => (await annotationPointCounts(context, app)).length, { timeout: 60_000, intervals: [2000] })
             .toBe(5);
-        expect(fs.readFileSync(app.logFile, "utf-8"), "the four profiles were regenerated, not left behind")
-            .toMatch(/\[Drawing\] 4 profiles of .* regenerated/);
+        expect(fs.readFileSync(app.logFile, "utf-8"), "re-fitted, and the four profiles regenerated, not left behind")
+            .toMatch(/\[Drawing\] .* re-fitted to the terrain: dip .*; 4 profiles regenerated/);
         await clickTool(render, SELECT_TOOL);
         const after = await frame("m05-moved");
         const maskAfter = annotationMask(bare, after, win);
