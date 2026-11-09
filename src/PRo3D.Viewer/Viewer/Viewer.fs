@@ -770,9 +770,25 @@ module ViewerApp =
     /// Saves the scene and writes its window layout beside it. The layout sidecar can
     /// never fail the save; if it could not be written the user is told.
     let private saveScene (path : string) (m : Model) =
-        match ViewerIO.saveEverythingWithLayout path m with
-        | m, None -> m
-        | m, Some _ -> m |> shortFeedback "Scene saved, but its window layout could not be stored beside it (see log)."
+        let m, layoutError, unsaved = ViewerIO.saveEverythingWithLayout path m
+        let m =
+            match layoutError with
+            | None -> m
+            | Some _ -> m |> shortFeedback "Scene saved, but its window layout could not be stored beside it (see log)."
+        match unsaved with
+        | [] -> m
+        | names ->
+            // must not pass by unnoticed: these annotations are not in the file (#834)
+            let text =
+                sprintf "%d annotation(s) are broken and could NOT be saved: %s. Everything else was saved; see log."
+                    names.Length (names |> List.truncate 5 |> String.concat ", ")
+            let feedback = {
+                id      = System.Guid.NewGuid().ToString()
+                text    = text
+                timeout = 30000
+                msg     = ViewerAction.NoAction ""
+            }
+            m |> UserFeedback.queueFeedback feedback
 
     /// A scene was opened: offer the window layout stored beside it (docs/WindowLayouts.md).
     let sceneOpened (m : Model) =
