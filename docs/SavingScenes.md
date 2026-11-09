@@ -11,7 +11,8 @@ abort the whole save.
 
 Now it is left out of the annotation file and everything else is saved. The message
 *"N annotation(s) are broken and could NOT be saved: …"* names them (by their text, or their
-geometry if they have none) and stays on screen for 30 s; the log has the details. The broken
+geometry if they have none), asks to contact pro3d@vrvis.at with the log attached, and stays
+on screen for 30 s; the log has the details. The broken
 annotations stay in the running session, so they can be inspected, fixed or redrawn before the
 next save. The annotation file is only written once everything in it could be serialized, so it
 is never left half-written.

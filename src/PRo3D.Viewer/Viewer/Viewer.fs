@@ -780,7 +780,7 @@ module ViewerApp =
         | names ->
             // must not pass by unnoticed: these annotations are not in the file (#834)
             let text =
-                sprintf "%d annotation(s) are broken and could NOT be saved: %s. Everything else was saved; see log."
+                sprintf "%d annotation(s) are broken and could NOT be saved: %s. Everything else was saved. Please contact pro3d@vrvis.at and attach the log."
                     names.Length (names |> List.truncate 5 |> String.concat ", ")
             let feedback = {
                 id      = System.Guid.NewGuid().ToString()
