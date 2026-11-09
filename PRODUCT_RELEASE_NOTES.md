@@ -1,3 +1,12 @@
+## 6.4.3
+Move whole ellipses, add points to finished lines and polygons, metadata in every export preset, and a save that a broken annotation can no longer stop.
+
+- Annotations: **move a whole ellipse.** In *Edit Annotation* a three-point ellipse has a fifth, white handle at its centre: drag it to move the ellipse, axis lengths and axis ratio kept; a green outline previews the move. **Every ellipse edit now re-fits its plane** to the terrain under its new points, as if drawn there, so dip and strike always match the ellipse; a notice says so, with the dip before and after. Dropping a handle where it is changes nothing. One Ctrl+Z undoes it. **Supporting profiles now follow every ellipse edit**, moved or reshaped, in the directions they had; an edit they cannot follow is refused with a notice (docs/EllipseAnnotations.md)
+- Export: **the Boulders, Craters, Lineaments and Fractures presets now include the annotation metadata columns** (confidence, comment, shape model, shape model version, projected images, credit); before, only the Annotation table preset had them (#887, docs/AnnotationExport-CSV.md)
+- Annotations: **add points to a finished line, polyline or polygon.** In *Edit Annotation*, Ctrl+click on the selected annotation's line picks up a new point there, and a Ctrl+click on the surface puts it down (Esc cancels). The terrain samples of a Viewpoint/Sky line show as grey dots near the cursor; Ctrl+click one (blue under the cursor) to turn it into a control point where it is, without moving the line. A line that gets a third point becomes a polyline. One Ctrl+Z per added point (#639, docs/AnnotationVertexEditing.md)
+- Viewer: **the window title now reads "PRo3D by VRVis supported by community and open source contributors"**, followed by the version
+- Saving: **a broken annotation no longer stops the save.** An annotation whose values cannot be stored (e.g. a dip & strike whose angles became NaN) used to abort the whole save with `Serialization of NaN Invalid.`; now it is left out of the annotation file, everything else is saved, and a message names it and asks to contact pro3d@vrvis.at with the log. The annotation stays in the session (#834, #910, docs/SavingScenes.md)
+
 ## 6.4.2
 A macOS-only fix: surfaces no longer disappear in the main and instrument views.
 
