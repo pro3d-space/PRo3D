@@ -99,6 +99,9 @@ module ViewerIO =
                             | _ -> string id
                         Log.error "[ViewerIO] annotation %s (%A) not saved: %s" name id e.Message
                         Some (id, name))
+            // the failure is not in an annotation (legend, colour by category, maps):
+            // nothing to leave out, fail as before
+            if List.isEmpty broken then reraise ()
             let ids = broken |> List.map fst |> HashSet.ofList
             let saveable = { model with annotations = GroupsApp.removeLeavesById ids model.annotations }
             saveVersioned' saveable paths |> ignore

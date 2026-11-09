@@ -782,13 +782,9 @@ module ViewerApp =
             let text =
                 sprintf "%d annotation(s) are broken and could NOT be saved: %s. Everything else was saved. Please contact pro3d@vrvis.at and attach the log."
                     names.Length (names |> List.truncate 5 |> String.concat ", ")
-            let feedback = {
-                id      = System.Guid.NewGuid().ToString()
-                text    = text
-                timeout = 30000
-                msg     = ViewerAction.NoAction ""
-            }
-            m |> UserFeedback.queueFeedback feedback
+            // delayed so it arrives after a "scene saved" queued by the caller: the newest
+            // text wins, and that must be this one
+            m |> UserFeedback.queueFeedbackAfter 500 (UserFeedback.create 30000 text)
 
     /// A scene was opened: offer the window layout stored beside it (docs/WindowLayouts.md).
     let sceneOpened (m : Model) =
