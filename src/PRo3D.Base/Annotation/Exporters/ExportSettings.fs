@@ -213,6 +213,14 @@ module AnnotationExportSettings =
 
     /// The columns of a profile row: identity, then where a generated profile came from
     /// (empty for a hand-drawn line). Shared by *Profile* and the profiles file of *Craters*.
+    /// Who rated and commented the annotation and what it was drawn from (#887), appended
+    /// to the Boulders, Craters, Lineaments and Fractures columns. In enum order, which is
+    /// the order the export window writes them in.
+    let metadataFields =
+        [ AnnotationField.Confidence; AnnotationField.Comment
+          AnnotationField.ShapeModel; AnnotationField.ShapeModelVersion
+          AnnotationField.ProjectedImages; AnnotationField.ShapeModelCredit ]
+
     let profileFields =
         [ AnnotationField.Key; AnnotationField.Text; AnnotationField.SurfaceName
           AnnotationField.ParentKey; AnnotationField.ProfileIndex; AnnotationField.ProfileDirection
@@ -301,7 +309,8 @@ module AnnotationExportSettings =
                 annotationFields =
                     [ AnnotationField.Key; AnnotationField.Text; AnnotationField.SurfaceName
                       AnnotationField.GroupPath; AnnotationField.SemiMajorAxis
-                      AnnotationField.SemiMinorAxis; AnnotationField.MajorAxisAzimuth ] }
+                      AnnotationField.SemiMinorAxis; AnnotationField.MajorAxisAzimuth ]
+                    @ metadataFields }
         | ExportPreset.Craters ->
             // the Boulders file, and the profiles generated from its ellipses beside it
             { applyPreset ExportPreset.Boulders settings with withProfiles = true }
@@ -320,7 +329,8 @@ module AnnotationExportSettings =
                 annotationFields =
                     [ AnnotationField.Key; AnnotationField.Text; AnnotationField.SurfaceName
                       AnnotationField.Length; AnnotationField.WayLength; AnnotationField.Bearing
-                      AnnotationField.GroupPath ] }
+                      AnnotationField.GroupPath ]
+                    @ metadataFields }
         | ExportPreset.Fractures ->
             // One row per segment. Ellipses have no clicked-to-clicked segments and
             // produce no rows, so no type filter is needed.
@@ -333,7 +343,8 @@ module AnnotationExportSettings =
                 // in enum order, which is the order the export window writes them in
                 annotationFields =
                     [ AnnotationField.Key; AnnotationField.Text; AnnotationField.SurfaceName
-                      AnnotationField.WayLength; AnnotationField.GroupPath ] }
+                      AnnotationField.WayLength; AnnotationField.GroupPath ]
+                    @ metadataFields }
         | ExportPreset.AttitudePlanes ->
             { settings with format = ExportFormat.Attitude }
         | ExportPreset.ContinuousGeoJson ->
