@@ -184,22 +184,23 @@ module DrawingApp =
         match a.ellipticResults with
         | None -> Result.Error "the ellipse has no stored shape"
         | Some r ->
-            let moved = EllipseEdit.tryMoveHandle r (IndexList.toArray a.points) index drop
-            // a centre move shorter than a hundredth of the minor semi-axis is a drop in place:
-            // a move re-fits the plane (below), and that must not happen on a grab-and-release
+            let outline = IndexList.toArray a.points
+            let moved = EllipseEdit.tryMoveHandle r outline index drop
+            // A drop less than a hundredth of the minor semi-axis from where the handle is (both
+            // projected onto the plane) is a drop in place: every edit re-fits the plane (below),
+            // and a grab-and-release must not tilt the ellipse.
             let inPlace =
-                match moved with
-                | Some [| m0; m1; _ |] when index = EllipseEdit.CentreHandle ->
-                    ((m0 + m1) * 0.5 - r.center).Length < 0.01 * r.semiMinorAxis.Length
+                match EllipseEdit.tryPlane r, EllipseEdit.handlesOnOutline r outline |> Array.tryItem index with
+                | Some plane, Some handle ->
+                    let toPlane (p : V3d) = p - plane.Normal * plane.Height p
+                    (toPlane drop - toPlane handle).Length < 0.01 * r.semiMinorAxis.Length
                 | _ -> false
-            // Axis ends keep the plane: small fitting tweaks must not tilt the ellipse. A move of
-            // the whole ellipse fits the plane to the terrain at its new place, as if drawn
-            // there: it is on another boulder now, with that boulder's dip and strike.
+            // Every edit fits the plane to the terrain under the ellipse's new points, as the tool
+            // fits a drawn one through its clicks: the orientation always matches the points.
             let planeAndConstruction =
                 match EllipseEdit.tryPlane r, moved with
                 | _, None -> Result.Error "that would collapse an axis"
                 | None, _ -> Result.Error "the ellipse has no stored shape"
-                | Some plane, Some construction when index <> EllipseEdit.CentreHandle -> Result.Ok (plane, construction)
                 | Some _, Some construction ->
                     match construction |> Array.map samplePoint with
                     | [| Some p0; Some p1; Some p2 |] ->
@@ -1566,10 +1567,21 @@ module DrawingApp =
                             let model =
                                 { model with annotations = after; vertexGrab = None }
                                 |> pushUndo (SnapshotDelta(before, after))
-                            if regenerated = 0 then model
+                            if Geometry.isVertexEditable ann.geometry then model
                             else
-                                Log.line "[Drawing] %d profiles of %s regenerated" regenerated label
-                                model |> say (sprintf "%d profiles of %s regenerated." regenerated label)
+                                // every ellipse edit re-fits its plane: say so, with the dip it
+                                // had and has, so a changed orientation is never a surprise
+                                let dip (x : Annotation) =
+                                    x.dnsResults |> Option.map (fun d -> sprintf "%.1f° towards %.0f°" d.dipAngle d.dipAzimuth)
+                                let refitted =
+                                    match dip ann, dip edited with
+                                    | Some was, Some now -> sprintf "%s re-fitted to the terrain: dip %s (was %s)" label now was
+                                    | _ -> sprintf "%s re-fitted to the terrain" label
+                                let profiles =
+                                    if regenerated = 0 then ""
+                                    else sprintf "; %d profiles regenerated" regenerated
+                                Log.line "[Drawing] %s%s" refitted profiles
+                                model |> say (sprintf "%s%s." refitted profiles)
                 | _ ->
                     { model with vertexGrab = None }
 

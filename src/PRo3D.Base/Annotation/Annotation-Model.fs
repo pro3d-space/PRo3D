@@ -717,12 +717,12 @@ module EllipseEdit =
                 Some [| centre - a; centre + a; centre + b |]
             | _ -> None
 
-    /// A moved ellipse re-fitted to the terrain at its new place, as the tool fits a drawn one:
-    /// the plane through `draped`, the three construction points of the move (`tryMoveHandle`)
-    /// stamped onto the terrain, which play the part of the three clicks. Unlike a redraw the
-    /// ellipse keeps its size: the axis lengths are kept exactly, the major axis turned as
-    /// little as possible into the new plane (its old direction projected onto it), the minor
-    /// axis at right angles to it on the same side. The centre is where the sky ray through the
+    /// An edited ellipse re-fitted to the terrain, as the tool fits a drawn one: the plane
+    /// through `draped`, the three construction points of the edit (`tryMoveHandle`: moved,
+    /// widened or shifted on the old plane) stamped onto the terrain, which play the part of
+    /// the three clicks. Unlike a redraw the axis lengths are the ones the edit asked for,
+    /// exactly: the major axis turned as little as possible into the new plane (its direction
+    /// projected onto it), the minor axis at right angles to it on the same side. The centre is where the sky ray through the
     /// moved centre - `up`, the direction the Sky projection drapes along - meets the new plane,
     /// so on sloped terrain it stays under the cursor (along the plane normal it would slide
     /// sideways by the height step times the slope). So a move changes where the ellipse is and
@@ -732,7 +732,12 @@ module EllipseEdit =
     /// span no plane, the new plane stands at right angles to the old one, or it is vertical.
     let tryRefit (r : EllipticAnnotationResult) (up : V3d) (moved : V3d[]) (draped : V3d[]) : Option<Plane3d * V3d[]> =
         match tryFrame r, moved, draped with
-        | Some (_, a, b, n), [| m0; m1; _ |], [| p0; p1; p2 |] ->
+        | Some (_, _, _, n), [| m0; m1; m2 |], [| p0; p1; p2 |] ->
+            // the axes the edit asked for, on the old plane: a major end may have moved, a minor
+            // end set a new width, or the whole ellipse shifted
+            let movedCentre = (m0 + m1) * 0.5
+            let a = m1 - movedCentre
+            let b = m2 - movedCentre
             let normal = Vec.cross (p1 - p0) (p2 - p0)
             let scale = (p1 - p0).Length * (p2 - p0).Length
             if scale <= 0.0 || normal.Length <= 1e-9 * scale then None
@@ -750,7 +755,6 @@ module EllipseEdit =
                     let minorDir =
                         let d = (Vec.cross normal major).Normalized
                         if Vec.dot d b < 0.0 then -d else d
-                    let movedCentre = (m0 + m1) * 0.5
                     let centre = movedCentre - u * (plane.Height movedCentre / along)
                     Some (plane, [| centre - major; centre + major; centre + minorDir * b.Length |])
         | _ -> None

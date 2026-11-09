@@ -647,13 +647,39 @@ let private ellipseMoveTests =
             Expect.stringContains (refused.supportingProfiles.message |> Option.defaultValue "") "refused" "says so"
         }
 
-        test "an axis-end drag keeps the plane, whatever the terrain" {
+        test "an axis-end drag also fits the plane to the terrain, with the width it asked for" {
             let c = ellipseCenter
             let m = drawEllipse ()
             let r0 = shapeOf "start" m
             let i = handleAt (c + V3d(0.0, 35.0, 0.0)) m
             let r = m |> dropWith tiltedTerrain i (c + V3d(0.0, 45.0, 0.0)) |> shapeOf "widened"
-            Expect.isGreaterThan (abs (Vec.dot (normalOf r) (normalOf r0))) (1.0 - 1e-12) "not tilted"
+            Expect.isGreaterThan (abs (Vec.dot (normalOf r) tiltedNormal)) (1.0 - 1e-9) "in the terrain's plane now"
+            Expect.floatClose Accuracy.medium r.semiMinorAxis.Length 45.0 "the width it was dragged to"
+            Expect.floatClose Accuracy.medium r.semiMajorAxis.Length r0.semiMajorAxis.Length "the major axis kept"
+        }
+
+        test "dropping any handle where it is changes nothing, even on tilted terrain" {
+            let start = drawEllipse ()
+            let undoBefore = List.length start.undoStack
+            let repeated =
+                [ 0 .. 9 ] |> List.fold (fun m k ->
+                    let i = k % 5
+                    match DrawingApp.editHandles (theEllipse "repeat" m) |> Array.tryItem i with
+                    | Some h -> dropWith tiltedTerrain i h m
+                    | None   -> failtestf "no handle %d" i) start
+            Expect.equal (shapeOf "repeated" repeated) (shapeOf "start" start) "not re-fitted, not changed"
+            Expect.equal (List.length repeated.undoStack) undoBefore "nothing to undo"
+        }
+
+        test "every ellipse edit says it was re-fitted, with the dip before and after" {
+            let c = ellipseCenter
+            let m = drawEllipse ()
+            let moved = m |> dropWith tiltedTerrain EllipseEdit.CentreHandle (c + V3d(30.0, -20.0, 0.0))
+            let message = moved.supportingProfiles.message |> Option.defaultValue ""
+            Expect.stringContains message "re-fitted to the terrain" "says so"
+            Expect.stringContains message "(was " "with the dip it had"
+            let widened = m |> dropHandle (handleAt (c + V3d(0.0, 35.0, 0.0)) m) (c + V3d(0.0, 45.0, 0.0))
+            Expect.stringContains (widened.supportingProfiles.message |> Option.defaultValue "") "re-fitted" "an axis end too"
         }
 
         test "the centre handle sits in the middle of the draped outline" {
@@ -784,11 +810,13 @@ let private ellipseMoveTests =
             Expect.stringContains (refused.supportingProfiles.message |> Option.defaultValue "") "refused" "says so"
         }
 
-        test "an ellipse without profiles moves without a profile message" {
+        test "an ellipse without profiles reports the re-fit, and no profiles" {
             let c = ellipseCenter
             let m = drawEllipse ()
             let moved = m |> dropHandle EllipseEdit.CentreHandle (c + V3d(10.0, 0.0, 0.0))
-            Expect.isNone moved.supportingProfiles.message "nothing to report"
+            let message = moved.supportingProfiles.message |> Option.defaultValue ""
+            Expect.stringContains message "re-fitted" "the re-fit"
+            Expect.isFalse (message.Contains "profiles") "no profiles to speak of"
         }
     ]
 

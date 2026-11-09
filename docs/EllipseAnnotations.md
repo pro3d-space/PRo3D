@@ -45,7 +45,9 @@ it up and Ctrl+click on the surface to drop it:
 |---|---|
 | a major-axis end | the opposite end stays put; the axis turns and stretches to the drop. The minor length is kept. |
 | a minor-axis end | the major axis stays put; the minor length becomes the drop's distance from it. |
-| the centre | the whole ellipse moves to the drop, axis lengths and axis ratio kept, and tilts to fit the terrain there. |
+| the centre | the whole ellipse moves to the drop, axis lengths and axis ratio kept. |
+
+After every drop the ellipse is fitted to the terrain under its new points, see below.
 
 **Telling the axes apart.** The major-axis ends are drawn **magenta** and the minor-axis ends
 **cyan**, and a thin guide line in the same colour runs along each axis through the ellipse, so
@@ -67,36 +69,40 @@ On drop the outline is re-sampled and draped, and the stored shape (centre, semi
 azimuth), dip and strike and the measurements are recomputed. One drop is one undo entry. A minor
 end dragged out past the major length makes that axis the major one; the handles follow.
 
-**The plane is not re-fitted.** An ellipse is constructed in the plane fitted through its three
-clicks. Editing keeps that plane: it is recovered from the stored shape (the plane through
-`center` spanned by `semiMajorAxis` and `semiMinorAxis`), the drop is projected
-orthogonally onto it, and the ellipse is rebuilt there with the same construction
-(`EllipseConstruction.constructEllipseOrtho2d`) the tool uses while drawing. Re-fitting a plane
-through surface points on every edit would drift the ellipse a little each time; this way an
-ellipse only changes by what was moved. The cost is that an edit cannot tilt the ellipse: an
-ellipse whose plane is wrong has to be redrawn.
+**Every edit re-fits the plane to the terrain.** An ellipse is constructed in the plane fitted
+through its three clicks, and an edit is treated like a redraw with three new clicks
+(`EllipseEdit.tryRefit`):
 
-**Moving fits the plane to the new place.** The axis ends keep the plane - they are for fine
-tuning, which must not tilt anything. A move is different: the ellipse is on another boulder
-now, so it gets that boulder's orientation, as if drawn there. Dropping the centre first shifts
-the ellipse within its old plane by as much as the handle was dragged (both ends projected onto
-the plane). Its three construction points - the two major ends and the minor end, standing in
-for the clicks of the tool - are then stamped onto the terrain with the Sky projection, and the
-plane is fitted through them as the tool fits one through its clicks
-(`EllipseEdit.tryRefit`). Unlike a redraw the ellipse keeps its size: the axis lengths and the
-axis ratio are kept exactly, the major axis is turned only as far as the new tilt needs (its
-old direction projected onto the new plane), and the outline is stamped onto the terrain again.
-The new centre is where the sky ray through the moved centre meets the new plane, so on a slope
-it stays under the cursor.
-Centre, dip and strike, the long-axis azimuth, area and the other measurements are those of the
-new place.
+1. The drop is projected onto the current plane, and the three construction points - the two
+   major ends and the minor end, standing in for the clicks - are moved there as the handle
+   says: a major end moved, a minor end set to the new width, or all three shifted by as much
+   as the centre handle was dragged.
+2. The three points are stamped onto the terrain with the Sky projection, and the plane is
+   fitted through them, as the tool fits one through its clicks.
+3. The ellipse is rebuilt in that plane with the same construction
+   (`EllipseConstruction.constructEllipseOrtho2d`) the tool uses while drawing. The axis lengths
+   are the ones the edit asked for, exactly; the major axis is turned only as far as the new tilt
+   needs (its direction projected onto the new plane). The new centre is where the sky ray
+   through the moved centre meets the new plane, so on a slope it stays under the cursor.
 
-The green preview is the shift within the old plane, before the re-fit and the stamping, so
-over bumps it can float or dip a little where the dropped outline will not. A centre dropped
-less than 1 % of the minor semi-axis from where it was is no move at all - no re-fit, no undo
-entry - so picking it up and putting it down again does not tilt the ellipse. A move that cannot
-be made (its axis ends would miss the surface, the terrain there gives no plane) is refused with
-a notice saying why, like an axis collapse.
+So the orientation always matches the ellipse's current points: dip and strike, the long-axis
+azimuth, centre, area and the other measurements are recomputed on every drop. The price is
+that each real edit re-tilts the plane a little, so a series of small tweaks moves the measured
+dip and strike with it.
+
+**Every re-fit is announced.** A notice in the top right, where *scene saved* appears, says the
+ellipse was re-fitted, with the dip before and after ("craterA re-fitted to the terrain: dip
+12.4° towards 231° (was 11.9° towards 229°); 4 profiles regenerated."). The same text is the
+message of the Supporting Profiles panel.
+
+**Dropping in place is no edit.** A handle dropped less than 1 % of the minor semi-axis from
+where it is (both projected onto the plane) changes nothing - no re-fit, no undo entry, no
+notice - so picking a handle up and putting it down again does not tilt the ellipse.
+
+The green preview of a centre drag is the shift within the current plane, before the re-fit and
+the stamping, so over bumps it can float or dip a little where the dropped outline will not. An
+edit that cannot be made - an axis would collapse, the new axis ends would miss the surface, the
+terrain there gives no plane - is refused with a notice saying why.
 
 The axis-end handles are drawn at the outline point nearest each axis end, so they sit on the
 terrain where the outline is, not on the plane, which may run under or above it. The centre
