@@ -314,7 +314,7 @@ async function scanLine(render: Page, app: Pro3d, lineFrame: Buffer, from: Px, t
                         t0 = 0.2, t1 = 0.8) {
     await awaitIdle(render, app, 2000);
     const steps = Math.max(10, Math.round((dist(from, to) * (t1 - t0)) / 3));
-    const stops: Array<{ p: Px; blue: boolean }> = [];
+    const stops: Array<{ p: Px; kind: Blue }> = [];
     const at = (k: number): Px => {
         const t = t0 + ((t1 - t0) * k) / steps;
         const p = { x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t };
@@ -327,38 +327,42 @@ async function scanLine(render: Page, app: Pro3d, lineFrame: Buffer, from: Px, t
             const p = at(k);
             await render.mouse.move(Math.round(p.x), Math.round(p.y));
             await render.waitForTimeout(250);
-            stops.push({ p, blue: await blueNear(render, p) });
+            stops.push({ p, kind: await blueNear(render, p) });
         }
         save(`${name}.png`, await render.screenshot());
     } finally {
         await render.keyboard.up("Control");
     }
-    const runs = (want: boolean) => {
+    const runs = (want: Blue) => {
         const out: Px[][] = [];
         let cur: Px[] = [];
         for (const s of stops) {
-            if (s.blue === want) cur.push(s.p);
+            if (s.kind === want) cur.push(s.p);
             else { if (cur.length) out.push(cur); cur = []; }
         }
         if (cur.length) out.push(cur);
         return out;
     };
-    const samples = runs(true).map((r) => r[Math.floor(r.length / 2)]);
-    const gaps = runs(false).filter((r) => r.length >= 3).sort((a, b) => b.length - a.length);
+    const samples = runs("sample").map((r) => r[Math.floor(r.length / 2)]);
+    // between samples the click adds a point, and the preview dot says so
+    const gaps = runs("preview").filter((r) => r.length >= 3).sort((a, b) => b.length - a.length);
     const gap = gaps.length ? gaps[0][Math.floor(gaps[0].length / 2)] : undefined;
-    console.log(`${name}: ${stops.map((s) => (s.blue ? "B" : ".")).join("")} samples ${JSON.stringify(samples)} gap ${JSON.stringify(gap)}`);
+    console.log(`${name}: ${stops.map((s) => ({ sample: "S", preview: "P", none: "." })[s.kind]).join("")} samples ${JSON.stringify(samples)} gap ${JSON.stringify(gap)}`);
     return { samples, gap };
 }
 
-/** Whether the blue of the sample a click converts, V4f(0.15, 0.55, 1), is within 10 px of
- *  `p`: at least 4 such pixels (nothing else near the line is blue; the terrain is grey). */
-async function blueNear(render: Page, p: Px): Promise<boolean> {
+type Blue = "sample" | "preview" | "none";
+
+/** What is blue, V4f(0.15, 0.55, 1), within 10 px of `p` (nothing else near the line is blue;
+ *  the terrain is grey): the sample a click converts, a disc ~8 px across (~50 px), or the
+ *  preview of the point a click adds, ~14 px across (~150 px). */
+async function blueNear(render: Page, p: Px): Promise<Blue> {
     const clip = { x: Math.round(p.x) - 10, y: Math.round(p.y) - 10, width: 21, height: 21 };
     const img = PNG.sync.read(await render.screenshot({ clip }));
     let n = 0;
     for (let i = 0; i < img.width * img.height * 4; i += 4)
         if (img.data[i + 2] > 190 && img.data[i] < 120 && img.data[i + 2] - img.data[i] > 100) n++;
-    return n >= 4;
+    return n < 4 ? "none" : n < 100 ? "sample" : "preview";
 }
 
 /** Ctrl+click at `at`, coming onto it with Ctrl already down. */
@@ -526,7 +530,7 @@ test("points are added on a segment and from terrain samples; ESC and Ctrl+Z tak
         expect(dot, "a sample to convert").toBeDefined();
         await ctrlHover(render, { x: dot.x - 20, y: dot.y - 20 }, dot);
         save("09-on-dot.png", await render.screenshot());
-        expect(await blueNear(render, dot), "the sample under the cursor is blue").toBe(true);
+        expect(await blueNear(render, dot), "the sample under the cursor is blue").toBe("sample");
         try {
             await render.mouse.click(Math.round(dot.x), Math.round(dot.y));
             await render.waitForTimeout(200);

@@ -70,6 +70,7 @@ operation.
 
 With a line, polyline or polygon selected in **Edit Annotation**:
 
+- **Hovering its line** shows a **blue dot** on the line where a click would add a point.
 - **Ctrl+click on its line** picks up a new point there. It is not part of the annotation yet: the
   green line runs from the cursor to the two points either side of where you clicked. Ctrl+click on
   the surface to put it down, exactly like a moved point. **Escape** forgets it — nothing was

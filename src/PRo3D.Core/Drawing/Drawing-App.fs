@@ -847,10 +847,11 @@ module DrawingApp =
         /// elsewhere on segment `segment`, at this world point on the drawn line
         | Segment of segment : int * position : V3d
 
-    /// Where on `a`'s drawn line a click at `ndc` lands, as SegmentClick. The pieces are the
-    /// draped samples where there are segments, otherwise the straight edges between the points
-    /// (edge i is "segment" i, so the insert index is i + 1 in both cases).
-    let segmentUnderCursor (viewProj : Trafo3d) (viewportSize : V2d) (ndc : V2d) (a : Annotation) : Option<SegmentClick> =
+    /// Where on a drawn line a click at `ndc` lands, as SegmentClick. `paths` are the segments as
+    /// start, draped samples, end; without segments the pieces are the straight edges between
+    /// `points` (edge i is "segment" i, so the insert index is i + 1 in both cases). Plain arrays,
+    /// so the hover preview can feed it from the adaptive annotation.
+    let segmentUnderCursorOn (viewProj : Trafo3d) (viewportSize : V2d) (ndc : V2d) (points : V3d[]) (paths : V3d[][]) : Option<SegmentClick> =
         let m        = viewProj.Forward
         let toPixels (v : V2d) = V2d(v.X * viewportSize.X * 0.5, v.Y * viewportSize.Y * 0.5)
         let cursor   = toPixels ndc
@@ -873,20 +874,18 @@ module DrawingApp =
                     bestSegment <- Some (dist, segment, q0 + (q1 - q0) * s)
             | None -> ()
 
-        if a.segments.IsEmpty then
-            let points = IndexList.toArray a.points
+        if paths.Length = 0 then
             for i in 0 .. points.Length - 2 do
                 consider i points.[i] points.[i + 1]
         else
             let mutable i = 0
-            for seg in a.segments do
-                let samples = IndexList.toArray seg.points
-                let path = Array.concat [ [| seg.startPoint |]; samples; [| seg.endPoint |] ]
+            for path in paths do
+                let sampleCount = path.Length - 2
                 for k in 0 .. path.Length - 2 do
                     consider i path.[k] path.[k + 1]
                 // path.[k + 1] is sample k; path.[k] and path.[k + 2] are its neighbours
                 let screen = path |> Array.map (fun p -> let c = m * V4d(p, 1.0) in if c.W > behindEps then Some (toPixels (toNdc c)) else None)
-                for k in 0 .. samples.Length - 1 do
+                for k in 0 .. sampleCount - 1 do
                     match screen.[k], screen.[k + 1], screen.[k + 2] with
                     | Some prev, Some here, Some next
                         when (prev - here).Length >= sampleMinSpacingPixels && (next - here).Length >= sampleMinSpacingPixels ->
@@ -901,6 +900,14 @@ module DrawingApp =
         | Some (dist, segment, sample), _ when dist <= sampleSnapPixels -> Some (SegmentClick.Sample(segment, sample))
         | _, Some (dist, segment, position) when dist <= segmentClickPixels -> Some (SegmentClick.Segment(segment, position))
         | _ -> None
+
+    /// segmentUnderCursorOn for an annotation: where on `a`'s drawn line a click at `ndc` lands.
+    let segmentUnderCursor (viewProj : Trafo3d) (viewportSize : V2d) (ndc : V2d) (a : Annotation) : Option<SegmentClick> =
+        let paths =
+            a.segments
+            |> IndexList.map (fun seg -> Array.concat [ [| seg.startPoint |]; IndexList.toArray seg.points; [| seg.endPoint |] ])
+            |> IndexList.toArray
+        segmentUnderCursorOn viewProj viewportSize ndc (IndexList.toArray a.points) paths
 
     /// Combine `ids` with the multi-selection (SelectionMode). Works by id: a leaf selected
     /// earlier from the viewport carries the root path, so it is dropped and re-added under its
@@ -1953,6 +1960,9 @@ module DrawingApp =
             // the cursor in pixels of the render control, for the terrain samples shown near it.
             // Updated by the hover readback, i.e. while the cursor is over the annotations' bounds.
             let cursorPixel = cval (V2d(-1e6, -1e6))
+            // where a click on the edited line would add a point, and that line's thickness:
+            // the hover readback runs the click's own hit test, so the preview is exactly the click
+            let insertAt = cval (None : Option<V3d * float>)
 
             let viewMatrix = view |> AVal.map (fun v -> (CameraView.viewTrafo v).Forward)
             // one cached ordering shared by every packed draw that writes an object id, so the
@@ -1968,6 +1978,10 @@ module DrawingApp =
                 ||> AVal.map2 (fun editing selected -> if editing then selected else None)
             // terrain samples become clickable dots (#639) only while nothing is in hand
             let showSamples = model.vertexGrab |> AVal.map Option.isNone
+            // like the sample dots, the preview goes as soon as something is in hand
+            let insertPreview =
+                (insertAt, showSamples, handleTarget) |||> AVal.map3 (fun at idle target ->
+                    if idle && target.IsSome then at else None)
             let handleGeometry = PackedRendering.vertexHandles config.offset handleTarget showSamples ordered viewMatrix
 
             let pickRenderTarget = PackedRendering.pickRenderTarget runtime config.pickingTolerance lines fillGeometry.caps handleGeometry view frustum viewport
@@ -1998,22 +2012,58 @@ module DrawingApp =
                                 // an annotation is edited, and only when it moved, or every mouse
                                 // move would re-render the whole view
                                 let px = V2d evt.event.evtPixel
-                                let moveCursor = (handleTarget.GetValue()).IsSome && px <> cursorPixel.Value
+                                let target = handleTarget.GetValue()
+                                let moveCursor = target.IsSome && px <> cursorPixel.Value
                                 if id >= 0 && id < ids.Length  && allowed then
                                     //Log.line "hoverhit %A" (id, ids.[id])
+                                    // over the body of the edited line, not on a handle: where a
+                                    // click would add a point (a sample a click would convert is
+                                    // already blue, so no preview for that)
+                                    let at =
+                                        let annos = ordered.GetValue()
+                                        let e = evt.event
+                                        if sub < 0 && target = Some ids.[id] && id < annos.Length
+                                           && e.evtViewport.X > 0 && e.evtViewport.Y > 0 then
+                                            let (_, anno) = annos.[id]
+                                            if Geometry.canInsertVertex (anno.geometry.GetValue()) then
+                                                let size = V2d e.evtViewport
+                                                let ndc  = V2d(2.0 * px.X / size.X - 1.0, 1.0 - 2.0 * px.Y / size.Y)
+                                                let points = anno.points.Content.GetValue() |> IndexList.toArray
+                                                let paths =
+                                                    anno.segments.Content.GetValue()
+                                                    |> IndexList.map (fun seg ->
+                                                        Array.concat [ [| seg.startPoint.GetValue() |]
+                                                                       seg.points.Content.GetValue() |> IndexList.toArray
+                                                                       [| seg.endPoint.GetValue() |] ])
+                                                    |> IndexList.toArray
+                                                match segmentUnderCursorOn (e.evtView * e.evtProj) size ndc points paths with
+                                                | Some (SegmentClick.Segment(_, pos)) -> Some (pos, anno.thickness.value.GetValue())
+                                                | _ -> None
+                                            else None
+                                        else None
                                     transact (fun _ ->
                                         hoveredAnnotation.Value <- id
                                         hoveredVertex.Value <- sub
-                                        if moveCursor then cursorPixel.Value <- px)
+                                        if moveCursor then cursorPixel.Value <- px
+                                        if at <> insertAt.Value then insertAt.Value <- at)
                                     Seq.empty
                                 else
                                     transact (fun _ ->
                                         hoveredAnnotation.Value <- -1
                                         hoveredVertex.Value <- -1
-                                        if moveCursor then cursorPixel.Value <- px)
+                                        if moveCursor then cursorPixel.Value <- px
+                                        if insertAt.Value.IsSome then insertAt.Value <- None)
                                     Seq.empty
                             with e -> Seq.empty
                        )
+                       // Move fires only inside the bounding box: leaving it clears the hover,
+                       // or the insert preview would stay where the cursor left the box
+                       simple SceneEventKind.Leave (fun _ ->
+                            transact (fun _ ->
+                                hoveredAnnotation.Value <- -1
+                                hoveredVertex.Value <- -1
+                                insertAt.Value <- None)
+                            Seq.empty)
                        // the whole SceneHit rather than Sg.onMouseDown's button and point: a body
                        // click is sent as PickAnnotation with the click's camera and pixel, so the
                        // viewer can reject it when the clicked part is hidden behind the surface
@@ -2075,8 +2125,9 @@ module DrawingApp =
             // hidden by the outline running through it - matching the pick pass, where handles are
             // drawn last for the same reason
             let packedVertexHandles =
-                PackedRendering.packedVertexHandleRender hoveredVertex grabbedVertex cursorPixel viewport handleGeometry
-                |> Sg.noEvents
+                [ handleGeometry; PackedRendering.insertPreview insertPreview viewMatrix ]
+                |> List.map (PackedRendering.packedVertexHandleRender hoveredVertex grabbedVertex cursorPixel viewport >> Sg.noEvents)
+                |> Sg.ofList
 
             // geological map units (#843): like the fills, drawn by the view against its surface
             // depth - per render client, so a screenshot gets them at its own size

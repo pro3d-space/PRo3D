@@ -502,7 +502,8 @@ module PackedRendering =
                 // into the line and a click adds a point instead. It turns blue within 8 px
                 // (DrawingApp.sampleSnapPixels): the radius in which a click converts it.
                 // The same rules as DrawingApp.segmentUnderCursor, which decides the click.
-                let isSample = v.subId <= -2
+                // SubId -3 is the insert preview (insertPreview): drawn as is, in its own colour
+                let isSample = v.subId = -2
                 let centre =
                     V2f((clip.X / clip.W + 1.0f) * 0.5f * vpX, (1.0f - clip.Y / clip.W) * 0.5f * vpY)
                 let toCursor = (centre - uniform.HandleCursor).Length
@@ -1467,6 +1468,36 @@ module PackedRendering =
         |> Sg.vertexAttribute DefaultSemantic.Colors      (data |> AVal.map (fun d -> d.colors))
         |> Sg.vertexAttribute (Sym.ofString "HandlePrev") (data |> AVal.map (fun d -> d.prevs))
         |> Sg.vertexAttribute (Sym.ofString "HandleNext") (data |> AVal.map (fun d -> d.nexts))
+        |> Sg.uniform "MV" mv
+
+    /// Where a click on the line of the annotation being edited would add a point (#639): one
+    /// blue handle-sized dot, the colour of a terrain sample a click would convert - both mean
+    /// "a click makes a control point here". `preview` is the world point on the line and the
+    /// annotation's thickness, from DrawingApp.segmentUnderCursorOn on hover. SubId -3 keeps it
+    /// out of the pick pass, so the click still lands on the line under it.
+    let insertPreview (preview : aval<Option<V3d * float>>) (view : aval<M44d>) =
+        let quad =
+            [| V2f(-1.0f, -1.0f); V2f(1.0f, -1.0f); V2f(1.0f, 1.0f)
+               V2f(-1.0f, -1.0f); V2f(1.0f, 1.0f); V2f(-1.0f, 1.0f) |]
+        let n = preview |> AVal.map (function Some _ -> quad.Length | None -> 0)
+        let size = preview |> AVal.map (function Some (_, thickness) -> float32 thickness + handleSizeBonus | None -> 0.0f)
+        // the point itself is the model origin, so the dot is exact at any distance from the
+        // scene origin: the translation goes into MV, composed in double
+        let mv =
+            (preview, view) ||> AVal.map2 (fun p v ->
+                match p with
+                | Some (pos, _) -> v * Trafo3d.Translation(pos).Forward
+                | None -> v)
+        let attr (f : int -> 'a) = n |> AVal.map (fun n -> Array.init n f)
+        Sg.draw IndexedGeometryMode.TriangleList
+        |> Sg.vertexAttribute DefaultSemantic.Positions     (attr (fun _ -> V3f.Zero))
+        |> Sg.vertexAttribute (Sym.ofString "HandleCorner") (attr (fun i -> quad.[i]))
+        |> Sg.vertexAttribute (Sym.ofString "ObjId")        (attr (fun _ -> 0))
+        |> Sg.vertexAttribute (Sym.ofString "SubId")        (attr (fun _ -> -3))
+        |> Sg.vertexAttribute (Sym.ofString "Sizes")        ((n, size) ||> AVal.map2 Array.replicate)
+        |> Sg.vertexAttribute DefaultSemantic.Colors        (attr (fun _ -> C4f(0.15f, 0.55f, 1.0f, 1.0f)))
+        |> Sg.vertexAttribute (Sym.ofString "HandlePrev")   (attr (fun _ -> V3f.Zero))
+        |> Sg.vertexAttribute (Sym.ofString "HandleNext")   (attr (fun _ -> V3f.Zero))
         |> Sg.uniform "MV" mv
 
     /// The handles draw after everything in the main pass. Listing them after the lines in an
