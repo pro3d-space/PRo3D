@@ -176,8 +176,8 @@ Each entry stores the image's file name, instrument and observation time (UTC).
 ## Export
 
 The annotation export ([AnnotationExport.md](AnnotationExport.md)) has six columns for
-this. They are part of the default selection, so a default export has six more columns than
-before:
+this. They are part of the default selection and of the *Boulders*, *Craters*, *Lineaments* and
+*Fractures* presets, so those exports have six more columns than before:
 
 | column | content |
 |---|---|
