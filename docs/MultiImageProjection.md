@@ -79,9 +79,11 @@ the images must be set. Below the import button the panel folds into three
 sections:
 
 - **Projection Settings** (closed by default) — see the table below.
-- **Images** — the library. The selected image's 2D preview, the library
-  filters and the column header stay pinned at the top of the section while the
-  library scrolls under them.
+- **Images** — the library. At its top, pinned while the library scrolls under
+  them: **Selected Image** (the selected image's 2D preview and its display
+  settings — channel, min/max, colour map; *No image is currently selected* when
+  there is none), the library **Filters** and the column header. *Selected Image*
+  and *Filters* each fold away with a click on their header.
 - **Projected Images** — the projection stack (see 4.).
 
 *Projection Settings* holds:
@@ -137,8 +139,8 @@ The outline appears only where a footprint *edge* falls on the terrain. The
 AFC-1 frames here were taken from 6.7–8.4 km; at 5.5° that is a footprint
 644–807 m across, which covers the 154 m body entirely, so none is drawn.
 
-**Selecting** a row (its checkbox) is a different thing: it opens that image's 2D
-preview and makes its min/max and colour map drive the whole stack's legend. On
+**Selecting** a row (its checkbox) is a different thing: it shows that image's 2D
+preview and display settings under *Selected Image* and makes its min/max and colour map drive the whole stack's legend. On
 its own it projects nothing.
 
 ## 4. Build the stack
@@ -233,7 +235,7 @@ is blended at 20% over the surface colour:
   [COP-sidecar-issues.md](COP-sidecar-issues.md) for the data defects these
   fallbacks absorb.
 - Per-image display settings (channel, min/max, false-color preview) work
-  through each row's edit panel; colormap and false-color toggle apply to the
+  under *Selected Image*, for the selected image; colormap and false-color toggle apply to the
   whole stack (one instrument, one legend).
 
 ## If an image does not land on the terrain

@@ -73,13 +73,12 @@ module ProjectedImageListApp =
                 stack = IndexList.Empty
                 stackDrag = None
                 hoveredImage = None
-                editImages = HashSet.empty
                 selectedImage = first
                 filter = ImageFilter.forImages images' m.filter.expanded }
         | SelectImage id ->
             { m with selectedImage = Some id }
-        | EditImage id ->
-            { m with editImages = m.editImages |> HashSet.alter id not }
+        | TogglePreviewExpanded ->
+            { m with previewExpanded = not m.previewExpanded }
         | ImageMessage (id, imageMessage) ->
             let images' =
                 m.images |> IndexList.map (fun img ->
@@ -122,7 +121,7 @@ module ProjectedImageListApp =
         | FlyToImage _ ->
             // handled by the Viewer, which owns the camera animation
             m
-        // Sorting permutes the library only. selectedImage/editImages/stack are
+        // Sorting permutes the library only. selectedImage/stack are
         // keyed by Guid, so none of them needs remapping any more -- this used
         // to be ~30 lines of index bookkeeping per sort, via a partial Seq.head.
         // Fresh indices (replaceImages): sortBy reuses the old ones, which left
@@ -507,11 +506,52 @@ module ProjectedImageListApp =
                     })
             ]
 
+        /// Header (folds like Filters), then the selected image's 2D preview and its
+        /// edit parameters -- or a note when nothing is selected.
+        let selectedImagePanel =
+            let selected = selectedImage m
+            // built once: binding on the selection would rebuild the preview's render
+            // control on every click; it follows `selected` itself
+            let preview = div [style "width: 100%"] [showRelative2DImage selected]
+            let header =
+                tr [] [
+                    th [] [
+                        Incremental.span
+                            (AttributeMap.ofList [style "cursor: pointer"; onClick (fun _ -> TogglePreviewExpanded)])
+                            (alist {
+                                let! expanded = m.previewExpanded
+                                yield i [clazz (if expanded then "caret down icon" else "caret right icon")] []
+                                yield text "Selected Image"
+                            })
+                    ]
+                ]
+            div [] [
+                table [clazz "ui celled striped inverted table unstackable"; style "margin: 0"] [
+                    tbody [] [ header ]
+                ]
+                Incremental.div AttributeMap.empty (
+                    alist {
+                        let! expanded = m.previewExpanded
+                        if expanded then
+                            let! hasSelection = selected |> AVal.map Option.isSome
+                            if hasSelection then
+                                yield preview
+                                yield Incremental.div AttributeMap.empty (
+                                    alist {
+                                        match! selected with
+                                        | Some img ->
+                                            yield showDOM img |> UI.map (fun msg -> ProjectedImageListMessage.ImageMessage (img.id, msg))
+                                        | None -> ()
+                                    })
+                            else
+                                yield div [style "padding: 5px; font-style: italic"] [text "No image is currently selected"]
+                    })
+            ]
+
         // library header and rows are separate: the header goes into the Images
         // section's sticky block, the rows scroll with the panel underneath it
         let libraryHeader, libraryRows =
             let attributesSelect = attribute "style" $"cursor: pointer; width: 50px; height: 40px; border-right: 1px solid {borderColor}; display: flex; justify-content: center; align-items: center;"
-            let attributesEdit = attribute "style" $"cursor: pointer; width: 50px; height: 40px; border-right: 1px solid {borderColor}; display: flex; justify-content: center; align-items: center;"
             let attributesStack = attribute "style" $"cursor: pointer; width: 50px; height: 40px; border-right: 1px solid {borderColor}; display: flex; justify-content: center; align-items: center;"
             let attributesInstrument = attribute "style" $"width: 90px; height: 40px; border-right: 1px solid {borderColor}; display: flex; justify-content: center; align-items: center;"
             let attributesAttr1 = attribute "style" $"cursor: pointer; width: 120px; height: 40px; border-right: 1px solid {borderColor}; display: flex; justify-content: center; align-items: center;"
@@ -523,7 +563,6 @@ module ProjectedImageListApp =
                     attribute "style" $"display: flex; font-weight: bold; border-bottom: 2px solid black; background: black"
                 ] [
                     div [ attributesSelect ] [text "Select"]
-                    div [ attributesEdit ] [text "Edit"]
                     div [ attributesStack ] [text "Stack"]
                     div [ attributesInstrument ] [text "Instrument"]
                     div [ attributesAttr1 ] [
@@ -552,7 +591,6 @@ module ProjectedImageListApp =
                                     div [attribute "style" "display: flex; font-weight: bold"]
                                         [
                                             div [attributesSelect] [ Html.SemUi.iconCheckBox (m.selectedImage |> AVal.map (fun sel -> sel = Some id)) (SelectImage id)]
-                                            div [attributesEdit] [ Html.SemUi.iconCheckBox (m.editImages |> ASet.contains id) (EditImage id)]
                                             div [attributesStack] [
                                                 Incremental.div AttributeMap.empty (
                                                     alist {
@@ -569,18 +607,6 @@ module ProjectedImageListApp =
                                             div [attributesAttr1] [ Incremental.text (img.distance |> AVal.map (fun f -> sprintf "%.2f" f)) ]
                                             div [attributesAttr2] [ Incremental.text (img.time |> AVal.map (fun t -> t.ToUniversalTime().ToString())) ]
                                         ]
-    
-                                    Incremental.div AttributeMap.empty (
-                                        alist {
-                                            let! isInEditMode = m.editImages |> ASet.contains id
-                                            if isInEditMode then
-                                                div [attribute "style" $"border-top: 1px dotted rgba(255,255,255,0.5)"] [
-                                                    showDOM img |> UI.map (fun msg -> ProjectedImageListMessage.ImageMessage (id, msg))
-                                                ]
-                                            else
-                                                div [] []
-                                        }
-                                    )
                                 ]
                             )
                         for domNode in domNodes do
@@ -683,13 +709,7 @@ module ProjectedImageListApp =
                     // view while the library scrolls under them. The page is the
                     // scroller: no ancestor in between may set overflow.
                     div [style "position: sticky; top: 0; z-index: 1; background: #1b1c1d"] [
-                        // header styled like Registration in Projection Settings
-                        table [clazz "ui celled striped inverted table unstackable"; style "margin-bottom: 0"] [
-                            tbody [] [
-                                tr [] [ th [] [text "Selected Image"] ]
-                            ]
-                        ]
-                        div [style "width: 100%"] [showRelative2DImage (selectedImage m)]
+                        selectedImagePanel
                         filterPanel
                         div [style "border: 2px solid black; border-bottom: none"] [libraryHeader]
                     ]

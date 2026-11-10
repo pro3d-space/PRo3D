@@ -314,9 +314,8 @@ type ProjectedImageListModel =
         stackDrag            : Option<StackDrag>
         /// Target of the edit panel / 2D preview.
         selectedImage        : Option<Guid>
-        /// Library rows whose inline edit panel is expanded. A set, not a list:
-        /// membership is the only question ever asked of it.
-        editImages           : HashSet<Guid>
+        /// The Selected Image block (preview + edit parameters) is unfolded.
+        previewExpanded      : bool
         projectionOpacity    : NumericInput
         boresightAdjustment  : BoresightAdjustment
         cameraState          : OrbitState
@@ -447,7 +446,7 @@ module ProjectedImageListModel =
         hoveredImage = None;
         stackDrag = None;
         selectedImage = None;
-        editImages = HashSet.empty;
+        previewExpanded = true;
         projectionOpacity = { Numeric.init with min = 0.0; max = 1.0; step = 0.01; value = 1.0 }
         boresightAdjustment = BoresightAdjustment.identity
         cameraState = OrbitState.create V3d.Zero 0.0 0.0 (2.0 * (3389.5 * 1000.0))
@@ -476,7 +475,7 @@ type ImageMessage =
 type ProjectedImageListMessage =
     | OrbitCameraMessage of OrbitMessage
     | SelectImage of Guid
-    | EditImage of Guid
+    | TogglePreviewExpanded
     | LoadImagesDir of string
     | ImageMessage of Guid * ImageMessage
     /// Append to the top of the projection stack. Ignored when the image is
