@@ -249,7 +249,7 @@ module ProjectedImageListApp =
                         text (sprintf "Projection Stack (%d/%d)" count ProjectedImages.maxCount)
                     ]
                     if count = 0 then
-                        yield div [attribute "style" "padding: 5px; color: #999"] [
+                        yield div [attribute "style" "padding: 5px; color: white"] [
                             text "empty -- add images from the library below"
                         ]
                     else
@@ -362,93 +362,74 @@ module ProjectedImageListApp =
                 })
 
 
-        let content = 
-            div [style "overlow-y: auto; max-height: calc(100vh - 95px);"] [
+        // label | control, in the inverted table style of Html.row; the label carries
+        // an optional tooltip
+        let settingRow (label : string) (tooltip : Option<string>) (control : list<DomNode<_>>) =
+            let labelAttributes =
+                match tooltip with
+                | Some t -> [clazz "collapsing"; attribute "title" t]
+                | None   -> [clazz "collapsing"]
+            tr [] [ td labelAttributes [text label]; td [clazz "right aligned"] control ]
 
-                div [clazz "ui inverted list"] [
-                    div [clazz "item"; style "border-bottom: solid 1px black; padding: 5px; display: flex; justify-content: space-between; align-items: center;"] [
-                        div [] [text "Data:"]
-                        button [clazz "ui button tiny";
-                                style "margin-left: auto;"
-                                Dialogs.onChooseDirectory (Guid.NewGuid()) (fun (guid, chosen) -> LoadImagesDir (chosen) );
-                                clientEvent "onclick" (jsImportDialog) ] [
-                                text "Import Directory"
-                        ]
+        let content = 
+            div [style "overflow-y: auto; max-height: calc(100vh - 95px); color: white;"] [
+
+                div [style "padding: 5px; display: flex; justify-content: space-between; align-items: center;"] [
+                    div [] [text "Data:"]
+                    button [clazz "ui button tiny";
+                            style "margin-left: auto;"
+                            Dialogs.onChooseDirectory (Guid.NewGuid()) (fun (guid, chosen) -> LoadImagesDir (chosen) );
+                            clientEvent "onclick" (jsImportDialog) ] [
+                            text "Import Directory"
                     ]
                 ]
 
-                // settings and the 2D preview fold away (the GIS tab is tight
-                // on space): import, stack and library stay in view
+                // settings and the 2D preview fold away: import, stack and library stay in view
                 accordion "Projection Settings" "settings" false (style "margin-top: 6px") [
-                    div [clazz "ui inverted list"] [
-                        div [clazz "item"; style "border-bottom: solid 1px black; height: 30px; padding: 5px; display: flex; justify-content: space-between; align-items: center;"] [
-                            // blends the projected stack over the terrain
-                            div [] [text "Image Opacity:"]
-                            div [style "margin-left: auto;"] [
-                                Numeric.view' [NumericInputType.Slider] m.projectionOpacity |> UI.map SetProjectionOpacity
-                            ]
+                    Html.table [
+                        // blends the projected stack over the terrain
+                        settingRow "Image Opacity:" None [
+                            Numeric.view' [NumericInputType.Slider] m.projectionOpacity |> UI.map SetProjectionOpacity
                         ]
-
-                        div [clazz "item"; style "border-bottom: solid 1px black; height: 30px; padding: 5px; display: flex; justify-content: space-between; align-items: center;"] [
-                            div [] [text "Visibility:"]
-                            div [style "margin-left: auto;"] [
-                                Html.SemUi.dropDown m.instrumentVisibility SetInstrumentVisbilityMode
-                            ]
+                        settingRow "Visibility:" None [
+                            Html.SemUi.dropDown m.instrumentVisibility SetInstrumentVisbilityMode
                         ]
-
-                        div [clazz "item"; style "border-bottom: solid 1px black; height: 30px; padding: 5px; display: flex; justify-content: space-between; align-items: center;"] [
-                            div [] [text "Sun / Lighting Mode:"]
-                            div [style "margin-left: auto;"] [
-                                Html.SemUi.dropDown m.lightingMode SetLightingMode
-                            ]
+                        settingRow "Sun / Lighting Mode:" None [
+                            Html.SemUi.dropDown m.lightingMode SetLightingMode
                         ]
-
-                        div [clazz "item"; style "border-bottom: solid 1px black; height: 30px; padding: 5px; display: flex; justify-content: space-between; align-items: center;"] [
-                            // off = the image's own RGB, untouched. Instrument data needs
-                            // the colour map to be readable at all, but an ordinary RGB
-                            // image does not -- and only untransformed pixels can be
-                            // compared against the source to check a projection.
-                            div [] [text "Transfer Function:"]
-                            div [style "margin-left: auto;"] [
-                                GuiEx.iconCheckBox m.useTransferFunction ToggleTransferFunction
-                            ]
+                        // off = the image's own RGB, untouched. Instrument data needs
+                        // the colour map to be readable at all, but an ordinary RGB
+                        // image does not -- and only untransformed pixels can be
+                        // compared against the source to check a projection.
+                        settingRow "Transfer Function:" None [
+                            GuiEx.iconCheckBox m.useTransferFunction ToggleTransferFunction
                         ]
-
-                        div [clazz "item"; style "border-bottom: solid 1px black; height: 30px; padding: 5px; display: flex; justify-content: space-between; align-items: center;"] [
-                            // for OPCs whose triangles are wound inward: without it the
-                            // projection only survives near the limb
-                            div [attribute "title" "Estimate each OPC hierarchy's triangle winding and correct inward-wound ones. Only needed when a projection survives only near the limb. Off costs nothing."] [
-                                text "Winding Correction:"
-                            ]
-                            div [style "margin-left: auto;"] [
-                                GuiEx.iconCheckBox m.windingCorrection ToggleWindingCorrection
-                            ]
+                        // for OPCs whose triangles are wound inward: without it the
+                        // projection only survives near the limb
+                        settingRow "Winding Correction:"
+                                   (Some "Estimate each OPC hierarchy's triangle winding and correct inward-wound ones. Only needed when a projection survives only near the limb. Off costs nothing.") [
+                            GuiEx.iconCheckBox m.windingCorrection ToggleWindingCorrection
                         ]
-
-                        div [clazz "item"; style "border-bottom: solid 1px black; height: 30px; padding: 5px; display: flex; justify-content: space-between; align-items: center;"] [
-                            div [] [text "Orientation Source:"]
-                            div [style "margin-left: auto;"] [
-                                Html.SemUi.dropDown m.projectionMethod SetProjectionMethod
-                            ]
+                        settingRow "Orientation Source:" None [
+                            Html.SemUi.dropDown m.projectionMethod SetProjectionMethod
                         ]
-
-                        div [clazz "item"; style "border-bottom: solid 1px black; padding: 5px; display: flex; justify-content: space-between; align-items: center;"] [
-                            div [] [text "SPICE Kernel:"]
+                        settingRow "SPICE Kernel:" None [
                             button [clazz "ui button tiny";
-                                    style "margin-left: auto;"
                                     Dialogs.onChooseDirectory (Guid.NewGuid()) (fun (guid, chosen) -> LoadSpiceAndTime (chosen) );
                                     clientEvent "onclick" (jsImportDialog) ] [
                                     text "Load Spice and Time"
                             ]
                         ]
+                    ]
 
-                        div [clazz "item"; style "margin-top: 10px;"] [
-                            div [style "padding-left: 5px"] [text "Registration:"]
-                            Html.table [
-                                Html.row "Roll:" [Numeric.view' [NumericInputType.InputBox] m.boresightAdjustment.roll |> UI.map SetRoll]
-                                Html.row "Pitch:" [Numeric.view' [NumericInputType.InputBox] m.boresightAdjustment.pitch |> UI.map SetPitch]
-                                Html.row "Yaw:" [Numeric.view' [NumericInputType.InputBox] m.boresightAdjustment.yaw |> UI.map SetYaw]
-                            ]
+                    table [clazz "ui celled striped inverted table unstackable"] [
+                        tbody [] [
+                            // header row like the GIS View tables (Entities, Reference
+                            // Frames): a plain th row, no <thead>
+                            tr [] [ th [attribute "colspan" "2"] [text "Registration"] ]
+                            Html.row "Roll:"  [Numeric.view' [NumericInputType.InputBox] m.boresightAdjustment.roll  |> UI.map SetRoll]
+                            Html.row "Pitch:" [Numeric.view' [NumericInputType.InputBox] m.boresightAdjustment.pitch |> UI.map SetPitch]
+                            Html.row "Yaw:"   [Numeric.view' [NumericInputType.InputBox] m.boresightAdjustment.yaw   |> UI.map SetYaw]
                         ]
                     ]
                 ]
