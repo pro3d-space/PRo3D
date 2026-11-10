@@ -162,12 +162,12 @@ module ProjectedImageListApp =
                 let title = if active then "title active inverted" else "title inverted"
                 let content = if active then "content active" else "content"
                                     
-                // No .accordion() call here on purpose: these sections are nested inside
-                // GuiEx.accordion "Projected Images", and Semantic UI only supports nesting
-                // when the outermost accordion alone is initialised (its selectors resolve
-                // across all descendants, so an inner call steals the titles and the inner
-                // panel never opens).
-                (
+                // Each section initialises itself: they are top level in the Projected
+                // Images panel and siblings of each other. Do not nest one inside another
+                // accordion that is initialised too -- Semantic UI then resolves the titles
+                // across all descendants, the outer call steals them and the inner panel
+                // never opens.
+                onBoot "$('#__ID__').accordion();" (
                     div [styling] [
                         div [clazz "ui inverted accordion fluid"] [
                             div [clazz title; style "background-color: #282828"] [

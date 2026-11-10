@@ -3,8 +3,10 @@
 ![four views of Dimorphos: the DRACO mosaic alone, the same view with four AFC images projected, a second direction, and a hovered image's projector frustum](images/multiProjection-teaser.png)
 
 Project an **ordered stack of up to 32 same-instrument images** onto a surface
-at once — e.g. a flyby sequence over an asteroid. Lives in the GIS tab under
-*Projected Images*.
+at once — e.g. a flyby sequence over an asteroid. Lives in its own
+**Projected Images** panel (a tab next to the GIS View in the *M2020*, *GIS*,
+*PRo3D Core* and full layouts; bring it back with *Layout → Reopen Panel* if a saved
+layout of yours does not show it — see [WindowLayouts.md](WindowLayouts.md)).
 
 Order and opacity are both set in the GUI:
 
@@ -46,7 +48,7 @@ HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos/
 
 *Projected Images → Import Directory*. Every image of the folder
 (`.tif/.png/.jpg/.exr`, each with its `.mbi.json` sidecar) lands in the
-**library** at the bottom of the tab, with instrument, distance and observation
+**library** at the bottom of the panel, with instrument, distance and observation
 date per image, sortable by date or distance. Sorting never changes what is
 projected.
 
@@ -69,7 +71,7 @@ repository:
 HERA/Dimorphos_opc/AFC_2027-03-21/
 ```
 
-![the Projected Images section: import, stack panel, library](images/multiProjection-gisTab.png)
+![the Projected Images panel: import, stack panel, library](images/multiProjection-gisTab.png)
 
 Settings and the selected image's 2D preview fold away into the
 *Projection Settings* / *Selected Image* sections. *Projection Settings* holds:

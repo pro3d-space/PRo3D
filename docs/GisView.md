@@ -38,6 +38,9 @@ A green check mark appears below the path if loading the kernel was successful. 
 
 ## PRO3D GIS View Tab
 
+Projecting instrument images onto surfaces has its own **Projected Images** panel, next to
+the GIS View; see [MultiImageProjection.md](MultiImageProjection.md).
+
 ### Current Observation Settings
 
 At the top of the GIS tab there is a section entitled "Current Observation Settings". This is used to define the observed body, a camera source body, a point in time, and a reference frame.
@@ -142,7 +145,7 @@ Since we have a full surface for mars now, we can switch of the proxy geometry:
 
 ## Sun illumination and cast shadows
 
-The **Sun / Lighting Mode** dropdown (in the projected-images section of the GIS tab)
+The **Sun / Lighting Mode** dropdown (in the *Projected Images* panel, under *Projection Settings*)
 shades OPC surfaces with the real sun position for the current observation time:
 
 | Mode | Effect |

@@ -797,6 +797,16 @@ module GisApp =
                 | _ -> ()
             })
 
+    /// The Projected Images panel (`?page=projectedimages`): import, stack, library and
+    /// projection settings of the image list, plus the surfaces the projection refuses.
+    /// Its own docked tab, split out of the GIS View.
+    let viewProjectedImages (m : AdaptiveGisApp) (surfaces : AdaptiveSurfaceModel) =
+        div [] [
+            viewProjectionRefusals surfaces
+            ProjectedImageListApp.view m.projectedImageList ProjectedImageApp.view ProjectedImageApp.view2DRelative
+            |> UI.map GisAppAction.ProjectedImageListMessage
+        ]
+
     let view (m : AdaptiveGisApp)
              (planet : aval<Planet>)
              (surfaces : AdaptiveSurfaceModel)
@@ -844,11 +854,6 @@ module GisApp =
                 viewFrames m
             ]
 
-            GuiEx.accordion "Projected Images" "Images" false [
-                viewProjectionRefusals surfaces
-                ProjectedImageListApp.view m.projectedImageList ProjectedImageApp.view ProjectedImageApp.view2DRelative |> UI.map GisAppAction.ProjectedImageListMessage
-            ]
-            
             let kernelPathTextBox = 
                 div [clazz "fullwidth textcontainer"] [
                     Html.SemUi.textBox 

@@ -34,7 +34,7 @@ body turn with the scene — and therefore whether step 4 shows you anything mov
 
 ## 3. Turn on sun lighting
 
-GIS tab → *Projected Images* → *Projection Settings* → **Sun / Lighting Mode**:
+*Projected Images* panel → *Projection Settings* → **Sun / Lighting Mode**:
 
 ![the three lighting modes at the same instant](images/timeSun-modes.png)
 

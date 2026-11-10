@@ -1056,7 +1056,7 @@ module ImageInspector =
                 let crater = s.kind <> ShadowKind.Height
                 let line =
                     match ctx with
-                    | Result.Error e -> sprintf "%s -- select an image under GIS View / Projected Images" e
+                    | Result.Error e -> sprintf "%s -- select an image in the Projected Images panel" e
                     | Ok _ when s.active ->
                         let snapHint = if s.snap then " (snaps to the shadow's edge)" else ""
                         match s.anchor, s.second, s.result with

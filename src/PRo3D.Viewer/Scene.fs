@@ -378,7 +378,7 @@ module SceneLoader =
         | Some dir when not (Directory.Exists dir) ->
             Log.warn "[SceneLoader] projected images not loaded, folder not found: %s" dir
             let message =
-                sprintf "The projected images of this scene could not be loaded: the image folder %s does not exist. Import the folder again under GIS > Projected Images; the scene keeps the old path until you do." dir
+                sprintf "The projected images of this scene could not be loaded: the image folder %s does not exist. Import the folder again in the Projected Images panel; the scene keeps the old path until you do." dir
             { m with
                 scene  = { m.scene with gisApp = gisApp }
                 layout = LayoutApp.notify "Projected Images" message m.layout }
@@ -396,7 +396,7 @@ module SceneLoader =
             | Result.Error e ->
                 Log.error "[SceneLoader] projected images not loaded from %s: %A" dir e
                 let message =
-                    sprintf "The projected images of this scene could not be loaded from %s (%s). Import the folder again under GIS > Projected Images." dir e.Message
+                    sprintf "The projected images of this scene could not be loaded from %s (%s). Import the folder again in the Projected Images panel." dir e.Message
                 { m with
                     scene  = { m.scene with gisApp = gisApp }
                     layout = LayoutApp.notify "Projected Images" message m.layout }

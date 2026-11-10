@@ -2397,6 +2397,13 @@ module Gui =
             //        ] )
             | Some "provenance" ->
                 require (viewerDependencies) (body bodyAttributes [ProvenanceApp.view m |> UI.map ProvenanceMessage])
+            | Some "projectedimages" ->
+                require (viewerDependencies) (
+                    body bodyAttributes
+                         [GisApp.viewProjectedImages m.scene.gisApp m.scene.surfacesModel
+                            |> UI.map GisAppMessage
+                            |> UI.map ViewerMessage]
+                )
             | Some "gis" ->
                 require (viewerDependencies) (
                     body bodyAttributes 
