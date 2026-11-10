@@ -230,6 +230,63 @@ let tests =
             Expect.equal m'.images.Count 0 "no images"
         }
 
+        test "TC-12.3 a library range filter is off at its whole range, and its bounds stay ordered and in range" {
+            let whole = PRo3D.ImageMapping.RangeFilter.create 0.0 10.0 0.1 "{0:0.0}"
+            Expect.isFalse (PRo3D.ImageMapping.RangeFilter.isActive whole) "whole range: off"
+
+            let narrowed = whole |> PRo3D.ImageMapping.RangeFilter.setLower 2.0
+            Expect.isTrue (PRo3D.ImageMapping.RangeFilter.isActive narrowed) "narrowed: on"
+            Expect.isFalse (PRo3D.ImageMapping.RangeFilter.contains 1.0 narrowed) "below the lower bound"
+            Expect.isTrue (PRo3D.ImageMapping.RangeFilter.contains 2.0 narrowed) "bounds are inclusive"
+
+            let pushed = narrowed |> PRo3D.ImageMapping.RangeFilter.setUpper 5.0 |> PRo3D.ImageMapping.RangeFilter.setLower 7.0
+            Expect.equal (pushed.lower.value, pushed.upper.value) (7.0, 7.0) "a lower bound above the upper pushes it along"
+            let pushedDown = pushed |> PRo3D.ImageMapping.RangeFilter.setUpper 3.0
+            Expect.equal (pushedDown.lower.value, pushedDown.upper.value) (3.0, 3.0) "and the other way round"
+
+            let clamped = whole |> PRo3D.ImageMapping.RangeFilter.setLower -5.0 |> PRo3D.ImageMapping.RangeFilter.setUpper 50.0
+            Expect.equal (clamped.lower.value, clamped.upper.value) (0.0, 10.0) "clamped to the range"
+            Expect.isFalse (PRo3D.ImageMapping.RangeFilter.isActive clamped) "clamped to the whole range: off"
+            Expect.isFalse (PRo3D.ImageMapping.RangeFilter.isActive (PRo3D.ImageMapping.RangeFilter.reset narrowed)) "reset: off"
+        }
+
+        test "TC-12.3 library filters: instruments and distance, off when nothing narrows them" {
+            let passes = PRo3D.ImageMapping.ImageFilter.matches
+            let img (instrument : string) (d : float) =
+                { PRo3D.ImageMapping.ProjectedImageApp.initial with id = Guid.NewGuid(); instrument = instrument; distance = d }
+            let f = PRo3D.ImageMapping.ImageFilter.forImages [ img "AFC1" 10.0; img "AFC2" 30.0; img "" 20.0 ] true
+            Expect.equal (f.distance.lower.min, f.distance.upper.max) (10.0, 30.0) "distance range spans the library"
+            Expect.equal (PRo3D.ImageMapping.ImageFilter.activeCount f) 0 "a fresh library: nothing active"
+            Expect.isTrue (passes f "AFC1" 10.0 && passes f "" 30.0) "everything passes"
+
+            let f = PRo3D.ImageMapping.ImageFilter.update f (PRo3D.ImageMapping.ToggleInstrument "AFC2")
+            Expect.equal (PRo3D.ImageMapping.ImageFilter.activeCount f) 1 "instrument filter on"
+            Expect.isFalse (passes f "AFC1" 10.0) "other instruments hidden"
+            Expect.isTrue (passes f "AFC2" 30.0) "the selected one shown"
+
+            let f = PRo3D.ImageMapping.ImageFilter.update f (PRo3D.ImageMapping.ToggleInstrument PRo3D.ImageMapping.ImageFilter.unknownInstrument)
+            Expect.isTrue (passes f "" 20.0) "unknown instruments are selectable"
+
+            let f =
+                PRo3D.ImageMapping.ImageFilter.update f
+                    (PRo3D.ImageMapping.SetUpper (PRo3D.ImageMapping.RangeFilterKind.Distance, Aardvark.UI.Primitives.Numeric.SetValue 25.0))
+            Expect.equal (PRo3D.ImageMapping.ImageFilter.activeCount f) 2 "distance filter on"
+            Expect.isFalse (passes f "AFC2" 30.0) "beyond the distance range"
+
+            let f = PRo3D.ImageMapping.ImageFilter.update f PRo3D.ImageMapping.ResetAll
+            Expect.equal (PRo3D.ImageMapping.ImageFilter.activeCount f) 0 "reset all"
+            Expect.isTrue f.expanded "reset keeps the block unfolded"
+        }
+
+        test "TC-12.3 library filters on an empty or single-distance library have a usable range" {
+            let empty = PRo3D.ImageMapping.ImageFilter.forImages [] false
+            Expect.equal (empty.distance.lower.min, empty.distance.upper.max) (0.0, 1.0) "empty library: placeholder range"
+            Expect.isFalse empty.expanded "expanded is kept"
+            let single = PRo3D.ImageMapping.ImageFilter.forImages [ { PRo3D.ImageMapping.ProjectedImageApp.initial with distance = 5.0 } ] true
+            Expect.isTrue (single.distance.upper.max > single.distance.lower.min) "one distance: widened, the slider has room"
+            Expect.isFalse (PRo3D.ImageMapping.RangeFilter.isActive single.distance) "and off"
+        }
+
         test "TC-12.3 camera follows camera source survives save/load and defaults to on" {
             let m = GisApp.initial None
             Expect.isTrue m.cameraFollowsSource "a new scene follows"

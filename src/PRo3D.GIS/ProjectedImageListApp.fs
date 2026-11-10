@@ -74,7 +74,8 @@ module ProjectedImageListApp =
                 stackDrag = None
                 hoveredImage = None
                 editImages = HashSet.empty
-                selectedImage = first }
+                selectedImage = first
+                filter = ImageFilter.forImages images' m.filter.expanded }
         | SelectImage id ->
             { m with selectedImage = Some id }
         | EditImage id ->
@@ -116,6 +117,8 @@ module ProjectedImageListApp =
             | None -> m
         | HoverImage id ->
             { m with hoveredImage = id }
+        | FilterMessage msg ->
+            { m with filter = ImageFilter.update m.filter msg }
         | FlyToImage _ ->
             // handled by the Viewer, which owns the camera animation
             m
@@ -280,6 +283,230 @@ module ProjectedImageListApp =
                             ]
                 })
 
+        // ---- library filters --------------------------------------------------------
+
+        let filter = m.filter
+
+        /// The library rows the filters let through. filterA, then the row map: a
+        /// row's DomNode is built once per image, not rebuilt whenever a filter moves.
+        let visibleImages =
+            m.images |> AList.filterA (fun img ->
+                adaptive {
+                    let! instruments = filter.instruments.Content
+                    let! lower = filter.distance.lower.value
+                    let! upper = filter.distance.upper.value
+                    let! instrument = img.instrument
+                    let! distance = img.distance
+                    return ImageFilter.passes instruments lower upper instrument distance
+                })
+
+        let rangeIsActive (r : AdaptiveRangeFilter) =
+            adaptive {
+                let! lower = r.lower.value
+                let! min = r.lower.min
+                let! upper = r.upper.value
+                let! max = r.upper.max
+                return lower > min || upper < max
+            }
+
+        let rangeOf (kind : RangeFilterKind) =
+            match kind with
+            | RangeFilterKind.SunElevation -> filter.sunElevation
+            | RangeFilterKind.SunAzimuth   -> filter.sunAzimuth
+            | RangeFilterKind.Resolution   -> filter.resolution
+            | RangeFilterKind.Distance     -> filter.distance
+
+        let activeCount =
+            let count (n : aval<int>) (active : aval<bool>) =
+                (n, active) ||> AVal.map2 (fun n active -> if active then n + 1 else n)
+            [ RangeFilterKind.SunElevation; RangeFilterKind.SunAzimuth; RangeFilterKind.Resolution; RangeFilterKind.Distance ]
+            |> List.map (rangeOf >> rangeIsActive)
+            |> List.fold count (filter.instruments.Content |> AVal.map (fun s -> if s.IsEmpty then 0 else 1))
+
+        // the accent the busy chip and the tool strip use: a filter that hides rows
+        let filterAccent = "#e3b341"
+
+        let invariant (v : float) = v.ToString("R", Globalization.CultureInfo.InvariantCulture)
+
+        let filterMsg (f : 'a -> ImageFilterMessage) (a : 'a) = FilterMessage (f a)
+
+        /// Two range inputs over one track: the lower and the upper bound. A bound is
+        /// sent on release (onchange) -- the browser moves the thumb on its own while
+        /// dragging, so the update thread is not flooded.
+        let dualSlider (kind : RangeFilterKind) (r : AdaptiveRangeFilter) =
+            let thumb (input : AdaptiveNumericInput) (isLower : bool) =
+                let attributes =
+                    amap {
+                        yield attribute "type" "range"
+                        let! min = input.min
+                        let! max = input.max
+                        let! step = input.step
+                        let! value = input.value
+                        yield attribute "min" (invariant min)
+                        yield attribute "max" (invariant max)
+                        yield attribute "step" (invariant step)
+                        yield attribute "value" (invariant value)
+                        // a lower thumb pushed to the far right would sit under the
+                        // upper one and could never be dragged back: lift it then
+                        let! upper = r.upper.value
+                        if isLower && value > min + 0.5 * (max - min) && value >= upper then
+                            yield style "z-index: 2"
+                        yield onChange (fun s ->
+                            match Double.TryParse(s.Trim('"'), Globalization.NumberStyles.Float, Globalization.CultureInfo.InvariantCulture) with
+                            | true, v ->
+                                let action = Numeric.SetValue v
+                                FilterMessage (if isLower then SetLower (kind, action) else SetUpper (kind, action))
+                            | _ -> Nop)
+                    } |> AttributeMap.ofAMap
+                Incremental.input attributes
+
+            let fillAttributes =
+                amap {
+                    let! lower = r.lower.value
+                    let! upper = r.upper.value
+                    let! min = r.lower.min
+                    let! max = r.upper.max
+                    let span = if max > min then max - min else 1.0
+                    let left = 100.0 * (lower - min) / span
+                    let width = 100.0 * (upper - lower) / span
+                    yield clazz "pro3d-dual-range-fill"
+                    yield style (sprintf "left: %.3f%%; width: %.3f%%" left width)
+                } |> AttributeMap.ofAMap
+
+            let containerAttributes =
+                amap {
+                    let! active = rangeIsActive r
+                    yield clazz (if active then "pro3d-dual-range active" else "pro3d-dual-range")
+                } |> AttributeMap.ofAMap
+
+            Incremental.div containerAttributes (
+                AList.ofList [
+                    div [clazz "pro3d-dual-range-track"] []
+                    Incremental.div fillAttributes AList.empty
+                    thumb r.lower true
+                    thumb r.upper false
+                ])
+
+        /// Label (amber with a filter icon while it hides rows) | lower | slider |
+        /// upper | reset.
+        let filterLabel (label : string) (tooltip : Option<string>) (active : aval<bool>) =
+            let attributes =
+                amap {
+                    yield clazz "collapsing"
+                    match tooltip with
+                    | Some t -> yield attribute "title" t
+                    | None -> ()
+                    let! active = active
+                    if active then yield style $"color: {filterAccent}; font-weight: bold"
+                } |> AttributeMap.ofAMap
+            Incremental.td attributes (
+                alist {
+                    let! active = active
+                    if active then yield i [clazz "filter icon"] []
+                    yield text label
+                })
+
+        let resetCell (active : aval<bool>) (msg : ProjectedImageListMessage) =
+            td [clazz "collapsing"] [
+                Incremental.div AttributeMap.empty (
+                    alist {
+                        let! active = active
+                        if active then
+                            yield i [clazz "undo icon"; style "cursor: pointer"
+                                     attribute "title" "reset: whole range"; onClick (fun _ -> msg)] []
+                    })
+            ]
+
+        let rangeFilterRow (label : string) (tooltip : Option<string>) (kind : RangeFilterKind) =
+            let r = rangeOf kind
+            let active = rangeIsActive r
+            tr [] [
+                filterLabel label tooltip active
+                td [style "width: 80px"] [
+                    Numeric.view' [NumericInputType.InputBox] r.lower |> UI.map (filterMsg (fun a -> SetLower (kind, a)))
+                ]
+                td [style "min-width: 80px"] [ dualSlider kind r ]
+                td [style "width: 80px"] [
+                    Numeric.view' [NumericInputType.InputBox] r.upper |> UI.map (filterMsg (fun a -> SetUpper (kind, a)))
+                ]
+                resetCell active (FilterMessage (ResetRange kind))
+            ]
+
+        /// The instruments of the library as toggle chips; none selected = all shown.
+        let instrumentFilterRow =
+            let instruments =
+                m.images
+                |> AList.mapA (fun img -> img.instrument |> AVal.map ImageFilter.instrumentKey)
+                |> AList.toASet
+                |> ASet.sortBy id
+            let active = filter.instruments.Content |> AVal.map (fun s -> not s.IsEmpty)
+            tr [] [
+                filterLabel "Instrument" None active
+                td [attribute "colspan" "3"] [
+                    Incremental.div (AttributeMap.ofList [style "display: flex; flex-wrap: wrap; gap: 4px"]) (
+                        alist {
+                            for instrument in instruments do
+                                let selected = filter.instruments |> ASet.contains instrument
+                                let attributes =
+                                    amap {
+                                        let! selected = selected
+                                        yield clazz (if selected then "ui mini yellow button" else "ui mini inverted basic button")
+                                        yield style "margin: 0"
+                                        yield onClick (fun _ -> FilterMessage (ToggleInstrument instrument))
+                                    } |> AttributeMap.ofAMap
+                                yield Incremental.div attributes (AList.single (text instrument))
+                        })
+                ]
+                resetCell active (FilterMessage ClearInstruments)
+            ]
+
+        let notComputed = Some "not computed yet: this filter has no effect for now"
+
+        let filterPanel =
+            let header =
+                let total = m.images.Content |> AVal.map (fun l -> l.Count)
+                let shown = visibleImages.Content |> AVal.map (fun l -> l.Count)
+                tr [] [
+                    th [attribute "colspan" "5"] [
+                        div [style "display: flex; align-items: center; gap: 6px"] [
+                            Incremental.span
+                                (AttributeMap.ofList [style "cursor: pointer"; onClick (fun _ -> FilterMessage ToggleExpanded)])
+                                (alist {
+                                    let! expanded = filter.expanded
+                                    yield i [clazz (if expanded then "caret down icon" else "caret right icon")] []
+                                    yield text "Filters"
+                                    let! n = activeCount
+                                    if n > 0 then
+                                        yield span [style $"color: {filterAccent}; margin-left: 6px"] [text (sprintf "(%d active)" n)]
+                                })
+                            div [style "margin-left: auto; font-weight: normal"] [
+                                Incremental.text ((shown, total) ||> AVal.map2 (sprintf "showing %d of %d"))
+                            ]
+                            Incremental.span AttributeMap.empty (
+                                alist {
+                                    let! n = activeCount
+                                    if n > 0 then
+                                        yield i [clazz "undo icon"; style "cursor: pointer"
+                                                 attribute "title" "reset all filters"
+                                                 onClick (fun _ -> FilterMessage ResetAll)] []
+                                })
+                        ]
+                    ]
+                ]
+            table [clazz "ui celled striped inverted table unstackable"; style "margin: 0"] [
+                Incremental.tbody AttributeMap.empty (
+                    alist {
+                        yield header
+                        let! expanded = filter.expanded
+                        if expanded then
+                            yield rangeFilterRow "Sun Elevation [°]" notComputed RangeFilterKind.SunElevation
+                            yield rangeFilterRow "Sun Azimuth [°]" notComputed RangeFilterKind.SunAzimuth
+                            yield instrumentFilterRow
+                            yield rangeFilterRow "Resolution [m/px]" notComputed RangeFilterKind.Resolution
+                            yield rangeFilterRow "Distance [km]" None RangeFilterKind.Distance
+                    })
+            ]
+
         // library header and rows are separate: the header goes into the Images
         // section's sticky block, the rows scroll with the panel underneath it
         let libraryHeader, libraryRows =
@@ -312,7 +539,7 @@ module ProjectedImageListApp =
                 Incremental.div (AttributeMap.ofList [ attribute "class" "table-container" ]) (
                     alist {
                         let domNodes =
-                            m.images
+                            visibleImages
                             |> AList.map (fun img ->
                                 // img.id is NonAdaptive, so rows can be keyed by it directly
                                 let id = img.id
@@ -463,7 +690,8 @@ module ProjectedImageListApp =
                             ]
                         ]
                         div [style "width: 100%"] [showRelative2DImage (selectedImage m)]
-                        div [style "border: 2px solid black; border-bottom: none; margin-top: 10px"] [libraryHeader]
+                        filterPanel
+                        div [style "border: 2px solid black; border-bottom: none"] [libraryHeader]
                     ]
                     div [style "border: 2px solid black; border-top: none"] [libraryRows]
                 ]

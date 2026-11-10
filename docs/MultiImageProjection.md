@@ -79,9 +79,9 @@ the images must be set. Below the import button the panel folds into three
 sections:
 
 - **Projection Settings** (closed by default) — see the table below.
-- **Images** — the library. The selected image's 2D preview and the column
-  header stay pinned at the top of the section while the library scrolls under
-  them.
+- **Images** — the library. The selected image's 2D preview, the library
+  filters and the column header stay pinned at the top of the section while the
+  library scrolls under them.
 - **Projected Images** — the projection stack (see 4.).
 
 *Projection Settings* holds:
@@ -93,6 +93,27 @@ sections:
 | **Transfer Function** | on (default): samples go through the per-image min/max remap and the colour map, which instrument data needs to be readable. Off: the image's own pixels, untouched — for RGB images, and for checking a projection against its source |
 | **Winding Correction** | off (default). Turn it on only when an image survives **only near the limb** of the body: that is an OPC whose triangles are wound inward, so the projector-facing test rejects exactly the terrain facing the projector. On: PRo3D estimates each OPC hierarchy's winding from its coarsest patch (loaded once, the first time something is projected) and corrects the inward ones. The estimate assumes a roughly convex body seen from orbit; it is not reliable for near-vertical terrain such as rover outcrops. Saved with the scene. |
 | **Orientation Source** | where the pointing comes from — `MbiBased` (default) or `Spice`; see [If an image does not land on the terrain](#if-an-image-does-not-land-on-the-terrain) |
+
+### Filtering the library
+
+Between the preview and the library, **Filters** narrows down which library rows
+are shown. The filters only hide rows: the projection stack and the selected
+image are left alone. The header counts the active filters and the rows shown
+(*showing x of y*); click *Filters* to fold the block away, ↶ resets all of them.
+
+| filter | kind | effect |
+|---|---|---|
+| **Sun Elevation [°]** | range, −90…90 | not computed per image yet — no effect for now |
+| **Sun Azimuth [°]** | range, 0…360 | not computed per image yet — no effect for now |
+| **Instrument** | the library's instruments as toggle buttons | shows only the selected instruments; images without one are listed as *(unknown)* |
+| **Resolution [m/px]** | range | ground resolution at the target; not computed per image yet — no effect for now |
+| **Distance [km]** | range, spanning the library | distance to the target |
+
+A range is set by typing its bounds or by dragging the two handles of its
+slider. A filter is **off** — plain label, not counted — while its whole range is
+selected, or, for *Instrument*, while no instrument is selected. An active filter's
+label turns amber with a filter icon, and ↶ next to it resets it. Filters are not
+saved with the scene and are reset when a folder is imported.
 
 ## 3. Find images by hovering
 

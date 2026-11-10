@@ -135,6 +135,158 @@ type StackDrag =
         target : Option<int>
     }
 
+/// A range filter of the image library: `lower`/`upper` are the selected bounds,
+/// their min/max the whole range. Selecting the whole range switches it off.
+[<ModelType>]
+type RangeFilter =
+    {
+        lower : NumericInput
+        upper : NumericInput
+    }
+
+/// The library filters of the Projected Images panel. They only hide library rows;
+/// the stack and the selected image are left alone. Transient: not saved with the
+/// scene, reset when a folder is imported.
+[<ModelType>]
+type ImageFilter =
+    {
+        sunElevation : RangeFilter
+        sunAzimuth   : RangeFilter
+        /// ground resolution at the target, m/px
+        resolution   : RangeFilter
+        /// distance to the target, km (ProjectedImageModel.distance)
+        distance     : RangeFilter
+        /// Instruments shown. Empty: all of them (filter off).
+        instruments  : HashSet<string>
+        /// the filter block is unfolded
+        expanded     : bool
+    }
+
+type RangeFilterKind =
+    | SunElevation
+    | SunAzimuth
+    | Resolution
+    | Distance
+
+type ImageFilterMessage =
+    | SetLower of RangeFilterKind * Numeric.Action
+    | SetUpper of RangeFilterKind * Numeric.Action
+    | ResetRange of RangeFilterKind
+    | ToggleInstrument of string
+    | ClearInstruments
+    | ResetAll
+    | ToggleExpanded
+
+module RangeFilter =
+
+    /// The whole range [min, max] selected.
+    let create (min : float) (max : float) (step : float) (format : string) : RangeFilter =
+        let input value = { value = value; min = min; max = max; step = step; format = format }
+        { lower = input min; upper = input max }
+
+    let isActive (r : RangeFilter) =
+        r.lower.value > r.lower.min || r.upper.value < r.upper.max
+
+    let contains (v : float) (r : RangeFilter) =
+        v >= r.lower.value && v <= r.upper.value
+
+    let private clampTo (r : RangeFilter) (v : float) =
+        v |> max r.lower.min |> min r.lower.max
+
+    /// Clamped to the range; an upper bound below it is pushed along.
+    let setLower (v : float) (r : RangeFilter) : RangeFilter =
+        let v = clampTo r v
+        { lower = { r.lower with value = v }
+          upper = { r.upper with value = max v r.upper.value } }
+
+    /// Clamped to the range; a lower bound above it is pushed along.
+    let setUpper (v : float) (r : RangeFilter) : RangeFilter =
+        let v = clampTo r v
+        { lower = { r.lower with value = min v r.lower.value }
+          upper = { r.upper with value = v } }
+
+    let reset (r : RangeFilter) : RangeFilter =
+        { lower = { r.lower with value = r.lower.min }
+          upper = { r.upper with value = r.upper.max } }
+
+module ImageFilter =
+
+    /// Shown for images whose instrument is unknown (ProjectedImageModel.instrument = "").
+    [<Literal>]
+    let unknownInstrument = "(unknown)"
+
+    let instrumentKey (instrument : string) =
+        if String.IsNullOrWhiteSpace instrument then unknownInstrument else instrument
+
+    let initial : ImageFilter =
+        {
+            sunElevation = RangeFilter.create -90.0 90.0 0.1 "{0:0.0}"
+            sunAzimuth   = RangeFilter.create 0.0 360.0 0.1 "{0:0.0}"
+            // placeholder until resolutions are computed
+            resolution   = RangeFilter.create 0.0 100.0 0.01 "{0:0.00}"
+            distance     = RangeFilter.create 0.0 1.0 0.01 "{0:0.00}"
+            instruments  = HashSet.empty
+            expanded     = true
+        }
+
+    /// Filters reset for a freshly imported library: the distance range spans its
+    /// images (widened when they all share one distance, so the slider has room).
+    let forImages (images : seq<ProjectedImageModel>) (expanded : bool) : ImageFilter =
+        let mutable lo = Double.PositiveInfinity
+        let mutable hi = Double.NegativeInfinity
+        for img in images do
+            lo <- min lo img.distance
+            hi <- max hi img.distance
+        let lo, hi =
+            if Double.IsInfinity lo then 0.0, 1.0
+            elif hi - lo < 1e-9 then lo, lo + 1.0
+            else lo, hi
+        let step = (hi - lo) / 1000.0
+        { initial with
+            distance = RangeFilter.create lo hi step "{0:0.00}"
+            expanded = expanded }
+
+    let activeCount (f : ImageFilter) =
+        [ f.sunElevation; f.sunAzimuth; f.resolution; f.distance ]
+        |> List.sumBy (fun r -> if RangeFilter.isActive r then 1 else 0)
+        |> (+) (if f.instruments.IsEmpty then 0 else 1)
+
+    /// Whether a library image passes. Only instrument and distance filter so far:
+    /// sun angles and resolution are not computed per image yet.
+    /// `matches` over the filter's parts, for the view, which binds them one by one.
+    let passes (instruments : HashSet<string>) (distanceLower : float) (distanceUpper : float)
+               (instrument : string) (distance : float) =
+        (instruments.IsEmpty || HashSet.contains (instrumentKey instrument) instruments)
+        && distance >= distanceLower && distance <= distanceUpper
+
+    let matches (f : ImageFilter) (instrument : string) (distance : float) =
+        passes f.instruments f.distance.lower.value f.distance.upper.value instrument distance
+
+    let private mapRange (kind : RangeFilterKind) (g : RangeFilter -> RangeFilter) (f : ImageFilter) =
+        match kind with
+        | SunElevation -> { f with sunElevation = g f.sunElevation }
+        | SunAzimuth   -> { f with sunAzimuth = g f.sunAzimuth }
+        | Resolution   -> { f with resolution = g f.resolution }
+        | Distance     -> { f with distance = g f.distance }
+
+    let update (f : ImageFilter) (msg : ImageFilterMessage) : ImageFilter =
+        match msg with
+        | SetLower (kind, a) ->
+            f |> mapRange kind (fun r -> RangeFilter.setLower (Numeric.update r.lower a).value r)
+        | SetUpper (kind, a) ->
+            f |> mapRange kind (fun r -> RangeFilter.setUpper (Numeric.update r.upper a).value r)
+        | ResetRange kind -> f |> mapRange kind RangeFilter.reset
+        | ToggleInstrument i -> { f with instruments = f.instruments |> HashSet.alter i not }
+        | ClearInstruments -> { f with instruments = HashSet.empty }
+        | ResetAll ->
+            { f with
+                sunElevation = RangeFilter.reset f.sunElevation
+                sunAzimuth   = RangeFilter.reset f.sunAzimuth
+                resolution   = RangeFilter.reset f.resolution
+                distance     = RangeFilter.reset f.distance
+                instruments  = HashSet.empty }
+        | ToggleExpanded -> { f with expanded = not f.expanded }
+
 [<ModelType>]
 type ProjectedImageListModel =
     {
@@ -186,6 +338,8 @@ type ProjectedImageListModel =
         /// vote loads a patch per hierarchy, and it is unreliable for near-vertical
         /// terrain (see NormalWinding). Off costs nothing.
         windingCorrection    : bool
+        /// Library filters; transient, see ImageFilter.
+        filter               : ImageFilter
     }
 
 module ProjectedImageListModel =
@@ -305,6 +459,7 @@ module ProjectedImageListModel =
         projectionMethod = ProjectionMethod.MbiBased
         useTransferFunction = true
         windingCorrection = false
+        filter = ImageFilter.initial
     }
 
 type ImageMessage =
@@ -362,4 +517,5 @@ type ProjectedImageListMessage =
     /// against. Handled by GisApp.update (needs the mbi + spice state that
     /// live outside this model), not locally.
     | LoadSpiceAndTime of directory : string
+    | FilterMessage of ImageFilterMessage
     | Nop
