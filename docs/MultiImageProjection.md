@@ -46,9 +46,10 @@ HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos/
 
 ## 2. Import a folder of images
 
-*Projected Images → Import Directory*. Every image of the folder
+*Projected Images → Import Directory*; the imported folder is shown next to the
+button (*not set* before the first import). Every image of the folder
 (`.tif/.png/.jpg/.exr`, each with its `.mbi.json` sidecar) lands in the
-**library** at the bottom of the panel, with instrument, distance and observation
+**library** in the *Images* section, with instrument, distance and observation
 date per image, sortable by date or distance. Sorting never changes what is
 projected.
 
@@ -73,8 +74,17 @@ HERA/Dimorphos_opc/AFC_2027-03-21/
 
 ![the Projected Images panel: import, stack panel, library](images/multiProjection-gisTab.png)
 
-Settings and the selected image's 2D preview fold away into the
-*Projection Settings* / *Selected Image* sections. *Projection Settings* holds:
+An italic hint at the top of the panel reminds you that the SPICE kernel matching
+the images must be set. Below the import button the panel folds into three
+sections:
+
+- **Projection Settings** (closed by default) — see the table below.
+- **Images** — the library. The selected image's 2D preview and the column
+  header stay pinned at the top of the section while the library scrolls under
+  them.
+- **Projected Images** — the projection stack (see 4.).
+
+*Projection Settings* holds:
 
 | setting | what it does |
 |---|---|
@@ -113,7 +123,7 @@ its own it projects nothing.
 ## 4. Build the stack
 
 The **+** in a row adds the image to the top of the **projection stack**
-(cap: 32). The stack panel lists the projected images top-first with a count
+(cap: 32). The stack panel in the *Projected Images* section lists the projected images top-first with a count
 indicator. **Drag a row onto another** to reorder: the dragged image takes the
 target's position and the images in between shift by one (the drop target is
 outlined in blue; the ☰ handle marks the rows as draggable). ↑ / ↓ move one

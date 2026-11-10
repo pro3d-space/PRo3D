@@ -376,7 +376,7 @@ module ProjectedImageApp =
         let frustum' = Frustum.ortho (Box3d.FromMinAndSize(-V3d.III, V3d.III))
 
         require Html.semui (
-            div [style "width: 100%; height: 200px; display: flex; align-items: center; justify-content: center; margin-top: 10px; border: solid 2px black; background: rgb(0, 0, 0, 0.5);"] [
+            div [style "width: 100%; height: 200px; display: flex; align-items: center; justify-content: center; border: solid 2px black; background: rgb(0, 0, 0, 0.5);"] [
                 let style = [style "position: relative; width: 200px; height: 100%; padding: 2px; display: block; min-width: 0;"; attribute "showLoader" "false"]
                 renderControl (AVal.constant (Camera.create cameraView frustum')) style instrumentVisualization
             ]

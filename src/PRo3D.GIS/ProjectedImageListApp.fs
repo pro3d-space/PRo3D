@@ -176,7 +176,9 @@ module ProjectedImageListApp =
                                     div [style "float:right"] [i [clazz (icon + " icon")] []]
                                 
                             ]
-                            div [clazz content;  style "overflow-y : auto; "] content' 
+                            // no overflow here: it would become the sticky container
+                            // of the Images section's preview, which then never sticks
+                            div [clazz content] content'
                         ]
                     ]
                 )
@@ -278,7 +280,9 @@ module ProjectedImageListApp =
                             ]
                 })
 
-        let contentImages =
+        // library header and rows are separate: the header goes into the Images
+        // section's sticky block, the rows scroll with the panel underneath it
+        let libraryHeader, libraryRows =
             let attributesSelect = attribute "style" $"cursor: pointer; width: 50px; height: 40px; border-right: 1px solid {borderColor}; display: flex; justify-content: center; align-items: center;"
             let attributesEdit = attribute "style" $"cursor: pointer; width: 50px; height: 40px; border-right: 1px solid {borderColor}; display: flex; justify-content: center; align-items: center;"
             let attributesStack = attribute "style" $"cursor: pointer; width: 50px; height: 40px; border-right: 1px solid {borderColor}; display: flex; justify-content: center; align-items: center;"
@@ -304,62 +308,58 @@ module ProjectedImageListApp =
                         text "OBS Date"
                     ]
                 ]
-            Incremental.div (AttributeMap.ofList [ attribute "class" "table-container" ]) (
-                alist {
-                    yield header
-                    yield div [attribute "style" "max-height: calc(100vh - 300px); overflow: auto;" ] [
-                        yield Incremental.div (AttributeMap.ofList [ attribute "style" "overflow-y: visible; " ]) (
-                            alist {
-                                let domNodes =
-                                    m.images
-                                    |> AList.map (fun img ->
-                                        // img.id is NonAdaptive, so rows can be keyed by it directly
-                                        let id = img.id
-                                        div [
-                                            attribute "style" $"border: 1px solid rgba(255,255,255,0.5);"
-                                            onMouseEnter (fun _ -> HoverImage (Some id))
-                                            onMouseLeave (fun _ -> HoverImage None)
-                                        ] [
-                                            div [attribute "style" $"border-bottom: 1px solid {borderColor}; background: #333"] [ Incremental.text (img.texture |> AVal.map (fun t -> Path.GetFileName(t))) ]
-                                            div [attribute "style" "display: flex; font-weight: bold"]
-                                                [
-                                                    div [attributesSelect] [ Html.SemUi.iconCheckBox (m.selectedImage |> AVal.map (fun sel -> sel = Some id)) (SelectImage id)]
-                                                    div [attributesEdit] [ Html.SemUi.iconCheckBox (m.editImages |> ASet.contains id) (EditImage id)]
-                                                    div [attributesStack] [
-                                                        Incremental.div AttributeMap.empty (
-                                                            alist {
-                                                                let! inStack = isInStack id
-                                                                if inStack then
-                                                                    yield i [clazz "layer group icon"; style "cursor: pointer"; onClick (fun _ -> RemoveFromStack id)] []
-                                                                else
-                                                                    yield i [clazz "plus icon"; style "cursor: pointer; opacity: 0.5"; onClick (fun _ -> AddToStack id)] []
-                                                                yield i [clazz "location arrow icon"; style "cursor: pointer; opacity: 0.7; margin-left: 4px"; onClick (fun _ -> FlyToImage id)] []
-                                                            }
-                                                        )
-                                                    ]
-                                                    div [attributesInstrument] [ Incremental.text img.instrument ]
-                                                    div [attributesAttr1] [ Incremental.text (img.distance |> AVal.map (fun f -> sprintf "%.2f" f)) ]
-                                                    div [attributesAttr2] [ Incremental.text (img.time |> AVal.map (fun t -> t.ToUniversalTime().ToString())) ]
-                                                ]
-
-                                            Incremental.div AttributeMap.empty (
-                                                alist {
-                                                    let! isInEditMode = m.editImages |> ASet.contains id
-                                                    if isInEditMode then
-                                                        div [attribute "style" $"border-top: 1px dotted rgba(255,255,255,0.5)"] [
-                                                            showDOM img |> UI.map (fun msg -> ProjectedImageListMessage.ImageMessage (id, msg))
-                                                        ]
-                                                    else
-                                                        div [] []
-                                                }
-                                            )
+            let rows =
+                Incremental.div (AttributeMap.ofList [ attribute "class" "table-container" ]) (
+                    alist {
+                        let domNodes =
+                            m.images
+                            |> AList.map (fun img ->
+                                // img.id is NonAdaptive, so rows can be keyed by it directly
+                                let id = img.id
+                                div [
+                                    attribute "style" $"border: 1px solid rgba(255,255,255,0.5);"
+                                    onMouseEnter (fun _ -> HoverImage (Some id))
+                                    onMouseLeave (fun _ -> HoverImage None)
+                                ] [
+                                    div [attribute "style" $"border-bottom: 1px solid {borderColor}; background: #333"] [ Incremental.text (img.texture |> AVal.map (fun t -> Path.GetFileName(t))) ]
+                                    div [attribute "style" "display: flex; font-weight: bold"]
+                                        [
+                                            div [attributesSelect] [ Html.SemUi.iconCheckBox (m.selectedImage |> AVal.map (fun sel -> sel = Some id)) (SelectImage id)]
+                                            div [attributesEdit] [ Html.SemUi.iconCheckBox (m.editImages |> ASet.contains id) (EditImage id)]
+                                            div [attributesStack] [
+                                                Incremental.div AttributeMap.empty (
+                                                    alist {
+                                                        let! inStack = isInStack id
+                                                        if inStack then
+                                                            yield i [clazz "layer group icon"; style "cursor: pointer"; onClick (fun _ -> RemoveFromStack id)] []
+                                                        else
+                                                            yield i [clazz "plus icon"; style "cursor: pointer; opacity: 0.5"; onClick (fun _ -> AddToStack id)] []
+                                                        yield i [clazz "location arrow icon"; style "cursor: pointer; opacity: 0.7; margin-left: 4px"; onClick (fun _ -> FlyToImage id)] []
+                                                    }
+                                                )
+                                            ]
+                                            div [attributesInstrument] [ Incremental.text img.instrument ]
+                                            div [attributesAttr1] [ Incremental.text (img.distance |> AVal.map (fun f -> sprintf "%.2f" f)) ]
+                                            div [attributesAttr2] [ Incremental.text (img.time |> AVal.map (fun t -> t.ToUniversalTime().ToString())) ]
                                         ]
+    
+                                    Incremental.div AttributeMap.empty (
+                                        alist {
+                                            let! isInEditMode = m.editImages |> ASet.contains id
+                                            if isInEditMode then
+                                                div [attribute "style" $"border-top: 1px dotted rgba(255,255,255,0.5)"] [
+                                                    showDOM img |> UI.map (fun msg -> ProjectedImageListMessage.ImageMessage (id, msg))
+                                                ]
+                                            else
+                                                div [] []
+                                        }
                                     )
-                                for domNode in domNodes do
-                                    yield domNode
-                        })
-                    ]
+                                ]
+                            )
+                        for domNode in domNodes do
+                            yield domNode
                 })
+            header, rows
 
 
         // label | control, in the inverted table style of Html.row; the label carries
@@ -372,19 +372,36 @@ module ProjectedImageListApp =
             tr [] [ td labelAttributes [text label]; td [clazz "right aligned"] control ]
 
         let content = 
-            div [style "overflow-y: auto; max-height: calc(100vh - 95px); color: white;"] [
+            // no scroller of its own: the page scrolls. A max-height here left an empty
+            // strip at the bottom of the tab, under which the panel scrolled away.
+            div [style "color: white;"] [
 
-                div [style "padding: 5px; display: flex; justify-content: space-between; align-items: center;"] [
-                    div [] [text "Data:"]
+                div [style "padding: 5px; font-style: italic"] [
+                    text "ensure that the correct SPICE kernel is set for the image projection"
+                ]
+
+                div [style "padding: 5px; display: flex; align-items: center; gap: 8px;"] [
                     button [clazz "ui button tiny";
-                            style "margin-left: auto;"
+                            style "flex-shrink: 0"
                             Dialogs.onChooseDirectory (Guid.NewGuid()) (fun (guid, chosen) -> LoadImagesDir (chosen) );
                             clientEvent "onclick" (jsImportDialog) ] [
                             text "Import Directory"
                     ]
+                    // long paths are cut off; the tooltip shows the whole one
+                    Incremental.div
+                        (AttributeMap.ofAMap (amap {
+                            yield style "overflow: hidden; text-overflow: ellipsis; white-space: nowrap"
+                            let! dir = m.imageDirectory
+                            match dir with
+                            | Some d -> yield attribute "title" d
+                            | None -> ()
+                        }))
+                        (alist {
+                            let! dir = m.imageDirectory
+                            yield text (dir |> Option.defaultValue "not set")
+                        })
                 ]
 
-                // settings and the 2D preview fold away: import, stack and library stay in view
                 accordion "Projection Settings" "settings" false (style "margin-top: 6px") [
                     Html.table [
                         // blends the projected stack over the terrain
@@ -434,15 +451,25 @@ module ProjectedImageListApp =
                     ]
                 ]
 
-                accordion "Selected Image" "image" false (style "margin-top: 6px") [
-                    div [style "width: 100%"] [showRelative2DImage (selectedImage m)]
+                accordion "Images" "images" true (style "margin-top: 6px") [
+                    // the selected image's preview and the column header stay in
+                    // view while the library scrolls under them. The page is the
+                    // scroller: no ancestor in between may set overflow.
+                    div [style "position: sticky; top: 0; z-index: 1; background: #1b1c1d"] [
+                        // header styled like Registration in Projection Settings
+                        table [clazz "ui celled striped inverted table unstackable"; style "margin-bottom: 0"] [
+                            tbody [] [
+                                tr [] [ th [] [text "Selected Image"] ]
+                            ]
+                        ]
+                        div [style "width: 100%"] [showRelative2DImage (selectedImage m)]
+                        div [style "border: 2px solid black; border-bottom: none; margin-top: 10px"] [libraryHeader]
+                    ]
+                    div [style "border: 2px solid black; border-top: none"] [libraryRows]
                 ]
 
-                div [] [
+                accordion "Projected Images" "layer group" true (style "margin-top: 6px") [
                     stackPanel
-                    div [style $"border: 2px solid black; margin-top: 10px"] [
-                            contentImages
-                    ]
                 ]
             ]
             
