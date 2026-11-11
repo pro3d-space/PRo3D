@@ -250,6 +250,8 @@ let main argv =
         let cts = new CancellationTokenSource()
         let messagingMailbox = MailboxProcessor.Start(Viewer.initMessageLoop cts, cts.Token)
         Activity.registerQueue (fun () -> messagingMailbox.CurrentQueueLength)
+        // shadows/highlights masks are computed on a render thread (docs/ShadowsHighlights.md)
+        PRo3D.ImageMapping.ShadowsHighlights.registerBusy (fun label f -> Busy.scopeBackground label f)
 
        // let minervaMailbox = MailboxProcessor.Start(PRo3D.Minerva.App.messagingMailbox cts, cts.Token)
     

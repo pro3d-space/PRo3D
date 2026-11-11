@@ -35,6 +35,7 @@
     <Compile Include="Tiff.fs" />
     <Compile Include="InstrumentImage.fs" />
     <Compile Include="Visualization.fs" />
+    <Compile Include="ShadowsHighlights.fs" />
     <Compile Include="MarsTaggedLocations.fs" />
     <Compile Include="OpcShaders.fs" />
     <Compile Include="Shaders.fs" />
@@ -48,6 +49,7 @@
 
     <Compile Include="TestViewer.fs" />
     <None Include="paket.references" />
+    <Compile Include="DualRangeSlider.fs" />
     <Compile Include="ProjectedImageApp.fs" />
     <Compile Include="ProjectedImageListApp.fs" />
     <Compile Include="GisApp.fs" />

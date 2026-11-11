@@ -64,6 +64,7 @@
     <Compile Include="OutcropTraceAttitudeTest.fs" />
     <Compile Include="OutcropTraceShaderTest.fs" />
     <Compile Include="SurfaceEffectVariantTest.fs" />
+    <Compile Include="ShadowsHighlightsTest.fs" />
     <Compile Include="MapProjectionMathTests.fs" />
     <Compile Include="MapProjectionShaderTest.fs" />
     <Compile Include="MapProjectionAnnotationFixture.fs" />

@@ -109,6 +109,15 @@ module ImageProjection =
                 borderColor C4f.White
             }
 
+        // shadows/highlights masks, R = shadow, G = highlight (ShadowsHighlights)
+        let private projectedStackMasks =
+            sampler2dArray {
+                texture uniform?ProjectedStackMasks
+                filter Filter.MinMagMipLinear
+                addressU WrapMode.Clamp
+                addressV WrapMode.Clamp
+            }
+
         // same texture + state as ColorMapping's colormapTextureSampler; local
         // because the stack shader inlines its remap (see the NOTE there)
         let private stackColormapSampler =
@@ -128,6 +137,10 @@ module ImageProjection =
             /// not, and a projection can only be CHECKED against its source
             /// image when nothing has been applied to it.
             member x.ProjectedUseTransferFunction : bool = uniform?ProjectedUseTransferFunction
+            /// per layer: shadows/highlights amounts (x: shadows, y: highlights), 0 = off
+            member x.ProjectedStackToneAmounts : Arr<N<32>, V2f> = uniform?ProjectedStackToneAmounts
+            /// per layer: its slot in the mask array (ProjectedStackMasks)
+            member x.ProjectedStackMaskSlices : Arr<N<32>, int> = uniform?ProjectedStackMaskSlices
 
         /// The projection stack: layers bottom -> top, painter's order -- the
         /// TOPMOST layer that covers a fragment with a projector-facing normal
@@ -178,8 +191,16 @@ module ImageProjection =
                                 min minMax.Y ((max minMax.X (value * 65000.0f)) - minMax.X) / (minMax.Y - minMax.X)
                             let normalizedFloat =
                                 (value - minMax.X) / (minMax.Y - minMax.X)
-                            let normalized =
+                            let normalized0 =
                                 if uniform.StackDataType = 2 then normalizedFloat else normalizedInt16
+                            // shadows/highlights (docs/ShadowsHighlights.md): only with
+                            // the transfer function -- without it the image stays untouched
+                            let amounts = uniform.ProjectedStackToneAmounts.[i]
+                            let normalized =
+                                if uniform.ProjectedUseTransferFunction && (amounts.X > 0.0f || amounts.Y > 0.0f) then
+                                    let masks = projectedStackMasks.Sample(V2f(tc.X, tc.Y), uniform.ProjectedStackMaskSlices.[i])
+                                    PRo3D.ImageMapping.ShadowsHighlights.apply normalized0 masks.X masks.Y amounts.X amounts.Y
+                                else normalized0
                             let mapped =
                                 if not uniform.ProjectedUseTransferFunction then
                                     sample.XYZ

@@ -42,11 +42,22 @@ module Shaders =
             addressV WrapMode.Wrap
         }
 
+    // shadows/highlights masks, R = shadow, G = highlight (ShadowsHighlights)
+    let shadowsHighlightsMaskSampler =
+        sampler2d {
+            texture uniform?ShadowsHighlightsMask
+            filter Filter.MinMagMipLinear
+            addressU WrapMode.Clamp
+            addressV WrapMode.Clamp
+        }
+
     type UniformScope with
         member x.MinValue : float32 = uniform?MinValue
         member x.MaxValue : float32 = uniform?MaxValue
         member x.UseFalseColor : bool = uniform?UseFalseColor
         member x.DataType : int = uniform?DataType
+        member x.ShadowAmount : float32 = uniform?ShadowAmount
+        member x.HighlightAmount : float32 = uniform?HighlightAmount
 
     let hshColors (v : Vertex)  = 
         fragment {
@@ -55,16 +66,19 @@ module Shaders =
                 ((min uniform.MaxValue (max uniform.MinValue (hshValueX * 65000.0f))) - uniform.MinValue) / (uniform.MaxValue - uniform.MinValue)
             let remappedClampedNormalizedXFloat =
                 (hshValueX - uniform.MinValue) / (uniform.MaxValue - uniform.MinValue)
+            let normalized0 =
+                if uniform.DataType = 2 then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16
+            // shadows/highlights (docs/ShadowsHighlights.md); amounts 0: untouched
+            let normalized =
+                if uniform.ShadowAmount > 0.0f || uniform.HighlightAmount > 0.0f then
+                    let masks = shadowsHighlightsMaskSampler.Sample(v.tc)
+                    PRo3D.ImageMapping.ShadowsHighlights.apply normalized0 masks.X masks.Y uniform.ShadowAmount uniform.HighlightAmount
+                else normalized0
             let remapClampNormalize =
                 if uniform.UseFalseColor then
-                    V4f(
-                        (if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16),
-                        (if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16),
-                        (if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16),
-                        1.0f
-                    )
+                    V4f(normalized, normalized, normalized, 1.0f)
                 else 
-                    colormapTextureSampler.Sample(V2f ((if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16), 0.0f))
+                    colormapTextureSampler.Sample(V2f (normalized, 0.0f))
             return remapClampNormalize
         }
 
@@ -96,7 +110,16 @@ module ProjectedImageApp =
         time = new DateTime();
         falseColorModel = projectedImageLegend (Range1d(numericInput.min, numericInput.max)) (InstrumentImageVisualization.getResourceStream (ColorMap.getColorMapFileName ColorMap.Magma) ())
         falseColorPreview = false
+        shadows = ToneAdjustment.init
+        highlights = ToneAdjustment.init
     }
+
+    let private updateTone (a : ToneAdjustment) (action : ToneAdjustmentAction) =
+        match action with
+        | SetAmount n -> { a with amount = Numeric.update a.amount n }
+        | SetTone n   -> { a with tone   = Numeric.update a.tone n }
+        | SetRadius n -> { a with radius = Numeric.update a.radius n }
+        | ResetTone   -> ToneAdjustment.init
 
     let loadFile (texturePath : string) =
         // this could be a fallback
@@ -232,6 +255,10 @@ module ProjectedImageApp =
                 { m with falseColorPreview = (not m.falseColorPreview) }
             | ToggleFalseColorLegend -> 
                 { m with falseColorModel = { m.falseColorModel with useFalseColors = not m.falseColorModel.useFalseColors } }
+            | ShadowsMessage action ->
+                { m with shadows = updateTone m.shadows action }
+            | HighlightsMessage action ->
+                { m with highlights = updateTone m.highlights action }
 
             | ImageMessage.Empty ->
                 m
@@ -245,65 +272,103 @@ module ProjectedImageApp =
     let whiteTex =
         PixTexture2d(PixImageMipMap [| whitePix :> PixImage |], false) :> ITexture
 
-    let view (m : AdaptiveProjectedImageModel) =
-        let content = 
-            Html.table [ 
-                Html.row "EXR Channel:" [
-                    div [style "color: white;"] [
-                        let channelRepr (c : Channel) = 
-                            match c.name with
-                            | None -> string c.idx
-                            | Some name -> name
-                        Html.SemUi.dropDown' (AList.ofAVal m.channelOptions) m.selectedChannel (fun value -> SetEXRChannel value) channelRepr
-                        // Html.SemUi.dropDown m.channel SetEXRChannel
-                    ]
-                ]
-                Html.row "False Color:" [
-                    text "Show color legend:" 
-                    GuiEx.iconCheckBox m.falseColorModel.useFalseColors ToggleFalseColorLegend
-                    br[]
-                    text "Activate: " 
-                    GuiEx.iconCheckBox m.falseColorPreview ToggleFalseColor
-                    br []
-                    Html.SemUi.dropDown m.colorMap SetColorMap                    
-                ]
-
-                Html.row "Minimum:" [
-                    SimplePrimitives.numeric { min = 0.0; max = 65535.0; largeStep = 0.1; smallStep = 0.01 } AttributeMap.empty (m.falseColorModel.lowerBound.value) SetCustomMin
-                    br []
-                    Numeric.view' [Slider] m.falseColorModel.lowerBound
-                    |> UI.map (fun action -> 
-                        match action with
-                        | Numeric.Action.SetValue v ->
-                            SetCustomMin v
-                        | _ ->
-                            ImageMessage.Empty
-                        )
-                    ]
-                Html.row "Maximum:"  [
-                    SimplePrimitives.numeric { min = 0.0; max = 65535.0; largeStep = 0.1; smallStep = 0.01 } AttributeMap.empty (m.falseColorModel.upperBound.value) SetCustomMax
-                    br []
-                    div [style "width: 100%"] [
-                        Numeric.numericField' m.falseColorModel.upperBound Slider
-                        |> UI.map (fun action -> 
-                            match action with
-                            | Numeric.Action.SetValue v ->
-                                SetCustomMax v
-                            | _ ->
-                                ImageMessage.Empty
-                            )
-                        ]
-                    ] 
-                Html.row "" [button [clazz "ui inverted button"; onClick (fun _ -> ResetCustomMinMax)] [
-                        text "Reset"
+    /// A Properties section: a header row (like Registration) with an optional reset
+    /// icon, then label | control rows. Display, Shadows and Highlights all use it.
+    let private section (title : string) (tooltip : Option<string>) (reset : Option<string * ImageMessage>) (rows : list<DomNode<ImageMessage>>) =
+        let header =
+            tr [] [
+                th [
+                    yield attribute "colspan" "2"
+                    match tooltip with
+                    | Some t -> yield attribute "title" t
+                    | None -> ()
+                ] [
+                    div [style "display: flex; align-items: center"] [
+                        yield text title
+                        match reset with
+                        | Some (what, msg) ->
+                            yield i [clazz "undo icon"
+                                     style "margin-left: auto; cursor: pointer"
+                                     attribute "title" what
+                                     onClick (fun _ -> msg)] []
+                        | None -> ()
                     ]
                 ]
             ]
+        table [clazz "ui celled striped inverted table unstackable"; style "margin: 6px 0 0 0"] [
+            tbody [] (header :: rows)
+        ]
 
+    let private propertyRow (label : string) (control : list<DomNode<ImageMessage>>) =
+        tr [] [
+            td [clazz "collapsing"] [text label]
+            td [] control
+        ]
+
+    /// Shadows or Highlights: Amount / Tone / Radius (docs/ShadowsHighlights.md).
+    let private viewTone (title : string) (tooltip : string) (a : AdaptiveToneAdjustment) (msg : ToneAdjustmentAction -> ImageMessage) =
+        let row (label : string) (input : AdaptiveNumericInput) (action : Numeric.Action -> ToneAdjustmentAction) =
+            propertyRow label [ Numeric.view' [NumericInputType.Slider] input |> UI.map (action >> msg) ]
+        section title (Some tooltip) (Some (sprintf "reset %s" (title.ToLowerInvariant()), msg ResetTone)) [
+            row "Amount:" a.amount SetAmount
+            row "Tone:" a.tone SetTone
+            row "Radius:" a.radius SetRadius
+        ]
+
+    /// Display: band, display range, colour map and legend.
+    let private viewDisplay (m : AdaptiveProjectedImageModel) =
+        let channelRepr (c : Channel) =
+            match c.name with
+            | None -> string c.idx
+            | Some name -> name
+        let onValue (f : float -> ImageMessage) (action : Numeric.Action) =
+            match action with
+            | Numeric.Action.SetValue v -> f v
+            | _ -> ImageMessage.Empty
+        let lower = m.falseColorModel.lowerBound
+        let upper = m.falseColorModel.upperBound
+        section "Display" None (Some ("reset the range to the image's statistics", ResetCustomMinMax)) [
+            propertyRow "Channel:" [
+                Html.SemUi.dropDown' (AList.ofAVal m.channelOptions) m.selectedChannel SetEXRChannel channelRepr
+            ]
+            // min | two-handle slider (as the library filters) | max
+            propertyRow "Range:" [
+                div [style "display: flex; align-items: center; gap: 6px"] [
+                    div [style "width: 80px; flex-shrink: 0"] [
+                        Numeric.view' [NumericInputType.InputBox] lower |> UI.map (onValue SetCustomMin)
+                    ]
+                    div [style "flex: 1; min-width: 80px"] [
+                        DualRangeSlider.view lower upper (AVal.constant false) SetCustomMin SetCustomMax ImageMessage.Empty
+                    ]
+                    div [style "width: 80px; flex-shrink: 0"] [
+                        Numeric.view' [NumericInputType.InputBox] upper |> UI.map (onValue SetCustomMax)
+                    ]
+                ]
+            ]
+            // on/off and which map, in one line; off: grey values
+            propertyRow "Colour Map:" [
+                div [style "display: flex; align-items: center; gap: 8px"] [
+                    div [attribute "title" "off: grey values"] [
+                        GuiEx.iconCheckBox m.falseColorPreview ToggleFalseColor
+                    ]
+                    Html.SemUi.dropDown m.colorMap SetColorMap
+                ]
+            ]
+            propertyRow "Legend:" [
+                div [style "display: flex; align-items: center; gap: 8px"] [
+                    GuiEx.iconCheckBox m.falseColorModel.useFalseColors ToggleFalseColorLegend
+                    span [style "opacity: 0.75"] [text "show in main view"]
+                ]
+            ]
+        ]
+
+    let view (m : AdaptiveProjectedImageModel) =
         require Html.semui (
             div [] [
-                div [style "position: relative; paddingLeft: 25px; paddingTop: 25px; width: 100%"] [
-                    content
+                div [style "position: relative; width: 100%"] [
+                    viewDisplay m
+                    viewTone "Shadows" "brightens the darkest tones; Tone: how far into the range counts as shadow, Radius: softening in pixels" m.shadows ShadowsMessage
+                    viewTone "Highlights" "darkens the brightest tones; Tone: how far into the range counts as highlight, Radius: softening in pixels" m.highlights HighlightsMessage
                 ]
             ]
         )
@@ -366,6 +431,27 @@ module ProjectedImageApp =
         let falseColor = img |> extract (AVal.constant false) (fun m -> m.falseColorPreview |> AVal.map (fun f -> not f))
         let dataType = img |> extract (AVal.constant 2) (fun m -> m.dataType |> AVal.map (fun dt -> int dt))
 
+        // shadows/highlights: the same cached masks the surface projection samples
+        let shadowAmount = img |> extract (AVal.constant 0.0f) (fun m -> m.shadows.amount.value |> AVal.map float32)
+        let highlightAmount = img |> extract (AVal.constant 0.0f) (fun m -> m.highlights.amount.value |> AVal.map float32)
+        let maskKey =
+            img |> extract (AVal.constant None) (fun m ->
+                adaptive {
+                    let! path = m.texture
+                    let! channel = m.selectedChannel
+                    let! lo = m.falseColorModel.lowerBound.value
+                    let! hi = m.falseColorModel.upperBound.value
+                    let! dataType = m.dataType
+                    let! shadows = m.shadows.Current
+                    let! highlights = m.highlights.Current
+                    return PRo3D.ImageMapping.ShadowsHighlights.maskKey path channel.idx (V2d(lo, hi)) (int dataType) shadows highlights
+                })
+        let maskTexture : aval<ITexture> =
+            maskKey |> AVal.map (fun key ->
+                match key |> Option.bind PRo3D.ImageMapping.ShadowsHighlights.tryMask with
+                | Some masks -> PixTexture2d(PixImageMipMap [| masks |], false) :> ITexture
+                | None -> whiteTex)
+
         Sg.fullScreenQuad
         |> Sg.noEvents
         |> Sg.texture "InstrumentImage" imageTexture
@@ -374,6 +460,9 @@ module ProjectedImageApp =
         |> Sg.uniform "MaxValue" max
         |> Sg.uniform "UseFalseColor" falseColor
         |> Sg.uniform "DataType" dataType
+        |> Sg.texture "ShadowsHighlightsMask" maskTexture
+        |> Sg.uniform "ShadowAmount" shadowAmount
+        |> Sg.uniform "HighlightAmount" highlightAmount
         |> Sg.shader {
             do! (Shaders.hshColors)
         }

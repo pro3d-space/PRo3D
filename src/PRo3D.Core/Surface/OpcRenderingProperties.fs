@@ -47,6 +47,10 @@ module SgExtensions =
                 texturePath : string
                 /// which band of a multi-band image is uploaded
                 channel : int
+                /// shadows/highlights amounts (x: shadows, y: highlights), 0 = off;
+                /// the masks they act on are in the stack's mask texture array
+                /// (docs/ShadowsHighlights.md)
+                toneAmounts : V2f
             }
 
         type ProjectedImages =

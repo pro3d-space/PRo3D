@@ -91,6 +91,21 @@ module ProjectedImagesListAppHelper =
                 ProjectedImageListModel.tryFind id model
                 |> Option.map (fun img -> img.texture, img.selectedChannel.idx)))
 
+    /// The stack layers' shadows/highlights mask keys, index-aligned with
+    /// getStackTextureLayers (same filtered effectiveStack); None for a layer without
+    /// adjustment. Feeds ShadowsHighlights.createMaskArray.
+    let getStackMaskKeys (g : AdaptiveGisApp) : aval<array<Option<ShadowsHighlights.MaskKey>>> =
+        g.projectedImageList.Current |> AVal.map (fun model ->
+            ProjectedImageListModel.effectiveStack model
+            |> IndexList.toArray
+            |> Array.choose (fun id ->
+                ProjectedImageListModel.tryFind id model
+                |> Option.map (fun img ->
+                    ShadowsHighlights.maskKey
+                        img.texture img.selectedChannel.idx
+                        (V2d(img.falseColorModel.lowerBound.value, img.falseColorModel.upperBound.value))
+                        (int img.dataType) img.shadows img.highlights)))
+
     /// `lightViewProj`: world -> sun-camera clip space for shadow mapping, produced by
     /// the viewer's shadow-map pass; None (also whenever the lighting mode is not
     /// SunShadow) keeps the per-patch shadow lookup disabled.
@@ -197,6 +212,7 @@ module ProjectedImagesListAppHelper =
                                     minMax = V2f(img.falseColorModel.lowerBound.value, img.falseColorModel.upperBound.value)
                                     texturePath = img.texture
                                     channel = img.selectedChannel.idx
+                                    toneAmounts = V2f(img.shadows.amount.value, img.highlights.amount.value)
                                 }
                             Some layer
                     )

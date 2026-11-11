@@ -276,7 +276,7 @@ let tests () =
                     {
                         imageProjection = AVal.constant (Some Trafo3d.Identity)
                         stackProjections =
-                            AVal.constant [| ({ trafo = Some Trafo3d.Identity; minMax = V2f.OI; texturePath = "a"; channel = 0 } : Sg.ProjectedStackLayer) |]
+                            AVal.constant [| ({ trafo = Some Trafo3d.Identity; minMax = V2f.OI; texturePath = "a"; channel = 0; toneAmounts = V2f.Zero } : Sg.ProjectedStackLayer) |]
                         stackCoverageEnabled = AVal.constant true
                         hoveredProjection = AVal.constant (Some Trafo3d.Identity)
                         stackFocus = AVal.constant (-1, 1.0f)

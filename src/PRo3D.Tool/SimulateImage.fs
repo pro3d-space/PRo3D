@@ -821,7 +821,8 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
                             [| { Sg.ProjectedStackLayer.trafo = Some projector
                                  minMax = V2f(0.0f, 1.0f)
                                  texturePath = imagePath
-                                 channel = 0 } |]
+                                 channel = 0
+                                 toneAmounts = V2f.Zero } |]
                         | _ -> [||])
                 stackCoverageEnabled = AVal.constant false
                 hoveredProjection = AVal.constant None
@@ -914,8 +915,13 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
             |> (let stack =
                     PRo3D.InstrumentProjection.Visualization.createProjectedStackTextureArray
                         runtime (AVal.constant [| imagePath, 0 |])
+                // no shadows/highlights here: the shader still needs a mask array bound
+                let masks =
+                    PRo3D.ImageMapping.ShadowsHighlights.createMaskArray runtime (AVal.constant [| None |])
                 Sg.texture "ProjectedStackTextures" (stack |> AVal.map (fun s -> s.texture))
-                >> Sg.uniform "ProjectedStackSlices" (stack |> AVal.map (fun s -> s.slices)))
+                >> Sg.uniform "ProjectedStackSlices" (stack |> AVal.map (fun s -> s.slices))
+                >> Sg.texture "ProjectedStackMasks" (masks |> AVal.map (fun s -> s.texture))
+                >> Sg.uniform "ProjectedStackMaskSlices" (masks |> AVal.map (fun s -> s.slices)))
             |> Sg.uniform' "ProjectedImageOpacity2" 1.0f
             // same neutralisation as the single-image path, so the two are comparable
             |> Sg.uniform' "UseFalseColor" false

@@ -61,8 +61,9 @@ module Visualization =
             Log.warn "could not load texture %s: %s" path e.Message
             DefaultTextures.checkerboard
 
-    /// One band of an image as a PixImage, for a stack texture-array slice.
-    let private decodeBand (path : string) (channel : int) : Option<PixImage> =
+    /// One band of an image as a PixImage, for a stack texture-array slice (and the
+    /// shadows/highlights masks computed from it, ShadowsHighlights).
+    let decodeBand (path : string) (channel : int) : Option<PixImage> =
         try
             match Path.GetExtension(path).ToLower() with
             | ".tiff" | ".tif" ->
@@ -107,19 +108,12 @@ module Visualization =
     /// reallocated -- and everything re-uploaded -- only when the image size or
     /// format changes or more slots are needed than allocated; it grows by
     /// doubling, up to ProjectedImages.maxCount.
-    let createProjectedStackTextureArray (runtime : ITextureRuntime) (layers : aval<array<string * int>>) : aval<StackTextureArray> =
-        let decodeCache = System.Collections.Generic.Dictionary<string * int, Option<PixImage>>()
-        let decodeCached (path : string) (channel : int) =
-            match decodeCache.TryGetValue ((path, channel)) with
-            | true, pi -> pi
-            | _ ->
-                // bound the decode memory: 96 entries of AFC-sized bands ~ 400 MB
-                // worst case; a full clear is crude but correct, misses just decode again
-                if decodeCache.Count > 96 then decodeCache.Clear()
-                let pi = decodeBand path channel
-                decodeCache.[(path, channel)] <- pi
-                pi
-
+    ///
+    /// Generic over the slot key: `produce` makes a key's slice (None: the slot stays
+    /// black). The image stack keys by (path, band); the shadows/highlights masks key
+    /// by everything that shapes a mask (ShadowsHighlights.createMaskArray). `label`
+    /// names the array in the log.
+    let createSlotTextureArray (label : string) (runtime : ITextureRuntime) (produce : 'k -> Option<PixImage>) (layers : aval<array<'k>>) : aval<StackTextureArray> =
         // the sampler needs *some* 2d-array bound even with an empty stack
         let empty =
             lazy (
@@ -131,8 +125,8 @@ module Visualization =
 
         let mutable allocated : Option<IBackendTexture * V2i * TextureFormat * int> = None
         // slot -> the image it holds, and back
-        let mutable content : array<Option<string * int>> = [||]
-        let slotOf = System.Collections.Generic.Dictionary<string * int, int>()
+        let mutable content : array<Option<'k>> = [||]
+        let slotOf = System.Collections.Generic.Dictionary<'k, int>()
 
         AVal.custom (fun t ->
           try
@@ -140,7 +134,7 @@ module Visualization =
             if ls.Length = 0 then emptyResult ()
             else
                 let keys = ls |> Array.distinct
-                let decoded = keys |> Array.map (fun (p, c) -> decodeCached p c)
+                let decoded = keys |> Array.map produce
                 match decoded |> Array.tryPick id with
                 | None -> emptyResult ()
                 | Some first ->
@@ -161,7 +155,7 @@ module Visualization =
                             content <- Array.create capacity None
                             slotOf.Clear()
                             tex
-                    let needed = System.Collections.Generic.HashSet<string * int>(keys)
+                    let needed = System.Collections.Generic.HashSet<'k>(keys)
                     // free slots: never used first, then those holding an image no layer needs
                     let free =
                         System.Collections.Generic.Queue<int>(
@@ -187,14 +181,14 @@ module Visualization =
                             | Some pi ->
                                 // same-instrument stacks share one size (D1); a
                                 // mismatched image keeps its slot but stays dark
-                                Log.warn "[ProjectedStack] %s is %A, expected %A -- slot %d stays black" (fst key) pi.Size size slot
+                                Log.warn "[%s] %A is %A, expected %A -- slot %d stays black" label key pi.Size size slot
                                 tex.Upload(black.Value, slice = slot)
                             | None -> tex.Upload(black.Value, slice = slot)
                             content.[slot] <- Some key
                             slotOf.[key] <- slot
                             uploads <- uploads + 1
                     if uploads > 0 then
-                        Log.line "[ProjectedStack] uploaded %d image(s) (%A) for %d layers in %.1f ms" uploads size ls.Length sw.Elapsed.TotalMilliseconds
+                        Log.line "[%s] uploaded %d image(s) (%A) for %d layers in %.1f ms" label uploads size ls.Length sw.Elapsed.TotalMilliseconds
                     let slices =
                         ls |> Array.map (fun key ->
                             match slotOf.TryGetValue key with
@@ -205,13 +199,28 @@ module Visualization =
             // a failure here must not take the surface's render objects down
             // with it -- log loudly and fall back to the (lazily created)
             // 1-slice dummy so the sampler still has an array bound
-            Log.error "[ProjectedStack] building the stack texture array failed: %A" e
+            Log.error "[%s] building the stack texture array failed: %A" label e
             allocated |> Option.iter (fun (old, _, _, _) -> try runtime.DeleteTexture old with _ -> ())
             allocated <- None
             content <- [||]
             slotOf.Clear()
             emptyResult ()
         )
+
+    /// The stack's image texture array: one slot per (image path, band).
+    let createProjectedStackTextureArray (runtime : ITextureRuntime) (layers : aval<array<string * int>>) : aval<StackTextureArray> =
+        let decodeCache = System.Collections.Generic.Dictionary<string * int, Option<PixImage>>()
+        let decodeCached (path : string, channel : int) =
+            match decodeCache.TryGetValue ((path, channel)) with
+            | true, pi -> pi
+            | _ ->
+                // bound the decode memory: 96 entries of AFC-sized bands ~ 400 MB
+                // worst case; a full clear is crude but correct, misses just decode again
+                if decodeCache.Count > 96 then decodeCache.Clear()
+                let pi = decodeBand path channel
+                decodeCache.[(path, channel)] <- pi
+                pi
+        createSlotTextureArray "ProjectedStack" runtime decodeCached layers
 
     /// Frustum wireframe of the hovered image's projector (D5): the NDC cube
     /// corners through the inverse view*proj, in the surface's frame; the

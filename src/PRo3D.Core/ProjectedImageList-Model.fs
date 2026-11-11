@@ -43,6 +43,35 @@ type Channel =
         name : Option<string>
     }
 
+/// One side of the shadows/highlights adjustment (docs/ShadowsHighlights.md):
+/// how strongly the tones are pulled (amount), which tones count as shadow or
+/// highlight (tone: the share of the range, from the dark or the bright end), and
+/// how far the selection is softened across the image (radius, in pixels).
+[<ModelType>]
+type ToneAdjustment =
+    {
+        amount : NumericInput
+        tone   : NumericInput
+        radius : NumericInput
+    }
+
+module ToneAdjustment =
+    /// Amount 0: no adjustment, and no mask is computed at all.
+    let init : ToneAdjustment =
+        {
+            amount = { Numeric.init with min = 0.0; max = 1.0;   step = 0.01; value = 0.0;  format = "{0:0.00}" }
+            tone   = { Numeric.init with min = 0.0; max = 1.0;   step = 0.01; value = 0.5;  format = "{0:0.00}" }
+            radius = { Numeric.init with min = 0.0; max = 100.0; step = 1.0;  value = 30.0; format = "{0:0}" }
+        }
+
+    let isActive (a : ToneAdjustment) = a.amount.value > 0.0
+
+type ToneAdjustmentAction =
+    | SetAmount of Numeric.Action
+    | SetTone   of Numeric.Action
+    | SetRadius of Numeric.Action
+    | ResetTone
+
 [<ModelType>]
 type ProjectedImageModel =
     {
@@ -70,6 +99,10 @@ type ProjectedImageModel =
         instrument        : string
         falseColorPreview : bool
         falseColorModel   : FalseColorsModel
+        /// Brightens the darkest tones (docs/ShadowsHighlights.md). Not persisted.
+        shadows           : ToneAdjustment
+        /// Darkens the brightest tones (docs/ShadowsHighlights.md). Not persisted.
+        highlights        : ToneAdjustment
     }
 
 [<ModelType>]
@@ -475,6 +508,8 @@ type ImageMessage =
     | ToggleFalseColor
     | ToggleFalseColorLegend
     | SetEXRChannel of Channel
+    | ShadowsMessage of ToneAdjustmentAction
+    | HighlightsMessage of ToneAdjustmentAction
     | Empty
 
 

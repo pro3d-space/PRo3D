@@ -1661,6 +1661,14 @@ module ViewerUtils =
                 (PRo3D.GIS.ProjectedImagesListAppHelper.getStackTextureLayers m.scene.gisApp)
         let projectedStackTextures = projectedStack |> AVal.map (fun s -> s.texture)
         let projectedStackSlices = projectedStack |> AVal.map (fun s -> s.slices)
+        // shadows/highlights masks, a slot per distinct mask, index-aligned like the
+        // images (docs/ShadowsHighlights.md)
+        let projectedStackMasks =
+            PRo3D.ImageMapping.ShadowsHighlights.createMaskArray
+                runtime
+                (PRo3D.GIS.ProjectedImagesListAppHelper.getStackMaskKeys m.scene.gisApp)
+        let projectedStackMaskTextures = projectedStackMasks |> AVal.map (fun s -> s.texture)
+        let projectedStackMaskSlices = projectedStackMasks |> AVal.map (fun s -> s.slices)
 
 
         // per surface, shared by the per-patch applicator, the frustum wireframe and
@@ -1684,6 +1692,8 @@ module ViewerUtils =
                 )
                 |> Sg.texture "ProjectedStackTextures" projectedStackTextures
                 |> Sg.uniform "ProjectedStackSlices" projectedStackSlices
+                |> Sg.texture "ProjectedStackMasks" projectedStackMaskTextures
+                |> Sg.uniform "ProjectedStackMaskSlices" projectedStackMaskSlices
                 |> Sg.uniform' "ProjectedImageModelViewProjValid" (PRo3D.GIS.ProjectedImagesListAppHelper.getSelectedImage  m.scene.gisApp.projectedImageList |> AVal.map Option.isSome)
                 |>  PRo3D.InstrumentVisualization.InstrumentImageVisualization.applyProperties {  imageProperties with instrumentImage = projectedTexture }
                 |> Sg.noEvents

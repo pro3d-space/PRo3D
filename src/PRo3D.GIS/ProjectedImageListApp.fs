@@ -334,66 +334,15 @@ module ProjectedImageListApp =
         // the accent the busy chip and the tool strip use: a filter that hides rows
         let filterAccent = "#e3b341"
 
-        let invariant (v : float) = v.ToString("R", Globalization.CultureInfo.InvariantCulture)
-
         let filterMsg (f : 'a -> ImageFilterMessage) (a : 'a) = FilterMessage (f a)
 
-        /// Two range inputs over one track: the lower and the upper bound. A bound is
-        /// sent on release (onchange) -- the browser moves the thumb on its own while
-        /// dragging, so the update thread is not flooded.
+        /// The filter's two-handle slider (DualRangeSlider, shared with an image's
+        /// display range); amber while the filter hides rows.
         let dualSlider (kind : RangeFilterKind) (r : AdaptiveRangeFilter) =
-            let thumb (input : AdaptiveNumericInput) (isLower : bool) =
-                let attributes =
-                    amap {
-                        yield attribute "type" "range"
-                        let! min = input.min
-                        let! max = input.max
-                        let! step = input.step
-                        let! value = input.value
-                        yield attribute "min" (invariant min)
-                        yield attribute "max" (invariant max)
-                        yield attribute "step" (invariant step)
-                        yield attribute "value" (invariant value)
-                        // a lower thumb pushed to the far right would sit under the
-                        // upper one and could never be dragged back: lift it then
-                        let! upper = r.upper.value
-                        if isLower && value > min + 0.5 * (max - min) && value >= upper then
-                            yield style "z-index: 2"
-                        yield onChange (fun s ->
-                            match Double.TryParse(s.Trim('"'), Globalization.NumberStyles.Float, Globalization.CultureInfo.InvariantCulture) with
-                            | true, v ->
-                                let action = Numeric.SetValue v
-                                FilterMessage (if isLower then SetLower (kind, action) else SetUpper (kind, action))
-                            | _ -> Nop)
-                    } |> AttributeMap.ofAMap
-                Incremental.input attributes
-
-            let fillAttributes =
-                amap {
-                    let! lower = r.lower.value
-                    let! upper = r.upper.value
-                    let! min = r.lower.min
-                    let! max = r.upper.max
-                    let span = if max > min then max - min else 1.0
-                    let left = 100.0 * (lower - min) / span
-                    let width = 100.0 * (upper - lower) / span
-                    yield clazz "pro3d-dual-range-fill"
-                    yield style (sprintf "left: %.3f%%; width: %.3f%%" left width)
-                } |> AttributeMap.ofAMap
-
-            let containerAttributes =
-                amap {
-                    let! active = rangeIsActive r
-                    yield clazz (if active then "pro3d-dual-range active" else "pro3d-dual-range")
-                } |> AttributeMap.ofAMap
-
-            Incremental.div containerAttributes (
-                AList.ofList [
-                    div [clazz "pro3d-dual-range-track"] []
-                    Incremental.div fillAttributes AList.empty
-                    thumb r.lower true
-                    thumb r.upper false
-                ])
+            DualRangeSlider.view r.lower r.upper (rangeIsActive r)
+                (fun v -> FilterMessage (SetLower (kind, Numeric.SetValue v)))
+                (fun v -> FilterMessage (SetUpper (kind, Numeric.SetValue v)))
+                Nop
 
         /// Label (amber with a filter icon while it hides rows) | lower | slider |
         /// upper | reset.

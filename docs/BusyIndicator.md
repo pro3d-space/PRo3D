@@ -38,6 +38,7 @@ It reports **that** PRo3D is working, not how far along it is — see
 | `scene file` | `LoadScene`, `OpenScene`, `SaveScene`, `SaveAs` |
 | `exporting annotations` | `AnnotationExportMessage` |
 | `sampling surface` | Color by Category's *resample surface* |
+| `adjusting shadows/highlights` | background (render thread): a projected image's shadow/highlight masks are computed after its *Tone*, *Radius* or min/max changed ([ShadowsHighlights](ShadowsHighlights.md)) |
 
 Everything else is deliberately unlabelled: an unlabelled message never touches the busy
 cell at all, so the ordinary path costs nothing. A slow action that is *not* in the table

@@ -456,7 +456,7 @@ div.fullwidth.textcontainer > input {
 }
 
 /* Two-handle range slider of the Projected Images library filters
-   (ProjectedImageListApp.dualSlider): two range inputs over one track. Only the
+   (DualRangeSlider.fs: the library filters and an image's display range): two range inputs over one track. Only the
    thumbs take the mouse, so either can be grabbed where they do not overlap. */
 .pro3d-dual-range {
     position: relative;
