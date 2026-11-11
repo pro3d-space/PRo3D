@@ -1,3 +1,55 @@
+## 6.4.4
+OPC surfaces: tiles around the camera refine again instead of staying coarse.
+
+- Surfaces: **OPC tiles close to the camera refine again.** A patch whose bounding box the camera was inside or right next to could be judged off screen and stay at a coarse level, getting coarser as you zoomed in (#912, docs/SurfaceLevelOfDetail.md)
+
+## 6.4.3
+Move whole ellipses, add points to finished lines and polygons, metadata in every export preset, and a save that a broken annotation can no longer stop.
+
+- Annotations: **move a whole ellipse.** In *Edit Annotation* a three-point ellipse has a fifth, white handle at its centre: drag it to move the ellipse, axis lengths and axis ratio kept; a green outline previews the move. **Every ellipse edit now re-fits its plane** to the terrain under its new points, as if drawn there, so dip and strike always match the ellipse; a notice says so, with the dip before and after. Dropping a handle where it is changes nothing. One Ctrl+Z undoes it. **Supporting profiles now follow every ellipse edit**, moved or reshaped, in the directions they had; an edit they cannot follow is refused with a notice (docs/EllipseAnnotations.md)
+- Export: **the Boulders, Craters, Lineaments and Fractures presets now include the annotation metadata columns** (confidence, comment, shape model, shape model version, projected images, credit); before, only the Annotation table preset had them (#887, docs/AnnotationExport-CSV.md)
+- Annotations: **add points to a finished line, polyline or polygon.** In *Edit Annotation*, Ctrl+click on the selected annotation's line picks up a new point there, and a Ctrl+click on the surface puts it down (Esc cancels). The terrain samples of a Viewpoint/Sky line show as grey dots near the cursor; Ctrl+click one (blue under the cursor) to turn it into a control point where it is, without moving the line. A line that gets a third point becomes a polyline. One Ctrl+Z per added point (#639, docs/AnnotationVertexEditing.md)
+- Viewer: **the window title now reads "PRo3D by VRVis supported by community and open source contributors"**, followed by the version
+- Saving: **a broken annotation no longer stops the save.** An annotation whose values cannot be stored (e.g. a dip & strike whose angles became NaN) used to abort the whole save with `Serialization of NaN Invalid.`; now it is left out of the annotation file, everything else is saved, and a message names it and asks to contact pro3d@vrvis.at with the log. The annotation stays in the session (#834, #910, docs/SavingScenes.md)
+
+## 6.4.2
+A macOS-only fix: surfaces no longer disappear in the main and instrument views.
+
+- Surfaces: **surfaces offscreen (#841) failed to render on macOS** - every surface disappeared (the render task errored with `[GL] Shader compiler returned errors`) because the copy-back shader queried a multisample texture's sample count with a GL extension macOS's OpenGL doesn't have. The count is now passed in directly, needing no extension (#908)
+
+## 6.4.1
+Box selection of annotations; confidence, comments and shape model for every annotation; an annotations list that shows thousands at once; Map View pan and an automatic switch for small bodies; drag & drop in the projection stack. **macOS: the tool key is Cmd, no longer Option** (see Input below).
+
+- Annotations: **box selection.** In *Select Annotation* mode, Ctrl+drag a rectangle to select every annotation it touches; Ctrl+Shift+drag adds, Ctrl+Alt+drag toggles, Esc cancels (in Direct Tool Mode without Ctrl). Annotations hidden behind a surface are not selected, decided with the surfaces' KdTrees the way the depth test decides on screen; a Ctrl+click on the hidden part of an annotation no longer selects it either. Delete removes the selection, one Ctrl+Z restores it (#849, #854, docs/AnnotationBoxSelection.md)
+- Annotations: **confidence, comment, shape model and images used for every annotation.** With annotations selected, keys **1–4** rate them (a fading *C3* bubble confirms it), **C** opens a comment next to the annotation; the shape model and its credit are taken from the OPC, and the projected images under each point are recorded. All four show in Properties and in the export (six new columns) (#887, docs/AnnotationMetadata.md)
+- Surfaces: **Source & Credits** shows the selected OPC's credit, shape model, version, dates, GSD, mission and target (#887)
+- Annotations: **the annotations list shows thousands of annotations within a second** (5000 took the browser 2.5-4.5 minutes): each folder lists its annotations in its own scroll box and only the rows in view are in the page. Selecting an annotation elsewhere scrolls the list to it, and a single pick in the 3D view also opens the folders down to it (#900, docs/AnnotationList.md)
+- Map View: **small bodies switch to Map View by themselves** when the scene body becomes Phobos, Deimos, Didymos or Dimorphos (top bar, GIS view, or the first imported OPC), with a notice saying so; after an import the camera moves out to an overview (#898, docs/MapView.md)
+- Scenes: **the scene body is set from the first imported OPC** (its DSK body, FITS `TARGET` or product name) (#894, docs/SceneBody.md)
+- Map View: **pan** with Shift+right-drag or middle-drag; **R** resets the view to straight down, north up, centred (#896, docs/MapView.md)
+- Projection stack: **drag & drop** to reorder images (☰ handle); the 3D view shows the new order while dragging, Esc restores it. Hovering an image fades the other layers. Reordering no longer re-uploads the images (#902, docs/MultiImageProjection.md)
+- Projection stack: **the image folder and the stack are saved with the scene** and restored when it is opened; a missing folder or image gives a notice (#902)
+- Projection stack: after re-importing a folder or sorting the library, **+** and fly-to could act on another image or do nothing (why HSH-1B frames could not be projected after AFC1-1B); fixed (#902)
+- Input: **Alt (Option on macOS) no longer acts as Ctrl.** The tool modifier is **Ctrl, and on macOS Cmd** (left or right; the right Cmd key is new). Until now Alt counted as Ctrl without being documented: Alt+click picked and drew, Alt+drag box-selected, Alt+S saved and Alt+Z undid. **Mac users who used Option instead of Cmd: use Cmd.** Alt now only does what a tool says it does, such as the toggle in box selection (Ctrl+Alt+drag, Cmd+Option+drag on macOS) (docs/DirectToolMode.md)
+- Input: in Direct Tool Mode, Alt no longer hands the left button back to the camera, so Alt+drag toggles a box selection there as documented
+- Annotations: a plain Ctrl+click in the 3D view selects **only** the clicked annotation and clears a multi-selection, so Delete removes only what looks selected; Shift+Ctrl+click adds to the whole selection and keeps the annotation selected by a plain click (docs/AnnotationBoxSelection.md)
+- Geological maps: the *Assign unit* eyedropper is **Ctrl+Alt+click** (Cmd+Option+click on macOS), or Alt+click in Direct Tool Mode, now that Alt alone no longer arms the tool (docs/GeologicalMap.md)
+- Busy indicator: box selection reads *selecting annotations*, and a Ctrl+click on an annotation that loads part of the surface reads *picking*
+- Scenes and annotation files saved with 6.4.1 still open in earlier versions: the new data is stored under new keys they skip
+
+## 6.4.0
+The first non-prerelease of the 6.4 line. Everything from `6.4.0-prerelease001` and `-prerelease002` is included: fills that lie on the terrain, supporting profiles, the Image Inspector with shadow measurements, surface comparison, the LatLon grid over projected images and the experimental geological maps (see below). New since `-prerelease002`:
+
+- Annotations: **import polygons from CSV.** *Extras → Import Polygons (\*.csv)...* reads one row per vertex (`polygon_id,x,y,z` in body-fixed metres), PRo3D's own per-point export and `pro3d-tool unproject` output, so polygons digitised on instrument images arrive via unproject. Optionally snaps the vertices onto the surface along the local up, adds sky-projected points along the edges, and computes dip and strike. Each file becomes one annotation group and one undo step (#888, docs/PolygonCsvImport.md)
+- Annotations: **three-point ellipses can be edited by their axis ends.** In *Edit annotation* mode, four handles at the ends of the major and minor axes change the axes within the ellipse's plane, one undo step per drop. Four-point ellipses, SBMT imports and ellipses saved before 6.3.4 are not editable (#883)
+- Surfaces: **a Texture checkbox draws a surface untextured**, in plain grey, shaded by the sun or, with sun lighting off, by a light fixed to the camera (#868)
+- Coordinates: **heights say what they are measured against**: *Height above spheroid* (Mars, Earth, Moon, Phobos, Deimos, Didymos), *Radius from centre* (Dimorphos), *Height along up* (no body), in the HUD and the Coordinate System panel (#866, docs/HeightReference.md)
+- Picking: **each KdTree is loaded once per process.** The hover pick and click picks no longer load the same patch again and again (up to 40 s each on a busy machine), and clicks during a load are no longer lost (#874)
+- Tools: **`pro3d-tool render-bookmarks`** renders a scene's bookmarks headlessly to PNGs, and **`pro3d-tool render-view`** renders OPCs from explicit cameras, optionally lit by the sun with cast shadows, without a scene file (#871, #878)
+- Shadows: cast shadows of OPCs placed by a pre-transform (render-view jobs, legacy `.trafo` files) were coarse or missing; fixed. The sun-shadow bias is now a viewer setting (#889)
+- Automation: `GET /activity` tells scripts when PRo3D has settled, so UI tests no longer need fixed sleeps (#876)
+- Scenes and annotation files saved with 6.4.0 still open in earlier versions: new data is stored under new keys they skip
+
 ## 6.4.0-prerelease002
 Adds geological maps, an experimental first version.
 

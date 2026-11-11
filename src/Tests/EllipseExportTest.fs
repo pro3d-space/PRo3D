@@ -224,6 +224,7 @@ let private exportTests =
                 AnnotationExportSettings.initial |> AnnotationExportSettings.applyPreset ExportPreset.Boulders
             Expect.equal (AnnotationExport.schemaOf settings)
                 [ "key"; "text"; "surfaceName"; "groupPath"; "semiMajorAxis"; "semiMinorAxis"; "majorAxisAzimuth"
+                  "confidence"; "comment"; "shapeModel"; "shapeModelVersion"; "projectedImages"; "shapeModelCredit"
                   "x"; "y"; "z"; "lat"; "lon"; "alt"; "body"; "latLonAltSource" ]
                 "docs/AnnotationExport-CSV.md, Boulders"
 
@@ -233,6 +234,17 @@ let private exportTests =
                 |> AnnotationExportModel.toSettings
             Expect.equal (AnnotationExport.schemaOf throughWindow) (AnnotationExport.schemaOf settings)
                 "the window writes the same columns in the same order"
+        }
+
+        test "Boulders, Craters, Lineaments and Fractures carry the annotation metadata columns" {
+            let meta = [ "confidence"; "comment"; "shapeModel"; "shapeModelVersion"; "projectedImages"; "shapeModelCredit" ]
+            for preset in [ ExportPreset.Boulders; ExportPreset.Craters; ExportPreset.Lineaments; ExportPreset.Fractures ] do
+                let schema =
+                    AnnotationExportApp.update AnnotationExportModel.initial (SetPreset preset)
+                    |> AnnotationExportModel.toSettings
+                    |> AnnotationExport.schemaOf
+                for column in meta do
+                    Expect.contains schema column (sprintf "%A has %s (#887)" preset column)
         }
 
         test "a boulder row carries the stored axes, azimuth and centre" {
@@ -382,7 +394,9 @@ let private fractureTests =
         test "the Fractures columns are exactly the documented ones" {
             let settings = AnnotationExportSettings.initial |> AnnotationExportSettings.applyPreset ExportPreset.Fractures
             Expect.equal (AnnotationExport.schemaOf settings)
-                [ "key"; "text"; "surfaceName"; "wayLength"; "groupPath"; "segmentIndex"
+                [ "key"; "text"; "surfaceName"; "wayLength"; "groupPath"
+                  "confidence"; "comment"; "shapeModel"; "shapeModelVersion"; "projectedImages"; "shapeModelCredit"
+                  "segmentIndex"
                   "startX"; "startY"; "startZ"; "startLat"; "startLon"; "startAlt"
                   "endX"; "endY"; "endZ"; "endLat"; "endLon"; "endAlt"; "body"; "latLonAltSource"
                   "segmentLength"; "segmentChord"; "segmentAzimuth" ]

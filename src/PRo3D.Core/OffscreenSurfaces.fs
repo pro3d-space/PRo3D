@@ -75,11 +75,16 @@ module OffscreenSurfaces =
         /// priority group, so it only holds the last group - surfaces of earlier groups have
         /// colour but depth 1 there, exactly as when they were drawn into the view directly.
         /// Discarding depth-1 samples would drop them.
+        ///
+        /// `source` comes in as a uniform rather than `color.Samples` (GLSL `textureSamples`,
+        /// GL_ARB_shader_texture_image_samples): macOS's GL never exposes that extension, so
+        /// querying it at runtime failed the shader compile there. The caller already knows
+        /// the offscreen sample count - it chose it in `render` - so there is nothing to query.
         let blit (v : BlitVertex) =
             fragment {
                 let vp : V2i = uniform?ViewportSize
                 let p = V2i (v.fc.XY * V2f depth.Size / V2f vp)
-                let source = color.Samples
+                let source : int = uniform?SourceSamples
                 let target : int = uniform?TargetSamples
                 if target >= source then
                     let s = v.sid % source
@@ -196,12 +201,14 @@ module OffscreenSurfaces =
     let private premultipliedOver =
         { BlendMode.Blend with SourceColorFactor = BlendFactor.One }
 
-    /// Fullscreen copy of `color` (premultiplied, see render) and `depth` into the current
-    /// target, of `targetSamples` samples, writing depth.
-    let blit (targetSamples : int) (color : aval<ITexture>) (depth : aval<ITexture>) : ISg =
+    /// Fullscreen copy of `color` (premultiplied, see render) and `depth`, both of
+    /// `sourceSamples` samples (the count `render` was called with), into the current target,
+    /// of `targetSamples` samples, writing depth.
+    let blit (sourceSamples : int) (targetSamples : int) (color : aval<ITexture>) (depth : aval<ITexture>) : ISg =
         Sg.fullScreenQuad
         |> Sg.texture "OffscreenColor" color
         |> Sg.texture "OffscreenDepth" depth
+        |> Sg.uniform "SourceSamples" (AVal.constant sourceSamples)
         |> Sg.uniform "TargetSamples" (AVal.constant targetSamples)
 
         |> Sg.shader {

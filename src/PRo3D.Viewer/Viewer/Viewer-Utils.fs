@@ -2060,7 +2060,7 @@ module ViewerUtils =
             ]
 
         alist {
-            yield RenderCommand<_>.Render (OffscreenSurfaces.blit values.signature.Samples color depth |> Sg.noEvents)
+            yield RenderCommand<_>.Render (OffscreenSurfaces.blit samples values.signature.Samples color depth |> Sg.noEvents)
 
             for sg in grouped do
                 yield RenderCommand<_>.Render (OffscreenSurfaces.pickOnly sg)

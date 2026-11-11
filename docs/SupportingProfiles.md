@@ -48,6 +48,7 @@ While the box is ticked, every polyline gets its profiles when you press **Enter
 - **Sampling:** each profile is draped onto the surface like a hand-drawn *Sky* line, using the toolbar's **Sampling** distance at the moment you generate. Change that first for denser or coarser profiles.
 - **Selection:** the polyline or ellipse stays selected, so you can generate again with other settings.
 - **Generating again replaces.** Generating again for the same polyline or ellipse replaces its earlier profiles; the message says how many it replaced. Each crater or lineament therefore has one set of profiles, and the export never mixes two.
+- **Editing an ellipse takes its profiles along.** Moving or reshaping an ellipse in *Edit Annotation* lays its profiles across it again, in the directions they had, keeping each profile's name, group and colour; if one cannot follow, the edit is refused ([EllipseAnnotations.md](EllipseAnnotations.md#editing-an-ellipse)). Editing a polyline does not regenerate its lineament profiles.
 - **Undo:** one **Ctrl+Z** undoes one generation: the new profiles go, and any it replaced come back.
 
 **All or nothing:** if one profile cannot be built, typically because one of its ends would hang off the edge of the mesh, **no** profiles are created, and the message says which one failed. Shorten the length or move away from the edge, then generate again.

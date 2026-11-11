@@ -582,12 +582,21 @@ module ViewerApp =
 
                 // an ellipse is always draped with the Sky projection (Geometry.allowedProjections),
                 // whatever the drawing toolbar is set to now
-                let sampler =
+                let isEllipse =
                     match m.drawing.annotations.flat.TryFind grab.annotation with
-                    | Some (Leaf.Annotations a) when not (Geometry.isVertexEditable a.geometry) -> skyProjection m
-                    | _ -> hitFunction
-                let msg = DrawingAction.MoveVertex(grab.annotation, grab.pointIndex, p, sampler)
-                let drawing = DrawingApp.update m.scene.referenceSystem drawingConfig referenceSystem bc view m.shiftFlag m.drawing msg
+                    | Some (Leaf.Annotations a) -> not (Geometry.isVertexEditable a.geometry)
+                    | _ -> false
+                let sampler = if isEllipse then skyProjection m else hitFunction
+                // An ellipse drop reports what became of it (re-fitted, profiles regenerated, or
+                // refused) in the panel's message; cleared first, so the same outcome twice is
+                // reported twice.
+                let start =
+                    if isEllipse then { m.drawing with supportingProfiles = { m.drawing.supportingProfiles with message = None } }
+                    else m.drawing
+                let msg =
+                    if grab.inserting then DrawingAction.InsertVertex(grab.annotation, grab.pointIndex, p, sampler)
+                    else DrawingAction.MoveVertex(grab.annotation, grab.pointIndex, p, sampler)
+                let drawing = DrawingApp.update m.scene.referenceSystem drawingConfig referenceSystem bc view m.shiftFlag start msg
 
                 // surfaceName is only ever advisory and nothing re-validates it, so a vertex may
                 // legitimately end up on a different surface than the annotation was drawn on -
@@ -597,12 +606,19 @@ module ViewerApp =
                     | Some (Leaf.Annotations a) -> a.surfaceName <> surf.name
                     | _ -> false
 
+                // an ellipse edit says what became of its supporting profiles: regenerated, or
+                // the edit refused because they could not follow. The Properties panel showing
+                // that message is usually closed while editing.
+                let profileMessage = if isEllipse then drawing.supportingProfiles.message else None
+
                 let m = { m with drawing = drawing } |> stash
-                if movedAcrossSurfaces then
-                    // same 3 s transient top-right overlay "Importing OPCs..." and "scene saved" use
-                    m |> logScreen 3000 (sprintf "vertex moved onto surface \"%s\"" surf.name)
-                else
-                    m
+                // same 3 s transient top-right overlay "Importing OPCs..." and "scene saved" use
+                match profileMessage with
+                | Some message -> m |> logScreen 4000 message
+                | None when movedAcrossSurfaces ->
+                    let what = if grab.inserting then "vertex added on" else "vertex moved onto"
+                    m |> logScreen 3000 (sprintf "%s surface \"%s\"" what surf.name)
+                | None -> m
             | _ ->
                 // Either nothing is grabbed, or this is the very click that grabbed and the cursor
                 // has not moved yet. Both mean "not a drop".
@@ -2056,9 +2072,19 @@ module ViewerApp =
                 let s = { surfaceName = name; hitPoint = hitPosOnRay; normal = normal }
                 // A fresh hit after a grab means the cursor has moved, which is what separates the
                 // click that picks a control point up from the click that puts it back down.
+                //
+                // "Fresh" in screen terms: more than 0.5 deg (~7 px) from where the grab began. The
+                // last hover hit before the click can be processed after the grab, and it lies at
+                // the click itself - armed by it, the click's own surface hit would drop the point
+                // right there, which for a point being added (#639) means adding it unasked.
+                let movedAway (g : VertexGrab) =
+                    let eye = m.navigation.camera.view.Location
+                    let a = (g.original - eye).Normalized
+                    let b = (hitPosOnRay - eye).Normalized
+                    Vec.dot a b < cos (Conversion.RadiansFromDegrees 0.5)
                 let drawing =
                     match m.drawing.vertexGrab with
-                    | Some g when not g.movedSinceGrab ->
+                    | Some g when not g.movedSinceGrab && movedAway g ->
                         DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue m.navigation.camera.view m.shiftFlag m.drawing DrawingAction.ArmVertexGrab
                     | _ -> m.drawing
                 { m with
@@ -3393,6 +3419,17 @@ module ViewerApp =
                 match m.drawing.vertexGrab.GetValue t, m.surfaceIntersection.GetValue t with
                 | Some grab, Some hit ->
                     match m.drawing.annotations.flat.Content.GetValue t |> HashMap.tryFind grab.annotation with
+                    | Some (AdaptiveAnnotations ann) when not (Geometry.isVertexEditable (ann.geometry.GetValue t))
+                                                         && grab.pointIndex = EllipseEdit.CentreHandle ->
+                        // the centre: the whole outline, moved in its plane to the cursor - where
+                        // the drop puts it before draping it onto the terrain again
+                        match ann.ellipticResults.GetValue t with
+                        | Some r ->
+                            let outline = ann.points.Content.GetValue t |> IndexList.toArray
+                            match EllipseEdit.tryMovedOutline r outline hit.hitPoint with
+                            | Some moved when moved.Length > 0 -> Array.append moved [| moved.[0] |]
+                            | _ -> [||]
+                        | None -> [||]
                     | Some (AdaptiveAnnotations ann) when not (Geometry.isVertexEditable (ann.geometry.GetValue t)) ->
                         // an ellipse axis end: from the end that stays (the opposite one of the same
                         // axis) to the cursor - the axis being dragged out
@@ -3409,8 +3446,11 @@ module ViewerApp =
                             if grab.pointIndex > 0 then IndexList.tryAt (grab.pointIndex - 1) points
                             elif isClosed then IndexList.tryLast points
                             else None
+                        // a point being added (#639) is not in `points` yet: it goes in before
+                        // points[pointIndex], so that one is its next neighbour, not the one after
+                        let nextIndex = if grab.inserting then grab.pointIndex else grab.pointIndex + 1
                         let next =
-                            if grab.pointIndex < count - 1 then IndexList.tryAt (grab.pointIndex + 1) points
+                            if nextIndex < count then IndexList.tryAt nextIndex points
                             elif isClosed then IndexList.tryFirst points
                             else None
 
@@ -3444,8 +3484,9 @@ module ViewerApp =
                     match m.drawing.annotations.flat.Content.GetValue t |> HashMap.tryFind id with
                     | Some (AdaptiveAnnotations ann) when not (Geometry.isVertexEditable (ann.geometry.GetValue t)) ->
                         let h = PackedRendering.editHandles ann t
-                        if h.Length = 4 then [| (PackedRendering.EllipseEditColors.major, [| h.[0]; h.[1] |])
-                                                (PackedRendering.EllipseEditColors.minor, [| h.[2]; h.[3] |]) |]
+                        if h.Length >= 4 then
+                            [| (PackedRendering.EllipseEditColors.major, [| h.[0]; h.[1] |])
+                               (PackedRendering.EllipseEditColors.minor, [| h.[2]; h.[3] |]) |]
                         else [||]
                     | _ -> [||]
                 | None -> [||])
