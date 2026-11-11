@@ -289,9 +289,8 @@ module Sg =
             let viewProj = viewTrafo * proj
 
             let globalBBModelSpace = renderPatch.info.LocalBoundingBox.Transformed(model)
-            let cornersNdc = globalBBModelSpace.ComputeCorners() |> Array.map viewProj.TransformPosProj
-            let boundsNdc = Box3d(cornersNdc)
-            if Box3d(-V3d.IIO, V3d.III).Intersects(boundsNdc) then
+            // plane test, no divide by w (corners behind the camera flip in NDC); GL variant, matches Frustum.projTrafo
+            if ViewProjection.intersects globalBBModelSpace viewProj then
                 let campPos = viewTrafo.Backward.C3.XYZ
                 let bb      = renderPatch.info.GlobalBoundingBox.Transformed(lodParams.trafo) 
                 let closest = bb.GetClosestPointOn(campPos)
@@ -327,9 +326,8 @@ module Sg =
             let viewProj = view * proj
 
             let globalBBModelSpace = renderPatch.info.LocalBoundingBox.Transformed(model)
-            let cornersNdc = globalBBModelSpace.ComputeCorners() |> Array.map viewProj.TransformPosProj
-            let boundsNdc = Box3d(cornersNdc)
-            if Box3d(-V3d.IIO, V3d.III).Intersects(boundsNdc) then
+            // plane test, no divide by w (corners behind the camera flip in NDC); GL variant, matches Frustum.projTrafo
+            if ViewProjection.intersects globalBBModelSpace viewProj then
                 // if we have a potential hit, also use the hold hacky one, if both (the new one and the old one) agree on going deeper, let's do it
                 // the situation is rather complex since many special cases (huge bounding boxes, inhomogenous point densities etc)
                 let legacyDecider = lodDeciderMars preTrafo self viewTrafo projTrafo renderPatch lodParams isActive
