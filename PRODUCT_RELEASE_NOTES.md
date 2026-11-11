@@ -1,3 +1,8 @@
+## 6.4.4
+OPC surfaces: tiles around the camera refine again instead of staying coarse.
+
+- Surfaces: **OPC tiles close to the camera refine again.** A patch whose bounding box the camera was inside or right next to could be judged off screen and stay at a coarse level, getting coarser as you zoomed in (#912, docs/SurfaceLevelOfDetail.md)
+
 ## 6.4.3
 Move whole ellipses, add points to finished lines and polygons, metadata in every export preset, and a save that a broken annotation can no longer stop.
 
