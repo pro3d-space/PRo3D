@@ -316,6 +316,8 @@ type ProjectedImageListModel =
         selectedImage        : Option<Guid>
         /// The Selected Image block (preview + edit parameters) is unfolded.
         previewExpanded      : bool
+        /// The Images block (the library's column header and rows) is unfolded.
+        libraryExpanded      : bool
         projectionOpacity    : NumericInput
         boresightAdjustment  : BoresightAdjustment
         cameraState          : OrbitState
@@ -447,6 +449,7 @@ module ProjectedImageListModel =
         stackDrag = None;
         selectedImage = None;
         previewExpanded = true;
+        libraryExpanded = true;
         projectionOpacity = { Numeric.init with min = 0.0; max = 1.0; step = 0.01; value = 1.0 }
         boresightAdjustment = BoresightAdjustment.identity
         cameraState = OrbitState.create V3d.Zero 0.0 0.0 (2.0 * (3389.5 * 1000.0))
@@ -476,6 +479,7 @@ type ProjectedImageListMessage =
     | OrbitCameraMessage of OrbitMessage
     | SelectImage of Guid
     | TogglePreviewExpanded
+    | ToggleLibraryExpanded
     | LoadImagesDir of string
     | ImageMessage of Guid * ImageMessage
     /// Append to the top of the projection stack. Ignored when the image is

@@ -49,7 +49,7 @@ HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos/
 *Projected Images → Import Directory*; the imported folder is shown next to the
 button (*not set* before the first import). Every image of the folder
 (`.tif/.png/.jpg/.exr`, each with its `.mbi.json` sidecar) lands in the
-**library** in the *Images* section, with instrument, distance and observation
+**library** in the *Image Library* section, with instrument, distance and observation
 date per image, sortable by date or distance. Sorting never changes what is
 projected.
 
@@ -79,11 +79,12 @@ the images must be set. Below the import button the panel folds into three
 sections:
 
 - **Projection Settings** (closed by default) — see the table below.
-- **Images** — the library. At its top, pinned while the library scrolls under
-  them: **Selected Image** (the selected image's 2D preview and its display
-  settings — channel, min/max, colour map; *No image is currently selected* when
-  there is none), the library **Filters** and the column header. *Selected Image*
-  and *Filters* each fold away with a click on their header.
+- **Image Library** — scrolls with the panel like everything else:
+  **Selected Image** (the selected image's 2D preview and its display settings —
+  channel, min/max, colour map; *No image is currently selected* when there is
+  none), the library **Filters**, and **Images**, the image list itself.
+  *Selected Image*, *Filters* and *Images* each fold away with a click on their
+  header.
 - **Projected Images** — the projection stack (see 4.).
 
 *Projection Settings* holds:

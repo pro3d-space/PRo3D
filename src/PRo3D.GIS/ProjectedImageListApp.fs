@@ -79,6 +79,8 @@ module ProjectedImageListApp =
             { m with selectedImage = Some id }
         | TogglePreviewExpanded ->
             { m with previewExpanded = not m.previewExpanded }
+        | ToggleLibraryExpanded ->
+            { m with libraryExpanded = not m.libraryExpanded }
         | ImageMessage (id, imageMessage) ->
             let images' =
                 m.images |> IndexList.map (fun img ->
@@ -178,12 +180,16 @@ module ProjectedImageListApp =
                                     div [style "float:right"] [i [clazz (icon + " icon")] []]
                                 
                             ]
-                            // no overflow here: it would become the sticky container
-                            // of the Images section's preview, which then never sticks
-                            div [clazz content] content'
+                            // no overflow here: the page is the panel's only scroller.
+                            // Indented, with a thin line along its left edge: one level in
+                            div [clazz content; style "border-left: 1px solid rgba(255,255,255,0.2); padding-left: 3px"] content'
                         ]
                     ]
                 )
+
+        /// Sub-headers inside a section (Filters, Selected Image): lighter than the
+        /// section titles -- not bold, a bit smaller, slightly gray.
+        let subHeaderStyle = "font-weight: normal; font-size: 0.92em; color: rgba(255,255,255,0.75)"
 
         let isInStack (id : Guid) =
             m.stack.Content |> AVal.map (IndexList.exists (fun _ i -> i = id))
@@ -253,8 +259,8 @@ module ProjectedImageListApp =
                         text (sprintf "Projection Stack (%d/%d)" count ProjectedImages.maxCount)
                     ]
                     if count = 0 then
-                        yield div [attribute "style" "padding: 5px; color: white"] [
-                            text "empty -- add images from the library below"
+                        yield div [attribute "style" "padding: 5px; font-style: italic; color: white"] [
+                            text "No Images currently projected. Add images from the image library"
                         ]
                     else
                         // display top layer first
@@ -466,7 +472,7 @@ module ProjectedImageListApp =
                 let total = m.images.Content |> AVal.map (fun l -> l.Count)
                 let shown = visibleImages.Content |> AVal.map (fun l -> l.Count)
                 tr [] [
-                    th [attribute "colspan" "5"] [
+                    th [attribute "colspan" "5"; style subHeaderStyle] [
                         div [style "display: flex; align-items: center; gap: 6px"] [
                             Incremental.span
                                 (AttributeMap.ofList [style "cursor: pointer"; onClick (fun _ -> FilterMessage ToggleExpanded)])
@@ -515,7 +521,7 @@ module ProjectedImageListApp =
             let preview = div [style "width: 100%"] [showRelative2DImage selected]
             let header =
                 tr [] [
-                    th [] [
+                    th [style subHeaderStyle] [
                         Incremental.span
                             (AttributeMap.ofList [style "cursor: pointer"; onClick (fun _ -> TogglePreviewExpanded)])
                             (alist {
@@ -548,28 +554,35 @@ module ProjectedImageListApp =
                     })
             ]
 
-        // library header and rows are separate: the header goes into the Images
-        // section's sticky block, the rows scroll with the panel underneath it
+        // library column header and rows, framed together by imagesPanel
         let libraryHeader, libraryRows =
-            let attributesSelect = attribute "style" $"cursor: pointer; width: 50px; height: 40px; border-right: 1px solid {borderColor}; display: flex; justify-content: center; align-items: center;"
-            let attributesStack = attribute "style" $"cursor: pointer; width: 50px; height: 40px; border-right: 1px solid {borderColor}; display: flex; justify-content: center; align-items: center;"
-            let attributesInstrument = attribute "style" $"width: 90px; height: 40px; border-right: 1px solid {borderColor}; display: flex; justify-content: center; align-items: center;"
-            let attributesAttr1 = attribute "style" $"cursor: pointer; width: 120px; height: 40px; border-right: 1px solid {borderColor}; display: flex; justify-content: center; align-items: center;"
-            let attributesAttr2 = attribute "style" $"cursor: pointer; width: 120px; height: 40px; display: flex; justify-content: center; align-items: center;"
+            // one column: its width (shared by header and rows, so they line up) and the
+            // cell height. Rows are 40px; the header is as high as the Projection
+            // Stack's header (5px padding around one line)
+            let column (width : int) (pointer : bool) (separator : bool) (height : string) =
+                let cursor = if pointer then "cursor: pointer; " else ""
+                let border = if separator then $"border-right: 1px solid {borderColor}; " else ""
+                attribute "style" $"{cursor}width: {width}px; {height}; {border}display: flex; justify-content: center; align-items: center;"
+            let rowHeight = "height: 40px"
+            let headerHeight = "padding: 5px 0"
+            let attributesSelect = column 50 true true rowHeight
+            let attributesStack = column 50 true true rowHeight
+            let attributesInstrument = column 90 false true rowHeight
+            let attributesAttr1 = column 120 true true rowHeight
+            let attributesAttr2 = column 120 true false rowHeight
 
             let header =
                 div [
-                    // attribute "clazz" "title active inverted"
                     attribute "style" $"display: flex; font-weight: bold; border-bottom: 2px solid black; background: black"
                 ] [
-                    div [ attributesSelect ] [text "Select"]
-                    div [ attributesStack ] [text "Stack"]
-                    div [ attributesInstrument ] [text "Instrument"]
-                    div [ attributesAttr1 ] [
+                    div [ column 50 true true headerHeight ] [text "Select"]
+                    div [ column 50 true true headerHeight ] [text "Stack"]
+                    div [ column 90 false true headerHeight ] [text "Instrument"]
+                    div [ column 120 true true headerHeight ] [
                         i [clazz "sort icon"; onClick (fun _ -> SortEntriesByDistance);] []
                         text "Dist. to Planet"
                     ]
-                    div [ attributesAttr2 ] [
+                    div [ column 120 true false headerHeight ] [
                         i [clazz "sort icon"; onClick (fun _ -> SortEntriesByDate);] []
                         text "OBS Date"
                     ]
@@ -583,7 +596,8 @@ module ProjectedImageListApp =
                                 // img.id is NonAdaptive, so rows can be keyed by it directly
                                 let id = img.id
                                 div [
-                                    attribute "style" $"border: 1px solid rgba(255,255,255,0.5);"
+                                    // black row separators, like the Projection Stack's frame
+                                    attribute "style" "border-bottom: 1px solid black;"
                                     onMouseEnter (fun _ -> HoverImage (Some id))
                                     onMouseLeave (fun _ -> HoverImage None)
                                 ] [
@@ -614,6 +628,57 @@ module ProjectedImageListApp =
                 })
             header, rows
 
+        /// Under the library: why it is empty. No images at all, or images that the
+        /// filters all hide (with the way out); italic. Nothing while a row is shown.
+        let emptyLibraryNote =
+            // equal values do not re-render, so moving a filter
+            // slider only touches the DOM when the library becomes (non-)empty
+            let note =
+                (m.images.Content, visibleImages.Content)
+                ||> AVal.map2 (fun all shown ->
+                    if all.IsEmpty then Some "No images found"
+                    elif shown.IsEmpty then Some "No images found. Adjust filter settings"
+                    else None)
+            Incremental.div AttributeMap.empty (
+                alist {
+                    match! note with
+                    | Some message ->
+                        yield div [style "padding: 5px; font-style: italic; color: white"] [text message]
+                    | None -> ()
+                })
+
+
+        /// Header (folds like Selected Image), then the library: its column header
+        /// and rows, with the empty note inside the frame like the stack's.
+        let imagesPanel =
+            // built once, re-yielded on unfold: folding does not rebuild the rows
+            let list =
+                div [] [
+                    div [style "border: 2px solid black; border-bottom: none"] [libraryHeader]
+                    div [style "border: 2px solid black; border-top: none"] [libraryRows; emptyLibraryNote]
+                ]
+            let header =
+                tr [] [
+                    th [style subHeaderStyle] [
+                        Incremental.span
+                            (AttributeMap.ofList [style "cursor: pointer"; onClick (fun _ -> ToggleLibraryExpanded)])
+                            (alist {
+                                let! expanded = m.libraryExpanded
+                                yield i [clazz (if expanded then "caret down icon" else "caret right icon")] []
+                                yield text "Images"
+                            })
+                    ]
+                ]
+            div [] [
+                table [clazz "ui celled striped inverted table unstackable"; style "margin: 0"] [
+                    tbody [] [ header ]
+                ]
+                Incremental.div AttributeMap.empty (
+                    alist {
+                        let! expanded = m.libraryExpanded
+                        if expanded then yield list
+                    })
+            ]
 
         // label | control, in the inverted table style of Html.row; the label carries
         // an optional tooltip
@@ -709,16 +774,11 @@ module ProjectedImageListApp =
                     ]
                 ]
 
-                accordion "Images" "images" true (style "margin-top: 6px") [
-                    // the selected image's preview and the column header stay in
-                    // view while the library scrolls under them. The page is the
-                    // scroller: no ancestor in between may set overflow.
-                    div [style "position: sticky; top: 0; z-index: 1; background: #1b1c1d"] [
-                        selectedImagePanel
-                        filterPanel
-                        div [style "border: 2px solid black; border-bottom: none"] [libraryHeader]
-                    ]
-                    div [style "border: 2px solid black; border-top: none"] [libraryRows]
+                accordion "Image Library" "images" true (style "margin-top: 6px") [
+                    // flows with the page: nothing pinned, no scroll area of its own
+                    selectedImagePanel
+                    filterPanel
+                    imagesPanel
                 ]
 
                 accordion "Projected Images" "layer group" true (style "margin-top: 6px") [
