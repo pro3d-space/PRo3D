@@ -633,26 +633,31 @@ module ProjectedImageListApp =
                     text "ensure that the correct SPICE kernel is set for the image projection"
                 ]
 
-                div [style "padding: 5px; display: flex; align-items: center; gap: 8px;"] [
-                    button [clazz "ui button tiny";
-                            style "flex-shrink: 0"
-                            Dialogs.onChooseDirectory (Guid.NewGuid()) (fun (guid, chosen) -> LoadImagesDir (chosen) );
-                            clientEvent "onclick" (jsImportDialog) ] [
-                            text "Import Directory"
+                div [style "padding: 5px;"] [
+                    // a subtle box over the panel's width; the button sits on top of its
+                    // left end (pulled over the 1px border), so the label reads as the
+                    // button's extension and the text keeps its place after the button
+                    div [style "display: flex; align-items: center; gap: 8px; border: 1px solid rgba(255,255,255,0.15); border-radius: .28571429rem; background: rgba(255,255,255,0.03);"] [
+                        button [clazz "ui button tiny";
+                                style "flex-shrink: 0; margin: -1px 0 -1px -1px"
+                                Dialogs.onChooseDirectory (Guid.NewGuid()) (fun (guid, chosen) -> LoadImagesDir (chosen) );
+                                clientEvent "onclick" (jsImportDialog) ] [
+                                text "Import Directory"
+                        ]
+                        // long paths are cut off; the tooltip shows the whole one
+                        Incremental.div
+                            (AttributeMap.ofAMap (amap {
+                                yield style "flex: 1; min-width: 0; padding-right: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap"
+                                let! dir = m.imageDirectory
+                                match dir with
+                                | Some d -> yield attribute "title" d
+                                | None -> ()
+                            }))
+                            (alist {
+                                let! dir = m.imageDirectory
+                                yield text (dir |> Option.defaultValue "no directory selected")
+                            })
                     ]
-                    // long paths are cut off; the tooltip shows the whole one
-                    Incremental.div
-                        (AttributeMap.ofAMap (amap {
-                            yield style "overflow: hidden; text-overflow: ellipsis; white-space: nowrap"
-                            let! dir = m.imageDirectory
-                            match dir with
-                            | Some d -> yield attribute "title" d
-                            | None -> ()
-                        }))
-                        (alist {
-                            let! dir = m.imageDirectory
-                            yield text (dir |> Option.defaultValue "not set")
-                        })
                 ]
 
                 accordion "Projection Settings" "settings" false (style "margin-top: 6px") [
