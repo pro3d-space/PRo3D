@@ -57,6 +57,7 @@
     <Compile Include="EllipseStatisticsTest.fs" />
     <Compile Include="OpcSidecarTests.fs" />
     <Compile Include="UnprojectTest.fs" />
+    <Compile Include="LodCullTest.fs" />
     <Compile Include="SampleLayersTest.fs" />
     <Compile Include="BaseTests.fs" />
     <None Include="data\bulk-rose-annotations.pro3d.ann" />

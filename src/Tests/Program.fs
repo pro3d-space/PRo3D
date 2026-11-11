@@ -113,6 +113,9 @@ let allTests (parameters : TestUtils.TestParameters) : Test =
         // cross-check reuses the same kernel tracking and self-skips without kernels.
         UnprojectTest.tests()
 
+        // LoD frustum cull: pure math on a camera/box taken from a real scene.
+        LodCullTest.tests()
+
         // sample-layers: band readers and discovery need nothing; the shape-model case
         // uses a made-up camera, so it needs the Dimorphos OPC but no kernels or GPU.
         SampleLayersTest.tests()

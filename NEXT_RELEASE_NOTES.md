@@ -15,6 +15,7 @@ release folds them into `PRODUCT_RELEASE_NOTES.md`.
 
 ## Pending
 
+- Surfaces: **OPC tiles close to the camera refine again.** A patch whose bounding box the camera was inside or right next to could be judged off screen and stay at a coarse level, getting coarser as you zoomed in (#912, docs/SurfaceLevelOfDetail.md)
 - Annotations: **box selection.** In *Select Annotation* mode, Ctrl+drag a rectangle to select every annotation it touches; Ctrl+Shift+drag adds, Ctrl+Alt+drag toggles, Esc cancels (in Direct Tool Mode without Ctrl). Annotations hidden behind a surface are not selected, decided with the surfaces' KdTrees the way the depth test decides on screen; a Ctrl+click on the hidden part of an annotation no longer selects it either. Delete removes the selection, one Ctrl+Z restores it (#849, #854, docs/AnnotationBoxSelection.md)
 - Input: **Alt (Option on macOS) no longer acts as Ctrl.** The tool modifier is **Ctrl, and on macOS Cmd** (left or right; the right Cmd key is new). Until now Alt counted as Ctrl without being documented: Alt+click picked and drew, Alt+drag box-selected, Alt+S saved and Alt+Z undid. **Mac users who used Option instead of Cmd: use Cmd.** Alt now only does what a tool says it does, such as the toggle in box selection (Ctrl+Alt+drag, Cmd+Option+drag on macOS) (docs/DirectToolMode.md)
 - Input: in Direct Tool Mode, Alt no longer hands the left button back to the camera, so Alt+drag toggles a box selection there as documented
