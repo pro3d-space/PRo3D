@@ -254,7 +254,12 @@ module FalseColorLegendApp =
 
                 Svg.stop ["offset" => offset; style color]
 
-        let buildGradiantsOfImage (rev : bool) (numberOfStops : int) (stream : System.IO.Stream) = 
+        let buildGradiantsOfImage (rev : bool) (numberOfStops : int) (stream : System.IO.Stream) =
+            // The stream lives in the model and is read on every legend rebuild
+            // (re-selecting a projected image, changing its range, ...). Without
+            // rewinding, the second read starts at the end and the DevIL load of the
+            // empty rest never returns -- on the UI thread, so the whole app froze.
+            if stream.CanSeek then stream.Seek(0L, System.IO.SeekOrigin.Begin) |> ignore
             let image = PixImage.Load(stream).AsPixImage<Byte>()
             let width = image.Width
             let numberOfStops = if width < numberOfStops then width else numberOfStops
