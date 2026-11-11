@@ -347,7 +347,17 @@ module ProjectedImageApp =
                             | _ -> 
                                 Log.warn "could not load texture"
                                 DefaultTextures.checkerboard.GetValue()
-                        | ".png" | _ -> whiteTex 
+                        // as the projection loads them (Visualization.createProjectedPixTexture):
+                        // the shader reads the red channel, the grayscale image
+                        | ".png" | ".jpg" | ".jpeg" ->
+                            try
+                                PixTexture2d(PixImageMipMap [| PixImage.Load path |], true) :> ITexture
+                            with e ->
+                                Log.warn "[ProjectedImage] preview could not load %s: %s" path e.Message
+                                whiteTex
+                        | ext ->
+                            Log.warn "[ProjectedImage] no preview for image format %s (%s)" ext path
+                            whiteTex
                 ) 
             )
 
