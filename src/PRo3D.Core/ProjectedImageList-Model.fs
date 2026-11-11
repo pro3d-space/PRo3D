@@ -477,6 +477,7 @@ type ImageMessage =
 
 type ProjectedImageListMessage =
     | OrbitCameraMessage of OrbitMessage
+    /// Selects the image; the already selected image is deselected (single selection).
     | SelectImage of Guid
     | TogglePreviewExpanded
     | ToggleLibraryExpanded

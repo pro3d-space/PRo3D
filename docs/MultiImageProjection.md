@@ -140,7 +140,8 @@ The outline appears only where a footprint *edge* falls on the terrain. The
 AFC-1 frames here were taken from 6.7–8.4 km; at 5.5° that is a footprint
 644–807 m across, which covers the 154 m body entirely, so none is drawn.
 
-**Selecting** a row (its checkbox) is a different thing: it shows that image's 2D
+**Selecting** a row (a click on its name; a second click deselects it, one image
+at a time) is a different thing: it shows that image's 2D
 preview and display settings under *Selected Image* and makes its min/max and colour map drive the whole stack's legend. On
 its own it projects nothing.
 

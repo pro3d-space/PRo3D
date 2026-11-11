@@ -76,7 +76,8 @@ module ProjectedImageListApp =
                 selectedImage = first
                 filter = ImageFilter.forImages images' m.filter.expanded }
         | SelectImage id ->
-            { m with selectedImage = Some id }
+            // single selection; clicking the selected image again deselects it
+            { m with selectedImage = if m.selectedImage = Some id then None else Some id }
         | TogglePreviewExpanded ->
             { m with previewExpanded = not m.previewExpanded }
         | ToggleLibraryExpanded ->
@@ -565,7 +566,6 @@ module ProjectedImageListApp =
                 attribute "style" $"{cursor}width: {width}px; {height}; {border}display: flex; justify-content: center; align-items: center;"
             let rowHeight = "height: 40px"
             let headerHeight = "padding: 5px 0"
-            let attributesSelect = column 50 true true rowHeight
             let attributesStack = column 50 true true rowHeight
             let attributesInstrument = column 90 false true rowHeight
             let attributesAttr1 = column 120 true true rowHeight
@@ -575,7 +575,6 @@ module ProjectedImageListApp =
                 div [
                     attribute "style" $"display: flex; font-weight: bold; border-bottom: 2px solid black; background: black"
                 ] [
-                    div [ column 50 true true headerHeight ] [text "Select"]
                     div [ column 50 true true headerHeight ] [text "Stack"]
                     div [ column 90 false true headerHeight ] [text "Instrument"]
                     div [ column 120 true true headerHeight ] [
@@ -601,10 +600,18 @@ module ProjectedImageListApp =
                                     onMouseEnter (fun _ -> HoverImage (Some id))
                                     onMouseLeave (fun _ -> HoverImage None)
                                 ] [
-                                    div [attribute "style" $"border-bottom: 1px solid {borderColor}; background: #333"] [ Incremental.text (img.texture |> AVal.map (fun t -> Path.GetFileName(t))) ]
+                                    // the name selects the image; the selected one is highlighted
+                                    Incremental.div
+                                        (AttributeMap.ofAMap (amap {
+                                            let! selected = m.selectedImage |> AVal.map (fun sel -> sel = Some id)
+                                            let background = if selected then "rgba(33,133,208,0.6)" else "#333"
+                                            yield style $"cursor: pointer; padding: 0 5px; border-bottom: 1px solid {borderColor}; background: {background}"
+                                            yield attribute "title" (if selected then "click to deselect" else "click to select")
+                                            yield onClick (fun _ -> SelectImage id)
+                                        }))
+                                        (AList.single (Incremental.text (img.texture |> AVal.map Path.GetFileName)))
                                     div [attribute "style" "display: flex; font-weight: bold"]
                                         [
-                                            div [attributesSelect] [ Html.SemUi.iconCheckBox (m.selectedImage |> AVal.map (fun sel -> sel = Some id)) (SelectImage id)]
                                             div [attributesStack] [
                                                 Incremental.div AttributeMap.empty (
                                                     alist {
