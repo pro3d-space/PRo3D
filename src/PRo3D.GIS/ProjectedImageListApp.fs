@@ -80,6 +80,8 @@ module ProjectedImageListApp =
             { m with selectedImage = if m.selectedImage = Some id then None else Some id }
         | TogglePreviewExpanded ->
             { m with previewExpanded = not m.previewExpanded }
+        | TogglePropertiesExpanded ->
+            { m with propertiesExpanded = not m.propertiesExpanded }
         | ToggleLibraryExpanded ->
             { m with libraryExpanded = not m.libraryExpanded }
         | ImageMessage (id, imageMessage) ->
@@ -513,22 +515,18 @@ module ProjectedImageListApp =
                     })
             ]
 
-        /// Header (folds like Filters), then the selected image's 2D preview and its
-        /// edit parameters -- or a note when nothing is selected.
-        let selectedImagePanel =
-            let selected = selectedImage m
-            // built once: binding on the selection would rebuild the preview's render
-            // control on every click; it follows `selected` itself
-            let preview = div [style "width: 100%"] [showRelative2DImage selected]
+        /// A sub-section inside a section: a caret header in the sub-header style
+        /// (like Filters and Images) that folds `content` away.
+        let subFold (title : string) (expanded : aval<bool>) (toggle : ProjectedImageListMessage) (content : DomNode<ProjectedImageListMessage>) =
             let header =
                 tr [] [
                     th [style subHeaderStyle] [
                         Incremental.span
-                            (AttributeMap.ofList [style "cursor: pointer"; onClick (fun _ -> TogglePreviewExpanded)])
+                            (AttributeMap.ofList [style "cursor: pointer"; onClick (fun _ -> toggle)])
                             (alist {
-                                let! expanded = m.previewExpanded
+                                let! expanded = expanded
                                 yield i [clazz (if expanded then "caret down icon" else "caret right icon")] []
-                                yield text "Selected Image"
+                                yield text title
                             })
                     ]
                 ]
@@ -536,24 +534,44 @@ module ProjectedImageListApp =
                 table [clazz "ui celled striped inverted table unstackable"; style "margin: 0"] [
                     tbody [] [ header ]
                 ]
+                // content built once, re-yielded on unfold
                 Incremental.div AttributeMap.empty (
                     alist {
-                        let! expanded = m.previewExpanded
-                        if expanded then
-                            let! hasSelection = selected |> AVal.map Option.isSome
-                            if hasSelection then
-                                yield preview
-                                yield Incremental.div AttributeMap.empty (
-                                    alist {
-                                        match! selected with
-                                        | Some img ->
-                                            yield showDOM img |> UI.map (fun msg -> ProjectedImageListMessage.ImageMessage (img.id, msg))
-                                        | None -> ()
-                                    })
-                            else
-                                yield div [style "padding: 5px; font-style: italic"] [text "No image is currently selected"]
+                        let! expanded = expanded
+                        if expanded then yield content
                     })
             ]
+
+        /// The Selected Image section: Preview Image (the 2D preview) and Properties
+        /// (its edit parameters), each folding on its own -- or a note when nothing
+        /// is selected.
+        let selectedImageContent =
+            let selected = selectedImage m
+            let hasSelection = selected |> AVal.map Option.isSome
+            // built once: binding on the selection would rebuild the preview's render
+            // control on every click; it follows `selected` itself
+            let preview = div [style "width: 100%"] [showRelative2DImage selected]
+            let properties =
+                Incremental.div AttributeMap.empty (
+                    alist {
+                        match! selected with
+                        | Some img ->
+                            yield showDOM img |> UI.map (fun msg -> ProjectedImageListMessage.ImageMessage (img.id, msg))
+                        | None -> ()
+                    })
+            let sections =
+                div [] [
+                    subFold "Preview Image" m.previewExpanded TogglePreviewExpanded preview
+                    subFold "Properties" m.propertiesExpanded TogglePropertiesExpanded properties
+                ]
+            Incremental.div AttributeMap.empty (
+                alist {
+                    let! hasSelection = hasSelection
+                    if hasSelection then
+                        yield sections
+                    else
+                        yield div [style "padding: 5px; font-style: italic"] [text "No image is currently selected"]
+                })
 
         // library column header and rows, framed together by imagesPanel
         let libraryHeader, libraryRows =
@@ -781,9 +799,12 @@ module ProjectedImageListApp =
                     ]
                 ]
 
+                accordion "Selected Image" "image" true (style "margin-top: 6px") [
+                    selectedImageContent
+                ]
+
                 accordion "Image Library" "images" true (style "margin-top: 6px") [
                     // flows with the page: nothing pinned, no scroll area of its own
-                    selectedImagePanel
                     filterPanel
                     imagesPanel
                 ]

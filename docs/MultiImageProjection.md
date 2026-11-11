@@ -75,16 +75,16 @@ HERA/Dimorphos_opc/AFC_2027-03-21/
 ![the Projected Images panel: import, stack panel, library](images/multiProjection-gisTab.png)
 
 An italic hint at the top of the panel reminds you that the SPICE kernel matching
-the images must be set. Below the import button the panel folds into three
+the images must be set. Below the import button the panel folds into four
 sections:
 
 - **Projection Settings** (closed by default) — see the table below.
-- **Image Library** — scrolls with the panel like everything else:
-  **Selected Image** (the selected image's 2D preview and its display settings —
-  channel, min/max, colour map; *No image is currently selected* when there is
-  none), the library **Filters**, and **Images**, the image list itself.
-  *Selected Image*, *Filters* and *Images* each fold away with a click on their
-  header.
+- **Selected Image** — the image selected in the library, in two sub-sections
+  that each fold away with a click on their header: **Preview Image** (its 2D
+  preview) and **Properties** (its display settings — channel, min/max, colour
+  map). *No image is currently selected* when there is none.
+- **Image Library** — the library **Filters** and **Images**, the image list
+  itself; each folds away with a click on its header.
 - **Projected Images** — the projection stack (see 4.).
 
 *Projection Settings* holds:

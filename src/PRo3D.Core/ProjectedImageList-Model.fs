@@ -314,8 +314,10 @@ type ProjectedImageListModel =
         stackDrag            : Option<StackDrag>
         /// Target of the edit panel / 2D preview.
         selectedImage        : Option<Guid>
-        /// The Selected Image block (preview + edit parameters) is unfolded.
+        /// Selected Image's Preview Image sub-section is unfolded.
         previewExpanded      : bool
+        /// Selected Image's Properties sub-section (edit parameters) is unfolded.
+        propertiesExpanded   : bool
         /// The Images block (the library's column header and rows) is unfolded.
         libraryExpanded      : bool
         projectionOpacity    : NumericInput
@@ -449,6 +451,7 @@ module ProjectedImageListModel =
         stackDrag = None;
         selectedImage = None;
         previewExpanded = true;
+        propertiesExpanded = true;
         libraryExpanded = true;
         projectionOpacity = { Numeric.init with min = 0.0; max = 1.0; step = 0.01; value = 1.0 }
         boresightAdjustment = BoresightAdjustment.identity
@@ -480,6 +483,7 @@ type ProjectedImageListMessage =
     /// Selects the image; the already selected image is deselected (single selection).
     | SelectImage of Guid
     | TogglePreviewExpanded
+    | TogglePropertiesExpanded
     | ToggleLibraryExpanded
     | LoadImagesDir of string
     | ImageMessage of Guid * ImageMessage
