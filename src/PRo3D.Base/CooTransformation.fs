@@ -216,6 +216,14 @@ module CooTransformation =
     /// without every caller having to thread `appData` through again.
     let mutable private lastLogDir : Option<string> = None
 
+    /// The kernel the most recent `initCooTrafo` call was asked to load
+    /// (--defaultSpiceKernel) and whether it loaded; None when none was asked for.
+    /// When it did not load, the bundled pck00010.tpc is loaded in its place.
+    let mutable private requestedStartupKernel : Option<string * bool> = None
+
+    /// See `requestedStartupKernel`: what the UI reports as the startup kernel.
+    let startupKernel () = requestedStartupKernel
+
     let initCooTrafo (customSpiceKernelPath : Option<string>) (appData : string) =
 
         let jrDir = Path.combine [appData; "JR";]
@@ -252,23 +260,35 @@ module CooTransformation =
 
       
 
-        let spiceDirectory, spiceFileName = 
-            let defaultKernel = configDir, "pck00010.tpc"
-            match customSpiceKernelPath with
-            | None -> defaultKernel
-            | Some filePath -> 
-                let fullPath = Path.GetFullPath(filePath)
-                if not (File.Exists(fullPath)) then
-                    defaultKernel
-                else
-                    Path.GetDirectoryName(fullPath), Path.GetFileName fullPath
+        let loadDefaultKernel () =
+            Log.line $"[SPICE] kernel location: {configDir}, kernel file name: pck00010.tpc."
+            match tryLoadKernel configDir "pck00010.tpc" with
+            | None -> Log.warn "running without default spice kernel."
+            | Some s -> Log.line "[SPICE] loaded kernel: %s" s.FullPath
 
-        Log.line $"[SPICE] kernel location: {spiceDirectory}, kernel file name: {spiceFileName}."
-        match tryLoadKernel spiceDirectory spiceFileName with
-        | None -> 
-            Log.warn "running without default spice kernel."
-        | Some s -> 
-            Log.line "[SPICE] loaded kernel: %s" s.FullPath
+        // a requested kernel that is missing or fails to load falls back to the bundled
+        // one -- and is remembered as failed, so the UI does not claim it is loaded
+        requestedStartupKernel <-
+            match customSpiceKernelPath with
+            | None ->
+                loadDefaultKernel ()
+                None
+            | Some filePath ->
+                let fullPath = Path.GetFullPath(filePath)
+                if not (File.Exists fullPath) then
+                    Log.warn "[SPICE] --defaultSpiceKernel %s does not exist, loading the default kernel instead." fullPath
+                    loadDefaultKernel ()
+                    Some (fullPath, false)
+                else
+                    Log.line $"[SPICE] kernel location: {Path.GetDirectoryName fullPath}, kernel file name: {Path.GetFileName fullPath}."
+                    match tryLoadKernel (Path.GetDirectoryName fullPath) (Path.GetFileName fullPath) with
+                    | Some s ->
+                        Log.line "[SPICE] loaded kernel: %s" s.FullPath
+                        Some (fullPath, true)
+                    | None ->
+                        Log.warn "[SPICE] --defaultSpiceKernel %s could not be loaded, loading the default kernel instead." fullPath
+                        loadDefaultKernel ()
+                        Some (fullPath, false)
 
         try
             let error = JR.InstrumentPlatforms.Init(configDir,logDir)

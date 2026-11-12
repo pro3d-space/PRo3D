@@ -690,6 +690,14 @@ module Gui =
                 text (" " + label)
             ]
 
+        /// Load SPICE kernel's file dialog and message: the main menu entry and the
+        /// button next to the Reference System dropdown.
+        let private jsLoadSpice = "top.aardvark.dialog.showOpenDialog({title:'Load SPICE kernel' , filters: [{ name: 'SPICE Kernel (*.spk, *.pck, *.ik, *.ck, *.tm)', extensions: ['spk','pck','ik','ck','tm']},], properties: ['openFile']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+        let private loadSpiceKernel (paths : list<string>) =
+            match paths with
+            | [p] -> ViewerAction.GisAppMessage (GisAppAction.SetSpiceKernel p)
+            | _ -> ViewerAction.Nop
+
         let menu (m : AdaptiveModel) =
             let subMenu name menuItems =
                 div [ clazz "ui dropdown item"] [
@@ -799,8 +807,7 @@ module Gui =
                                         ]
 
 
-                                        let jsLoadSpice = "top.aardvark.dialog.showOpenDialog({title:'Load SPICE kernel' , filters: [{ name: 'SPICE Kernel (*.spk, *.pck, *.ik, *.ck, *.tm)', extensions: ['spk','pck','ik','ck','tm']},], properties: ['openFile']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
-                                        div [ clazz "ui item"; Dialogs.onChooseFiles (function [p] -> ViewerAction.GisAppMessage (GisAppAction.SetSpiceKernel p) | _ -> ViewerAction.Nop); clientEvent "onclick" jsLoadSpice ] [
+                                        div [ clazz "ui item"; Dialogs.onChooseFiles loadSpiceKernel; clientEvent "onclick" jsLoadSpice ] [
                                             text "Load SPICE kernel"
                                         ]
 
@@ -1088,6 +1095,59 @@ module Gui =
              Middle button pans, right button orbits, wheel zooms. Hold Ctrl to orbit with the \
              left button as well."
 
+        /// Load SPICE kernel (as in the main menu) with the loaded kernel next to it, styled
+        /// like the Projected Images panel's "Import Directory" box: a subtle box the button
+        /// sits on, so the label reads as the button's extension. The label shows the
+        /// kernel's file name (the tooltip the whole path) and its state: a green check, or a
+        /// red mark when it failed to load.
+        let private spiceKernelButton (model : AdaptiveModel) =
+            let kernelState =
+                adaptive {
+                    let! kernel = model.scene.gisApp.spiceKernel
+                    let! ok = model.scene.gisApp.spiceKernelLoadSuccess
+                    return kernel |> Option.map (fun k -> k.FullPath, ok)
+                }
+            let labelAttributes =
+                amap {
+                    yield style "flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap"
+                    let! state = kernelState
+                    match state with
+                    | Some (path, true) -> yield attribute "title" (sprintf "SPICE kernel loaded: %s" path)
+                    | Some (path, false) -> yield attribute "title" (sprintf "SPICE kernel could not be loaded: %s (see the log). The kernels loaded before stay in use; at startup that is the built-in default pck00010.tpc" path)
+                    // without --defaultSpiceKernel or a kernel loaded here, CooTransformation.initCooTrafo
+                    // loads its bundled planetary-constants kernel (pck00010.tpc) at startup
+                    | None -> yield attribute "title" "Built-in default kernel pck00010.tpc (planet radii and orientations). It has no spacecraft or mission data: load a mission kernel for image projection and the GIS View"
+                } |> AttributeMap.ofAMap
+            let label =
+                alist {
+                    let! state = kernelState
+                    match state with
+                    | Some (path, ok) ->
+                        yield text (System.IO.Path.GetFileName path)
+                        if not ok then yield span [style "margin-left: 4px; color: #db2828"] [text "(failed)"]
+                    | None ->
+                        yield span [style "font-style: italic; opacity: 0.7"] [text "default (pck00010.tpc)"]
+                }
+            let icon =
+                alist {
+                    let! state = kernelState
+                    match state with
+                    | Some (_, true) -> yield i [clazz "green check icon"; style "margin: 0"] []
+                    | Some (_, false) -> yield i [clazz "red exclamation triangle icon"; style "margin: 0"] []
+                    | None -> ()
+                }
+            div [style "display: flex; align-items: center; gap: 6px; max-width: 280px; padding-right: 6px; border: 1px solid rgba(255,255,255,0.15); border-radius: .28571429rem; background: rgba(255,255,255,0.03)"] [
+                button [clazz "ui mini button"
+                        style "flex-shrink: 0; margin: -1px 0 -1px -1px"
+                        attribute "title" "Load a SPICE kernel (meta-kernel .tm or a single kernel file)"
+                        Dialogs.onChooseFiles loadSpiceKernel
+                        clientEvent "onclick" jsLoadSpice] [
+                    text "Load SPICE kernel"
+                ]
+                Incremental.div labelAttributes label
+                Incremental.span (AttributeMap.ofList [style "flex-shrink: 0"]) icon
+            ]
+
         let topMenuItems (model : AdaptiveModel) = [
             div [style "font-weight: bold;margin-left: 1px; margin-right:1px"]
                 [Incremental.text (LayoutApp.displayName model.layout |> AVal.map (sprintf "Layout: %s"))]
@@ -1097,19 +1157,13 @@ module Gui =
             // the ctrl-click hint for the selected tool sits at the far end of the
             // secondary toolbar row - see `secondaryToolbarRow` below.
 
+            // the SPICE kernel sits with the reference system: the planet decides the
+            // body, the kernel whether its positions and times can be resolved
             Html.Layout.horizontal [
                 Html.Layout.boxH [ div [style "font-weight:bold"] [text "Reference System:"] ]
                 Html.Layout.boxH [ Html.SemUi.dropDown model.scene.referenceSystem.planet ReferenceSystemAction.SetPlanet ] |> UI.map ReferenceSystemMessage
+                Html.Layout.boxH [ spiceKernelButton model ]
             ]
-
-            // Hands the left mouse button to the active tool and moves navigation onto the
-            // middle and right buttons (picking = ctrlFlag <> directToolMode). It is a global
-            // interaction-mode switch like the two items above, so it lives on the main row
-            // rather than in the Annotations dock page. See docs/DirectToolMode.md.
-            Html.Layout.horizontal [
-                Html.Layout.boxH [ div [style "font-weight:bold"] [text "Direct Tool Mode:"] ]
-                Html.Layout.boxH [ GuiEx.iconCheckBox model.directToolMode ViewerAction.ToggleDirectToolMode ]
-            ] |> UI.wrapToolTip DataPosition.Bottom directToolModeTooltip
         ]
 
         // The secondary toolbar is always rendered (even when the active
@@ -1196,8 +1250,21 @@ module Gui =
             // tool's colour instead, make these attributes incremental and add
             //   background: ToolColors.rgba "0.16" (ToolColors.ofInteraction interaction)
             // (`ToolColors.rgba` is kept around for exactly that).
+            // Hands the left mouse button to the active tool and moves navigation onto the
+            // middle and right buttons (picking = ctrlFlag <> directToolMode). It changes
+            // how every tool is used, so it sits right of the tool chip, with the tool
+            // settings. See docs/DirectToolMode.md.
+            let directToolMode =
+                div [clazz "item topmenu"] [
+                    Html.Layout.horizontal [
+                        Html.Layout.boxH [ div [style "font-weight:bold"] [text "Direct Tool Mode:"] ]
+                        Html.Layout.boxH [ GuiEx.iconCheckBox m.directToolMode ViewerAction.ToggleDirectToolMode ]
+                    ] |> UI.wrapToolTip DataPosition.Bottom directToolModeTooltip
+                ]
+
             div [clazz "ui menu pro3d-secondary-toolbar"; style "padding:0; margin:0"] [
                 label
+                directToolMode
                 Incremental.div itemAttribs (AList.ofAValSingle (dynamicTopMenu m))
                 hint
             ]

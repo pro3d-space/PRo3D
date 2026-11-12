@@ -2302,7 +2302,13 @@ module ViewerApp =
             // the layout belongs to the user, not the scene; a fresh Golden Layout model would also
             // reset the version its browser channel compares against and swallow the next change
             // nor do the render controls on screen belong to it: they do not boot again
-            { initialModel with recent = m.recent; layout = m.layout; mainViewScenes = m.mainViewScenes }
+            // nor do the loaded SPICE kernels: they are process-wide, a new scene does not unload them
+            let gisApp =
+                { initialModel.scene.gisApp with
+                    spiceKernel            = m.scene.gisApp.spiceKernel
+                    spiceKernelLoadSuccess = m.scene.gisApp.spiceKernelLoadSuccess }
+            { initialModel with recent = m.recent; layout = m.layout; mainViewScenes = m.mainViewScenes
+                                scene = { initialModel.scene with gisApp = gisApp } }
             |> ViewerIO.loadRoverData
 
         | AnnotationMetadataMessage msg, _ ->

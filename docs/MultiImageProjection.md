@@ -27,7 +27,8 @@ visible body is unobserved** and renders black. Four AFC frames bring that to
 Pick the body under **Reference System** in the top bar. That sets the
 [scene body](SceneBody.md), and a surface with no GIS assignment of its own
 belongs to it — so for a single-body scene there is nothing else to set. A SPICE
-kernel covering the observation epochs must be loaded.
+kernel covering the observation epochs must be loaded: **Load SPICE kernel** next to
+**Reference System**, or the main menu.
 
 For surfaces of *other* bodies, assign entity and frame explicitly in
 GIS tab → *Surfaces*. Two things to watch:

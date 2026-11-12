@@ -18,7 +18,7 @@ To follow the demo download or clone the [repository](https://s2e2.cosmos.esa.in
 There are two options to load SPICE kernels. 
 
 #### The command line
- - by using the command-line argument `--defaultSpiceKernel path`, e.g. the path to the tm file: `"../hera/kernels/mk/hera_crema_2_0_LPC_ECP_PDP.tm"`, the SPICE kernel to be loaded at application startup can be specified.
+ - by using the command-line argument `--defaultSpiceKernel path`, e.g. the path to the tm file: `"../hera/kernels/mk/hera_crema_2_0_LPC_ECP_PDP.tm"`, the SPICE kernel to be loaded at application startup can be specified. If that file is missing or fails to load, PRo3D loads its default kernel instead and the top bar shows the requested kernel as failed.
 
 #### The UI
 
@@ -26,15 +26,17 @@ There are two options to load SPICE kernels.
 
 ![alt text](./images/gis-view.png)
 
-2. Load the kernel via:
+2. Load the kernel with the **Load SPICE kernel** button in the top bar, next to the
+   **Reference System** dropdown, or from the main menu (*Load SPICE kernel*). Both open a
+   file dialog for a meta-kernel (`.tm`) or a single kernel file.
 
-![alt text](images/loadKernel.png)
+3. The box next to the button names the loaded kernel's file (*default (pck00010.tpc)* until one is: the planetary-constants kernel PRo3D loads at startup, without spacecraft or mission data),
+   with a green check mark when it loaded and a red mark and *(failed)* when it did not. Hover
+   it for the kernel's full path. PRo3D's text output says why a kernel failed to load, for
+   example a wrong path.
 
-3. Then the Gis View should print the path to the kernel (scroll down, and look at the settings pane within the GIS view):
-
-![](images/loadedKernel.png)
-
-A green check mark appears below the path if loading the kernel was successful. If there is a red exclamation mark beneath the path loading was not successful. PRo3D's text output will give more detailed information why, it might be that the path to the kernel is not correct.
+An italic hint at the top of the GIS View (and of the Projected Images panel) reminds you to
+set the kernel matching the images.
 
 ## PRO3D GIS View Tab
 
@@ -60,7 +62,7 @@ With a camera source body set, the camera is re-aimed (placed at the camera sour
 * you choose the observed body, the camera source body or the reference frame, or click *Re-use settings above* — always;
 * the time changes, from the *Time* field or the **Mission Time** table (row click, slider) — only while **Settings → Camera follows camera source body** is on. It is on by default and saved with the scene; switch it off to scrub time (the sun, the bodies' placement) under a camera you placed yourself.
 
-*Fly to* an image and *Load Spice and Time* also set the time but never re-aim: they keep their own camera.
+*Fly to* an image also sets the time but never re-aims: it keeps its own camera.
 
 Nothing moves when the camera source equals the observed body, or when the kernel has no data for the camera source at that time (the log then says `[SPICE] failed to transform body`). HERA, for example, is only near Didymos/Dimorphos from late 2026 on — at the default 2025 time the camera stays put.
 

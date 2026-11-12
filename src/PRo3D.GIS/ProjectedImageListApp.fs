@@ -727,13 +727,6 @@ module ProjectedImageListApp =
                         settingRow "Orientation Source:" None [
                             Html.SemUi.dropDown m.projectionMethod SetProjectionMethod
                         ]
-                        settingRow "SPICE Kernel:" None [
-                            button [clazz "ui button tiny";
-                                    Dialogs.onChooseDirectory (Guid.NewGuid()) (fun (guid, chosen) -> LoadSpiceAndTime (chosen) );
-                                    clientEvent "onclick" (jsImportDialog) ] [
-                                    text "Load Spice and Time"
-                            ]
-                        ]
                     ]
 
                     table [clazz "ui celled striped inverted table unstackable"] [

@@ -99,7 +99,8 @@ module GisApp =
                             spiceKernelLoadSuccess = true}
             else
                 Log.line "[GisApp] Could not find path %s" path
-                {m with spiceKernelLoadSuccess = false}
+                {m with spiceKernel = Some (CooTransformation.SPICEKernel.ofPath path)
+                        spiceKernelLoadSuccess = false}
 
     let loadSpiceKernel' (m : GisApp) =
         match m.spiceKernel with
@@ -835,6 +836,11 @@ module GisApp =
                     ()
             }
         div [] [ 
+            // the kernel is loaded from the top bar (next to Reference System) or the
+            // main menu; same hint as the Projected Images panel
+            div [style "padding: 5px; font-style: italic; color: white"] [
+                text "ensure that the correct SPICE kernel is set for the image projection"
+            ]
             div [clazz "ui inverted segment"] [ 
                 h5 [clazz "ui inverted horizontal divider header"
                     style "padding-top: 1rem"] 
@@ -854,32 +860,9 @@ module GisApp =
                 viewFrames m
             ]
 
-            let kernelPathTextBox = 
-                div [clazz "fullwidth textcontainer"] [
-                    Html.SemUi.textBox 
-                        (m.spiceKernel 
-                            |> AVal.map (function Some p -> p.FullPath | _ -> "PRo3D Default Spice Kernel Path")
-                        )
-                        GisAppAction.SetSpiceKernel 
-                ]
-
-            let kernelStatusIcon =
-                let attributes = 
-                    amap {
-                        let! ok = m.spiceKernelLoadSuccess
-                        if ok then
-                            yield clazz "ui green check icon"
-                        else
-                            yield clazz "ui red exclamation icon"
-                    } |> AttributeMap.ofAMap
-
-                Incremental.i attributes AList.empty
-
             GuiEx.accordion "Settings" "" false [
                 require GuiEx.semui (
                     Html.table [ 
-                        Html.row "Path to Spice Kernel" 
-                                 [kernelPathTextBox;kernelStatusIcon]
                         Html.row "Show Markers" [GuiEx.iconCheckBox m.showMarkers ToggleDrawMarkers]
                         Html.row "Camera follows camera source body"
                                  [GuiEx.iconCheckBox m.cameraFollowsSource ToggleCameraFollowsSource]
@@ -1270,7 +1253,8 @@ module GisApp =
         |> Sg.onOff (observer |> AVal.map Option.isSome)
 
 
-    let initial (spiceKernel : option<string>) : GisApp =
+    /// `spiceKernel`: the startup kernel and whether it loaded (CooTransformation.startupKernel).
+    let initial (spiceKernel : Option<string * bool>) : GisApp =
         let entities =
             [
                 Entity.earth.spiceName,     Entity.earth 
@@ -1307,8 +1291,8 @@ module GisApp =
                 newEntity               = None
                 newFrame                = None
                 defaultObservationInfo  = ObservationInfo.initial
-                spiceKernel             = spiceKernel |> Option.map CooTransformation.SPICEKernel.ofPath  
-                spiceKernelLoadSuccess  = true
+                spiceKernel             = spiceKernel |> Option.map (fst >> CooTransformation.SPICEKernel.ofPath)
+                spiceKernelLoadSuccess  = spiceKernel |> Option.forall snd
                 cameraFollowsSource     = true
                 projectedImageList      = ProjectedImageListModel.initial //{ ProjectedImages.initial with images = Directory.EnumerateFiles(@"C:\pro3ddata\HERA\simulated") |> Seq.map (fun a -> { fullName = a }) |> IndexList.ofSeq }
                 showMarkers             = false
@@ -1316,10 +1300,7 @@ module GisApp =
                 missionTimesEntries     = Some (IndexList.ofList missionTimeEntries)
             }
 
-        match spiceKernel with
-        | Some spiceKernel ->
-            loadSpiceKernel false spiceKernel m
-        | None ->
-            m
+        // initCooTrafo has already loaded (or failed to load) the startup kernel
+        m
 
 
