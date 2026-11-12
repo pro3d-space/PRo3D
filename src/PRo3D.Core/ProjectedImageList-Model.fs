@@ -186,6 +186,10 @@ type ProjectedImageListModel =
         /// vote loads a patch per hierarchy, and it is unreliable for near-vertical
         /// terrain (see NormalWinding). Off costs nothing.
         windingCorrection    : bool
+        /// Field of view per instrument (SPICE frame name) used to project images:
+        /// the kernel defaults unless the scene changed them. Saved per scene, only
+        /// the values that differ from the kernels (GisApp "instrumentFovs").
+        instrumentFovs       : HashMap<string, InstrumentFov>
     }
 
 module ProjectedImageListModel =
@@ -305,6 +309,7 @@ module ProjectedImageListModel =
         projectionMethod = ProjectionMethod.MbiBased
         useTransferFunction = true
         windingCorrection = false
+        instrumentFovs = InstrumentFov.defaults
     }
 
 type ImageMessage =
@@ -357,6 +362,7 @@ type ProjectedImageListMessage =
     | SetProjectionMethod of ProjectionMethod
     | ToggleTransferFunction
     | ToggleWindingCorrection
+    | InstrumentFovMessage of InstrumentFovMessage
     /// User picked a SPICE kernel root folder to load the kernel (and
     /// observation time) the selected image's mbi sidecar was generated
     /// against. Handled by GisApp.update (needs the mbi + spice state that

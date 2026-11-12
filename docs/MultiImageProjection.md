@@ -82,6 +82,10 @@ Settings and the selected image's 2D preview fold away into the
 | **Winding Correction** | off (default). Turn it on only when an image survives **only near the limb** of the body: that is an OPC whose triangles are wound inward, so the projector-facing test rejects exactly the terrain facing the projector. On: PRo3D estimates each OPC hierarchy's winding from its coarsest patch (loaded once, the first time something is projected) and corrects the inward ones. The estimate assumes a roughly convex body seen from orbit; it is not reliable for near-vertical terrain such as rover outcrops. Saved with the scene. |
 | **Orientation Source** | where the pointing comes from — `MbiBased` (default) or `Spice`; see [If an image does not land on the terrain](#if-an-image-does-not-land-on-the-terrain) |
 
+The **Instruments** section below it holds each instrument's field of view, prefilled from
+the SPICE instrument kernels and editable per scene: see
+[InstrumentFieldOfView.md](InstrumentFieldOfView.md).
+
 ## 3. Find images by hovering
 
 **Hovering a library row previews that image in 3D as the top layer of the

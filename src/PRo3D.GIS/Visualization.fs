@@ -263,7 +263,9 @@ module Visualization =
     /// `nearFar` overrides the depth range; when None it is derived from the observation
     /// distance in the mbi sidecar (InstrumentProjection.nearFarForDistance). The old
     /// hardcoded Mars-scale range clipped bodies the size of Didymos entirely.
-    let projectDirectWithNearFar (nearFar : Option<float * float>)
+    /// `fovs` are a scene's own instrument fields of view, overriding the kernel defaults
+    /// (InstrumentProjection.instrumentsWith); Map.empty uses the defaults.
+    let projectDirectWith (fovs : Map<string, InstrumentProjection.Fov>) (nearFar : Option<float * float>)
                 (observer : string) (referenceFrame : string) (metadata : ParsedMetadata)
                 (targetBody : string) (boresight : Option<Trafo3d>) (method : ProjectionMethod) : Option<Trafo3d> =
 
@@ -272,7 +274,7 @@ module Visualization =
             // targetPos is in km
             let distance = mbi.targetPos.Length * 1000.0
             let near, far = nearFar |> Option.defaultValue (InstrumentProjection.nearFarForDistance distance)
-            let instruments = InstrumentProjection.instruments near far
+            let instruments = InstrumentProjection.instrumentsWith fovs near far
             // The sidecar knows what it observed (TARGET header, e.g. "Didymos");
             // the caller's targetBody is only the fallback for older exports
             // that don't carry the header (legacy Mars data).
@@ -299,9 +301,17 @@ module Visualization =
         | _  ->
             None
 
+    /// The kernel defaults' fields of view, `nearFar` as in projectDirectWith.
+    let projectDirectWithNearFar (nearFar : Option<float * float>)
+                (observer : string) (referenceFrame : string) (metadata : ParsedMetadata)
+                (targetBody : string) (boresight : Option<Trafo3d>) (method : ProjectionMethod) : Option<Trafo3d> =
+        projectDirectWith Map.empty nearFar observer referenceFrame metadata targetBody boresight method
+
+    /// The kernel defaults' fields of view (the tools); the viewer passes its scene's
+    /// through projectDirectWith.
     let projectDirect (observer : string) (referenceFrame : string) (metadata : ParsedMetadata)
                 (targetBody : string) (boresight : Option<Trafo3d>) (method : ProjectionMethod) : Option<Trafo3d> =
-        projectDirectWithNearFar None observer referenceFrame metadata targetBody boresight method
+        projectDirectWith Map.empty None observer referenceFrame metadata targetBody boresight method
 
     let project (observer : string) (referenceFrame : string) (currentProjectedImage : Option<string * ParsedMetadata>)
                 (projection : InstrumentProjection) : Option<Trafo3d> =

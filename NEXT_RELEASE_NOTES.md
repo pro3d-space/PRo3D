@@ -15,3 +15,5 @@ release folds them into `PRODUCT_RELEASE_NOTES.md`.
 
 ## Pending
 
+- Image projection: **each instrument's field of view can be set per scene** in *Projected Images → Instruments*, prefilled from the SPICE instrument kernels. HyperScout-H now defaults to the kernel's paraxial 15.5 × 8.3° (was 15.24 × 8.09°), and TIRI images can be projected (13.3 × 10°, image axes not yet checked against a real image) (#882, docs/InstrumentFieldOfView.md)
+

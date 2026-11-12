@@ -110,7 +110,7 @@ async function main() {
     fs.mkdirSync(work, { recursive: true });
     fs.mkdirSync(outDir, { recursive: true });
 
-    const base = process.env.SCENE ?? sceneFor(fixture.sceneTemplate, fixture.opc, path.join(work, "scene.pro3d"));
+    const base = process.env.SCENE ?? sceneFor(fixture.sceneTemplate, fixture.framesOpc, path.join(work, "scene.pro3d"));
     const scene = readScene(base);
     // The template ships with planet = None and the scene in J2000, so the projection has
     // no body-fixed frame to land in. Bind it, as picking the body under Reference System
@@ -118,7 +118,7 @@ async function main() {
     // would otherwise place the camera at HERA and ignore every view set below.)
     if (!process.env.SCENE) {
         withBodyFixedFrame(scene, 9, "Dimorphos", "DIMORPHOS_FIXED");
-        // the template carries the 5.53 deg AFC instrument lens; these viewpoints need 60
+        // the template carries the 5.5 deg AFC instrument lens; these viewpoints need 60
         withViewerLens(scene);
         // ... and it selects DRACO_2, which covers the body; panel 1 is about the region
         // DRACO_1 never observed

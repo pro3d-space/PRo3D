@@ -100,7 +100,7 @@ async function main() {
     fs.mkdirSync(work, { recursive: true });
     fs.mkdirSync(outDir, { recursive: true });
 
-    const scene = withFreeCamera(readScene(sceneFor(fixture.sceneTemplate, fixture.opc, path.join(work, "raw.pro3d"))));
+    const scene = withFreeCamera(readScene(sceneFor(fixture.sceneTemplate, fixture.framesOpc, path.join(work, "raw.pro3d"))));
     if (!INERTIAL) withBodyFixedFrame(scene, 9, "Dimorphos", "DIMORPHOS_FIXED");
     const file = path.join(work, "scene.pro3d");
     scene.scenePath = file;

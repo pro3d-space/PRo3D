@@ -28,7 +28,7 @@ function freshLayoutDir(): string {
 
 function scene(name: string): string {
     fs.mkdirSync(artifacts, { recursive: true });
-    return sceneFor(fixture.sceneTemplate, fixture.opc, path.join(artifacts, `${name}.pro3d`));
+    return sceneFor(fixture.sceneTemplate, fixture.framesOpc, path.join(artifacts, `${name}.pro3d`));
 }
 
 async function poll<T>(what: string, f: () => Promise<T> | T, ok: (v: T) => boolean, timeoutMs = 30_000): Promise<T> {

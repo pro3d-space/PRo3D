@@ -18,9 +18,9 @@ import { litFraction, streamLive, diffPng } from "../src/image";
 import * as fs from "fs";
 import * as path from "path";
 
-/** HERA/AFC-1: hfov = 2*atan(11.84/(2*focal)) = 5.5307 deg */
-const AFC_FOCAL_MM = 122.563;
-const AFC_HFOV_DEG = 5.5307;
+/** HERA/AFC-1: hfov = 2*atan(11.84/(2*focal)) = 5.5 deg (hera_afc_v06.ti; was 5.5307, #882) */
+const AFC_FOCAL_MM = 123.247;
+const AFC_HFOV_DEG = 5.5;
 /** Dimorphos' longest axis, metres -- the scale the apparent size is checked against */
 const DIMORPHOS_EXTENT_M = 177;
 
@@ -80,7 +80,7 @@ test("the viewer can look at Dimorphos from where the AFC was", async ({ browser
         };
         await settle("lookat-loaded.png");
 
-        // look through the instrument: hfov 5.53 deg instead of the default 60
+        // look through the instrument: hfov 5.5 deg instead of the default 60
         const cfg = await page.context().newPage();
         await cfg.goto(app.url + "?page=config");
         await cfg.waitForLoadState("networkidle");

@@ -55,7 +55,7 @@ module ImageInspector =
     // tried again next time rather than failing for the rest of the session.
     // projectDirect calls SPICE behind a global lock; keyed like ProjectedImagesListHelpers'.
     let private projectorCache =
-        System.Collections.Concurrent.ConcurrentDictionary<Guid * ProjectionMethod * (float * float * float) * string * string, Trafo3d>()
+        System.Collections.Concurrent.ConcurrentDictionary<Guid * ProjectionMethod * (float * float * float) * string * string * Map<string, PRo3D.SPICE.InstrumentProjection.Fov>, Trafo3d>()
 
     // sun direction per (image, frame, body): SPICE, and constant for an image
     let private sunCache =
@@ -127,7 +127,8 @@ module ImageInspector =
             let (EntitySpiceName observer) = observerSystem.body
             let b = list.boresightAdjustment
             let boresightKey = (b.roll.value, b.pitch.value, b.yaw.value)
-            let key = (image.id, list.projectionMethod, boresightKey, observer, frame.Value)
+            let fovs = InstrumentFov.toMap list.instrumentFovs
+            let key = (image.id, list.projectionMethod, boresightKey, observer, frame.Value, fovs)
             let metadata, size = imageInfo image.texture
             let full =
                 cachedOk projectorCache key (fun () ->
@@ -135,7 +136,7 @@ module ImageInspector =
                     let boresight =
                         Trafo3d.RotationXInDegrees(b.yaw.value) * Trafo3d.RotationYInDegrees(b.pitch.value) * Trafo3d.RotationZInDegrees(b.roll.value)
                     // "MARS" only as the fallback target, as the viewer passes it
-                    match Visualization.projectDirect observer frame.Value metadata "MARS" (Some boresight) list.projectionMethod with
+                    match Visualization.projectDirectWith fovs None observer frame.Value metadata "MARS" (Some boresight) list.projectionMethod with
                     | Some t -> Ok t
                     | None -> Result.Error "no projector")
                 |> Result.toOption
