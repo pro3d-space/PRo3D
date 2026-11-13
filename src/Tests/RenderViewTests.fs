@@ -88,7 +88,7 @@ let private jobTests =
         }
 
         test "simulate-image's AFC frusta have the instrument kernel's 5.5 deg field (#801)" {
-            // hera_afc_v06.ti: FOV_REF_ANGLE = FOV_CROSS_ANGLE = 2.75 deg half-angles
+            // instrument kernel: FOV_REF_ANGLE = FOV_CROSS_ANGLE = 2.75 deg half-angles
             let frusta = PRo3D.SPICE.InstrumentProjection.instruments 1.0 10.0
             for name in [ "HERA_AFC-1"; "HERA_AFC-2" ] do
                 match Map.tryFind name frusta with

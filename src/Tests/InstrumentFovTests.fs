@@ -50,23 +50,27 @@ let tests =
             match ikDir () with
             | None -> skiptest "PRO3D_SPICE_KERNELS not set"
             | Some ik ->
-                // (frame, IK file, NAIF id, width taken from REF (true) or CROSS (false))
-                // REF_VECTOR is +X in all three; AFC and TIRI have the image width along X,
-                // HSH has its width (the 2048 px axis) along Y, the paraxial FOV is 91401.
-                for name, file, id, widthIsRef in
-                        [ "HERA_AFC-1", "hera_afc_v06.ti",  91110, true
-                          "HERA_AFC-2", "hera_afc_v06.ti",  91120, true
-                          "HERA_HSH",   "hera_hsh_v03.ti",  91401, false
-                          "HERA_TIRI",  "hera_tiri_v03.ti", 91200, true ] do
-                    let path = Path.Combine(ik, file)
-                    if not (File.Exists path) then failtestf "%s missing under %s" file ik
+                // (frame, NAIF id, width taken from REF (true) or CROSS (false)).
+                // REF_VECTOR is +X in all; AFC and TIRI have the image width along X,
+                // HSH has its width (the long axis) along Y; its id is the paraxial field.
+                let iks = Directory.GetFiles(ik, "*.ti")
+                for name, id, widthIsRef in
+                        [ "HERA_AFC-1", 91110, true
+                          "HERA_AFC-2", 91120, true
+                          "HERA_HSH",   91401, false
+                          "HERA_TIRI",  91200, true ] do
+                    let key = sprintf "INS-%d_FOV_REF_ANGLE" id
+                    let path =
+                        match iks |> Array.tryFind (fun f -> File.ReadAllText(f).Contains key) with
+                        | Some p -> p
+                        | None -> failtestf "no IK under %s defines %s" ik key
                     match ikNumber path id "FOV_REF_ANGLE", ikNumber path id "FOV_CROSS_ANGLE" with
                     | Some r, Some c ->
                         let w, h = if widthIsRef then r, c else c, r
                         let f = fovOf name
                         Expect.floatClose Accuracy.high f.horizontal (2.0 * w) (sprintf "%s width" name)
                         Expect.floatClose Accuracy.high f.vertical (2.0 * h) (sprintf "%s height" name)
-                    | _ -> failtestf "%s: FOV angles of INS-%d not found" file id
+                    | _ -> failtestf "%s: FOV angles of INS-%d not found" path id
         }
 
         test "a frustum spans exactly its horizontal and vertical field" {

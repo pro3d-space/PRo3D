@@ -159,7 +159,7 @@ rather than through a colour map.
 |---|---|---|
 | ![source](images/projectionValidation/step1-source.png) | ![reprojected](images/projectionValidation/step1-reprojected.png) | ![difference](images/projectionValidation/step1-diff.png) |
 
-(AFC-1 frames are **1020 × 1020** — square, per `hera_afc_v06.ti`. These three
+(AFC-1 frames are **1020 × 1020** — square, per the AFC instrument kernel. These three
 are the same square crop around the body, at the same scale.)
 
 | | |

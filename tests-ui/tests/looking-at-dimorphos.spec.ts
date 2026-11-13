@@ -18,7 +18,7 @@ import { litFraction, streamLive, diffPng } from "../src/image";
 import * as fs from "fs";
 import * as path from "path";
 
-/** HERA/AFC-1: hfov = 2*atan(11.84/(2*focal)) = 5.5 deg (hera_afc_v06.ti; was 5.5307, #882) */
+/** HERA/AFC-1: hfov = 2*atan(11.84/(2*focal)) = 5.5 deg (instrument kernel; was 5.5307, #882) */
 const AFC_FOCAL_MM = 123.247;
 const AFC_HFOV_DEG = 5.5;
 /** Dimorphos' longest axis, metres -- the scale the apparent size is checked against */

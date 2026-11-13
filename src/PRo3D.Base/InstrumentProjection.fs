@@ -65,23 +65,15 @@ module InstrumentProjection =
     /// away the target is -- hence `instruments` takes them as parameters.
     let defaultFovs : Map<string, Fov> =
         Map.ofList [
-            // hera_afc_v06.ti: INS-91110 / INS-91120 FOV_REF_ANGLE = FOV_CROSS_ANGLE = 2.75
-            // degrees, half-angles of a square field -> 5.5 x 5.5 degrees (getfov agrees).
-            // The IK's pinhole (DIST_FX = 10600 px, 1020 px) gives 5.509; 5.5 is that,
-            // rounded by the kernel. Was 5.5306897, 0.56% too wide (#801).
+            // Full angles = twice the instrument kernel's FOV_REF_ANGLE / FOV_CROSS_ANGLE
+            // (pinned by InstrumentFovTests). AFC was 5.5306897, 0.56% too wide (#801).
             "HERA_AFC-1",         { horizontal = 5.5;  vertical = 5.5 }
             "HERA_AFC-2",         { horizontal = 5.5;  vertical = 5.5 }
-            // hera_hsh_v03.ti: INS-91401 HERA_HSH_PARAXIAL, half-angles 7.75 / 4.15 ->
-            // 15.5 x 8.3 degrees. The "real" field (INS-91400, 15.9 x 9.9) is "extremely
-            // distorted at the edges (almost 1 degree)", so for a pinhole frustum the
-            // paraxial one fits the image better. Width = the 2048-pixel axis (409
-            // macro pixels). Was 15.24 x 8.09 (aspect 409/217), matching neither.
+            // The paraxial field, which fits a pinhole frustum better than the full one.
+            // Width = the long detector axis. Was 15.24 x 8.09.
             "HERA_HSH",           { horizontal = 15.5; vertical = 8.3 }
-            // hera_tiri_v03.ti: INS-91200 FOV_REF_ANGLE (along +X, the 1024-pixel axis)
-            // 6.65, FOV_CROSS_ANGLE 5.0 -> 13.3 x 10.0 degrees, 1024 x 768 pixels.
+            // Width along +X, the long detector axis.
             "HERA_TIRI",          { horizontal = 13.3; vertical = 10.0 }
-            // hera_milani_aspect_v02.ti: INS-9102120 (NIR1) FOV_REF_ANGLE/FOV_CROSS_ANGLE
-            // are half-angles of 3.35/2.7 degrees -> full FOV 6.7 x 5.4 degrees.
             "MILANI_ASPECT_NIR1", { horizontal = 6.7;  vertical = 5.4 }
         ]
 
@@ -191,7 +183,7 @@ module InstrumentProjection =
             "MILANI_ASPECT_NIR1", Trafo3d.FromOrthoNormalBasis(V3d.IOO, -V3d.OIO, V3d.OOI)
             // NOT VALIDATED -- no TIRI image has been checked against this. HSH's entry
             // above puts the image width on frame -Y (HSH's long axis). TIRI's long axis
-            // (13.3 deg, 1024 px) is +X (hera_tiri_v03.ti), so the width goes on X here;
+            // is +X in its instrument kernel, so the width goes on X here;
             // det = -1 like every entry above. The signs (mirroring) are a guess.
             "HERA_TIRI", Trafo3d.FromOrthoNormalBasis(V3d.IOO, -V3d.OIO, V3d.OOI)
         ]

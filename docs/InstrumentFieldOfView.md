@@ -28,24 +28,18 @@ Lens distortion is not modelled (see below).
 
 ## Kernel defaults
 
-| Instrument | H × V FOV | Pixels | Source |
-|---|---|---|---|
-| `HERA_AFC-1`, `HERA_AFC-2` | 5.5 × 5.5° | 1020 × 1020 | `hera_afc_v06.ti`, `FOV_REF_ANGLE` = `FOV_CROSS_ANGLE` = 2.75° |
-| `HERA_HSH` | 15.5 × 8.3° | 409 × 217 macro pixels | `hera_hsh_v03.ti`, `HERA_HSH_PARAXIAL` (INS-91401) |
-| `HERA_TIRI` | 13.3 × 10.0° | 1024 × 768 | `hera_tiri_v03.ti`, INS-91200 |
-| `MILANI_ASPECT_NIR1` | 6.7 × 5.4° | | `hera_milani_aspect_v02.ti`, INS-9102120 |
+| Instrument | H × V FOV |
+|---|---|
+| `HERA_AFC-1`, `HERA_AFC-2` | 5.5 × 5.5° |
+| `HERA_HSH` | 15.5 × 8.3° |
+| `HERA_TIRI` | 13.3 × 10.0° |
+| `MILANI_ASPECT_NIR1` | 6.7 × 5.4° |
 
-Notes on these values:
+Each is twice the instrument kernel's `FOV_REF_ANGLE` / `FOV_CROSS_ANGLE`. Notes:
 
-- **AFC.** The IK's own pinhole calibration (`DIST_FX` = 10600 px over 1020 px, i.e.
-  106 mm focal length with 10 µm pixels) gives 5.509°. The kernel's 5.5° is that value,
-  rounded. Up to 6.3, PRo3D used 5.5307°, which was 0.56 % too wide (fixed in 6.4.0, #801). The
-  real AFC-1 image metadata (`AF1_…_1B_AFC1.tif.json`) carries the 1020 × 1020 size but
-  no optics.
-- **HSH.** The kernel defines two fields. The *real* one, 15.9 × 9.9°, is "extremely
-  distorted at the edges (almost 1 degree)". The *paraxial* one, 15.5 × 8.3°, is its
-  small-angle core and fits a pinhole frustum better, so it is the default. Up to 6.4.4,
-  PRo3D used 15.24 × 8.09°, which matches neither (#882).
+- **AFC.** Up to 6.3, PRo3D used 5.5307°, which was 0.56 % too wide (fixed in 6.4.0, #801).
+- **HSH.** The default is the kernel's paraxial field, which fits a pinhole frustum
+  better than the full field. Up to 6.4.4, PRo3D used 15.24 × 8.09° (#882).
 - **TIRI** is new. Its image axes (which way is up, and whether the image is mirrored)
   have **not been checked against a real TIRI image** yet.
 
@@ -58,9 +52,6 @@ version that opens the scene, so a corrected default reaches old scenes too.
 
 ## Not covered
 
-- **Lens distortion.** `hera_afc_v06.ti` gives a radial term from in-flight calibration
-  (AFC-1 k1 = −1.28449, AFC-2 −0.40565). On AFC-1 it moves edge pixels about 0.3 %
-  outwards (≈1.5 px at the edge, ≈3 px in the corners). The pinhole frustum ignores it
-  (#915).
+- **Lens distortion** is not modelled; the pinhole frustum ignores it (#915).
 - **pro3d-tool** (`simulate-image`, `sample-layers`) always uses the kernel defaults.
   Its renders are what the defaults describe.

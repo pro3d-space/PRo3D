@@ -90,7 +90,7 @@ module OpcTextureLayers =
 // come from a sun-side depth pass.
 
 /// Native detector sizes per SPICE instrument frame, from the instrument kernels
-/// (hera_afc_v06.ti: 1020x1020 active pixels). The FOV table lives in
+/// (AFC: 1020x1020 active pixels). The FOV table lives in
 /// PRo3D.Base.InstrumentProjection; pixel counts are not part of a Frustum, hence here.
 ///
 /// HyperScout and ASPECT are the sizes of their delivered products rather than of the raw

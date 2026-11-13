@@ -60,7 +60,7 @@ import numpy as np
 # the new epoch produced is sensible.
 DEFAULT_EPOCHS = ["14:00:00", "17:00:00", "20:00:00", "23:00:00"]
 
-# AFC-1's horizontal field of view: hera_afc_v06.ti FOV_REF_ANGLE = 2.75 deg half-angle,
+# AFC-1's horizontal field of view from the instrument kernel,
 # what pro3d-tool renders with (InstrumentProjection.defaultFovs). Was 5.5307 (#882).
 AFC_HFOV_DEG = 5.5
 DEFAULT_DATE = "2027-03-21"
