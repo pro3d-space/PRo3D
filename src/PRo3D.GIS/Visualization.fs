@@ -260,97 +260,77 @@ module Visualization =
                 DefaultTextures.checkerboard
         ) currentProjectedImage channel
 
-    /// `nearFar` overrides the depth range; when None it is derived from the observation
-    /// distance in the mbi sidecar (InstrumentProjection.nearFarForDistance). The old
-    /// hardcoded Mars-scale range clipped bodies the size of Didymos entirely.
-    /// `fovs` are a scene's own instrument fields of view, overriding the kernel defaults
-    /// (InstrumentProjection.instrumentsWith); Map.empty uses the defaults.
-    let projectDirectWith (fovs : Map<string, InstrumentProjection.Fov>) (nearFar : Option<float * float>)
-                (observer : string) (referenceFrame : string) (metadata : ParsedMetadata)
-                (targetBody : string) (boresight : Option<Trafo3d>) (method : ProjectionMethod) : Option<Trafo3d> =
+    /// The projector pose an orientation source stands for.
+    let projectorPose (method : ProjectionMethod) (mbi : Tiff_Mbi_Json.Mbi) : ProjectorPose =
+        match method with
+        | ProjectionMethod.Spice -> ProjectorPose.SpiceAimed
+        | ProjectionMethod.MbiAttitudeSpiceRange -> ProjectorPose.SidecarAttitudeSpiceRange mbi.sc_quat
+        | _ -> ProjectorPose.Sidecar (mbi.sc_quat, mbi.targetPos)
 
+    /// Resolve an image's projector in the body-fixed frame `originFrame` of `originBody`,
+    /// the body the surface's coordinates are relative to. The image's target is the
+    /// sidecar's TARGET, falling back to `originBody` for sidecars without one.
+    ///
+    /// `instruments` are the scene's per-instrument field of view and row flip
+    /// (Map.empty = the kernels' values). `nearFar` overrides
+    /// the depth range; by default it follows the resolved distance to the target
+    /// (InstrumentProjection.nearFarForDistance).
+    let resolveProjectorWith (instruments : InstrumentProjection.Instruments) (nearFar : Option<float * float>)
+                             (originBody : string) (originFrame : string)
+                             (metadata : ParsedMetadata) (boresight : Option<Trafo3d>) (method : ProjectionMethod)
+                             : Result<ResolvedProjector, string> =
         match metadata with
         | Some mbi, _ ->
-            // targetPos is in km
-            let distance = mbi.targetPos.Length * 1000.0
-            let near, far = nearFar |> Option.defaultValue (InstrumentProjection.nearFarForDistance distance)
-            let instruments = InstrumentProjection.instrumentsWith fovs near far
-            // The sidecar knows what it observed (TARGET header, e.g. "Didymos");
-            // the caller's targetBody is only the fallback for older exports
-            // that don't carry the header (legacy Mars data).
-            let targetBody = mbi.target |> Option.defaultValue targetBody
             match InstrumentProjection.instrument2SpiceName mbi.instrument with
-            | None ->
-                Log.warn "could not get instrument spice name"
-                None
+            | None -> Result.Error (sprintf "no SPICE frame known for instrument '%s'" mbi.instrument)
             | Some spiceName ->
-                let p = {
-                        instrumentReferenceFrame = spiceName
-                        target = InstrumentImages.FocusBody targetBody
-                        cameraSource = InstrumentImages.CameraSource.InBody (InstrumentProjection.instrument2CameraSource mbi.instrument)
-                        instrumentName = spiceName
-                        supportBody = "SUN"
-                        time = mbi.obs_date
-                        boresightAdjustment =boresight
-                    }
-                let t = InstrumentProjection.projectOntoQuat referenceFrame observer instruments p (-mbi.targetPos * 1000.0) mbi.sc_quat
-                let spice = InstrumentProjection.projectOnto referenceFrame observer instruments p
-                match method with
-                | ProjectionMethod.MbiBased -> t
-                | _ -> spice
-        | _  ->
-            None
-
-    /// The kernel defaults' fields of view, `nearFar` as in projectDirectWith.
-    let projectDirectWithNearFar (nearFar : Option<float * float>)
-                (observer : string) (referenceFrame : string) (metadata : ParsedMetadata)
-                (targetBody : string) (boresight : Option<Trafo3d>) (method : ProjectionMethod) : Option<Trafo3d> =
-        projectDirectWith Map.empty nearFar observer referenceFrame metadata targetBody boresight method
-
-    /// The kernel defaults' fields of view (the tools); the viewer passes its scene's
-    /// through projectDirectWith.
-    let projectDirect (observer : string) (referenceFrame : string) (metadata : ParsedMetadata)
-                (targetBody : string) (boresight : Option<Trafo3d>) (method : ProjectionMethod) : Option<Trafo3d> =
-        projectDirectWith Map.empty None observer referenceFrame metadata targetBody boresight method
-
-    let project (observer : string) (referenceFrame : string) (currentProjectedImage : Option<string * ParsedMetadata>)
-                (projection : InstrumentProjection) : Option<Trafo3d> =
-
-        match currentProjectedImage with
-        | Some (_, (Some mbi,_)) ->
-            let distance = mbi.targetPos.Length * 1000.0
-            let near, far = InstrumentProjection.nearFarForDistance distance
-            let instruments = InstrumentProjection.instruments near far
-            let p = {
-                projection with
-                    time = mbi.obs_date
+                let setup = Map.tryFind spiceName instruments
+                InstrumentProjection.resolve {
+                    instrument  = spiceName
+                    spacecraft  = InstrumentProjection.instrument2CameraSource mbi.instrument
+                    target      = mbi.target |> Option.defaultValue originBody
+                    origin      = originBody
+                    originFrame = originFrame
+                    time        = mbi.obs_date
+                    pose        = projectorPose method mbi
+                    boresight   = boresight
+                    nearFar     = nearFar
+                    fov         = setup |> Option.map (fun s -> s.fov.horizontal, s.fov.vertical)
+                    flipRows    = setup |> Option.exists (fun s -> s.flipRows)
                 }
-            InstrumentProjection.projectOnto referenceFrame observer instruments p
-        | _  ->
+        | _ ->
+            Result.Error "no mbi sidecar"
+
+    /// resolveProjectorWith at the kernels' instrument values (the tools).
+    let resolveProjector (nearFar : Option<float * float>) (originBody : string) (originFrame : string)
+                         (metadata : ParsedMetadata) (boresight : Option<Trafo3d>) (method : ProjectionMethod)
+                         : Result<ResolvedProjector, string> =
+        resolveProjectorWith Map.empty nearFar originBody originFrame metadata boresight method
+
+    /// resolveProjectorWith for callers that only need the matrix; problems are logged.
+    let projectDirectWith (instruments : InstrumentProjection.Instruments) (nearFar : Option<float * float>)
+                          (originBody : string) (originFrame : string)
+                          (metadata : ParsedMetadata) (boresight : Option<Trafo3d>) (method : ProjectionMethod)
+                          : Option<Trafo3d> =
+        match resolveProjectorWith instruments nearFar originBody originFrame metadata boresight method with
+        | Ok p ->
+            for w in p.warnings do Log.warn "[projection] %s" w
+            Some p.full
+        | Result.Error e ->
+            Log.warn "[projection] %s" e
             None
 
-    let creatProjectionFunction (observer : aval<string>) (referenceFrame : aval<string>) 
-                                (currentProjectedImage : aval<Option<string * ParsedMetadata>>) (instrumentProjection : aval<InstrumentProjection>) =
+    /// The kernels' instrument values, `nearFar` as in projectDirectWith.
+    let projectDirectWithNearFar (nearFar : Option<float * float>) (originBody : string) (originFrame : string)
+                                 (metadata : ParsedMetadata) (boresight : Option<Trafo3d>) (method : ProjectionMethod)
+                                 : Option<Trafo3d> =
+        projectDirectWith Map.empty nearFar originBody originFrame metadata boresight method
 
-    
-        let projectImage (targetPlanet : string) = 
-            AVal.custom (fun t -> 
-                let img = currentProjectedImage.GetValue t
-                match img with
-                | Some (_, (Some mbi,_)) -> 
-                    let observer = observer.GetValue t
-                    let referenceFrame = referenceFrame.GetValue t
-                    let instrumentProjection = instrumentProjection.GetValue t
-                    let p = {
-                        instrumentProjection with
-                            time = mbi.obs_date
-                        }
-                    project observer referenceFrame img p
-                | _  -> 
-                    None
-            )
-
-        projectImage
+    /// The kernels' instrument values (the tools); the viewer passes its scene's through
+    /// projectDirectWith.
+    let projectDirect (originBody : string) (originFrame : string) (metadata : ParsedMetadata)
+                      (boresight : Option<Trafo3d>) (method : ProjectionMethod) : Option<Trafo3d> =
+        projectDirectWithNearFar None originBody originFrame metadata boresight method
 
     //let createSceneGraph (projectedImageProperties : VisualizationProperties) (referenceFrame : aval<string>) (supportBody : aval<string>)
     //                     (observer : aval<string>) (time : aval<DateTime>) (projectImage : string -> aval<Option<Trafo3d>>) 

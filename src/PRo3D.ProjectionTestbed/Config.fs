@@ -127,7 +127,7 @@ PRo3D projection testbed -- projects an instrument image onto an OPC and screens
   --channel <n>          band index                       (default 0)
   --kernel <file>        explicit SPICE metakernel
   --kernel-root <dir>    where to search for the sidecar's declared kernel
-  --method spice|mbi     projection method                (default mbi)
+  --method spice|mbi|mbi-spice-range  projection method  (default mbi)
   --near <m> --far <m>   explicit depth range; default derived from target distance
   --width <n> --height <n>   default: the source image's native size
   --out <dir>            output directory
@@ -173,7 +173,8 @@ PRo3D projection testbed -- projects an instrument image onto an OPC and screens
                 match v.ToLowerInvariant() with
                 | "spice" -> go { s with projectionMethod = ProjectionMethod.Spice } rest
                 | "mbi"   -> go { s with projectionMethod = ProjectionMethod.MbiBased } rest
-                | other   -> Result.Error (sprintf "unknown --method '%s' (expected spice|mbi)" other)
+                | "mbi-spice-range" -> go { s with projectionMethod = ProjectionMethod.MbiAttitudeSpiceRange } rest
+                | other   -> Result.Error (sprintf "unknown --method '%s' (expected spice|mbi|mbi-spice-range)" other)
             | "--near" :: v :: rest ->
                 let far = s.nearFar |> Option.map snd |> Option.defaultValue infinity
                 go { s with nearFar = Some (float v, far) } rest

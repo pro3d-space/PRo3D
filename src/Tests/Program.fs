@@ -102,6 +102,11 @@ let allTests (parameters : TestUtils.TestParameters) : Test =
             DidymosProjectionSpiceTest.tests()
             InstrumentProjectionComparisonTest.tests()
 
+        // projector poses: the geometry cases need no SPICE; the consistency cases load
+        // hera_ops.tm (one more swap, hence after the comparison tests) and self-skip
+        // without kernels or coverage
+        ProjectorPoseTest.tests()
+
         // pro3d-tool verbs. Placed after the kernel-sensitive tests for the same reason
         // they are ordered above: the sun-angles case needs the plan kernel, and every
         // swap degrades DAF handles. It reuses HeraSpiceTests' kernel tracking rather

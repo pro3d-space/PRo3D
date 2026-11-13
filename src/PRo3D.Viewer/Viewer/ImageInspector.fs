@@ -55,7 +55,7 @@ module ImageInspector =
     // tried again next time rather than failing for the rest of the session.
     // projectDirect calls SPICE behind a global lock; keyed like ProjectedImagesListHelpers'.
     let private projectorCache =
-        System.Collections.Concurrent.ConcurrentDictionary<Guid * ProjectionMethod * (float * float * float) * string * string * Map<string, PRo3D.SPICE.InstrumentProjection.Fov>, Trafo3d>()
+        System.Collections.Concurrent.ConcurrentDictionary<Guid * ProjectionMethod * (float * float * float) * string * string * PRo3D.SPICE.InstrumentProjection.Instruments, Trafo3d>()
 
     // sun direction per (image, frame, body): SPICE, and constant for an image
     let private sunCache =
@@ -98,15 +98,16 @@ module ImageInspector =
                 | _ -> pngSize path
             md, size)
 
-    /// The surface the projection is placed on: the first one bound to a SPICE body, else one
-    /// inheriting the scene body -- the same choice as the fly-to (Viewer.flyToImageCamera).
+    /// The surface the projection is placed on, with its SPICE body and frame: the first one
+    /// bound to a SPICE body, else one inheriting the scene body -- the same choice as the
+    /// fly-to (Viewer.flyToImageCamera).
     let private projectionSurface (gis : Gis.GisApp) (surfaces : SurfaceModel) =
         let bound =
             gis.gisSurfaces
             |> HashMap.toSeq
             |> Seq.tryPick (fun (sid, gs) ->
                 match gs.entity, gs.referenceFrame with
-                | Some _, Some frame -> Some (sid, frame)
+                | Some entity, Some frame -> Some (sid, entity, frame)
                 | _ -> None)
         match bound with
         | Some _ -> bound
@@ -115,7 +116,7 @@ module ImageInspector =
             |> HashMap.toSeq
             |> Seq.tryPick (fun (sid, _) ->
                 Gis.GisApp.getSpiceReferenceSystem gis sid
-                |> Option.map (fun r -> sid, r.referenceFrame))
+                |> Option.map (fun r -> sid, r.body, r.referenceFrame))
 
     /// The context of any library image, e.g. each image of the projection stack (#887).
     let tryContextFor (gis : Gis.GisApp) (surfaces : SurfaceModel) (refSystem : ReferenceSystem) (image : ProjectedImageModel) : Result<Context, string> =
@@ -123,29 +124,24 @@ module ImageInspector =
         match Gis.GisApp.getObserverSystem gis, projectionSurface gis surfaces with
         | None, _ -> Result.Error "no observed body set"
         | _, None -> Result.Error "no surface bound to a SPICE body"
-        | Some observerSystem, Some (surfaceId, frame) ->
-            let (EntitySpiceName observer) = observerSystem.body
+        | Some observerSystem, Some (surfaceId, EntitySpiceName originBody, frame) ->
             let b = list.boresightAdjustment
             let boresightKey = (b.roll.value, b.pitch.value, b.yaw.value)
-            let fovs = InstrumentFov.toMap list.instrumentFovs
-            let key = (image.id, list.projectionMethod, boresightKey, observer, frame.Value, fovs)
+            let instruments = InstrumentFov.toInstruments list.instrumentFovs
+            let key = (image.id, list.projectionMethod, boresightKey, originBody, frame.Value, instruments)
             let metadata, size = imageInfo image.texture
             let full =
                 cachedOk projectorCache key (fun () ->
-                    // same boresight composition as ProjectedImagesListHelpers.computeBoresight
-                    let boresight =
-                        Trafo3d.RotationXInDegrees(b.yaw.value) * Trafo3d.RotationYInDegrees(b.pitch.value) * Trafo3d.RotationZInDegrees(b.roll.value)
-                    // "MARS" only as the fallback target, as the viewer passes it
-                    match Visualization.projectDirectWith fovs None observer frame.Value metadata "MARS" (Some boresight) list.projectionMethod with
-                    | Some t -> Ok t
-                    | None -> Result.Error "no projector")
-                |> Result.toOption
+                    // the same projector as the 3D view (ProjectedImagesListHelpers)
+                    let boresight = PRo3D.SPICE.InstrumentProjection.boresightCorrection b.roll.value b.pitch.value b.yaw.value
+                    Visualization.resolveProjectorWith instruments None originBody frame.Value metadata (Some boresight) list.projectionMethod
+                    |> Result.map (fun p -> p.full))
             let surface =
                 surfaces.surfaces.flat |> HashMap.tryFind surfaceId |> Option.map Leaf.toSurface
             match full, surface with
-            | None, _ -> Result.Error "the image's projector did not resolve (SPICE coverage?)"
+            | Result.Error e, _ -> Result.Error (sprintf "the image's projector did not resolve: %s" e)
             | _, None -> Result.Error "projection surface not found"
-            | Some full, Some surface ->
+            | Ok full, Some surface ->
                 let observedSystem = Gis.GisApp.getSpiceReferenceSystem gis surfaceId
                 let placement = TransformationApp.fullTrafo' surface.transformation refSystem observedSystem (Some observerSystem)
                 let toWorld = placement * surface.preTransform
