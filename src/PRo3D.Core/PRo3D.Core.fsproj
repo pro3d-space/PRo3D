@@ -96,6 +96,8 @@
     <Compile Include="Drawing\SupportingProfiles.fs" />
     <Compile Include="Drawing\Drawing-App.fs" />
     <Compile Include="InstrumentMetadata.fs" />
+    <Compile Include="InstrumentFov-Model.fs" />
+    <Compile Include="InstrumentFov-Model.g.fs" />
     <Compile Include="ProjectedImageList-Model.fs" />
 	<Compile Include="ProjectedImageList-Model.g.fs" />
     <Compile Include="GisApp-Model.fs" />

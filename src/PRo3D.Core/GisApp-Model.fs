@@ -16,6 +16,41 @@ open Aardvark.UI.Primitives
 open Aardvark.Base
 
 
+/// One saved instrument field of view (GisApp "instrumentFovs"): only the instruments a
+/// scene changed from the kernel default are written, so a scene that never touched them
+/// looks as before and picks up corrected kernel values in later releases.
+type InstrumentFovJson =
+    {
+        instrument : string
+        horizontal : float
+        vertical   : float
+    }
+    static member ToJson (x : InstrumentFovJson) =
+        json {
+            do! Json.write      "instrument" x.instrument
+            do! Json.writeFloat "horizontal" x.horizontal
+            do! Json.writeFloat "vertical"   x.vertical
+        }
+    static member FromJson (_ : InstrumentFovJson) =
+        json {
+            let! instrument = Json.read      "instrument"
+            let! horizontal = Json.readFloat "horizontal"
+            let! vertical   = Json.readFloat "vertical"
+            return { instrument = instrument; horizontal = horizontal; vertical = vertical }
+        }
+
+module InstrumentFovJson =
+    let private valid (v : float) = Double.IsFinite v && v > 0.0 && v < 180.0
+
+    let ofModel (f : InstrumentFov) : InstrumentFovJson =
+        { instrument = f.instrument; horizontal = f.horizontal.value; vertical = f.vertical.value }
+
+    /// Entries with an unusable angle are dropped (the kernel default stays).
+    let toOverride (x : InstrumentFovJson) : Option<string * PRo3D.SPICE.InstrumentProjection.Fov> =
+        if valid x.horizontal && valid x.vertical && not (String.IsNullOrWhiteSpace x.instrument) then
+            Some (x.instrument, { horizontal = x.horizontal; vertical = x.vertical })
+        else None
+
 type GisSurface = {
     surfaceId       : SurfaceId
     entity          : option<EntitySpiceName>
@@ -181,6 +216,9 @@ module GisAppJson =
             let! (imageDirectory : Option<string>) = Json.tryRead "projectedImagesDirectory"
             // additive: stack file names bottom -> top, mapped back to the re-imported images
             let! (stackFiles : Option<list<string>>) = Json.tryRead "projectedImagesStack"
+            // additive: the instruments whose field of view the scene changed
+            let! (fovs : Option<list<InstrumentFovJson>>) = Json.tryRead "instrumentFovs"
+            let fovs = fovs |> Option.defaultValue [] |> List.choose InstrumentFovJson.toOverride
 
             return {
                 version                = GisApp.current
@@ -198,7 +236,8 @@ module GisAppJson =
                         lightingMode = lightingMode
                         windingCorrection = Option.defaultValue false windingCorrection
                         imageDirectory = imageDirectory
-                        pendingStack = Option.defaultValue [] stackFiles }
+                        pendingStack = Option.defaultValue [] stackFiles
+                        instrumentFovs = InstrumentFov.withOverrides fovs }
                 showMarkers            = Option.defaultValue false showMarkers
 
                 selectedMissionTimeRow = None
@@ -231,6 +270,14 @@ type GisApp with
             let stackFiles = ProjectedImageListModel.stackFileNames x.projectedImageList
             if not stackFiles.IsEmpty then
                 do! Json.write "projectedImagesStack" stackFiles
+            // new key, written only when an instrument differs from its kernel default
+            let fovOverrides =
+                x.projectedImageList.instrumentFovs
+                |> HashMap.toList
+                |> List.choose (fun (_, f) -> if InstrumentFov.isOverride f then Some (InstrumentFovJson.ofModel f) else None)
+                |> List.sortBy (fun f -> f.instrument)
+            if not fovOverrides.IsEmpty then
+                do! Json.write "instrumentFovs" fovOverrides
         }
     static member FromJson (_ : GisApp) =
         json {

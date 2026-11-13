@@ -109,6 +109,12 @@ module ProjectedImagesListAppHelper =
         // stops propagating once collected (src/Tests/AdaptiveNestingTests.fs).
         let surfaceReferenceFrameA =
             surfaceReferenceSystem |> AVal.map (function None -> "J2000" | Some v -> v.referenceFrame.Value)
+        // the scene's instrument fields of view (Instruments section); hoisted like the above
+        let fovsA : aval<Map<string, PRo3D.SPICE.InstrumentProjection.Fov>> =
+            g.projectedImageList.instrumentFovs
+            |> AMap.mapA (fun _ f -> f.Current)
+            |> AMap.toAVal
+            |> AVal.map InstrumentFov.toMap
         let imageTrafo =
             AVal.custom (fun t ->
                 match observer.GetValue(t) with
@@ -120,10 +126,11 @@ module ProjectedImagesListAppHelper =
                     let img = currentProjectedImage.GetValue(t)
                     let surfaceReferenceFrame = surfaceReferenceFrameA.GetValue(t)
                     let projectionMethod = g.projectedImageList.projectionMethod.GetValue(t)
+                    let fovs = fovsA.GetValue(t)
 
                     match img with
                     | Some (_, metadata) ->
-                        Visualization.projectDirect observer surfaceReferenceFrame metadata projectionSurfaceBodyName (Some borsight) projectionMethod
+                        Visualization.projectDirectWith fovs None observer surfaceReferenceFrame metadata projectionSurfaceBodyName (Some borsight) projectionMethod
                     | _ ->
                         None
             )
@@ -140,7 +147,7 @@ module ProjectedImagesListAppHelper =
         // (D8 in plans/multiImageProjection.md). Metadata parses are memoized
         // by texture path (sidecars do not change during a session).
         let metadataCache = System.Collections.Generic.Dictionary<string, InstrumentMetadata.ParsedMetadata>()
-        let projectorCache = System.Collections.Generic.Dictionary<Guid * PRo3D.ImageMapping.ProjectionMethod * (float * float * float) * string * string, Option<Trafo3d>>()
+        let projectorCache = System.Collections.Generic.Dictionary<Guid * PRo3D.ImageMapping.ProjectionMethod * (float * float * float) * string * string * Map<string, PRo3D.SPICE.InstrumentProjection.Fov>, Option<Trafo3d>>()
 
         /// one image's projector in the surface frame at its own obs time,
         /// memoized (D8: SPICE is single-threaded behind a global lock)
@@ -150,6 +157,7 @@ module ProjectedImagesListAppHelper =
             | Some img ->
                 let surfaceReferenceFrame = surfaceReferenceFrameA.GetValue(t)
                 let boresightTrafo = boresightAdjustment.GetValue(t)
+                let fovs = fovsA.GetValue(t)
                 let boresightKey =
                     (model.boresightAdjustment.roll.value,
                      model.boresightAdjustment.pitch.value,
@@ -164,11 +172,11 @@ module ProjectedImagesListAppHelper =
                 // a boresight slider drag creates a key per step; keep the
                 // cache bounded rather than evicting cleverly
                 if projectorCache.Count > 512 then projectorCache.Clear()
-                let key = (id, model.projectionMethod, boresightKey, observer, surfaceReferenceFrame)
+                let key = (id, model.projectionMethod, boresightKey, observer, surfaceReferenceFrame, fovs)
                 match projectorCache.TryGetValue key with
                 | true, p -> p
                 | _ ->
-                    let p = Visualization.projectDirect observer surfaceReferenceFrame metadata projectionSurfaceBodyName (Some boresightTrafo) model.projectionMethod
+                    let p = Visualization.projectDirectWith fovs None observer surfaceReferenceFrame metadata projectionSurfaceBodyName (Some boresightTrafo) model.projectionMethod
                     projectorCache.[key] <- p
                     p
 

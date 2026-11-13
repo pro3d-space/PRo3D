@@ -75,6 +75,8 @@ single state, so the page cannot drift out of internal consistency:
 - OPC `Dimorphos_opc` (the current export)
 - texture layer **DRACO_2**, epoch **2027-03-21T20:00**, range 6 706.8 m
 - viewer window 1100×1100, *Focal (mm)* 122.563 = AFC-1's 5.5307°
+  (measured before #882: the test set has since been regenerated on shape model v004 at
+  5.5°, *Focal (mm)* 123.247, and these numbers have not been re-measured on it)
 - *Orientation Source* MBI, *Transfer Function* off
 
 | rung | correlation at zero shift | best shift found | mean ΔDN |
@@ -233,7 +235,8 @@ what the surface is textured with.
 
 Setup: one simulated AFC-1 frame of Dimorphos, projected onto
 `Dimorphos_opc`. *Fly to image* puts the camera on that frame's projector
-axis; *Focal (mm)* = 122.563 makes the viewer's field of view AFC-1's 5.5307°;
+axis; *Focal (mm)* = 123.247 makes the viewer's field of view AFC-1's 5.5° (122.563 /
+5.5307° before #882);
 *Orientation Source* = MBI; *Transfer Function* off, so the layer is painted as
 its own RGB. Window 1100×1100, square, because a 16:9 window would frame the
 body by its shorter vertical fov instead of the instrument's.
@@ -527,7 +530,7 @@ cd tests-ui
 PRO3D_SCENE=<...>/ProjectionTest.pro3d \
 PRO3D_PROBE_IMAGE_DIR=<...> PRO3D_PROBE_IMAGE=AFC1_DRACO2_20270321_200000.png \
 PRO3D_PROBE_METHOD=MbiBased PRO3D_PROBE_TRANSFER=off \
-PRO3D_PROBE_FLYTO=1 PRO3D_PROBE_FOCAL=122.563 \
+PRO3D_PROBE_FLYTO=1 PRO3D_PROBE_FOCAL=123.247 \
 PRO3D_PROBE_VIEWPORT=1100x1100 PRO3D_PROBE_LABEL=rung3 \
   npx tsx src/probe-projection-landing.ts
 

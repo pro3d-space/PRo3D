@@ -43,7 +43,7 @@ import * as path from "path";
 const repoRoot = path.resolve(__dirname, "..", "..");
 const artifacts = path.join(__dirname, "..", "artifacts");
 
-const opcs = (process.env.PRO3D_E2E_OPCS ?? fixture.opc)
+const opcs = (process.env.PRO3D_E2E_OPCS ?? fixture.framesOpc)
     .split(";")
     .map((s) => s.trim())
     .filter((s) => s.length > 0);

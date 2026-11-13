@@ -35,6 +35,8 @@ module ProjectedImageListApp =
             { m with useTransferFunction = not m.useTransferFunction }
         | ToggleWindingCorrection ->
             { m with windingCorrection = not m.windingCorrection }
+        | InstrumentFovMessage msg ->
+            { m with instrumentFovs = InstrumentFovApp.update m.instrumentFovs msg }
         | LoadSpiceAndTime _ ->
             // handled by GisApp.update, which owns the spice kernel + observation time state
             m
@@ -451,6 +453,11 @@ module ProjectedImageListApp =
                             ]
                         ]
                     ]
+                ]
+
+                // the fields of view projection uses, next to the projection settings
+                accordion "Instruments" "camera" false (style "margin-top: 6px") [
+                    InstrumentFovApp.view m.instrumentFovs |> UI.map InstrumentFovMessage
                 ]
 
                 accordion "Selected Image" "image" false (style "margin-top: 6px") [

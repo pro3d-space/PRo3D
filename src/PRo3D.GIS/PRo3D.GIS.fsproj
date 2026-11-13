@@ -49,6 +49,7 @@
     <Compile Include="TestViewer.fs" />
     <None Include="paket.references" />
     <Compile Include="ProjectedImageApp.fs" />
+    <Compile Include="InstrumentFovApp.fs" />
     <Compile Include="ProjectedImageListApp.fs" />
     <Compile Include="GisApp.fs" />
     <Compile Include="ProjectedImagesListHelpers.fs" />

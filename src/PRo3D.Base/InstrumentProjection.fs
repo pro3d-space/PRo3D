@@ -53,25 +53,44 @@ type InstrumentProjection =
 
 module InstrumentProjection =
 
-    /// Field of view of each instrument, keyed by SPICE frame name (the key
-    /// projectOnto/projectOntoQuat look up via InstrumentProjection.instrumentName).
-    /// Half-angles come from the instrument kernels; see the comments per entry.
+    /// Full field of view of one instrument in degrees: `horizontal` along the image's
+    /// width, `vertical` along its height.
+    type Fov = { horizontal : float; vertical : float }
+
+    /// The kernels' field of view of each instrument, keyed by SPICE frame name (the
+    /// key projectOnto/projectOntoQuat look up via InstrumentProjection.instrumentName).
+    /// These are only the defaults: a scene can override them per instrument (the
+    /// projected-images panel's Instruments section), see `instrumentsWith`.
     /// Near/far are NOT part of an instrument's intrinsics -- they depend on how far
     /// away the target is -- hence `instruments` takes them as parameters.
-    let private fovs =
+    let defaultFovs : Map<string, Fov> =
         Map.ofList [
-            // name, (fov in degrees as Frustum.perspective takes it, i.e. horizontal;
-            //        aspect = width / height)
             // hera_afc_v06.ti: INS-91110 / INS-91120 FOV_REF_ANGLE = FOV_CROSS_ANGLE = 2.75
             // degrees, half-angles of a square field -> 5.5 x 5.5 degrees (getfov agrees).
-            // Was 5.5306897, 0.56% too wide (#801).
-            "HERA_AFC-1",         (5.5,             1.0)
-            "HERA_AFC-2",         (5.5,             1.0)
-            "HERA_HSH",           (15.23999,        409.0 / 217.0)
+            // The IK's pinhole (DIST_FX = 10600 px, 1020 px) gives 5.509; 5.5 is that,
+            // rounded by the kernel. Was 5.5306897, 0.56% too wide (#801).
+            "HERA_AFC-1",         { horizontal = 5.5;  vertical = 5.5 }
+            "HERA_AFC-2",         { horizontal = 5.5;  vertical = 5.5 }
+            // hera_hsh_v03.ti: INS-91401 HERA_HSH_PARAXIAL, half-angles 7.75 / 4.15 ->
+            // 15.5 x 8.3 degrees. The "real" field (INS-91400, 15.9 x 9.9) is "extremely
+            // distorted at the edges (almost 1 degree)", so for a pinhole frustum the
+            // paraxial one fits the image better. Width = the 2048-pixel axis (409
+            // macro pixels). Was 15.24 x 8.09 (aspect 409/217), matching neither.
+            "HERA_HSH",           { horizontal = 15.5; vertical = 8.3 }
+            // hera_tiri_v03.ti: INS-91200 FOV_REF_ANGLE (along +X, the 1024-pixel axis)
+            // 6.65, FOV_CROSS_ANGLE 5.0 -> 13.3 x 10.0 degrees, 1024 x 768 pixels.
+            "HERA_TIRI",          { horizontal = 13.3; vertical = 10.0 }
             // hera_milani_aspect_v02.ti: INS-9102120 (NIR1) FOV_REF_ANGLE/FOV_CROSS_ANGLE
             // are half-angles of 3.35/2.7 degrees -> full FOV 6.7 x 5.4 degrees.
-            "MILANI_ASPECT_NIR1", (6.7,             6.7 / 5.4)
+            "MILANI_ASPECT_NIR1", { horizontal = 6.7;  vertical = 5.4 }
         ]
+
+    /// A centred perspective frustum with these full fields of view.
+    let frustumOf (fov : Fov) (near : float) (far : float) =
+        // Frustum.perspective: right = near * tan(h/2), top = right / aspect
+        let aspect = tan (Conversion.RadiansFromDegrees(fov.horizontal / 2.0))
+                   / tan (Conversion.RadiansFromDegrees(fov.vertical / 2.0))
+        Frustum.perspective fov.horizontal near far aspect
 
     /// Near/far planes for a target observed from `distance` metres away.
     ///
@@ -88,7 +107,14 @@ module InstrumentProjection =
     /// observation distance via nearFarForDistance rather than hardcoding a scale:
     /// values tuned for Mars clip a body the size of Didymos outright.
     let instruments (near : float) (far : float) =
-        fovs |> Map.map (fun _ (fov, aspect) -> Frustum.perspective fov near far aspect)
+        defaultFovs |> Map.map (fun _ fov -> frustumOf fov near far)
+
+    /// `instruments`, with `overrides` (a scene's own fields of view) replacing the
+    /// kernel defaults per instrument. Instruments only in `overrides` are added.
+    let instrumentsWith (overrides : Map<string, Fov>) (near : float) (far : float) =
+        overrides
+        |> Map.fold (fun m name fov -> Map.add name fov m) defaultFovs
+        |> Map.map (fun _ fov -> frustumOf fov near far)
 
     // CSPICE's global kernel pool/error state isn't thread-safe, and CooTransformation's
     // own lock only covers one native call at a time -- it doesn't stop another thread's
@@ -163,6 +189,11 @@ module InstrumentProjection =
             // ASPECT camera basis left-handed and the render mirrored on one axis.
             // This basis is (X, -Y, Z): det = -1, restoring a proper composition.
             "MILANI_ASPECT_NIR1", Trafo3d.FromOrthoNormalBasis(V3d.IOO, -V3d.OIO, V3d.OOI)
+            // NOT VALIDATED -- no TIRI image has been checked against this. HSH's entry
+            // above puts the image width on frame -Y (HSH's long axis). TIRI's long axis
+            // (13.3 deg, 1024 px) is +X (hera_tiri_v03.ti), so the width goes on X here;
+            // det = -1 like every entry above. The signs (mirroring) are a guess.
+            "HERA_TIRI", Trafo3d.FromOrthoNormalBasis(V3d.IOO, -V3d.OIO, V3d.OOI)
         ]
 
     let projectOntoQuat (referenceFrame : string) (observer : string) (instruments : Map<string, Frustum>)
@@ -188,6 +219,7 @@ module InstrumentProjection =
             "AFC1", "HERA_AFC-1"
             "HSH", "HERA_HSH"
             "AFC2", "HERA_AFC-2"
+            "TIRI", "HERA_TIRI"
             // ASPECT (Vis/NIR1/NIR2/SWIR) shares one attitude quaternion in the mbi sidecar and
             // all four channel frames coincide with MILANI_SPACECRAFT (see specialTrafos above),
             // so any one of them is representative; NIR1 is used as the canonical choice.
@@ -204,6 +236,7 @@ module InstrumentProjection =
             "AFC1", "HERA"
             "HSH", "HERA"
             "AFC2", "HERA"
+            "TIRI", "HERA"
             "ASPECT", "MILANI"
         ]
 

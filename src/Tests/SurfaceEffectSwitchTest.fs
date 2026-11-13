@@ -161,9 +161,9 @@ let tests () =
             // the projection scene template of the test data, re-pointed at this machine's
             // Dimorphos OPC and kernels -- what tests-ui's sceneFor writes, without a tests-ui run
             let images = TestUtils.Roots.testDataDir None [ "HERA"; "Dimorphos_opc"; "AFC_2027-03-21" ]
-            match images, TestUtils.Roots.dimorphosOpc None, Render.context.Value with
+            match images, TestUtils.Roots.dimorphosV4Opc None, Render.context.Value with
             | None, _, _ -> skiptest "no AFC_2027-03-21 frames: set PRO3D_TEST_DATA to a PRo3D.Resources.TestData checkout"
-            | _, None, _ -> skiptest "no Dimorphos OPC: set PRO3D_TEST_DATA (HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos)"
+            | _, None, _ -> skiptest "no Dimorphos V4 OPC: set PRO3D_TEST_DATA (HERA/Dimorphos_opc/Dimorphos_DRACO_V4/Dimorphos_DRACO)"
             | _, _, None -> skiptest "no OpenGL runtime in this environment"
             | Some imageDir, Some opc, Some (runtime, signature) ->
 

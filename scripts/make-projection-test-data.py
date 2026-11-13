@@ -59,6 +59,10 @@ import numpy as np
 # the end prints each frame's range, which is the quickest way to see whether the geometry
 # the new epoch produced is sensible.
 DEFAULT_EPOCHS = ["14:00:00", "17:00:00", "20:00:00", "23:00:00"]
+
+# AFC-1's horizontal field of view: hera_afc_v06.ti FOV_REF_ANGLE = 2.75 deg half-angle,
+# what pro3d-tool renders with (InstrumentProjection.defaultFovs). Was 5.5307 (#882).
+AFC_HFOV_DEG = 5.5
 DEFAULT_DATE = "2027-03-21"
 
 
@@ -123,14 +127,18 @@ def write_scene(template, out, opc, texture_label, texture_index, mbi, epoch_iso
     From an empty PRo3D none of this is in place, and until it is, fly-to and projection
     do nothing: an observed body, a surface bound to a SPICE body, and an epoch inside the
     loaded kernels' coverage (PRo3D's default is 2025-03-10, where HERA has no ephemeris
-    for Dimorphos). Focal 122.563 mm is AFC-1's 5.5307 deg, which also makes fly-to land
+    for Dimorphos). Focal 123.247 mm is AFC-1's 5.5 deg (AFC_HFOV_DEG), which also makes fly-to land
     exactly at the instrument: the standoff frames the footprint in the VIEWER's field of
     view, so when the two match, standoff = range. Near plane 10 because at ~8 km a 0.1
     near plane cannot separate the near and far surfaces of a 177 m body.
     """
     d = json.load(open(template, encoding="utf-8-sig"))
     s = d["surfaceModel"]["surfaces"]["flat"][0]["Surfaces"]
-    name = s["opcNames"][0]
+    # the hierarchy is the OPC's, not the template's: the template may come from another
+    # shape model version (v003 -> v004 changed the names)
+    hierarchies = sorted(f for f in os.listdir(opc) if os.path.isdir(os.path.join(opc, f, "Patches")))
+    name = hierarchies[0] if hierarchies else s["opcNames"][0]
+    s["opcNames"] = [name]
     s["importPath"] = opc
     s["opcPaths"] = [os.path.join(opc, name)]
     opcx = [f for f in os.listdir(opc) if f.endswith(".opcx")]
@@ -159,7 +167,8 @@ def write_scene(template, out, opc, texture_label, texture_index, mbi, epoch_iso
     d["gisApp"]["entities"] = [e for e in d["gisApp"]["entities"]
                                if e["spiceName"]["EntitySpiceName"] in keep]
 
-    focal = 122.563
+    # the viewer's frustum is 11.84 mm wide: focal = 11.84 / (2 tan(hfov / 2)) = 123.247 mm
+    focal = round(11.84 / (2.0 * np.tan(np.radians(AFC_HFOV_DEG / 2.0))), 3)
     t = 11.84 / (2.0 * focal)
     d["config"]["frustumModel"]["focal"] = focal
     f = d["config"]["frustumModel"]["frustum"]
