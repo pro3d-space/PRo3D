@@ -651,7 +651,7 @@ let private imageForMbiArgument (path : string) : Result<string * string, string
 
 /// The camera an existing observation was taken with, straight out of the viewer's own
 /// projection path (`InstrumentObservation.projectorCamera` -> `Visualization.projectDirect`).
-let cameraFromMbi (observer : string) (frame : string) (body : string)
+let cameraFromMbi (frame : string) (body : string)
                   (mbiPath : string) : Result<MbiObservation, string> =
     match imageForMbiArgument mbiPath with
     | Result.Error e -> Result.Error e
@@ -659,7 +659,7 @@ let cameraFromMbi (observer : string) (frame : string) (body : string)
         match InstrumentObservation.resolveImage folder (Some imageFile) with
         | Result.Error e -> Result.Error e
         | Ok img ->
-            match InstrumentObservation.projectorCamera None observer frame body ProjectionMethod.MbiBased img with
+            match InstrumentObservation.projectorCamera None frame body ProjectionMethod.MbiBased img with
             | Result.Error e -> Result.Error e
             | Ok cam ->
                 match Map.tryFind img.spiceName (InstrumentProjection.instruments cam.near cam.far) with
@@ -700,7 +700,7 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
     // the instrument then comes from that sidecar too (see MbiObservation).
     let observation =
         if String.IsNullOrWhiteSpace cameraSource then Ok None
-        else cameraFromMbi observer frame body cameraSource |> Result.map Some
+        else cameraFromMbi frame body cameraSource |> Result.map Some
 
     // the image to project, and its own projector
     let projected =
@@ -708,7 +708,7 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
         else
             imageForMbiArgument o.project
             |> Result.bind (fun (dir, file) ->
-                cameraFromMbi observer frame body o.project
+                cameraFromMbi frame body o.project
                 |> Result.map (fun obs -> Some (Path.Combine(dir, file), obs.camera.view * obs.camera.proj)))
 
     let useStackShader =
@@ -974,7 +974,7 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
             }
 
         let verifySidecar (imagePath : string) =
-            match MbiSidecar.verify ctx imagePath (cam.view * cam.proj) observer with
+            match MbiSidecar.verify ctx imagePath (cam.view * cam.proj) with
             | Result.Error e ->
                 Log.warn "[mbi] could not verify the sidecar: %s" e
             | Ok r ->

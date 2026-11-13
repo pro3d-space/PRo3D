@@ -40,6 +40,7 @@
     <Compile Include="ProjectedImageMetadataTest.fs" />
     <Compile Include="ProjectedImageStackTest.fs" />
     <Compile Include="InstrumentProjectionComparisonTest.fs" />
+    <Compile Include="ProjectorPoseTest.fs" />
     <Compile Include="DidymosProjectionSpiceTest.fs" />
     <None Include="RemoteApi.rest" />
     <Compile Include="TriangleSetTests.fs" />

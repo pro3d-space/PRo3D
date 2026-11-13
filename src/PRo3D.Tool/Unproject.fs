@@ -226,10 +226,11 @@ let run (o : UnprojectOptions) : int =
         match (if isNull o.method then "mbi" else o.method).ToLowerInvariant() with
         | "spice" -> Some ProjectionMethod.Spice
         | "mbi" -> Some ProjectionMethod.MbiBased
+        | "mbi-spice-range" -> Some ProjectionMethod.MbiAttitudeSpiceRange
         | _ -> None
 
     match projectionMethod, parseConvention o.pixelConvention with
-    | None, _ -> Log.error "unknown --method '%s' (expected spice or mbi)" o.method; 1
+    | None, _ -> Log.error "unknown --method '%s' (expected spice, mbi or mbi-spice-range)" o.method; 1
     | _, None -> Log.error "unknown --pixel-convention '%s' (expected image or fits)" o.pixelConvention; 1
     | Some projectionMethod, Some convention ->
 
@@ -314,13 +315,7 @@ let run (o : UnprojectOptions) : int =
             match r with
             | Result.Error e -> Result.Error ("no-image", e)
             | Ok img ->
-                let observer =
-                    if not (String.IsNullOrWhiteSpace o.observer) then o.observer
-                    else
-                        // AFC sits on Hera, ASPECT on Milani; a list may mix them, so the
-                        // spacecraft follows the instrument unless the caller overrides it.
-                        PRo3D.SPICE.InstrumentProjection.instrument2CameraSource img.mbi.instrument
-                match InstrumentObservation.projectorCamera None observer frame body projectionMethod img with
+                match InstrumentObservation.projectorCamera None frame body projectionMethod img with
                 | Result.Error e -> Result.Error ("no-pointing", e)
                 | Ok cam ->
                     match img.size with

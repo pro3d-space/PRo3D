@@ -16,10 +16,11 @@ three — see [the proof](#the-proof) below.
 Things that still make images look wrong independently of the projection itself:
 
 1. **Orientation Source** set to *SPICE* reads no pointing from the image at all
-   — it aims the camera at the body centre with a fixed roll, so real frames land
+   — it aims the camera at the body centre (with SPICE's roll since the
+   orientation sources were unified; an arbitrary one before), so real frames land
    on the body with their features out of place. It used to be the default, which
-   made a correct projection look broken out of the box; **MBI** is the default
-   now.
+   made a correct projection look broken out of the box; the default is now
+   **MbiAttitudeSpiceRange** (the image's own attitude, SPICE range).
 2. A sidecar can state the pointing wrongly, and the projector will follow it
    faithfully. The HERA COP delivery does exactly this.
 3. **The scene has to be set up before any of it can work.** From an empty
@@ -341,8 +342,14 @@ ships.
 
 | mode | where the pointing comes from |
 |---|---|
-| **SPICE** | Nowhere in the image. The spacecraft position is SPICE's, but the camera is then aimed at the **body centre** with a fixed up-vector — `InstrumentProjection.getLookAt` computes an attitude and discards it. Every image is painted as if shot dead-centre with one roll. |
-| **MBI** (default) | The image's measured attitude (`SC_QUAT`) and range (`TRG_POS`). Correct when the sidecar is, and faithfully wrong when it is not. |
+| **SPICE** | Nowhere in the image. Position and attitude are SPICE's (SPK and spacecraft CK), and the camera is then turned onto the **body centre**. Every image is painted as if shot dead-centre. (Measured below before the roll came from the CK: then it had an arbitrary roll as well.) |
+| **MBI** | The image's measured attitude (`SC_QUAT`) and range (`TRG_POS`). Correct when the sidecar is, and faithfully wrong when it is not. |
+| **MbiAttitudeSpiceRange** (default) | The image's attitude (`SC_QUAT`), target on the boresight at the SPICE range. Dead-centre like SPICE, but with the image's own roll; for sidecars without `TRG_POS`. |
+
+All three accept the *Registration* pitch/yaw/roll, which turn the projector
+about its own position — the way to move a dead-centre image onto a body that
+sits off-centre in the frame. See
+[MultiImageProjection.md](MultiImageProjection.md#if-an-image-does-not-land-on-the-terrain).
 
 So the symptom tells you where to look: *"lands on the body but the features do
 not line up"* is the first mode; *"does not land at all"* is the second plus a

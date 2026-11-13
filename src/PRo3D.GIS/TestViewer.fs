@@ -176,18 +176,21 @@ module TestViewer =
         let observations = 
             instrumentData 
             |> Array.map (fun (s, (mbi, _)) -> 
-                let obsTime = mbi.obs_date
-                let p = 
-                    {
-                        target = InstrumentImages.CameraFocus.FocusBody "MARS"
-                        cameraSource =  InstrumentImages.CameraSource.InBody "HERA"
-                        instrumentReferenceFrame = "HERA_AFC-1"
-                        instrumentName = "HERA_AFC-1"
-                        supportBody = "SUN"
-                        time = obsTime
-                        boresightAdjustment = None
+                let p =
+                    InstrumentProjection.resolve {
+                        instrument  = "HERA_AFC-1"
+                        spacecraft  = "HERA"
+                        target      = "MARS"
+                        origin      = observer.Value
+                        originFrame = referenceFrame.Value
+                        time        = mbi.obs_date
+                        pose        = ProjectorPose.SpiceAimed
+                        boresight   = None
+                        nearFar     = None
+                        fov         = None
+                        flipRows    = false
                     }
-                mbi.obs_date, InstrumentProjection.projectOnto referenceFrame.Value observer.Value instruments p
+                mbi.obs_date, (match p with Ok p -> Some p.full | Result.Error _ -> None)
             )
 
         let userIndex = cval 94

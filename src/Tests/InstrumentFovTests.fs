@@ -120,6 +120,23 @@ let tests =
             Expect.equal (InstrumentFov.toMap restored.projectedImageList.instrumentFovs) (InstrumentFov.toMap changed) "read back"
         }
 
+        test "a flipped instrument is saved with its kernel field of view and read back flipped" {
+            let flipped = InstrumentFovApp.update InstrumentFov.defaults (ToggleFlipRows "HERA_AFC-1")
+            match HashMap.tryFind "HERA_AFC-1" flipped with
+            | Some f ->
+                Expect.isTrue f.flipRows "toggled"
+                Expect.isTrue (InstrumentFov.isOverride f) "a flip alone is a scene change"
+            | None -> failtest "AFC-1 gone"
+            let s, restored = roundtrip (withFovs flipped (GisApp.initial None))
+            Expect.stringContains s "flipRows" "written"
+            let back = InstrumentFov.toInstruments restored.projectedImageList.instrumentFovs
+            Expect.equal (Map.tryFind "HERA_AFC-1" back |> Option.map (fun s -> s.flipRows)) (Some true) "read back flipped"
+            Expect.equal (InstrumentFov.toMap restored.projectedImageList.instrumentFovs) InstrumentProjection.defaultFovs
+                "the field of view stays the kernel's"
+            let reset = InstrumentFovApp.update flipped (Reset "HERA_AFC-1")
+            Expect.equal reset InstrumentFov.defaults "reset clears the flip"
+        }
+
         test "unusable saved angles fall back to the kernel" {
             let m = GisApp.initial None
             let s, _ = roundtrip m

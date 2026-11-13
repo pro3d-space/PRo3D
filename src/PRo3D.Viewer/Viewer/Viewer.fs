@@ -993,8 +993,9 @@ module ViewerApp =
                 None
             | Some resolved ->
                 let camera =
-                    InstrumentObservation.projectorCamera
-                        None observerName frame.Value body
+                    InstrumentObservation.projectorCameraWith
+                        (PRo3D.ImageMapping.InstrumentFov.toInstruments gis.projectedImageList.instrumentFovs)
+                        None frame.Value body
                         gis.projectedImageList.projectionMethod resolved
                 match camera with
                 | Result.Error e ->

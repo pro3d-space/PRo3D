@@ -80,7 +80,8 @@ Settings and the selected image's 2D preview fold away into the
 | **Visibility** | *RelativeCount* shows the coverage view (see 6.) |
 | **Transfer Function** | on (default): samples go through the per-image min/max remap and the colour map, which instrument data needs to be readable. Off: the image's own pixels, untouched — for RGB images, and for checking a projection against its source |
 | **Winding Correction** | off (default). Turn it on only when an image survives **only near the limb** of the body: that is an OPC whose triangles are wound inward, so the projector-facing test rejects exactly the terrain facing the projector. On: PRo3D estimates each OPC hierarchy's winding from its coarsest patch (loaded once, the first time something is projected) and corrects the inward ones. The estimate assumes a roughly convex body seen from orbit; it is not reliable for near-vertical terrain such as rover outcrops. Saved with the scene. |
-| **Orientation Source** | where the pointing comes from — `MbiBased` (default) or `Spice`; see [If an image does not land on the terrain](#if-an-image-does-not-land-on-the-terrain) |
+| **Orientation Source** | where the projector's position and attitude come from — `MbiAttitudeSpiceRange` (default), `MbiBased` or `Spice`; see [If an image does not land on the terrain](#if-an-image-does-not-land-on-the-terrain) |
+| **Registration** | roll / pitch / yaw in degrees, turning the projector about its own position (a pointing correction); applies to every image of the stack |
 
 The **Instruments** section below it holds each instrument's field of view, prefilled from
 the SPICE instrument kernels and editable per scene: see
@@ -210,15 +211,48 @@ is blended at 20% over the surface colour:
 ## If an image does not land on the terrain
 
 First check **Orientation Source** in *Projection Settings*. It decides where
-the image's pointing comes from, and the two modes fail in opposite ways:
+the projector's position and attitude come from:
 
-| mode | where the pointing comes from |
-|---|---|
-| `Spice` | Nowhere in the image. The spacecraft position comes from SPICE at the image's epoch, but the camera is then simply aimed at the **body centre** with a fixed up-vector — `InstrumentProjection.getLookAt` computes an attitude and discards it. Every image is painted as if it had been shot dead-centre with one roll, so a frame that was off-centre or rolled lands on the body but its features do not line up. |
-| `MbiBased` (default) | The image's own measured attitude (`SC_QUAT`) and range (`TRG_POS`) from its sidecar. Correct when the sidecar is — and badly wrong when it is not, because a mis-stated pointing is followed faithfully. |
+| mode | position | attitude (incl. roll) | target in the image |
+|---|---|---|---|
+| `Spice` | SPICE (spacecraft SPK) | SPICE (spacecraft CK), then turned onto the target | always dead centre |
+| `MbiBased` | the sidecar's `TRG_POS`, measured from its `TARGET` | the sidecar's `SC_QUAT` | wherever the sidecar's pointing puts it |
+| `MbiAttitudeSpiceRange` (default) | on the boresight, at the SPICE range to `TARGET` | the sidecar's `SC_QUAT` | always dead centre |
 
-So "lands on the body but does not match it" points at the first mode, and
-"does not land at all" points at the second plus a sidecar problem.
+- **`MbiBased`** is exact when the sidecar is, and faithfully wrong when it is
+  not. It needs `TRG_POS`: an image whose `TRG_POS` is zero shows **no TRG_POS**
+  in the library's distance column, and `MbiBased` does not project it. An all-zero
+  `SC_QUAT` (no attitude) rules out both `MbiBased` and `MbiAttitudeSpiceRange`;
+  only `Spice` can place such an image. Both cases are logged with the reason.
+- **`Spice`** needs the spacecraft's SPK and CK at the image's epoch. Its turn
+  onto the target absorbs the ephemeris error between where SPICE puts the body
+  and where the camera actually pointed, so the image always lands on the body;
+  without a CK the roll is arbitrary (logged) and the Registration roll fixes it.
+- **`MbiAttitudeSpiceRange`** is for sidecars without a usable `TRG_POS`, and
+  for kernels whose spacecraft-to-target direction is worse than the measured
+  attitude — typically before arrival, when the target's ephemeris is known to a
+  few kilometres while the star-tracker attitude is good to arcseconds. It keeps
+  the image's own roll; only the range comes from SPICE.
+
+Both "dead centre" modes assume the target's centre is on the boresight. When it
+is not (the body sits off-centre in the frame), correct it with **Registration
+→ Pitch / Yaw**: they turn the projector about its own position, moving the
+image across the body like a pointing offset — 1° moves the image by 1/2.75 of
+the AFC's half-field. **Roll** turns the image about the boresight. The
+correction applies to every mode and to the whole stack.
+
+So "lands on the body but does not match it" points at a dead-centre mode (use
+Registration, or `MbiBased` when `TRG_POS` is good), and "does not land at all"
+points at `MbiBased` plus a sidecar problem.
+
+The target is the sidecar's `TARGET`. When SPICE cannot place it (a body name
+the loaded kernels do not define) the surface's body
+stands in, and the log says so.
+
+An image that lands **mirrored** (lit limb where the terminator should be, a moon on the
+wrong side) is stored bottom-up: tick **flip** for its instrument under
+*Instruments* ([InstrumentFieldOfView.md](InstrumentFieldOfView.md#flipped-rows)).
+Registration cannot undo a mirror.
 
 The pointing comes from two sidecar fields, and they have one convention:
 `SC_QUAT0..3` is the quaternion taking vectors from the **spacecraft frame to
@@ -248,7 +282,8 @@ is in the other images' metadata — see
 [COP-sidecar-issues.md](COP-sidecar-issues.md), which documents a delivery that
 got all three of the above wrong at once.
 
-Worked through with pictures, both modes side by side:
+Worked through with pictures, `Spice` and `MbiBased` side by side (from before
+`Spice` took its roll from the CK):
 [ProjectionValidation.md](ProjectionValidation.md).
 
 ## Known limitation: surface transformations do not reach the projection
@@ -302,7 +337,7 @@ below GL 4.1's uniform-block minimum, so **no storage buffers** and no macOS
 platform split. Each projector is computed by SPICE in the surface's
 body-fixed frame at that image's own observation time (projections stick to
 the terrain regardless of scene time) and memoized per
-(image, method, boresight, observer, frame). The fragment loop walks the stack
+(image, method, boresight, surface body, frame). The fragment loop walks the stack
 top-down and stops at the first covering, projector-facing layer. *Winding
 Correction* costs nothing in the shader: for an inward-wound hierarchy the
 per-patch projector matrix is negated on the CPU, which leaves every projected

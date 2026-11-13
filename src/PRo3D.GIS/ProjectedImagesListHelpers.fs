@@ -94,27 +94,31 @@ module ProjectedImagesListAppHelper =
     /// `lightViewProj`: world -> sun-camera clip space for shadow mapping, produced by
     /// the viewer's shadow-map pass; None (also whenever the lighting mode is not
     /// SunShadow) keeps the per-patch shadow lookup disabled.
-    let getProjectedImageData (g : AdaptiveGisApp) (lightViewProj : aval<Option<Trafo3d>>) (surfaceId : Guid) (projectionSurfaceBodyName : string) : Option<Sg.ProjectedImages> =
+    let getProjectedImageData (g : AdaptiveGisApp) (lightViewProj : aval<Option<Trafo3d>>) (surfaceId : Guid) : Option<Sg.ProjectedImages> =
         let currentProjectedImage =  g.projectedImageList |> getSelectedTexture
         let selectedImage = g.projectedImageList |> getSelectedImage
         let observer = GisApp.getObserverSystemAdaptive g
         let sunDirection = Gis.GisApp.getSunDirection g surfaceId
         let surfaceReferenceSystem = Gis.GisApp.getSpiceReferenceSystemAdaptive g surfaceId
-        let computeBoresight (b : AdaptiveBoresightAdjustment) : aval<Trafo3d> = 
-            b.Current |> AVal.map (fun b -> 
-                Trafo3d.RotationXInDegrees(b.yaw.value) * Trafo3d.RotationYInDegrees(b.pitch.value) * Trafo3d.RotationZInDegrees(b.roll.value)
-            )
-        let boresightAdjustment = computeBoresight g.projectedImageList.boresightAdjustment
+        let boresightAdjustment =
+            g.projectedImageList.boresightAdjustment.Current |> AVal.map (fun b ->
+                PRo3D.SPICE.InstrumentProjection.boresightCorrection b.roll.value b.pitch.value b.yaw.value)
         // Hoisted on purpose: a map built inside an AVal.custom is owned by nothing and
         // stops propagating once collected (src/Tests/AdaptiveNestingTests.fs).
-        let surfaceReferenceFrameA =
-            surfaceReferenceSystem |> AVal.map (function None -> "J2000" | Some v -> v.referenceFrame.Value)
-        // the scene's instrument fields of view (Instruments section); hoisted like the above
-        let fovsA : aval<Map<string, PRo3D.SPICE.InstrumentProjection.Fov>> =
+        // The projector is expressed relative to the surface's own body, in its frame;
+        // a surface without one falls back to the scene observer in J2000.
+        let surfaceOriginA =
+            surfaceReferenceSystem |> AVal.map (Option.map (fun v ->
+                let (EntitySpiceName body) = v.body
+                body, v.referenceFrame.Value))
+        let originOf (t : FSharp.Data.Adaptive.AdaptiveToken) (observer : string) =
+            surfaceOriginA.GetValue(t) |> Option.defaultValue (observer, "J2000")
+        // the scene's instruments (field of view, row flip; Instruments section); hoisted like the above
+        let instrumentsA : aval<PRo3D.SPICE.InstrumentProjection.Instruments> =
             g.projectedImageList.instrumentFovs
             |> AMap.mapA (fun _ f -> f.Current)
             |> AMap.toAVal
-            |> AVal.map InstrumentFov.toMap
+            |> AVal.map InstrumentFov.toInstruments
         let imageTrafo =
             AVal.custom (fun t ->
                 match observer.GetValue(t) with
@@ -124,13 +128,13 @@ module ProjectedImagesListAppHelper =
 
                     let borsight = boresightAdjustment.GetValue(t)
                     let img = currentProjectedImage.GetValue(t)
-                    let surfaceReferenceFrame = surfaceReferenceFrameA.GetValue(t)
+                    let originBody, originFrame = originOf t observer
                     let projectionMethod = g.projectedImageList.projectionMethod.GetValue(t)
-                    let fovs = fovsA.GetValue(t)
+                    let instruments = instrumentsA.GetValue(t)
 
                     match img with
                     | Some (_, metadata) ->
-                        Visualization.projectDirectWith fovs None observer surfaceReferenceFrame metadata projectionSurfaceBodyName (Some borsight) projectionMethod
+                        Visualization.projectDirectWith instruments None originBody originFrame metadata (Some borsight) projectionMethod
                     | _ ->
                         None
             )
@@ -142,12 +146,12 @@ module ProjectedImagesListAppHelper =
         //
         // SPICE is single-threaded and each call takes a global lock (see
         // InstrumentProjection.spiceCallLock), so projectors are memoized per
-        // (image, method, boresight, observer, frame) -- reordering or hovering
+        // (image, method, boresight, origin body, frame) -- reordering or hovering
         // recomputes nothing, only genuinely new configurations pay for SPICE
         // (D8 in plans/multiImageProjection.md). Metadata parses are memoized
         // by texture path (sidecars do not change during a session).
         let metadataCache = System.Collections.Generic.Dictionary<string, InstrumentMetadata.ParsedMetadata>()
-        let projectorCache = System.Collections.Generic.Dictionary<Guid * PRo3D.ImageMapping.ProjectionMethod * (float * float * float) * string * string * Map<string, PRo3D.SPICE.InstrumentProjection.Fov>, Option<Trafo3d>>()
+        let projectorCache = System.Collections.Generic.Dictionary<Guid * PRo3D.ImageMapping.ProjectionMethod * (float * float * float) * string * string * PRo3D.SPICE.InstrumentProjection.Instruments, Option<Trafo3d>>()
 
         /// one image's projector in the surface frame at its own obs time,
         /// memoized (D8: SPICE is single-threaded behind a global lock)
@@ -155,9 +159,9 @@ module ProjectedImagesListAppHelper =
             match ProjectedImageListModel.tryFind id model with
             | None -> None
             | Some img ->
-                let surfaceReferenceFrame = surfaceReferenceFrameA.GetValue(t)
+                let originBody, originFrame = originOf t observer
                 let boresightTrafo = boresightAdjustment.GetValue(t)
-                let fovs = fovsA.GetValue(t)
+                let instruments = instrumentsA.GetValue(t)
                 let boresightKey =
                     (model.boresightAdjustment.roll.value,
                      model.boresightAdjustment.pitch.value,
@@ -172,11 +176,11 @@ module ProjectedImagesListAppHelper =
                 // a boresight slider drag creates a key per step; keep the
                 // cache bounded rather than evicting cleverly
                 if projectorCache.Count > 512 then projectorCache.Clear()
-                let key = (id, model.projectionMethod, boresightKey, observer, surfaceReferenceFrame, fovs)
+                let key = (id, model.projectionMethod, boresightKey, originBody, originFrame, instruments)
                 match projectorCache.TryGetValue key with
                 | true, p -> p
                 | _ ->
-                    let p = Visualization.projectDirectWith fovs None observer surfaceReferenceFrame metadata projectionSurfaceBodyName (Some boresightTrafo) model.projectionMethod
+                    let p = Visualization.projectDirectWith instruments None originBody originFrame metadata (Some boresightTrafo) model.projectionMethod
                     projectorCache.[key] <- p
                     p
 

@@ -98,12 +98,16 @@ type LightingMode =
     | SunDirect = 1
     | SunShadow = 2
 
-/// Which of InstrumentProjection's two orientation computations is used to place a
-/// projected image: the SPICE-derived (target-body-lookat) trafo, or the mbi
-/// sidecar's measured spacecraft quaternion.
+/// Where a projected image's pose comes from (the *Orientation Source*); maps 1:1 to
+/// PRo3D.SPICE.ProjectorPose, see there.
+/// - Spice: position and attitude from SPICE (SPK + spacecraft CK), aimed at the target.
+/// - MbiBased: the sidecar's SC_QUAT attitude and TRG_POS.
+/// - MbiAttitudeSpiceRange: the sidecar's SC_QUAT attitude, target on the boresight at
+///   the SPICE range (for sidecars without TRG_POS).
 type ProjectionMethod =
     | Spice = 0
     | MbiBased = 1
+    | MbiAttitudeSpiceRange = 2
 
 module ProjectedImages =
     /// Upper bound on how many images can be projected at once. Sizes the
@@ -303,10 +307,12 @@ module ProjectedImageListModel =
         cameraState = OrbitState.create V3d.Zero 0.0 0.0 (2.0 * (3389.5 * 1000.0))
         instrumentVisibility = InstrumentVisibilityMode.Off
         lightingMode = LightingMode.Off
-        // MbiBased, not Spice: Spice ignores the image's own attitude (it aims the
-        // boresight at the body centre with a fixed roll); MbiBased uses the sidecar's
-        // SC_QUAT + TRG_POS. Not persisted in a scene, so every session starts here.
-        projectionMethod = ProjectionMethod.MbiBased
+        // MbiAttitudeSpiceRange: the image's own attitude and roll (SC_QUAT) with the
+        // range from SPICE. Works for sidecars without TRG_POS
+        // and puts the target on the boresight, which Registration then refines. MbiBased
+        // is exact only where TRG_POS is; Spice ignores the image's pointing. Not persisted
+        // in a scene, so every session starts here.
+        projectionMethod = ProjectionMethod.MbiAttitudeSpiceRange
         useTransferFunction = true
         windingCorrection = false
         instrumentFovs = InstrumentFov.defaults

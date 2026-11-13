@@ -61,4 +61,4 @@ module Setup =
 
     let projectorCamera (s : Scenario) (img : ResolvedImage) : Result<ProjectorCamera, string> =
         InstrumentObservation.projectorCamera
-            s.nearFar s.observer s.referenceFrame s.body s.projectionMethod img
+            s.nearFar s.referenceFrame s.body s.projectionMethod img

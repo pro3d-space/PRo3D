@@ -562,10 +562,11 @@ let run (o : SampleLayersOptions) : int =
         match (if isNull o.method then "mbi" else o.method).ToLowerInvariant() with
         | "spice" -> Some ProjectionMethod.Spice
         | "mbi" -> Some ProjectionMethod.MbiBased
+        | "mbi-spice-range" -> Some ProjectionMethod.MbiAttitudeSpiceRange
         | _ -> None
 
     match projectionMethod with
-    | None -> Log.error "unknown --method '%s' (expected spice or mbi)" o.method; 1
+    | None -> Log.error "unknown --method '%s' (expected spice, mbi or mbi-spice-range)" o.method; 1
     | Some projectionMethod ->
 
     if String.IsNullOrWhiteSpace o.opc || not (Directory.Exists o.opc) then Log.error "OPC directory not found: %s" o.opc; 1
@@ -670,7 +671,7 @@ let run (o : SampleLayersOptions) : int =
         let observer =
             if not (String.IsNullOrWhiteSpace o.observer) then o.observer
             else InstrumentProjection.instrument2CameraSource img.mbi.instrument
-        match InstrumentObservation.projectorCamera None observer frame body projectionMethod img with
+        match InstrumentObservation.projectorCamera None frame body projectionMethod img with
         | Result.Error e -> fail e
         | Ok cam ->
         match InstrumentObservation.sunDirection frame body img.mbi.obs_date with
@@ -729,7 +730,7 @@ let run (o : SampleLayersOptions) : int =
     manifest.["body"] <- JsonValue.Create body
     manifest.["frame"] <- JsonValue.Create frame
     manifest.["kernel"] <- JsonValue.Create kernel
-    manifest.["method"] <- JsonValue.Create (if projectionMethod = ProjectionMethod.Spice then "spice" else "mbi")
+    manifest.["method"] <- JsonValue.Create (match projectionMethod with ProjectionMethod.Spice -> "spice" | ProjectionMethod.MbiAttitudeSpiceRange -> "mbi-spice-range" | _ -> "mbi")
     manifest.["occlusionToleranceMetres"] <- JsonValue.Create o.occlusionTolerance
     manifest.["vertices"] <- JsonValue.Create vertices.positions.Length
     let attrs = JsonArray()
