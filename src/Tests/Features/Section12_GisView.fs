@@ -251,7 +251,7 @@ let tests =
         }
 
         test "TC-12.3 library filters: instruments and distance, off when nothing narrows them" {
-            let passes f instrument d = PRo3D.ImageMapping.ImageFilter.matches f instrument d None DateTime.MinValue
+            let passes f instrument d = PRo3D.ImageMapping.ImageFilter.matches f { PRo3D.ImageMapping.ProjectedImageApp.initial with id = Guid.NewGuid(); instrument = instrument; distance = d }
             let img (instrument : string) (d : float) =
                 { PRo3D.ImageMapping.ProjectedImageApp.initial with id = Guid.NewGuid(); instrument = instrument; distance = d }
             let f = PRo3D.ImageMapping.ImageFilter.forImages [ img "AFC1" 10.0; img "AFC2" 30.0; img "" 20.0 ] true
@@ -292,7 +292,7 @@ let tests =
                 { PRo3D.ImageMapping.ProjectedImageApp.initial with id = Guid.NewGuid(); instrument = "AFC1"; distance = 1.0; resolution = r }
             let f = PRo3D.ImageMapping.ImageFilter.forImages [ img (Some 0.1); img (Some 0.5); img None ] true
             Expect.equal (f.resolution.lower.min, f.resolution.upper.max) (0.1, 0.5) "range spans the known resolutions"
-            let passes f r = PRo3D.ImageMapping.ImageFilter.matches f "AFC1" 1.0 r DateTime.MinValue
+            let passes f r = PRo3D.ImageMapping.ImageFilter.matches f { PRo3D.ImageMapping.ProjectedImageApp.initial with id = Guid.NewGuid(); instrument = "AFC1"; distance = 1.0; resolution = r }
             Expect.isTrue (passes f None) "filter off: images without a resolution shown"
             let f =
                 PRo3D.ImageMapping.ImageFilter.update f
@@ -303,6 +303,31 @@ let tests =
             Expect.isFalse (passes f None) "filter set: images without a resolution hidden"
         }
 
+        test "TC-12.3 phase angle: sun–target–camera angle from the sidecar, filtered over the library's range" {
+            let phase sun target =
+                match PRo3D.ImageMapping.ProjectedImageModel.phaseAngleOf sun target with
+                | Some a -> a
+                | None -> failtest "expected a phase angle"
+            // camera on the sun side of the target: the target lies in -x from the camera
+            Expect.floatClose Accuracy.high (phase (Aardvark.Base.V3d(1.5e8, 0.0, 0.0)) (Aardvark.Base.V3d(-10.0, 0.0, 0.0))) 0.0 "sun behind the camera: 0°"
+            Expect.floatClose Accuracy.high (phase (Aardvark.Base.V3d(1.5e8, 0.0, 0.0)) (Aardvark.Base.V3d(0.0, -10.0, 0.0))) 90.0 "side lit: 90°"
+            Expect.floatClose Accuracy.high (phase (Aardvark.Base.V3d(1.5e8, 0.0, 0.0)) (Aardvark.Base.V3d(10.0, 0.0, 0.0))) 180.0 "backlit: 180°"
+            Expect.isNone (PRo3D.ImageMapping.ProjectedImageModel.phaseAngleOf Aardvark.Base.V3d.Zero (Aardvark.Base.V3d(1.0, 0.0, 0.0))) "no sun vector"
+
+            let img (a : Option<float>) =
+                { PRo3D.ImageMapping.ProjectedImageApp.initial with id = Guid.NewGuid(); phaseAngle = a }
+            let f = PRo3D.ImageMapping.ImageFilter.forImages [ img (Some 20.0); img (Some 80.0); img None ] true
+            Expect.equal (f.phaseAngle.lower.min, f.phaseAngle.upper.max) (20.0, 80.0) "range spans the library"
+            Expect.isTrue (PRo3D.ImageMapping.ImageFilter.matches f (img None)) "off: everything shown"
+            let f =
+                PRo3D.ImageMapping.ImageFilter.update f
+                    (PRo3D.ImageMapping.SetLower (PRo3D.ImageMapping.RangeFilterKind.PhaseAngle, Aardvark.UI.Primitives.Numeric.SetValue 50.0))
+            Expect.equal (PRo3D.ImageMapping.ImageFilter.activeCount f) 1 "phase angle filter on"
+            Expect.isFalse (PRo3D.ImageMapping.ImageFilter.matches f (img (Some 20.0))) "below"
+            Expect.isTrue (PRo3D.ImageMapping.ImageFilter.matches f (img (Some 80.0))) "inside"
+            Expect.isFalse (PRo3D.ImageMapping.ImageFilter.matches f (img None)) "no phase angle: hidden while set"
+        }
+
         test "TC-12.3 date filter: the library's time span, UTC, images without a time hidden while set" {
             let t0 = DateTime(2026, 12, 1, 10, 0, 0, DateTimeKind.Utc)
             let img (t : DateTime) =
@@ -311,7 +336,7 @@ let tests =
             let key t = PRo3D.ImageMapping.ImageFilter.timeKey t |> Option.defaultValue nan
             Expect.equal (f.time.lower.min, f.time.upper.max) (key t0, key (t0.AddDays 2.0)) "spans the library, ignoring images without a time"
             Expect.equal (PRo3D.ImageMapping.ImageFilter.timeOfKey (key t0)) t0 "round trip"
-            let passes f t = PRo3D.ImageMapping.ImageFilter.matches f "" 0.0 None t
+            let passes f t = PRo3D.ImageMapping.ImageFilter.matches f { PRo3D.ImageMapping.ProjectedImageApp.initial with id = Guid.NewGuid(); time = t }
             Expect.isTrue (passes f DateTime.MinValue) "off: everything shown"
             let f =
                 PRo3D.ImageMapping.ImageFilter.update f

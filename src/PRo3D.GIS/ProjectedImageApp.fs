@@ -108,6 +108,7 @@ module ProjectedImageApp =
         texture = initialPath;
         distance = 0;
         resolution = None;
+        phaseAngle = None;
         time = new DateTime();
         falseColorModel = projectedImageLegend (Range1d(numericInput.min, numericInput.max)) (InstrumentImageVisualization.getResourceStream (ColorMap.getColorMapFileName ColorMap.Magma) ())
         falseColorPreview = false
@@ -196,6 +197,9 @@ module ProjectedImageApp =
             | Some mbi, Some tf -> PRo3D.SPICE.InstrumentProjection.tryResolution mbi.instrument distance tf.image_width
             | _ -> None
 
+        let phaseAngle =
+            tiffMbiJson |> Option.bind (fun mbi -> ProjectedImageModel.phaseAngleOf mbi.sunPos mbi.targetPos)
+
         let time =
             match tiffMbiJson with
             | Some mbi -> mbi.obs_date
@@ -222,6 +226,7 @@ module ProjectedImageApp =
                 dataType         = dataType;
                 distance         = distance;
                 resolution       = resolution;
+                phaseAngle       = phaseAngle;
                 time             = time;
                 falseColorModel  = falseColorModel
         }

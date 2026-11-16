@@ -322,9 +322,10 @@ module ProjectedImageListApp =
                 let! instruments = filter.instruments.Content
                 let! distance = rangeBounds filter.distance
                 let! resolution = rangeBounds filter.resolution
+                let! phaseAngle = rangeBounds filter.phaseAngle
                 let! time = rangeBounds filter.time
                 let b : ImageFilter.Bounds =
-                    { instruments = instruments; distance = distance; resolution = resolution; time = time }
+                    { instruments = instruments; distance = distance; resolution = resolution; phaseAngle = phaseAngle; time = time }
                 return b
             }
 
@@ -337,14 +338,14 @@ module ProjectedImageListApp =
                     let! instrument = img.instrument
                     let! distance = img.distance
                     let! resolution = img.resolution
+                    let! phaseAngle = img.phaseAngle
                     let! time = img.time
-                    return ImageFilter.passes b instrument distance resolution time
+                    return ImageFilter.passes b instrument distance resolution phaseAngle time
                 })
 
         let rangeOf (kind : RangeFilterKind) =
             match kind with
-            | RangeFilterKind.SunElevation -> filter.sunElevation
-            | RangeFilterKind.SunAzimuth   -> filter.sunAzimuth
+            | RangeFilterKind.PhaseAngle   -> filter.phaseAngle
             | RangeFilterKind.Resolution   -> filter.resolution
             | RangeFilterKind.Distance     -> filter.distance
             | RangeFilterKind.Time         -> filter.time
@@ -352,7 +353,7 @@ module ProjectedImageListApp =
         let activeCount =
             let count (n : aval<int>) (active : aval<bool>) =
                 (n, active) ||> AVal.map2 (fun n active -> if active then n + 1 else n)
-            [ RangeFilterKind.SunElevation; RangeFilterKind.SunAzimuth; RangeFilterKind.Resolution; RangeFilterKind.Distance; RangeFilterKind.Time ]
+            [ RangeFilterKind.PhaseAngle; RangeFilterKind.Resolution; RangeFilterKind.Distance; RangeFilterKind.Time ]
             |> List.map (rangeOf >> rangeIsActive)
             |> List.fold count (filter.instruments.Content |> AVal.map (fun s -> if s.IsEmpty then 0 else 1))
 
@@ -482,7 +483,8 @@ module ProjectedImageListApp =
                 resetCell active (FilterMessage (ResetRange RangeFilterKind.Time))
             ]
 
-        let notComputed = Some "not computed yet: this filter has no effect for now"
+        let phaseAngleTooltip =
+            Some "Phase angle: the angle at the target between the sun and the camera. Low: lit from behind the camera, flat with few shadows; around 90°: side lighting, long shadows; high: backlit. Images without it (no sidecar) are hidden while this filter is set"
         let resolutionTooltip =
             Some "Ground resolution at the target: distance × the angle one pixel spans (instrument field of view / image width). Images without it (no sidecar or unknown instrument) are hidden while this filter is set"
 
@@ -523,8 +525,7 @@ module ProjectedImageListApp =
                         yield header
                         let! expanded = filter.expanded
                         if expanded then
-                            yield rangeFilterRow "Sun Elevation [°]" notComputed RangeFilterKind.SunElevation
-                            yield rangeFilterRow "Sun Azimuth [°]" notComputed RangeFilterKind.SunAzimuth
+                            yield rangeFilterRow "Phase Angle [°]" phaseAngleTooltip RangeFilterKind.PhaseAngle
                             yield instrumentFilterRow
                             yield rangeFilterRow "Resolution [m/px]" resolutionTooltip RangeFilterKind.Resolution
                             yield rangeFilterRow "Distance [km]" None RangeFilterKind.Distance

@@ -96,6 +96,9 @@ type ProjectedImageModel =
         /// (InstrumentProjection.tryResolution). None without sidecar distance, image
         /// width or a known instrument field of view.
         resolution        : Option<float>
+        /// Phase angle at the target, degrees: the angle between the directions to the
+        /// sun and to the camera (ProjectedImageModel.phaseAngleOf). None without sidecar.
+        phaseAngle        : Option<float>
         time              : System.DateTime
         /// Curated header: instrument + camera system, e.g. "AFC1 (AFC)" --
         /// from the mbi sidecar's INSTRUME and the statistics sidecar's
@@ -108,6 +111,21 @@ type ProjectedImageModel =
         /// Darkens the brightest tones (docs/ShadowsHighlights.md). Not persisted.
         highlights        : ToneAdjustment
     }
+
+module ProjectedImageModel =
+
+    /// Phase angle in degrees from an image's sidecar vectors (km, J2000): `sunFromTarget`
+    /// (SUN_POS*, sun relative to the target) and `targetFromCamera` (TRG_POS*, target
+    /// minus spacecraft). The angle at the target between the sun and the camera: 0° the
+    /// sun behind the camera (no shadows), 90° side lighting, toward 180° backlit.
+    /// None when either vector has no length.
+    let phaseAngleOf (sunFromTarget : V3d) (targetFromCamera : V3d) : Option<float> =
+        let toSun = sunFromTarget
+        let toCamera = -targetFromCamera
+        if toSun.Length <= 0.0 || toCamera.Length <= 0.0 then None
+        else
+            let c = Vec.dot (Vec.normalize toSun) (Vec.normalize toCamera) |> max -1.0 |> min 1.0
+            Some (Conversion.DegreesFromRadians (acos c))
 
 [<ModelType>]
 type BoresightAdjustment =
@@ -187,8 +205,8 @@ type RangeFilter =
 [<ModelType>]
 type ImageFilter =
     {
-        sunElevation : RangeFilter
-        sunAzimuth   : RangeFilter
+        /// sun–target–camera angle, degrees (ProjectedImageModel.phaseAngle)
+        phaseAngle   : RangeFilter
         /// ground resolution at the target, m/px
         resolution   : RangeFilter
         /// distance to the target, km (ProjectedImageModel.distance)
@@ -202,8 +220,7 @@ type ImageFilter =
     }
 
 type RangeFilterKind =
-    | SunElevation
-    | SunAzimuth
+    | PhaseAngle
     | Resolution
     | Distance
     | Time
@@ -260,8 +277,7 @@ module ImageFilter =
 
     let initial : ImageFilter =
         {
-            sunElevation = RangeFilter.create -90.0 90.0 0.1 "{0:0.0}"
-            sunAzimuth   = RangeFilter.create 0.0 360.0 0.1 "{0:0.0}"
+            phaseAngle   = RangeFilter.create 0.0 180.0 0.1 "{0:0.0}"
             resolution   = RangeFilter.create 0.0 1.0 0.001 "{0:0.000}"
             distance     = RangeFilter.create 0.0 1.0 0.01 "{0:0.00}"
             time         = RangeFilter.create 0.0 1.0 1.0 "{0:0}"
@@ -305,12 +321,13 @@ module ImageFilter =
         { initial with
             distance   = rangeOver (images |> Seq.map (fun i -> i.distance)) "{0:0.00}"
             resolution = rangeOver (images |> Seq.choose (fun i -> i.resolution)) "{0:0.000}"
+            phaseAngle = rangeOver (images |> Seq.choose (fun i -> i.phaseAngle)) "{0:0.0}"
             // one observation time: an hour around it, whole seconds stay reachable
             time       = rangeOverWith 3600.0 (images |> Seq.choose (fun i -> timeKey i.time)) "{0:0}"
             expanded   = expanded }
 
     let activeCount (f : ImageFilter) =
-        [ f.sunElevation; f.sunAzimuth; f.resolution; f.distance; f.time ]
+        [ f.phaseAngle; f.resolution; f.distance; f.time ]
         |> List.sumBy (fun r -> if RangeFilter.isActive r then 1 else 0)
         |> (+) (if f.instruments.IsEmpty then 0 else 1)
 
@@ -322,6 +339,7 @@ module ImageFilter =
             instruments : HashSet<string>
             distance    : Option<float * float>
             resolution  : Option<float * float>
+            phaseAngle  : Option<float * float>
             time        : Option<float * float>
         }
 
@@ -333,6 +351,7 @@ module ImageFilter =
             instruments = f.instruments
             distance    = boundsOf f.distance
             resolution  = boundsOf f.resolution
+            phaseAngle  = boundsOf f.phaseAngle
             time        = boundsOf f.time
         }
 
@@ -345,21 +364,22 @@ module ImageFilter =
         | Some (lo, hi), Some v -> v >= lo && v <= hi
         | Some _, None -> false
 
-    /// Whether a library image passes. Sun angles are not computed per image yet, so
-    /// they do not filter.
-    let passes (b : Bounds) (instrument : string) (distance : float) (resolution : Option<float>) (time : DateTime) =
+    /// Whether a library image passes.
+    let passes (b : Bounds) (instrument : string) (distance : float) (resolution : Option<float>)
+               (phaseAngle : Option<float>) (time : DateTime) =
         (b.instruments.IsEmpty || HashSet.contains (instrumentKey instrument) b.instruments)
         && within b.distance (Some distance)
         && within b.resolution resolution
+        && within b.phaseAngle phaseAngle
         && within b.time (timeKey time)
 
-    let matches (f : ImageFilter) (instrument : string) (distance : float) (resolution : Option<float>) (time : DateTime) =
-        passes (bounds f) instrument distance resolution time
+    /// `passes` for an image.
+    let matches (f : ImageFilter) (img : ProjectedImageModel) =
+        passes (bounds f) img.instrument img.distance img.resolution img.phaseAngle img.time
 
     let private mapRange (kind : RangeFilterKind) (g : RangeFilter -> RangeFilter) (f : ImageFilter) =
         match kind with
-        | SunElevation -> { f with sunElevation = g f.sunElevation }
-        | SunAzimuth   -> { f with sunAzimuth = g f.sunAzimuth }
+        | PhaseAngle   -> { f with phaseAngle = g f.phaseAngle }
         | Resolution   -> { f with resolution = g f.resolution }
         | Distance     -> { f with distance = g f.distance }
         | Time         -> { f with time = g f.time }
@@ -375,8 +395,7 @@ module ImageFilter =
         | ClearInstruments -> { f with instruments = HashSet.empty }
         | ResetAll ->
             { f with
-                sunElevation = RangeFilter.reset f.sunElevation
-                sunAzimuth   = RangeFilter.reset f.sunAzimuth
+                phaseAngle   = RangeFilter.reset f.phaseAngle
                 resolution   = RangeFilter.reset f.resolution
                 distance     = RangeFilter.reset f.distance
                 time         = RangeFilter.reset f.time
