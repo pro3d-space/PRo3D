@@ -251,7 +251,7 @@ let tests =
         }
 
         test "TC-12.3 library filters: instruments and distance, off when nothing narrows them" {
-            let passes f instrument d = PRo3D.ImageMapping.ImageFilter.matches f instrument d None
+            let passes f instrument d = PRo3D.ImageMapping.ImageFilter.matches f instrument d None DateTime.MinValue
             let img (instrument : string) (d : float) =
                 { PRo3D.ImageMapping.ProjectedImageApp.initial with id = Guid.NewGuid(); instrument = instrument; distance = d }
             let f = PRo3D.ImageMapping.ImageFilter.forImages [ img "AFC1" 10.0; img "AFC2" 30.0; img "" 20.0 ] true
@@ -292,7 +292,7 @@ let tests =
                 { PRo3D.ImageMapping.ProjectedImageApp.initial with id = Guid.NewGuid(); instrument = "AFC1"; distance = 1.0; resolution = r }
             let f = PRo3D.ImageMapping.ImageFilter.forImages [ img (Some 0.1); img (Some 0.5); img None ] true
             Expect.equal (f.resolution.lower.min, f.resolution.upper.max) (0.1, 0.5) "range spans the known resolutions"
-            let passes f r = PRo3D.ImageMapping.ImageFilter.matches f "AFC1" 1.0 r
+            let passes f r = PRo3D.ImageMapping.ImageFilter.matches f "AFC1" 1.0 r DateTime.MinValue
             Expect.isTrue (passes f None) "filter off: images without a resolution shown"
             let f =
                 PRo3D.ImageMapping.ImageFilter.update f
@@ -301,6 +301,27 @@ let tests =
             Expect.isTrue (passes f (Some 0.1)) "inside"
             Expect.isFalse (passes f (Some 0.5)) "coarser than the bound"
             Expect.isFalse (passes f None) "filter set: images without a resolution hidden"
+        }
+
+        test "TC-12.3 date filter: the library's time span, UTC, images without a time hidden while set" {
+            let t0 = DateTime(2026, 12, 1, 10, 0, 0, DateTimeKind.Utc)
+            let img (t : DateTime) =
+                { PRo3D.ImageMapping.ProjectedImageApp.initial with id = Guid.NewGuid(); time = t }
+            let f = PRo3D.ImageMapping.ImageFilter.forImages [ img t0; img (t0.AddDays 2.0); img DateTime.MinValue ] true
+            let key t = PRo3D.ImageMapping.ImageFilter.timeKey t |> Option.defaultValue nan
+            Expect.equal (f.time.lower.min, f.time.upper.max) (key t0, key (t0.AddDays 2.0)) "spans the library, ignoring images without a time"
+            Expect.equal (PRo3D.ImageMapping.ImageFilter.timeOfKey (key t0)) t0 "round trip"
+            let passes f t = PRo3D.ImageMapping.ImageFilter.matches f "" 0.0 None t
+            Expect.isTrue (passes f DateTime.MinValue) "off: everything shown"
+            let f =
+                PRo3D.ImageMapping.ImageFilter.update f
+                    (PRo3D.ImageMapping.SetUpper (PRo3D.ImageMapping.RangeFilterKind.Time, Aardvark.UI.Primitives.Numeric.SetValue (key (t0.AddDays 1.0))))
+            Expect.equal (PRo3D.ImageMapping.ImageFilter.activeCount f) 1 "date filter on"
+            Expect.isTrue (passes f t0) "inside"
+            Expect.isFalse (passes f (t0.AddDays 2.0)) "after the upper bound"
+            Expect.isFalse (passes f DateTime.MinValue) "no time: hidden while set"
+            let single = PRo3D.ImageMapping.ImageFilter.forImages [ img t0 ] true
+            Expect.equal (single.time.upper.max - single.time.lower.min) 3600.0 "one time: an hour of room"
         }
 
         test "TC-12.3 library filters on an empty or single-distance library have a usable range" {

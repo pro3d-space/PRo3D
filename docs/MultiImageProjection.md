@@ -114,6 +114,7 @@ image are left alone. The header counts the active filters and the rows shown
 | **Instrument** | the library's instruments as toggle buttons | shows only the selected instruments; images without one are listed as *(unknown)* |
 | **Resolution [m/px]** | range, spanning the library | ground resolution at the target: distance × the angle one pixel spans (the instrument's horizontal field of view ÷ the image width). Measured at the target's centre, so on the surface facing the camera pixels are slightly finer. Images without one (no sidecars, or an instrument with no known field of view) are shown while the filter is off and hidden while it is set |
 | **Distance [km]** | range, spanning the library | distance to the target |
+| **Date [UTC]** | range, spanning the library's observation times | observation time from the image's sidecar: the slider, and below it a date/time field per bound (UTC, to the second). Images without a time (no sidecar) are shown while the filter is off and hidden while it is set |
 
 A range is set by typing its bounds or by dragging the two handles of its
 slider. A filter is **off** — plain label, not counted — while its whole range is

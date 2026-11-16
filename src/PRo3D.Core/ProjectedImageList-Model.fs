@@ -193,6 +193,8 @@ type ImageFilter =
         resolution   : RangeFilter
         /// distance to the target, km (ProjectedImageModel.distance)
         distance     : RangeFilter
+        /// observation time, UTC, as seconds since 1970 (ImageFilter.timeKey)
+        time         : RangeFilter
         /// Instruments shown. Empty: all of them (filter off).
         instruments  : HashSet<string>
         /// the filter block is unfolded
@@ -204,6 +206,7 @@ type RangeFilterKind =
     | SunAzimuth
     | Resolution
     | Distance
+    | Time
 
 type ImageFilterMessage =
     | SetLower of RangeFilterKind * Numeric.Action
@@ -261,13 +264,28 @@ module ImageFilter =
             sunAzimuth   = RangeFilter.create 0.0 360.0 0.1 "{0:0.0}"
             resolution   = RangeFilter.create 0.0 1.0 0.001 "{0:0.000}"
             distance     = RangeFilter.create 0.0 1.0 0.01 "{0:0.00}"
+            time         = RangeFilter.create 0.0 1.0 1.0 "{0:0}"
             instruments  = HashSet.empty
             expanded     = true
         }
 
-    /// A range over `values`, widened when they all share one value (so the slider has
-    /// room); [0, 1] without any.
-    let private rangeOver (values : seq<float>) (format : string) =
+    /// The UTC epoch the time filter counts from.
+    let private epoch = DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+
+    /// An image's observation time as the time filter compares it: UTC seconds since
+    /// 1970. None for an image without one (no sidecar: ProjectedImageModel.time is
+    /// DateTime.MinValue). Converted like the library's date column, so both agree.
+    let timeKey (t : DateTime) : Option<float> =
+        if t = DateTime.MinValue then None
+        else Some (t.ToUniversalTime() - epoch).TotalSeconds
+
+    /// A time-filter value back to its UTC time.
+    let timeOfKey (seconds : float) : DateTime =
+        epoch.AddSeconds seconds
+
+    /// A range over `values`, widened by `widen` when they all share one value (so the
+    /// slider has room); [0, 1] without any.
+    let private rangeOverWith (widen : float) (values : seq<float>) (format : string) =
         let mutable lo = Double.PositiveInfinity
         let mutable hi = Double.NegativeInfinity
         for v in values do
@@ -275,9 +293,11 @@ module ImageFilter =
             hi <- max hi v
         let lo, hi =
             if Double.IsInfinity lo then 0.0, 1.0
-            elif hi - lo < 1e-9 then lo, lo + 1.0
+            elif hi - lo < 1e-9 then lo, lo + widen
             else lo, hi
         RangeFilter.create lo hi ((hi - lo) / 1000.0) format
+
+    let private rangeOver (values : seq<float>) (format : string) = rangeOverWith 1.0 values format
 
     /// Filters reset for a freshly imported library: the distance and resolution
     /// ranges span its images.
@@ -285,34 +305,56 @@ module ImageFilter =
         { initial with
             distance   = rangeOver (images |> Seq.map (fun i -> i.distance)) "{0:0.00}"
             resolution = rangeOver (images |> Seq.choose (fun i -> i.resolution)) "{0:0.000}"
+            // one observation time: an hour around it, whole seconds stay reachable
+            time       = rangeOverWith 3600.0 (images |> Seq.choose (fun i -> timeKey i.time)) "{0:0}"
             expanded   = expanded }
 
     let activeCount (f : ImageFilter) =
-        [ f.sunElevation; f.sunAzimuth; f.resolution; f.distance ]
+        [ f.sunElevation; f.sunAzimuth; f.resolution; f.distance; f.time ]
         |> List.sumBy (fun r -> if RangeFilter.isActive r then 1 else 0)
         |> (+) (if f.instruments.IsEmpty then 0 else 1)
 
-    /// The resolution filter's verdict: an image without a resolution passes only while
-    /// the filter is off -- it cannot be said to lie inside a range someone narrowed.
-    let passesResolution (active : bool) (lower : float) (upper : float) (resolution : Option<float>) =
-        match resolution with
-        | Some r -> r >= lower && r <= upper
-        | None -> not active
+    /// What the filters let through, without their UI state: an active range's bounds,
+    /// None for a range that is off. Built once for all rows (the view binds the filter
+    /// once, not per row).
+    type Bounds =
+        {
+            instruments : HashSet<string>
+            distance    : Option<float * float>
+            resolution  : Option<float * float>
+            time        : Option<float * float>
+        }
+
+    let private boundsOf (r : RangeFilter) =
+        if RangeFilter.isActive r then Some (r.lower.value, r.upper.value) else None
+
+    let bounds (f : ImageFilter) : Bounds =
+        {
+            instruments = f.instruments
+            distance    = boundsOf f.distance
+            resolution  = boundsOf f.resolution
+            time        = boundsOf f.time
+        }
+
+    /// A value against a range filter: anything passes while it is off; while it is
+    /// set, an image without the value is hidden -- it cannot be said to lie inside a
+    /// range someone narrowed.
+    let private within (bounds : Option<float * float>) (v : Option<float>) =
+        match bounds, v with
+        | None, _ -> true
+        | Some (lo, hi), Some v -> v >= lo && v <= hi
+        | Some _, None -> false
 
     /// Whether a library image passes. Sun angles are not computed per image yet, so
-    /// they do not filter. `matches` over the filter's parts, for the view, which binds
-    /// them one by one.
-    let passes (instruments : HashSet<string>) (distanceLower : float) (distanceUpper : float)
-               (resolutionActive : bool) (resolutionLower : float) (resolutionUpper : float)
-               (instrument : string) (distance : float) (resolution : Option<float>) =
-        (instruments.IsEmpty || HashSet.contains (instrumentKey instrument) instruments)
-        && distance >= distanceLower && distance <= distanceUpper
-        && passesResolution resolutionActive resolutionLower resolutionUpper resolution
+    /// they do not filter.
+    let passes (b : Bounds) (instrument : string) (distance : float) (resolution : Option<float>) (time : DateTime) =
+        (b.instruments.IsEmpty || HashSet.contains (instrumentKey instrument) b.instruments)
+        && within b.distance (Some distance)
+        && within b.resolution resolution
+        && within b.time (timeKey time)
 
-    let matches (f : ImageFilter) (instrument : string) (distance : float) (resolution : Option<float>) =
-        passes f.instruments f.distance.lower.value f.distance.upper.value
-               (RangeFilter.isActive f.resolution) f.resolution.lower.value f.resolution.upper.value
-               instrument distance resolution
+    let matches (f : ImageFilter) (instrument : string) (distance : float) (resolution : Option<float>) (time : DateTime) =
+        passes (bounds f) instrument distance resolution time
 
     let private mapRange (kind : RangeFilterKind) (g : RangeFilter -> RangeFilter) (f : ImageFilter) =
         match kind with
@@ -320,6 +362,7 @@ module ImageFilter =
         | SunAzimuth   -> { f with sunAzimuth = g f.sunAzimuth }
         | Resolution   -> { f with resolution = g f.resolution }
         | Distance     -> { f with distance = g f.distance }
+        | Time         -> { f with time = g f.time }
 
     let update (f : ImageFilter) (msg : ImageFilterMessage) : ImageFilter =
         match msg with
@@ -336,6 +379,7 @@ module ImageFilter =
                 sunAzimuth   = RangeFilter.reset f.sunAzimuth
                 resolution   = RangeFilter.reset f.resolution
                 distance     = RangeFilter.reset f.distance
+                time         = RangeFilter.reset f.time
                 instruments  = HashSet.empty }
         | ToggleExpanded -> { f with expanded = not f.expanded }
 

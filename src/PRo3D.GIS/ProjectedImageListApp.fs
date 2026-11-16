@@ -304,26 +304,41 @@ module ProjectedImageListApp =
                 return lower > min || upper < max
             }
 
-        // shared by every row's predicate, built once
-        let resolutionActive = rangeIsActive filter.resolution
+        let rangeBounds (r : AdaptiveRangeFilter) =
+            adaptive {
+                let! active = rangeIsActive r
+                if active then
+                    let! lower = r.lower.value
+                    let! upper = r.upper.value
+                    return Some (lower, upper)
+                else
+                    return None
+            }
+
+        /// What the filters let through, shared by every row's predicate: built once,
+        /// and it only changes when a filter does.
+        let bounds =
+            adaptive {
+                let! instruments = filter.instruments.Content
+                let! distance = rangeBounds filter.distance
+                let! resolution = rangeBounds filter.resolution
+                let! time = rangeBounds filter.time
+                let b : ImageFilter.Bounds =
+                    { instruments = instruments; distance = distance; resolution = resolution; time = time }
+                return b
+            }
 
         /// The library rows the filters let through. filterA, then the row map: a
         /// row's DomNode is built once per image, not rebuilt whenever a filter moves.
         let visibleImages =
             m.images |> AList.filterA (fun img ->
                 adaptive {
-                    let! instruments = filter.instruments.Content
-                    let! lower = filter.distance.lower.value
-                    let! upper = filter.distance.upper.value
-                    let! resolutionActive = resolutionActive
-                    let! resolutionLower = filter.resolution.lower.value
-                    let! resolutionUpper = filter.resolution.upper.value
+                    let! b = bounds
                     let! instrument = img.instrument
                     let! distance = img.distance
                     let! resolution = img.resolution
-                    return ImageFilter.passes instruments lower upper
-                                              resolutionActive resolutionLower resolutionUpper
-                                              instrument distance resolution
+                    let! time = img.time
+                    return ImageFilter.passes b instrument distance resolution time
                 })
 
         let rangeOf (kind : RangeFilterKind) =
@@ -332,11 +347,12 @@ module ProjectedImageListApp =
             | RangeFilterKind.SunAzimuth   -> filter.sunAzimuth
             | RangeFilterKind.Resolution   -> filter.resolution
             | RangeFilterKind.Distance     -> filter.distance
+            | RangeFilterKind.Time         -> filter.time
 
         let activeCount =
             let count (n : aval<int>) (active : aval<bool>) =
                 (n, active) ||> AVal.map2 (fun n active -> if active then n + 1 else n)
-            [ RangeFilterKind.SunElevation; RangeFilterKind.SunAzimuth; RangeFilterKind.Resolution; RangeFilterKind.Distance ]
+            [ RangeFilterKind.SunElevation; RangeFilterKind.SunAzimuth; RangeFilterKind.Resolution; RangeFilterKind.Distance; RangeFilterKind.Time ]
             |> List.map (rangeOf >> rangeIsActive)
             |> List.fold count (filter.instruments.Content |> AVal.map (fun s -> if s.IsEmpty then 0 else 1))
 
@@ -426,6 +442,46 @@ module ProjectedImageListApp =
                 resetCell active (FilterMessage ClearInstruments)
             ]
 
+        /// Observation time: the slider over the library's span, and below it the two
+        /// bounds as UTC date/time inputs (too wide for the bound columns of the other rows).
+        let timeFilterRow =
+            let r = filter.time
+            let active = rangeIsActive r
+            let timeInput (input : AdaptiveNumericInput) (setBound : float -> ImageFilterMessage) =
+                let attributes =
+                    amap {
+                        yield attribute "type" "datetime-local"
+                        yield attribute "step" "1"
+                        yield clazz "pro3d-time-input"
+                        let! min = input.min
+                        let! max = input.max
+                        let! value = input.value
+                        let format (seconds : float) = (ImageFilter.timeOfKey seconds).ToString("yyyy-MM-ddTHH:mm:ss", Globalization.CultureInfo.InvariantCulture)
+                        yield attribute "min" (format min)
+                        yield attribute "max" (format max)
+                        yield attribute "value" (format value)
+                        yield onChange (fun s ->
+                            let styles = Globalization.DateTimeStyles.AssumeUniversal ||| Globalization.DateTimeStyles.AdjustToUniversal
+                            match DateTime.TryParse(s.Trim('"'), Globalization.CultureInfo.InvariantCulture, styles) with
+                            | true, t ->
+                                match ImageFilter.timeKey t with
+                                | Some k -> FilterMessage (setBound k)
+                                | None -> Nop
+                            | _ -> Nop)
+                    } |> AttributeMap.ofAMap
+                Incremental.input attributes
+            tr [] [
+                filterLabel "Date [UTC]" (Some "Observation time. Images without one (no sidecar) are hidden while this filter is set") active
+                td [attribute "colspan" "3"] [
+                    dualSlider RangeFilterKind.Time r
+                    div [style "display: flex; justify-content: space-between; gap: 6px; margin-top: 4px"] [
+                        timeInput r.lower (fun v -> SetLower (RangeFilterKind.Time, Numeric.SetValue v))
+                        timeInput r.upper (fun v -> SetUpper (RangeFilterKind.Time, Numeric.SetValue v))
+                    ]
+                ]
+                resetCell active (FilterMessage (ResetRange RangeFilterKind.Time))
+            ]
+
         let notComputed = Some "not computed yet: this filter has no effect for now"
         let resolutionTooltip =
             Some "Ground resolution at the target: distance × the angle one pixel spans (instrument field of view / image width). Images without it (no sidecar or unknown instrument) are hidden while this filter is set"
@@ -472,6 +528,7 @@ module ProjectedImageListApp =
                             yield instrumentFilterRow
                             yield rangeFilterRow "Resolution [m/px]" resolutionTooltip RangeFilterKind.Resolution
                             yield rangeFilterRow "Distance [km]" None RangeFilterKind.Distance
+                            yield timeFilterRow
                     })
             ]
 

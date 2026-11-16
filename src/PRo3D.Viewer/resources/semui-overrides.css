@@ -458,6 +458,20 @@ div.fullwidth.textcontainer > input {
 /* Two-handle range slider of the Projected Images library filters
    (DualRangeSlider.fs: the library filters and an image's display range): two range inputs over one track. Only the
    thumbs take the mouse, so either can be grabbed where they do not overlap. */
+/* the time filter's bounds (Projected Images › Filters): a dark field like the
+   numeric input boxes, white text, the browser's calendar icon kept visible */
+.pro3d-time-input {
+    flex: 1;
+    min-width: 0;
+    padding: 2px 4px;
+    color: white;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: .28571429rem;
+    color-scheme: dark;
+    font-size: 0.9em;
+}
+
 .pro3d-dual-range {
     position: relative;
     height: 20px;
