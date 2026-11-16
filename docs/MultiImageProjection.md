@@ -82,14 +82,22 @@ sections:
 - **Projection Settings** (closed by default) — see the table below.
 - **Selected Image** — the image selected in the library, in two sub-sections
   that each fold away with a click on their header: **Preview Image** (its 2D
-  preview) and **Properties**: **Display** (channel; *Range*, the min/max as one
-  two-handle slider with an input box at each end, reset by the header's undo icon;
-  *Colour Map* on/off and which map; *Legend* in the main view) and **Brightness /
-  Contrast** (brightness −1…1, default 0, shifts the image's values; contrast 0…3,
-  default 1, scales them around mid grey; reset by the header's undo icon). Both act
-  on the values within the *Display* range, before the colour map, in the preview and
-  on the surface -- there only with *Transfer Function* on, which otherwise shows the
-  image untouched. Every image keeps its own; not saved with the scene. *No image is
+  preview) and **Properties**, in three sections:
+  - **Data** — *what* is shown: the *Channel* and the *Range*, the min/max of its
+    values that span the colour map (and that the legend labels), as one two-handle
+    slider with an input box at each end. The header's undo icon resets the range to
+    the image's statistics.
+  - **Tone** — *how* it looks, purely visual: *Brightness* (−1…1, default 0) shifts
+    the values, *Contrast* (0…3, default 1) scales them around mid grey; reset by the
+    header's undo icon. Acts on the values within the *Data* range, before the colour
+    map, in the preview and on the surface — there only with *Transfer Function* on,
+    which otherwise shows the image untouched. While either is changed the header
+    shows an amber *legend does not match*: the legend labels the *Data* range, and
+    the adjusted colours no longer stand for those values.
+  - **False Colour** — the header's checkbox switches the colour map on (off: grey
+    values); *Colour Map* and *Legend* (in the main view) are dimmed while it is off.
+
+  Every image keeps its own settings; they are not saved with the scene. *No image is
   currently selected* when there is none.
 - **Image Library** — the library **Filters** and **Images**, the image list
   itself; each folds away with a click on its header.

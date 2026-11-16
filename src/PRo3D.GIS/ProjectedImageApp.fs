@@ -267,9 +267,12 @@ module ProjectedImageApp =
     let whiteTex =
         PixTexture2d(PixImageMipMap [| whitePix :> PixImage |], false) :> ITexture
 
-    /// A Properties section: a header row (like Registration) with an optional reset
-    /// icon, then label | control rows.
-    let private section (title : string) (tooltip : Option<string>) (reset : Option<string * ImageMessage>) (rows : list<DomNode<ImageMessage>>) =
+    /// A Properties section: a header row (like Registration) -- `lead` before the
+    /// title (e.g. a switch), `extras` after it (e.g. a hint), an optional reset icon at
+    /// the right -- then label | control rows.
+    let private section (title : string) (tooltip : Option<string>)
+                        (lead : list<DomNode<ImageMessage>>) (extras : list<DomNode<ImageMessage>>)
+                        (reset : Option<string * ImageMessage>) (rows : list<DomNode<ImageMessage>>) =
         let header =
             tr [] [
                 th [
@@ -278,8 +281,10 @@ module ProjectedImageApp =
                     | Some t -> yield attribute "title" t
                     | None -> ()
                 ] [
-                    div [style "display: flex; align-items: center"] [
+                    div [style "display: flex; align-items: center; gap: 6px"] [
+                        yield! lead
                         yield text title
+                        yield! extras
                         match reset with
                         | Some (what, msg) ->
                             yield i [clazz "undo icon"
@@ -300,8 +305,22 @@ module ProjectedImageApp =
             td [] control
         ]
 
-    /// Display: band, display range, colour map and legend.
-    let private viewDisplay (m : AdaptiveProjectedImageModel) =
+    /// A row that is dimmed and inert while `enabled` is false.
+    let private switchedRow (enabled : aval<bool>) (label : string) (control : list<DomNode<ImageMessage>>) =
+        let attributes =
+            amap {
+                let! enabled = enabled
+                if not enabled then yield style "opacity: 0.4; pointer-events: none"
+            } |> AttributeMap.ofAMap
+        Incremental.tr attributes (
+            AList.ofList [
+                td [clazz "collapsing"] [text label]
+                td [] control
+            ])
+
+    /// Data: what is shown -- the band and the range of its values that spans the
+    /// colour map (and the legend's labels). Reset: the range to the image's statistics.
+    let private viewData (m : AdaptiveProjectedImageModel) =
         let channelRepr (c : Channel) =
             match c.name with
             | None -> string c.idx
@@ -312,7 +331,8 @@ module ProjectedImageApp =
             | _ -> ImageMessage.Empty
         let lower = m.falseColorModel.lowerBound
         let upper = m.falseColorModel.upperBound
-        section "Display" None (Some ("reset the range to the image's statistics", ResetCustomMinMax)) [
+        section "Data" (Some "which band is shown, and the range of its values the colour map and the legend span")
+            [] [] (Some ("reset the range to the image's statistics", ResetCustomMinMax)) [
             propertyRow "Channel:" [
                 Html.SemUi.dropDown' (AList.ofAVal m.channelOptions) m.selectedChannel SetEXRChannel channelRepr
             ]
@@ -330,16 +350,49 @@ module ProjectedImageApp =
                     ]
                 ]
             ]
-            // on/off and which map, in one line; off: grey values
-            propertyRow "Colour Map:" [
-                div [style "display: flex; align-items: center; gap: 8px"] [
-                    div [attribute "title" "off: grey values"] [
-                        GuiEx.iconCheckBox m.falseColorPreview ToggleFalseColor
-                    ]
-                    Html.SemUi.dropDown m.colorMap SetColorMap
-                ]
+        ]
+
+    /// Tone: brightness / contrast on the normalised value, before the colour map --
+    /// purely visual. While either is changed, a hint in the header says the legend no
+    /// longer matches: it labels the Range values, which the adjustment shifts.
+    let private viewTone (m : AdaptiveProjectedImageModel) =
+        let bc = m.brightnessContrast
+        let row (label : string) (input : AdaptiveNumericInput) (action : Numeric.Action -> BrightnessContrastAction) =
+            propertyRow label [ Numeric.view' [NumericInputType.Slider] input |> UI.map (action >> BrightnessContrastMessage) ]
+        let adjusted =
+            adaptive {
+                let! b = bc.brightness.value
+                let! c = bc.contrast.value
+                return b <> BrightnessContrast.init.brightness.value || c <> BrightnessContrast.init.contrast.value
+            }
+        let hint =
+            Incremental.span AttributeMap.empty (
+                alist {
+                    let! adjusted = adjusted
+                    if adjusted then
+                        yield span [style "color: #e3b341; font-weight: normal; font-size: 0.9em"
+                                    attribute "title" "Brightness/contrast are changed: colours and grey values no longer match the values the legend shows (it labels the Data range)"] [
+                            i [clazz "exclamation triangle icon"] []
+                            text "legend does not match"
+                        ]
+                })
+        section "Tone"
+            (Some "visual only: on the image's values within its Data range, before the colour map; on the surface only with Transfer Function on")
+            [] [hint] (Some ("reset brightness and contrast", BrightnessContrastMessage ResetBrightnessContrast)) [
+            row "Brightness:" bc.brightness SetBrightness
+            row "Contrast:" bc.contrast SetContrast
+        ]
+
+    /// False Colour: the header's checkbox switches the colour map on (off: grey
+    /// values); the map and the legend are dimmed while it is off.
+    let private viewFalseColour (m : AdaptiveProjectedImageModel) =
+        let on = m.falseColorPreview
+        section "False Colour" (Some "off: grey values")
+            [ div [style "font-weight: normal"] [ GuiEx.iconCheckBox on ToggleFalseColor ] ] [] None [
+            switchedRow on "Colour Map:" [
+                Html.SemUi.dropDown m.colorMap SetColorMap
             ]
-            propertyRow "Legend:" [
+            switchedRow on "Legend:" [
                 div [style "display: flex; align-items: center; gap: 8px"] [
                     GuiEx.iconCheckBox m.falseColorModel.useFalseColors ToggleFalseColorLegend
                     span [style "opacity: 0.75"] [text "show in main view"]
@@ -347,24 +400,13 @@ module ProjectedImageApp =
             ]
         ]
 
-    /// Brightness / Contrast: on the normalised value, before the colour map.
-    let private viewBrightnessContrast (m : AdaptiveProjectedImageModel) =
-        let bc = m.brightnessContrast
-        let row (label : string) (input : AdaptiveNumericInput) (action : Numeric.Action -> BrightnessContrastAction) =
-            propertyRow label [ Numeric.view' [NumericInputType.Slider] input |> UI.map (action >> BrightnessContrastMessage) ]
-        section "Brightness / Contrast"
-            (Some "on the image's values within its Display range, before the colour map; on the surface only with Transfer Function on")
-            (Some ("reset brightness and contrast", BrightnessContrastMessage ResetBrightnessContrast)) [
-            row "Brightness:" bc.brightness SetBrightness
-            row "Contrast:" bc.contrast SetContrast
-        ]
-
     let view (m : AdaptiveProjectedImageModel) =
         require Html.semui (
             div [] [
                 div [style "position: relative; width: 100%"] [
-                    viewDisplay m
-                    viewBrightnessContrast m
+                    viewData m
+                    viewTone m
+                    viewFalseColour m
                 ]
             ]
         )
