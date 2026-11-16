@@ -87,7 +87,6 @@ let allTests (parameters : TestUtils.TestParameters) : Test =
 
         ProjectedImageMetadataTest.tests()
         ProjectedImageStackTest.tests()
-        ShadowsHighlightsTest.tests()
 
         // *.opc.json sidecars; the fixture-backed case self-skips without the data
         OpcSidecarTests.tests()

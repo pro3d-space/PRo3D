@@ -84,8 +84,8 @@ sections:
   that each fold away with a click on their header: **Preview Image** (its 2D
   preview) and **Properties**: **Display** (channel; *Range*, the min/max as one
   two-handle slider with an input box at each end, reset by the header's undo icon;
-  *Colour Map* on/off and which map; *Legend* in the main view) and
-  [Shadows / Highlights](ShadowsHighlights.md). *No image is currently selected* when there is none.
+  *Colour Map* on/off and which map; *Legend* in the main view). *No image is
+  currently selected* when there is none.
 - **Image Library** — the library **Filters** and **Images**, the image list
   itself; each folds away with a click on its header.
 - **Projected Images** — the projection stack (see 4.).

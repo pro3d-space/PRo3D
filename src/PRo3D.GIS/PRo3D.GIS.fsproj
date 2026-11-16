@@ -35,7 +35,6 @@
     <Compile Include="Tiff.fs" />
     <Compile Include="InstrumentImage.fs" />
     <Compile Include="Visualization.fs" />
-    <Compile Include="ShadowsHighlights.fs" />
     <Compile Include="MarsTaggedLocations.fs" />
     <Compile Include="OpcShaders.fs" />
     <Compile Include="Shaders.fs" />
