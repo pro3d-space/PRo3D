@@ -139,8 +139,14 @@ module Gui =
 
                 match selectedImage with 
                 | Some iM -> 
-                    let falseColorSvg = FalseColorLegendApp.Draw.createFalseColorLegendBasics "ProjectedLegend" iM.falseColorModel
-                    yield Incremental.Svg.svg AttributeMap.empty falseColorSvg
+                    // only while the image's colour map is on (Properties › False Colour):
+                    // without it the image shows grey values the legend's colours do not describe
+                    let! colourMapOn = iM.falseColorPreview
+                    if colourMapOn then
+                        let falseColorSvg = FalseColorLegendApp.Draw.createFalseColorLegendBasics "ProjectedLegend" iM.falseColorModel
+                        yield Incremental.Svg.svg AttributeMap.empty falseColorSvg
+                    else
+                        yield div [] []
                 | None -> yield div [] []                
         } 
 

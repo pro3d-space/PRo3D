@@ -95,7 +95,8 @@ sections:
     shows an amber *legend does not match*: the legend labels the *Data* range, and
     the adjusted colours no longer stand for those values.
   - **False Colour** — the header's checkbox switches the colour map on (off: grey
-    values); *Colour Map* and *Legend* (in the main view) are dimmed while it is off.
+    values); *Colour Map* and *Legend* (in the main view) are dimmed while it is off,
+    and the legend is not shown in the main view then, whatever its checkbox says.
 
   Every image keeps its own settings; they are not saved with the scene. *No image is
   currently selected* when there is none.
