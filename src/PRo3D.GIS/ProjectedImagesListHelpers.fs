@@ -197,6 +197,8 @@ module ProjectedImagesListAppHelper =
                                     minMax = V2f(img.falseColorModel.lowerBound.value, img.falseColorModel.upperBound.value)
                                     texturePath = img.texture
                                     channel = img.selectedChannel.idx
+                                    brightnessContrast =
+                                        V2f(img.brightnessContrast.brightness.value, img.brightnessContrast.contrast.value)
                                 }
                             Some layer
                     )

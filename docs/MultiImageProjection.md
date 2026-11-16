@@ -84,7 +84,12 @@ sections:
   that each fold away with a click on their header: **Preview Image** (its 2D
   preview) and **Properties**: **Display** (channel; *Range*, the min/max as one
   two-handle slider with an input box at each end, reset by the header's undo icon;
-  *Colour Map* on/off and which map; *Legend* in the main view). *No image is
+  *Colour Map* on/off and which map; *Legend* in the main view) and **Brightness /
+  Contrast** (brightness −1…1, default 0, shifts the image's values; contrast 0…3,
+  default 1, scales them around mid grey; reset by the header's undo icon). Both act
+  on the values within the *Display* range, before the colour map, in the preview and
+  on the surface -- there only with *Transfer Function* on, which otherwise shows the
+  image untouched. Every image keeps its own; not saved with the scene. *No image is
   currently selected* when there is none.
 - **Image Library** — the library **Filters** and **Images**, the image list
   itself; each folds away with a click on its header.

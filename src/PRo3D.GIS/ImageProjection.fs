@@ -128,6 +128,8 @@ module ImageProjection =
             /// not, and a projection can only be CHECKED against its source
             /// image when nothing has been applied to it.
             member x.ProjectedUseTransferFunction : bool = uniform?ProjectedUseTransferFunction
+            /// per layer: brightness (x) and contrast (y), (0, 1) = unchanged
+            member x.ProjectedStackBrightnessContrast : Arr<N<32>, V2f> = uniform?ProjectedStackBrightnessContrast
 
         /// The projection stack: layers bottom -> top, painter's order -- the
         /// TOPMOST layer that covers a fragment with a projector-facing normal
@@ -178,8 +180,10 @@ module ImageProjection =
                                 min minMax.Y ((max minMax.X (value * 65000.0f)) - minMax.X) / (minMax.Y - minMax.X)
                             let normalizedFloat =
                                 (value - minMax.X) / (minMax.Y - minMax.X)
+                            let bc = uniform.ProjectedStackBrightnessContrast.[i]
                             let normalized =
-                                if uniform.StackDataType = 2 then normalizedFloat else normalizedInt16
+                                PRo3D.ImageMapping.BrightnessContrastShader.apply
+                                    (if uniform.StackDataType = 2 then normalizedFloat else normalizedInt16) bc.X bc.Y
                             let mapped =
                                 if not uniform.ProjectedUseTransferFunction then
                                     sample.XYZ

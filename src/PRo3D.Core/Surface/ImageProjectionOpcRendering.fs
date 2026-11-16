@@ -216,6 +216,13 @@ module ImageProjectionOpcExtensions =
                     | Some p -> p.stackProjections |> AVal.map (Array.map (fun l -> l.minMax))
                 ) :> IAdaptiveValue
             )
+            "ProjectedStackBrightnessContrast", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) ->
+                let context = scope |> unbox<OpcRenderingExtensions.Context>
+                context.projectedImages |> AVal.bind (function
+                    | None -> AVal.constant Array.empty<V2f>
+                    | Some p -> p.stackProjections |> AVal.map (Array.map (fun l -> l.brightnessContrast))
+                ) :> IAdaptiveValue
+            )
             "ProjectedStackFocus", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) ->
                 let context = scope |> unbox<OpcRenderingExtensions.Context>
                 context.projectedImages |> AVal.bind (function

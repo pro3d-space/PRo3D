@@ -43,6 +43,28 @@ type Channel =
         name : Option<string>
     }
 
+/// Brightness and contrast of one image, on its normalised value (0..1):
+/// brightness shifts it, contrast scales it around mid grey.
+[<ModelType>]
+type BrightnessContrast =
+    {
+        brightness : NumericInput
+        contrast   : NumericInput
+    }
+
+module BrightnessContrast =
+    /// Brightness 0, contrast 1: the image unchanged.
+    let init : BrightnessContrast =
+        {
+            brightness = { Numeric.init with min = -1.0; max = 1.0; step = 0.01; value = 0.0; format = "{0:0.00}" }
+            contrast   = { Numeric.init with min = 0.0;  max = 3.0; step = 0.01; value = 1.0; format = "{0:0.00}" }
+        }
+
+type BrightnessContrastAction =
+    | SetBrightness of Numeric.Action
+    | SetContrast   of Numeric.Action
+    | ResetBrightnessContrast
+
 [<ModelType>]
 type ProjectedImageModel =
     {
@@ -77,6 +99,8 @@ type ProjectedImageModel =
         instrument        : string
         falseColorPreview : bool
         falseColorModel   : FalseColorsModel
+        /// On the normalised value, before the colour map. Not persisted.
+        brightnessContrast : BrightnessContrast
     }
 
 module ProjectedImageModel =
@@ -557,6 +581,7 @@ type ImageMessage =
     | ToggleFalseColor
     | ToggleFalseColorLegend
     | SetEXRChannel of Channel
+    | BrightnessContrastMessage of BrightnessContrastAction
     | Empty
 
 

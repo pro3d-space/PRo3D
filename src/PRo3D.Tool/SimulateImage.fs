@@ -821,7 +821,8 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
                             [| { Sg.ProjectedStackLayer.trafo = Some projector
                                  minMax = V2f(0.0f, 1.0f)
                                  texturePath = imagePath
-                                 channel = 0 } |]
+                                 channel = 0
+                                 brightnessContrast = V2f.OI } |]
                         | _ -> [||])
                 stackCoverageEnabled = AVal.constant false
                 hoveredProjection = AVal.constant None

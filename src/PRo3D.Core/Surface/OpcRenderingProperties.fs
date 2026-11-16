@@ -47,6 +47,8 @@ module SgExtensions =
                 texturePath : string
                 /// which band of a multi-band image is uploaded
                 channel : int
+                /// brightness (x) and contrast (y) on the normalised value; (0, 1) = unchanged
+                brightnessContrast : V2f
             }
 
         type ProjectedImages =

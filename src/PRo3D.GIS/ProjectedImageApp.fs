@@ -47,6 +47,8 @@ module Shaders =
         member x.MaxValue : float32 = uniform?MaxValue
         member x.UseFalseColor : bool = uniform?UseFalseColor
         member x.DataType : int = uniform?DataType
+        member x.Brightness : float32 = uniform?Brightness
+        member x.Contrast : float32 = uniform?Contrast
 
     let hshColors (v : Vertex)  = 
         fragment {
@@ -56,7 +58,9 @@ module Shaders =
             let remappedClampedNormalizedXFloat =
                 (hshValueX - uniform.MinValue) / (uniform.MaxValue - uniform.MinValue)
             let normalized =
-                if uniform.DataType = 2 then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16
+                PRo3D.ImageMapping.BrightnessContrastShader.apply
+                    (if uniform.DataType = 2 then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16)
+                    uniform.Brightness uniform.Contrast
             let remapClampNormalize =
                 if uniform.UseFalseColor then
                     V4f(normalized, normalized, normalized, 1.0f)
@@ -95,6 +99,7 @@ module ProjectedImageApp =
         time = new DateTime();
         falseColorModel = projectedImageLegend (Range1d(numericInput.min, numericInput.max)) (InstrumentImageVisualization.getResourceStream (ColorMap.getColorMapFileName ColorMap.Magma) ())
         falseColorPreview = false
+        brightnessContrast = BrightnessContrast.init
     }
 
     let loadFile (texturePath : string) =
@@ -242,6 +247,14 @@ module ProjectedImageApp =
             | ToggleFalseColorLegend -> 
                 { m with falseColorModel = { m.falseColorModel with useFalseColors = not m.falseColorModel.useFalseColors } }
 
+            | BrightnessContrastMessage action ->
+                let bc = m.brightnessContrast
+                let bc =
+                    match action with
+                    | SetBrightness a -> { bc with brightness = Numeric.update bc.brightness a }
+                    | SetContrast a -> { bc with contrast = Numeric.update bc.contrast a }
+                    | ResetBrightnessContrast -> BrightnessContrast.init
+                { m with brightnessContrast = bc }
             | ImageMessage.Empty ->
                 m
 
@@ -334,11 +347,24 @@ module ProjectedImageApp =
             ]
         ]
 
+    /// Brightness / Contrast: on the normalised value, before the colour map.
+    let private viewBrightnessContrast (m : AdaptiveProjectedImageModel) =
+        let bc = m.brightnessContrast
+        let row (label : string) (input : AdaptiveNumericInput) (action : Numeric.Action -> BrightnessContrastAction) =
+            propertyRow label [ Numeric.view' [NumericInputType.Slider] input |> UI.map (action >> BrightnessContrastMessage) ]
+        section "Brightness / Contrast"
+            (Some "on the image's values within its Display range, before the colour map; on the surface only with Transfer Function on")
+            (Some ("reset brightness and contrast", BrightnessContrastMessage ResetBrightnessContrast)) [
+            row "Brightness:" bc.brightness SetBrightness
+            row "Contrast:" bc.contrast SetContrast
+        ]
+
     let view (m : AdaptiveProjectedImageModel) =
         require Html.semui (
             div [] [
                 div [style "position: relative; width: 100%"] [
                     viewDisplay m
+                    viewBrightnessContrast m
                 ]
             ]
         )
@@ -400,6 +426,8 @@ module ProjectedImageApp =
         let max = img |> extract (AVal.constant 1.0) (fun m -> m.falseColorModel.upperBound.value |> AVal.map (fun v -> float v))
         let falseColor = img |> extract (AVal.constant false) (fun m -> m.falseColorPreview |> AVal.map (fun f -> not f))
         let dataType = img |> extract (AVal.constant 2) (fun m -> m.dataType |> AVal.map (fun dt -> int dt))
+        let brightness = img |> extract (AVal.constant 0.0f) (fun m -> m.brightnessContrast.brightness.value |> AVal.map float32)
+        let contrast = img |> extract (AVal.constant 1.0f) (fun m -> m.brightnessContrast.contrast.value |> AVal.map float32)
 
         Sg.fullScreenQuad
         |> Sg.noEvents
@@ -409,6 +437,8 @@ module ProjectedImageApp =
         |> Sg.uniform "MaxValue" max
         |> Sg.uniform "UseFalseColor" falseColor
         |> Sg.uniform "DataType" dataType
+        |> Sg.uniform "Brightness" brightness
+        |> Sg.uniform "Contrast" contrast
         |> Sg.shader {
             do! (Shaders.hshColors)
         }
