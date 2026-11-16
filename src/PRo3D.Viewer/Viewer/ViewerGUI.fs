@@ -1013,6 +1013,7 @@ module Gui =
             | Interactions.PickPivotPoint        -> sprintf "%s to place pivot point" click
             | Interactions.PickSurfaceRefSys     -> sprintf "%s to place additional reference system for selected surface" click
             | Interactions.SelectArea            -> sprintf "%s to place a comparison area, +/- to resize, ENTER to finish, T to flip the surfaces" click
+            | Interactions.PickStacPoint         -> sprintf "%s to search the catalog for images of that point, or hold CTRL and move to search continuously" click
             //| Interactions.PickLinking           -> "CTRL+click to place point on surface"
             | _ -> ""
 
@@ -1059,6 +1060,7 @@ module Gui =
             | Interactions.PlaceScaleBar         -> ""
             | Interactions.PlaceSceneObject      -> ""
             | Interactions.PickPivotPoint        -> ""
+            | Interactions.PickStacPoint         -> "Find the catalog images that show a point: click the surface, or hold Ctrl and move over it. The results, time range and sun incidence filter are in the GIS tab under Projected Images -> Image Search (STAC)."
             | _ -> ""
 
         /// Display name of the selected tool, shown as the secondary-toolbar chip. Covers
@@ -1081,6 +1083,7 @@ module Gui =
             | Interactions.PlaceCoordinateSystem -> "Place Coordinate System"
             | Interactions.PickSurfaceRefSys     -> "Place Surface Reference System"
             | Interactions.PickExploreCenter     -> "Pick Explore Center"
+            | Interactions.PickStacPoint         -> "Image Search"
             | _                                  -> "Tool Settings"
 
         let directToolModeTooltip =
@@ -1344,6 +1347,11 @@ module Gui =
                     tool "pro3d-coordinate-cross" "Place coordinate cross" Interactions.PlaceCoordinateSystem
                     tool "pro3d-surface-ref-sys" "Place an additional reference system on a surface" Interactions.PickSurfaceRefSys
                     tool "bullseye"   "Pick the ArcBall orbit centre. Press 'C' (no annotation selected) to set the pivot point to the body center" Interactions.PickExploreCenter
+
+                    divider
+
+                    // --- data ------------------------------------------------------------------
+                    tool "search" "Image search - click the surface, or hold Ctrl and move over it, to find catalog images of that point (GIS tab: Image Search)" Interactions.PickStacPoint
                   ]
                 ]
             )
@@ -2424,6 +2432,12 @@ module Gui =
                             AnnotationExport.exportWindow m
                             |> UI.map ViewerMessage
                             PolygonImportApp.view m.polygonImport |> UI.map PolygonImportMessage
+                            |> UI.map ViewerMessage
+                            // the image catalog's sign-in: over the whole window, since the
+                            // GIS tab may be hidden when the Image Search tool connects
+                            PRo3D.ImageMapping.ProjectedImageListApp.signInDialog m.scene.gisApp.projectedImageList
+                            |> UI.map Gis.GisAppAction.ProjectedImageListMessage
+                            |> UI.map GisAppMessage
                             |> UI.map ViewerMessage
                             LayoutApp.UI.dialogs m.layout
                             |> UI.map (LayoutMessage >> ViewerMessage)

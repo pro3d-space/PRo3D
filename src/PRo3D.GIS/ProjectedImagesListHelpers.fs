@@ -231,8 +231,34 @@ module ProjectedImagesListAppHelper =
                         | None -> (-1, 1.0f)
             )
 
+        // A hovered STAC result row is not in the library; its projector comes from
+        // the sidecar the search's check downloaded into the cache
+        // (StacSearch.localImagePath). Memoized like computeProjector.
+        let stacProjectorCache = System.Collections.Generic.Dictionary<string * PRo3D.ImageMapping.ProjectionMethod * (float * float * float) * string * string * PRo3D.SPICE.InstrumentProjection.Instruments, Option<Trafo3d>>()
+        let computeStacProjector (t : FSharp.Data.Adaptive.AdaptiveToken) (observer : string) (itemId : string) (model : PRo3D.ImageMapping.ProjectedImageListModel) : Option<Trafo3d> =
+            match model.stacSearch.candidates |> IndexList.tryFind (fun _ c -> c.itemId = itemId) with
+            | None -> None
+            | Some c ->
+                let originBody, originFrame = originOf t observer
+                let boresightTrafo = boresightAdjustment.GetValue(t)
+                let instruments = instrumentsA.GetValue(t)
+                let boresightKey =
+                    (model.boresightAdjustment.roll.value,
+                     model.boresightAdjustment.pitch.value,
+                     model.boresightAdjustment.yaw.value)
+                if stacProjectorCache.Count > 512 then stacProjectorCache.Clear()
+                let key = (itemId, model.projectionMethod, boresightKey, originBody, originFrame, instruments)
+                match stacProjectorCache.TryGetValue key with
+                | true, p -> p
+                | _ ->
+                    let metadata = InstrumentMetadata.tryParseMetadataForImagePath (StacSearch.localImagePath c.itemId c.assets)
+                    let p = Visualization.projectDirectWith instruments None originBody originFrame metadata (Some boresightTrafo) model.projectionMethod
+                    stacProjectorCache.[key] <- p
+                    p
+
         // the hovered image's own projector, hover-only footprints (D5): the
-        // surface outline uniform and the frustum wireframe both read this
+        // surface outline uniform and the frustum wireframe both read this. A
+        // library image wins over a STAC result row.
         let hoveredProjection =
             AVal.custom (fun t ->
                 match observer.GetValue(t) with
@@ -240,8 +266,10 @@ module ProjectedImagesListAppHelper =
                 | Some o ->
                     let (EntitySpiceName observer) = o.body
                     let model = g.projectedImageList.Current.GetValue(t)
-                    model.hoveredImage
-                    |> Option.bind (fun id -> computeProjector t observer id model)
+                    match model.hoveredImage, model.stacSearch.hovered with
+                    | Some id, _ -> computeProjector t observer id model
+                    | None, Some itemId -> computeStacProjector t observer itemId model
+                    | None, None -> None
             )
 
         Some {

@@ -1049,6 +1049,102 @@ module ViewerApp =
             Log.warn "[Viewer] fly-to needs: %s" (String.concat "; " missing)
             None
 
+    /// The STAC search worker (docs/StacImageSearch.md), created on first use: its
+    /// answers go through the mailbox, which exists only once the app runs.
+    let mutable private stacWorkerInstance : Option<PRo3D.GIS.StacSearch.Worker> = None
+
+    let private stacWorker (mailbox : MessagingMailbox) =
+        match stacWorkerInstance with
+        | Some w -> w
+        | None ->
+            let post msg =
+                PRo3D.ImageMapping.ProjectedImageListMessage.StacMessage msg
+                |> Gis.GisAppAction.ProjectedImageListMessage
+                |> ViewerAction.GisAppMessage
+                |> MailboxAction.ViewerAction
+                |> mailbox.Post
+            // a check loads KdTree patches and calls SPICE: the background busy pill
+            PRo3D.GIS.StacSearch.checkScope <- fun f -> Busy.scopeBackground "image search" f
+            let w = PRo3D.GIS.StacSearch.Worker(post)
+            stacWorkerInstance <- Some w
+            w
+
+    /// A preview pick as the STAC search sees it: the point and normal in the picked
+    /// surface's body-fixed frame -- the frame the images' projectors live in -- and a
+    /// ray caster in that frame. The inverse of flyToImageCamera's placement.
+    let stacScene (m : Model) (surfaceName : string) (hitPoint : V3d) (normal : Option<V3d>) : Result<PRo3D.GIS.StacSearch.Scene, string> =
+        let gis = m.scene.gisApp
+        // runs on every preview pick while the tool is active: one pass, no Seq
+        let surface =
+            let mutable found = None
+            for (sid, leaf) in m.scene.surfacesModel.surfaces.flat do
+                if found.IsNone then
+                    let s = Leaf.toSurface leaf
+                    if s.name = surfaceName then found <- Some (sid, s)
+            found
+        // every check needs SPICE (the body's frame at the image's time, and the range for
+        // MbiAttitudeSpiceRange): without a kernel all of them would fail, one by one
+        let kernelLoaded = gis.spiceKernel.IsSome && gis.spiceKernelLoadSuccess
+        match surface, Gis.GisApp.getObserverSystem gis with
+        | _ when not kernelLoaded -> Result.Error PRo3D.GIS.StacSearch.noSpiceKernel
+        | None, _ -> Result.Error (sprintf "surface %s not found" surfaceName)
+        | _, None -> Result.Error "no observed body is set (GIS tab -> Current Observation Settings)"
+        | Some (surfaceId, surface), Some observerSystem ->
+            match Gis.GisApp.getSpiceReferenceSystem gis surfaceId with
+            | None -> Result.Error "the surface is not bound to a SPICE body (GIS tab -> Surfaces)"
+            | Some r ->
+                let (EntitySpiceName body) = r.body
+                let fullTrafo = TransformationApp.fullTrafo' surface.transformation m.scene.referenceSystem (Some r) (Some observerSystem)
+                // body-fixed -> render space
+                let t = fullTrafo * surface.preTransform
+                // A KdTree hit's normal is already in this frame, not in render space:
+                // the trees are intersected with the ray taken back through
+                // preTransform and fullTrafo (SurfaceIntersection.hitsPerSurface, the
+                // `localRay`). Transforming it again would rotate it by the surface's
+                // transformation. Only normalised here.
+                let localNormal (n : V3d) = Vec.normalize n
+                let pick (ray : Ray3d) =
+                    let origin = t.Forward.TransformPos ray.Origin
+                    let direction = t.Forward.TransformDir ray.Direction |> Vec.normalize
+                    match Picking.pickRay m (FastRay3d(Ray3d(origin, direction))) (Some surfaceName) with
+                    | Some (hit, position) ->
+                        let info = hit.GetIntersectionRayHitInfo()
+                        let n = if info.HasValidNormal then Some (localNormal info.Normal) else None
+                        Some (t.Backward.TransformPos position, n)
+                    | None -> None
+                Result.Ok {
+                    instruments      = PRo3D.ImageMapping.InstrumentFov.toInstruments gis.projectedImageList.instrumentFovs
+                    frame            = r.referenceFrame.Value
+                    body             = body
+                    projectionMethod = gis.projectedImageList.projectionMethod
+                    point            = t.Backward.TransformPos hitPoint
+                    // the pick's KdTree normal: in this frame already (see localNormal)
+                    normal           = normal |> Option.map localNormal
+                    pick             = pick
+                }
+
+    /// Hand a point to the STAC search, when the Image Search tool is active: every
+    /// preview pick (Ctrl + move, the worker waits for the cursor to rest), and a click
+    /// (`now`: searched even if it is the last point). The search itself runs on the
+    /// worker; a point it cannot use only updates the status line.
+    let searchStacAt (mailbox : MessagingMailbox) (now : bool) (surfaceName : string) (hitPoint : V3d) (normal : Option<V3d>) (m : Model) =
+        let search = m.scene.gisApp.projectedImageList.stacSearch
+        // not connected: selecting the tool started connecting, or the user cancelled
+        if m.interaction <> Interactions.PickStacPoint || not (PRo3D.ImageMapping.StacSearchModel.isConnected search) then m
+        else
+            let filter = PRo3D.GIS.StacSearch.filterOf search
+            match filter |> Result.bind (fun filter -> stacScene m surfaceName hitPoint normal |> Result.map (fun scene -> filter, scene)) with
+            | Result.Ok (filter, scene) ->
+                if now then (stacWorker mailbox).SearchNow(filter, scene)
+                else (stacWorker mailbox).Search(filter, scene)
+                m
+            | Result.Error e ->
+                let status = PRo3D.ImageMapping.StacSearchStatus.Failed e
+                if search.status = status then m
+                else
+                    m |> Optic.map _gisApp (fun g ->
+                        { g with projectedImageList = { g.projectedImageList with stacSearch = { search with status = status } } })
+
     let updateViewer
         (runtime   : IRuntime)
         (signature : IFramebufferSignature)
@@ -2088,6 +2184,7 @@ module ViewerApp =
                     | Some g when not g.movedSinceGrab && movedAway g ->
                         DrawingApp.update m.scene.referenceSystem drawingConfig None sendQueue m.navigation.camera.view m.shiftFlag m.drawing DrawingAction.ArmVertexGrab
                     | _ -> m.drawing
+                let m = searchStacAt mailbox false name hitPosOnRay normal m
                 { m with
                     surfaceIntersection = Some { surfaceName = name; hitPoint = hitPosOnRay; normal = normal }
                     cursorAttributes = attributes |> Option.map (fun hit -> { surfaceName = name; hit = hit })
@@ -2221,7 +2318,17 @@ module ViewerApp =
 
                                 let toLocal (v : V3d) = spiceTrafo.Backward.TransformPos(v)
 
-                                matchPickingInteraction sendQueue hit observedSystem (hitF >> Option.map toLocal) surf m                                    
+                                let m = matchPickingInteraction sendQueue hit observedSystem (hitF >> Option.map toLocal) surf m
+                                // Image Search tool: a click searches the point at once
+                                if m.interaction = Interactions.PickStacPoint then
+                                    let normal =
+                                        match Picking.pickRay m fray (Some surf.name) with
+                                        | Some (h, _) ->
+                                            let info = h.GetIntersectionRayHitInfo()
+                                            if info.HasValidNormal then Some info.Normal else None
+                                        | None -> None
+                                    searchStacAt mailbox true surf.name hit normal m
+                                else m
                             | None, _ -> 
                                 Log.error "[PickSurface] no hit of %s" name
                                 m
@@ -2482,7 +2589,17 @@ module ViewerApp =
                 | Some _ when t <> Interactions.EditAnnotation -> { m.drawing with vertexGrab = None }
                 | _ -> m.drawing
 
-            { m with interaction = t; drawing = drawing } //|> UserFeedback.queueFeedback feedback
+            let m = { m with interaction = t; drawing = drawing } //|> UserFeedback.queueFeedback feedback
+
+            // the Image Search tool needs the catalog: selecting it connects (and opens
+            // the sign-in dialog if the catalog wants one)
+            let stac = m.scene.gisApp.projectedImageList.stacSearch
+            match t, stac.connection with
+            | Interactions.PickStacPoint, (PRo3D.ImageMapping.Disconnected | PRo3D.ImageMapping.ConnectionFailed _) ->
+                (stacWorker mailbox).Connect(stac.serverUrl, None)
+                m |> Optic.map _gisApp (fun g ->
+                    { g with projectedImageList = { g.projectedImageList with stacSearch = { stac with connection = PRo3D.ImageMapping.Connecting } } })
+            | _ -> m
         | ReferenceSystemMessage a,_ ->                                
             // the planet is the scene body: picking it also points the GIS at that body (#758)
             let planetBefore = m.scene.referenceSystem.planet
@@ -2920,8 +3037,52 @@ module ViewerApp =
         | WriteCameraMetadata (path, camera),_ ->
             m
         | GisAppMessage msg, _ ->
+            let stacBefore = m.scene.gisApp.projectedImageList.stacSearch
+            let downloadingBefore = stacBefore.downloading
             let m, gisApp =
                  Gis.GisApp.update m.scene.gisApp gisLenses m msg
+            let stacAfter = gisApp.projectedImageList.stacSearch
+
+            // STAC search: the worker runs the downloads and posts back through the
+            // mailbox, which only the Viewer has (docs/StacImageSearch.md)
+            match msg with
+            | Gis.GisAppAction.ProjectedImageListMessage (PRo3D.ImageMapping.ProjectedImageListMessage.StacMessage stac) ->
+                match stac with
+                | PRo3D.ImageMapping.StacSearchMessage.Fetch itemId when not (HashSet.contains itemId downloadingBefore) && HashSet.contains itemId stacAfter.downloading ->
+                    match gisApp.projectedImageList.stacSearch.candidates |> IndexList.tryFind (fun _ c -> c.itemId = itemId) with
+                    | Some c -> (stacWorker mailbox).Fetch(itemId, c.assets)
+                    | None -> ()
+                // the connection: the attempts run on the worker, off this thread
+                | PRo3D.ImageMapping.StacSearchMessage.Connect when stacAfter.connection = PRo3D.ImageMapping.Connecting && stacBefore.connection <> PRo3D.ImageMapping.Connecting ->
+                    (stacWorker mailbox).Connect(stacAfter.serverUrl, None)
+                | PRo3D.ImageMapping.StacSearchMessage.SignIn (user, password) ->
+                    (stacWorker mailbox).Connect(stacAfter.serverUrl, Some (user, password))
+                // connected: the panel and the dialog start with this catalog and user next time
+                | PRo3D.ImageMapping.StacSearchMessage.ConnectFinished (user, PRo3D.ImageMapping.ProbeOk) when PRo3D.ImageMapping.StacSearchModel.isConnected stacAfter ->
+                    PRo3D.ImageMapping.StacSearchModel.remember stacAfter.serverUrl user
+                | PRo3D.ImageMapping.StacSearchMessage.Disconnect
+                | PRo3D.ImageMapping.StacSearchMessage.CancelSignIn ->
+                    (stacWorker mailbox).Disconnect()
+                // another catalog: the sign-in was for the old one
+                | PRo3D.ImageMapping.StacSearchMessage.SetServerUrl _ when stacAfter.serverUrl <> stacBefore.serverUrl ->
+                    (stacWorker mailbox).Disconnect()
+                | PRo3D.ImageMapping.StacSearchMessage.SetTimeFrom _
+                | PRo3D.ImageMapping.StacSearchMessage.SetTimeTo _
+                | PRo3D.ImageMapping.StacSearchMessage.SetIncidenceMin _
+                | PRo3D.ImageMapping.StacSearchMessage.SetIncidenceMax _ ->
+                    // a changed filter searches the last point again; a filter that
+                    // does not parse waits for the next pick, which reports it
+                    match PRo3D.GIS.StacSearch.filterOf stacAfter with
+                    | Result.Ok filter when PRo3D.ImageMapping.StacSearchModel.isConnected stacAfter -> (stacWorker mailbox).Rerun filter
+                    | _ -> ()
+                // cleared results: the running search must not refill them
+                | PRo3D.ImageMapping.StacSearchMessage.ClearResults ->
+                    (stacWorker mailbox).Cancel()
+                | PRo3D.ImageMapping.StacSearchMessage.ClearCache ->
+                    // file deletion off the update thread; the next search downloads anew
+                    Threading.Tasks.Task.Run(fun () -> PRo3D.GIS.StacSearch.clearCache ()) |> ignore
+                | _ -> ()
+            | _ -> ()
 
             // Fly-to onto an image's projector axis. Handled here rather than in
             // ProjectedImageListApp because the camera is the Viewer's (D6).
@@ -3045,6 +3206,11 @@ module ViewerApp =
             | ViewerAction.DrawingMessage
                 (DrawingAction.ColorByCategoryMessage
                     ColorByCategoryAction.ResampleSurface)   -> Some "sampling surface"
+            // a downloaded STAC image is read into the library: all its channels
+            | ViewerAction.GisAppMessage
+                (Gis.GisAppAction.ProjectedImageListMessage
+                    (PRo3D.ImageMapping.ProjectedImageListMessage.StacMessage
+                        (PRo3D.ImageMapping.StacSearchMessage.FetchFinished (_, Ok _)))) -> Some "loading image"
             | _                                              -> None
         | _ -> None
 

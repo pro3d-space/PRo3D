@@ -87,6 +87,9 @@ The **Instruments** section below it holds each instrument's field of view, pref
 the SPICE instrument kernels and editable per scene: see
 [InstrumentFieldOfView.md](InstrumentFieldOfView.md).
 
+To find images of a spot in a STAC catalog instead of a local folder, see
+[Image Search (STAC)](StacImageSearch.md).
+
 ## 3. Find images by hovering
 
 **Hovering a library row previews that image in 3D as the top layer of the

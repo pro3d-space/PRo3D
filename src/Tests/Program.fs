@@ -83,6 +83,11 @@ let allTests (parameters : TestUtils.TestParameters) : Test =
         // requires the (non-public) HERA kernels; self-skips without them
         HeraSpiceTests.tests()
 
+        // STAC image search: parsing and conventions offline; the live case needs the
+        // HERA kernels (the ops kernel HeraSpiceTests leaves loaded, so no extra swap)
+        // and a STAC catalog in PRO3D_STAC_URL, and self-skips without either
+        StacSearchTests.tests()
+
         // resolves its fixtures from PRO3D_TEST_DATA / --testdatasource; self-skips
         SbmtImportAlignmentTest.tests parameters
         PolygonCsvImportTests.tests()
@@ -182,6 +187,12 @@ let parseArgs (args : string array) =
 
 [<EntryPoint>]
 let main args =
+    // A fake STAC catalog, not a test run: for the Image Search end to end test and for
+    // trying the feature without the real catalog (docs/StacImageSearch.md, Testing).
+    match Array.toList args with
+    | "--fake-stac" :: rest -> exit (FakeStacCatalog.runStandalone rest)
+    | _ -> ()
+
     // Fixture generation, not a test run: writes the view-plan footprint scene for
     // issue #733 and exits. Defaults into the test-data submodule, which is where
     // the committed fixture lives; see PRo3D.Resources.TestData/cases/viewplan-footprint.
