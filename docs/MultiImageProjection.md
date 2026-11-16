@@ -112,7 +112,7 @@ image are left alone. The header counts the active filters and the rows shown
 | **Sun Elevation [°]** | range, −90…90 | not computed per image yet — no effect for now |
 | **Sun Azimuth [°]** | range, 0…360 | not computed per image yet — no effect for now |
 | **Instrument** | the library's instruments as toggle buttons | shows only the selected instruments; images without one are listed as *(unknown)* |
-| **Resolution [m/px]** | range | ground resolution at the target; not computed per image yet — no effect for now |
+| **Resolution [m/px]** | range, spanning the library | ground resolution at the target: distance × the angle one pixel spans (the instrument's horizontal field of view ÷ the image width). Measured at the target's centre, so on the surface facing the camera pixels are slightly finer. Images without one (no sidecars, or an instrument with no known field of view) are shown while the filter is off and hidden while it is set |
 | **Distance [km]** | range, spanning the library | distance to the target |
 
 A range is set by typing its bounds or by dragging the two handles of its

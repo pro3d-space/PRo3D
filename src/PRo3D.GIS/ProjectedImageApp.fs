@@ -107,6 +107,7 @@ module ProjectedImageApp =
         defaultMaxValues = [numericInput.value];
         texture = initialPath;
         distance = 0;
+        resolution = None;
         time = new DateTime();
         falseColorModel = projectedImageLegend (Range1d(numericInput.min, numericInput.max)) (InstrumentImageVisualization.getResourceStream (ColorMap.getColorMapFileName ColorMap.Magma) ())
         falseColorPreview = false
@@ -190,6 +191,11 @@ module ProjectedImageApp =
             | None, Some tf -> tf.camera_system
             | None, None -> ""
 
+        let resolution =
+            match tiffMbiJson, tiffJson with
+            | Some mbi, Some tf -> PRo3D.SPICE.InstrumentProjection.tryResolution mbi.instrument distance tf.image_width
+            | _ -> None
+
         let time =
             match tiffMbiJson with
             | Some mbi -> mbi.obs_date
@@ -215,6 +221,7 @@ module ProjectedImageApp =
                 channelOptions   = channelOptions;
                 dataType         = dataType;
                 distance         = distance;
+                resolution       = resolution;
                 time             = time;
                 falseColorModel  = falseColorModel
         }

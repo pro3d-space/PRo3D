@@ -92,6 +92,10 @@ type ProjectedImageModel =
         defaultMaxValues  : list<float>
         texture           : string
         distance          : float
+        /// Ground resolution at the target, m/px: distance × the angle one pixel spans
+        /// (InstrumentProjection.tryResolution). None without sidecar distance, image
+        /// width or a known instrument field of view.
+        resolution        : Option<float>
         time              : System.DateTime
         /// Curated header: instrument + camera system, e.g. "AFC1 (AFC)" --
         /// from the mbi sidecar's INSTRUME and the statistics sidecar's
@@ -255,45 +259,60 @@ module ImageFilter =
         {
             sunElevation = RangeFilter.create -90.0 90.0 0.1 "{0:0.0}"
             sunAzimuth   = RangeFilter.create 0.0 360.0 0.1 "{0:0.0}"
-            // placeholder until resolutions are computed
-            resolution   = RangeFilter.create 0.0 100.0 0.01 "{0:0.00}"
+            resolution   = RangeFilter.create 0.0 1.0 0.001 "{0:0.000}"
             distance     = RangeFilter.create 0.0 1.0 0.01 "{0:0.00}"
             instruments  = HashSet.empty
             expanded     = true
         }
 
-    /// Filters reset for a freshly imported library: the distance range spans its
-    /// images (widened when they all share one distance, so the slider has room).
-    let forImages (images : seq<ProjectedImageModel>) (expanded : bool) : ImageFilter =
+    /// A range over `values`, widened when they all share one value (so the slider has
+    /// room); [0, 1] without any.
+    let private rangeOver (values : seq<float>) (format : string) =
         let mutable lo = Double.PositiveInfinity
         let mutable hi = Double.NegativeInfinity
-        for img in images do
-            lo <- min lo img.distance
-            hi <- max hi img.distance
+        for v in values do
+            lo <- min lo v
+            hi <- max hi v
         let lo, hi =
             if Double.IsInfinity lo then 0.0, 1.0
             elif hi - lo < 1e-9 then lo, lo + 1.0
             else lo, hi
-        let step = (hi - lo) / 1000.0
+        RangeFilter.create lo hi ((hi - lo) / 1000.0) format
+
+    /// Filters reset for a freshly imported library: the distance and resolution
+    /// ranges span its images.
+    let forImages (images : seq<ProjectedImageModel>) (expanded : bool) : ImageFilter =
         { initial with
-            distance = RangeFilter.create lo hi step "{0:0.00}"
-            expanded = expanded }
+            distance   = rangeOver (images |> Seq.map (fun i -> i.distance)) "{0:0.00}"
+            resolution = rangeOver (images |> Seq.choose (fun i -> i.resolution)) "{0:0.000}"
+            expanded   = expanded }
 
     let activeCount (f : ImageFilter) =
         [ f.sunElevation; f.sunAzimuth; f.resolution; f.distance ]
         |> List.sumBy (fun r -> if RangeFilter.isActive r then 1 else 0)
         |> (+) (if f.instruments.IsEmpty then 0 else 1)
 
-    /// Whether a library image passes. Only instrument and distance filter so far:
-    /// sun angles and resolution are not computed per image yet.
-    /// `matches` over the filter's parts, for the view, which binds them one by one.
+    /// The resolution filter's verdict: an image without a resolution passes only while
+    /// the filter is off -- it cannot be said to lie inside a range someone narrowed.
+    let passesResolution (active : bool) (lower : float) (upper : float) (resolution : Option<float>) =
+        match resolution with
+        | Some r -> r >= lower && r <= upper
+        | None -> not active
+
+    /// Whether a library image passes. Sun angles are not computed per image yet, so
+    /// they do not filter. `matches` over the filter's parts, for the view, which binds
+    /// them one by one.
     let passes (instruments : HashSet<string>) (distanceLower : float) (distanceUpper : float)
-               (instrument : string) (distance : float) =
+               (resolutionActive : bool) (resolutionLower : float) (resolutionUpper : float)
+               (instrument : string) (distance : float) (resolution : Option<float>) =
         (instruments.IsEmpty || HashSet.contains (instrumentKey instrument) instruments)
         && distance >= distanceLower && distance <= distanceUpper
+        && passesResolution resolutionActive resolutionLower resolutionUpper resolution
 
-    let matches (f : ImageFilter) (instrument : string) (distance : float) =
-        passes f.instruments f.distance.lower.value f.distance.upper.value instrument distance
+    let matches (f : ImageFilter) (instrument : string) (distance : float) (resolution : Option<float>) =
+        passes f.instruments f.distance.lower.value f.distance.upper.value
+               (RangeFilter.isActive f.resolution) f.resolution.lower.value f.resolution.upper.value
+               instrument distance resolution
 
     let private mapRange (kind : RangeFilterKind) (g : RangeFilter -> RangeFilter) (f : ImageFilter) =
         match kind with

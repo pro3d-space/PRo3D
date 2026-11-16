@@ -251,7 +251,7 @@ let tests =
         }
 
         test "TC-12.3 library filters: instruments and distance, off when nothing narrows them" {
-            let passes = PRo3D.ImageMapping.ImageFilter.matches
+            let passes f instrument d = PRo3D.ImageMapping.ImageFilter.matches f instrument d None
             let img (instrument : string) (d : float) =
                 { PRo3D.ImageMapping.ProjectedImageApp.initial with id = Guid.NewGuid(); instrument = instrument; distance = d }
             let f = PRo3D.ImageMapping.ImageFilter.forImages [ img "AFC1" 10.0; img "AFC2" 30.0; img "" 20.0 ] true
@@ -276,6 +276,31 @@ let tests =
             let f = PRo3D.ImageMapping.ImageFilter.update f PRo3D.ImageMapping.ResetAll
             Expect.equal (PRo3D.ImageMapping.ImageFilter.activeCount f) 0 "reset all"
             Expect.isTrue f.expanded "reset keeps the block unfolded"
+        }
+
+        test "TC-12.3 resolution: distance × pixel angle, filtered over the library's range" {
+            // AFC: 5.5° over 1020 px; at 10 km one pixel spans 10000 * 2 tan(2.75°) / 1020
+            let expected = 10000.0 * 2.0 * tan (2.75 * Math.PI / 180.0) / 1020.0
+            match PRo3D.SPICE.InstrumentProjection.tryResolution "AFC1" 10.0 1020 with
+            | Some r -> Expect.floatClose Accuracy.high r expected "AFC1 at 10 km"
+            | None -> failtest "AFC1 has a known field of view"
+            Expect.isNone (PRo3D.SPICE.InstrumentProjection.tryResolution "NOPE" 10.0 1020) "unknown instrument"
+            Expect.isNone (PRo3D.SPICE.InstrumentProjection.tryResolution "AFC1" 0.0 1020) "no distance"
+            Expect.isNone (PRo3D.SPICE.InstrumentProjection.tryResolution "AFC1" 10.0 0) "no width"
+
+            let img (r : Option<float>) =
+                { PRo3D.ImageMapping.ProjectedImageApp.initial with id = Guid.NewGuid(); instrument = "AFC1"; distance = 1.0; resolution = r }
+            let f = PRo3D.ImageMapping.ImageFilter.forImages [ img (Some 0.1); img (Some 0.5); img None ] true
+            Expect.equal (f.resolution.lower.min, f.resolution.upper.max) (0.1, 0.5) "range spans the known resolutions"
+            let passes f r = PRo3D.ImageMapping.ImageFilter.matches f "AFC1" 1.0 r
+            Expect.isTrue (passes f None) "filter off: images without a resolution shown"
+            let f =
+                PRo3D.ImageMapping.ImageFilter.update f
+                    (PRo3D.ImageMapping.SetUpper (PRo3D.ImageMapping.RangeFilterKind.Resolution, Aardvark.UI.Primitives.Numeric.SetValue 0.3))
+            Expect.equal (PRo3D.ImageMapping.ImageFilter.activeCount f) 1 "resolution filter on"
+            Expect.isTrue (passes f (Some 0.1)) "inside"
+            Expect.isFalse (passes f (Some 0.5)) "coarser than the bound"
+            Expect.isFalse (passes f None) "filter set: images without a resolution hidden"
         }
 
         test "TC-12.3 library filters on an empty or single-distance library have a usable range" {

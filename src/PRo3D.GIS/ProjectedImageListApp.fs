@@ -295,19 +295,6 @@ module ProjectedImageListApp =
 
         let filter = m.filter
 
-        /// The library rows the filters let through. filterA, then the row map: a
-        /// row's DomNode is built once per image, not rebuilt whenever a filter moves.
-        let visibleImages =
-            m.images |> AList.filterA (fun img ->
-                adaptive {
-                    let! instruments = filter.instruments.Content
-                    let! lower = filter.distance.lower.value
-                    let! upper = filter.distance.upper.value
-                    let! instrument = img.instrument
-                    let! distance = img.distance
-                    return ImageFilter.passes instruments lower upper instrument distance
-                })
-
         let rangeIsActive (r : AdaptiveRangeFilter) =
             adaptive {
                 let! lower = r.lower.value
@@ -316,6 +303,28 @@ module ProjectedImageListApp =
                 let! max = r.upper.max
                 return lower > min || upper < max
             }
+
+        // shared by every row's predicate, built once
+        let resolutionActive = rangeIsActive filter.resolution
+
+        /// The library rows the filters let through. filterA, then the row map: a
+        /// row's DomNode is built once per image, not rebuilt whenever a filter moves.
+        let visibleImages =
+            m.images |> AList.filterA (fun img ->
+                adaptive {
+                    let! instruments = filter.instruments.Content
+                    let! lower = filter.distance.lower.value
+                    let! upper = filter.distance.upper.value
+                    let! resolutionActive = resolutionActive
+                    let! resolutionLower = filter.resolution.lower.value
+                    let! resolutionUpper = filter.resolution.upper.value
+                    let! instrument = img.instrument
+                    let! distance = img.distance
+                    let! resolution = img.resolution
+                    return ImageFilter.passes instruments lower upper
+                                              resolutionActive resolutionLower resolutionUpper
+                                              instrument distance resolution
+                })
 
         let rangeOf (kind : RangeFilterKind) =
             match kind with
@@ -418,6 +427,8 @@ module ProjectedImageListApp =
             ]
 
         let notComputed = Some "not computed yet: this filter has no effect for now"
+        let resolutionTooltip =
+            Some "Ground resolution at the target: distance × the angle one pixel spans (instrument field of view / image width). Images without it (no sidecar or unknown instrument) are hidden while this filter is set"
 
         let filterPanel =
             let header =
@@ -459,7 +470,7 @@ module ProjectedImageListApp =
                             yield rangeFilterRow "Sun Elevation [°]" notComputed RangeFilterKind.SunElevation
                             yield rangeFilterRow "Sun Azimuth [°]" notComputed RangeFilterKind.SunAzimuth
                             yield instrumentFilterRow
-                            yield rangeFilterRow "Resolution [m/px]" notComputed RangeFilterKind.Resolution
+                            yield rangeFilterRow "Resolution [m/px]" resolutionTooltip RangeFilterKind.Resolution
                             yield rangeFilterRow "Distance [km]" None RangeFilterKind.Distance
                     })
             ]
