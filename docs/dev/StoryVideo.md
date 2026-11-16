@@ -28,6 +28,14 @@ npx playwright test projection-stack-story
 
 (`..._FROM`: the first of four consecutive frames - the 12:15-12:36 ones overlap well.)
 
+The shadow measurement story (`tests-ui/tests/shadow-measurement-video.spec.ts`, video only) is an
+end-user demonstration of [../ShadowMeasurement.md](../ShadowMeasurement.md): full PRo3D (3D view,
+GIS View, Image Inspector), fly to the image, a zoom into the maximised Image Inspector, two
+measurements of a ridge's shadow with Snap on (the default), a scale bar, back to 3D. It runs on a
+simulated AFC frame of Didymos with a mock texture (scene and frame in the spec's header) and says
+so in the video. The zoom is a CSS transform on the page, followed by Golden Layout's maximise.
+Result: `tests-ui/artifacts/shadow-measurement-video/shadow-measurement.mp4`.
+
 ## Pacing: machine time is cut, viewer time is explicit
 
 - waits on PRo3D (`until`, `idle`, `panelHas`, the settling in `shot`) keep 0.35 s, and nothing
