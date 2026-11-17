@@ -242,16 +242,28 @@ module RangeFilter =
     let contains (v : float) (r : RangeFilter) =
         v >= r.lower.value && v <= r.upper.value
 
+    /// Clamped to the range, and snapped to its min/max when within one step of it.
+    /// The slider's step ((max - min) / 1000, ImageFilter.rangeOverWith) rarely divides
+    /// the range exactly, and then the browser stops the thumb one step short of max:
+    /// dragged back to the end, a bound would land just inside the range and leave the
+    /// filter on, hiding the image at the end and every image without a value.
     let private clampTo (r : RangeFilter) (v : float) =
-        v |> max r.lower.min |> min r.lower.max
+        let lo, hi = r.lower.min, r.lower.max
+        let v = v |> max lo |> min hi
+        // a hair over one step: the step's decimal string and the binary sum differ
+        let near = r.lower.step * (1.0 + 1e-6)
+        if r.lower.step <= 0.0 then v
+        elif hi - v < near then hi
+        elif v - lo < near then lo
+        else v
 
-    /// Clamped to the range; an upper bound below it is pushed along.
+    /// Clamped (and snapped) to the range; an upper bound below it is pushed along.
     let setLower (v : float) (r : RangeFilter) : RangeFilter =
         let v = clampTo r v
         { lower = { r.lower with value = v }
           upper = { r.upper with value = max v r.upper.value } }
 
-    /// Clamped to the range; a lower bound above it is pushed along.
+    /// Clamped (and snapped) to the range; a lower bound above it is pushed along.
     let setUpper (v : float) (r : RangeFilter) : RangeFilter =
         let v = clampTo r v
         { lower = { r.lower with value = min v r.lower.value }

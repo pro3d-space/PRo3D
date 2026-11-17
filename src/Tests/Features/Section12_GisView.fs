@@ -266,6 +266,27 @@ let tests =
             Expect.isFalse (PRo3D.ImageMapping.RangeFilter.isActive (PRo3D.ImageMapping.RangeFilter.reset narrowed)) "reset: off"
         }
 
+        test "TC-12.3 a range filter bound within one step of the range's end snaps to it" {
+            // a step that does not divide the range: the browser's slider stops the upper
+            // thumb one step short of max (min + 999 steps)
+            let lo, hi = 6.7, 8.4
+            let step = (hi - lo) / 1000.0
+            let whole = PRo3D.ImageMapping.RangeFilter.create lo hi step "{0:0.00}"
+            let narrowed = whole |> PRo3D.ImageMapping.RangeFilter.setUpper 8.0
+            Expect.isTrue (PRo3D.ImageMapping.RangeFilter.isActive narrowed) "narrowed: on"
+
+            let back = narrowed |> PRo3D.ImageMapping.RangeFilter.setUpper (lo + 999.0 * step)
+            Expect.equal back.upper.value hi "one step short of max snaps to max"
+            Expect.isFalse (PRo3D.ImageMapping.RangeFilter.isActive back) "dragged back to the end: off"
+
+            let lowBack = whole |> PRo3D.ImageMapping.RangeFilter.setLower (lo + 0.9 * step)
+            Expect.equal lowBack.lower.value lo "within one step of min snaps to min"
+
+            let kept = whole |> PRo3D.ImageMapping.RangeFilter.setUpper (hi - 2.0 * step)
+            Expect.isLessThan kept.upper.value hi "two steps short stays where it is"
+            Expect.isTrue (PRo3D.ImageMapping.RangeFilter.isActive kept) "and the filter is on"
+        }
+
         test "TC-12.3 library filters: instruments and distance, off when nothing narrows them" {
             let passes f instrument d = PRo3D.ImageMapping.ImageFilter.matches f { PRo3D.ImageMapping.ProjectedImageApp.initial with id = Guid.NewGuid(); instrument = instrument; distance = d }
             let img (instrument : string) (d : float) =
