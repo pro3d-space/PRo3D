@@ -173,9 +173,9 @@ let private renderTests =
 
         test "bookmarks render as the viewer shows them, deterministically, at a fixed LoD on request" {
             let template = TestUtils.Roots.testDataDir None [ "HERA"; "Dimorphos_opc"; "AFC_2027-03-21" ]
-            match template, TestUtils.Roots.dimorphosOpc None, Render.context.Value with
+            match template, TestUtils.Roots.dimorphosV4Opc None, Render.context.Value with
             | None, _, _ -> skiptest "no AFC_2027-03-21 scene: set PRO3D_TEST_DATA to a PRo3D.Resources.TestData checkout"
-            | _, None, _ -> skiptest "no Dimorphos OPC: set PRO3D_TEST_DATA"
+            | _, None, _ -> skiptest "no Dimorphos V4 OPC: set PRO3D_TEST_DATA (HERA/Dimorphos_opc/Dimorphos_DRACO_V4/Dimorphos_DRACO)"
             | _, _, None -> skiptest "no OpenGL runtime in this environment"
             | Some templateDir, Some opc, Some (runtime, signature) ->
 

@@ -491,9 +491,9 @@ export const DIMORPHOS_RADIUS = 77.2;
  * The lens the viewpoints below assume: focal 10.25 mm = a 60 deg vertical fov
  * (Utilities.fs, `hfov = 2*atan(sensor/(2*focal))`).
  *
- * PRo3D.Resources.TestData's ProjectionTest.pro3d ships with focal 122.563 -- the AFC
- * INSTRUMENT lens, 5.53 deg. A camera is meaningless without its fov: at 198.8 m the
- * body subtends 46 deg, which fits a 60 deg frame and overflows a 5.53 deg one eightfold,
+ * PRo3D.Resources.TestData's ProjectionTest.pro3d ships with focal 123.247 -- the AFC
+ * INSTRUMENT lens, 5.5 deg. A camera is meaningless without its fov: at 198.8 m the
+ * body subtends 46 deg, which fits a 60 deg frame and overflows a 5.5 deg one eightfold,
  * filling the screen with blurred terrain. `withViewerLens` sets it; `sceneWithCamera`
  * refuses a scene whose lens would make the saved viewpoints nonsense.
  */

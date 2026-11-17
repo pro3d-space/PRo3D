@@ -59,14 +59,14 @@ async function main() {
     // the scene section 1 of the page asks for: the body bound so the projection has a
     // frame to land in, and PRo3D's normal 60 deg camera rather than the AFC lens
     const file = path.join(work, "docs-shots.pro3d");
-    sceneFor(fixture.sceneTemplate, fixture.opc, file);
+    sceneFor(fixture.sceneTemplate, fixture.framesOpc, file);
     const d = withFreeCamera(readScene(file));
     d.gisApp.defaultObservationInfo.observer = { EntitySpiceName: "Dimorphos" };
     d.gisApp.defaultObservationInfo.referenceFrame = { FrameSpiceName: "DIMORPHOS_FIXED" };
     d.gisApp.defaultObservationInfo.time = "2027-03-21T23:00:00.0000000Z";
     d.referenceSystem.planet = 9; // Planet.Dimorphos
     if (!d.config?.frustumModel) throw new Error("scene has no config.frustumModel to set the focal on");
-    d.config.frustumModel.focal = 10.25; // 60 deg; the template carries the 5.53 deg AFC lens
+    d.config.frustumModel.focal = 10.25; // 60 deg; the template carries the 5.5 deg AFC lens
     // The template's own camera leaves the body a few hundred pixels across, so give it a
     // viewpoint that actually frames it (198.8 m, ~46 deg of a 60 deg fov).
     const view = DIMORPHOS_VIEWPOINTS[1];

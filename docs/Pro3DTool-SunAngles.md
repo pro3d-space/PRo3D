@@ -41,7 +41,7 @@ rasters by GDAL, QGIS, `tifffile` and PIL.
 | `--observer <name>` | observing spacecraft (default `MILANI`) |
 | `--kernel <file>` | explicit metakernel, overriding the sidecar's declaration |
 | `--kernel-root <dir>` | SPICE kernel tree; overrides `$PRO3D_SPICE_KERNELS` |
-| `--method spice\|mbi` | projection method (default `mbi`) |
+| `--method spice\|mbi\|mbi-spice-range` | orientation source (default `mbi`; the viewer defaults to MbiAttitudeSpiceRange, which is `mbi-spice-range` here): `spice` = SPICE position and attitude, aimed at the target; `mbi` = the sidecar's `SC_QUAT` and `TRG_POS`; `mbi-spice-range` = `SC_QUAT` with the SPICE range, for sidecars without `TRG_POS` (see [MultiImageProjection.md](MultiImageProjection.md#if-an-image-does-not-land-on-the-terrain)) |
 | `--width`, `--height` | output size; `0` (default) uses the source image's native size |
 | `--false-color` | also write one false-colour PNG per angle |
 

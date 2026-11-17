@@ -12,11 +12,15 @@ const repoRoot = path.resolve(__dirname, "..", "..");
 const artifacts = path.join(__dirname, "..", "artifacts");
 
 /// A PRo3D.Resources.TestData checkout, from PRO3D_TEST_DATA. The projection specs use
-/// its Dimorphos OPC and the simulated AFC-1 frames rendered from it, whose sidecars
-/// describe the exact render camera.
+/// the simulated AFC-1 frames and the Dimorphos OPC they were rendered from (framesOpc),
+/// whose sidecars describe the exact render camera.
 export const testData = process.env.PRO3D_TEST_DATA ?? "";
 export const fixture = {
+    /// the general-purpose Dimorphos OPC (shape model v003)
     opc: path.join(testData, "HERA", "Dimorphos_opc", "Dimorphos_DRACO1_DRACO2_Earth", "Dimorphos"),
+    /// the OPC the frames and sceneTemplate belong to: V4 (shape model v004, #882). The
+    /// template names its hierarchy, so sceneFor needs this one, not `opc`.
+    framesOpc: path.join(testData, "HERA", "Dimorphos_opc", "Dimorphos_DRACO_V4", "Dimorphos_DRACO"),
     frames: path.join(testData, "HERA", "Dimorphos_opc", "AFC_2027-03-21"),
     /// a scene set up for projection; its paths are the generating machine's, so it
     /// is a template -- see sceneFor
@@ -96,7 +100,7 @@ export function sceneFor(template: string, opc: string, out: string): string {
 export function derivedScene(name: string, edit: (d: any) => void, dir = path.join(__dirname, "..", "artifacts")): string {
     fs.mkdirSync(dir, { recursive: true });
     const out = path.join(dir, `${name}.pro3d`);
-    sceneFor(fixture.sceneTemplate, fixture.opc, out);
+    sceneFor(fixture.sceneTemplate, fixture.framesOpc, out);
     const d = JSON.parse(fs.readFileSync(out, "utf-8"));
     edit(d);
     fs.writeFileSync(out, JSON.stringify(d, null, 2));
@@ -160,7 +164,7 @@ export async function launchPro3d(
     const scene =
         sceneOverride ??
         config.scene ??
-        sceneFor(fixture.sceneTemplate, fixture.opc, path.join(artifacts, "testdata-scene.pro3d"));
+        sceneFor(fixture.sceneTemplate, fixture.framesOpc, path.join(artifacts, "testdata-scene.pro3d"));
     // PRO3D_SCENE="" launches with no scene at all -- an empty PRo3D, which is where
     // an end-to-end test has to start if it is going to exercise the steps a user
     // actually performs (import a surface, bind it, set the epoch) rather than

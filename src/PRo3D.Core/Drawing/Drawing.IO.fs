@@ -21,10 +21,11 @@ module IO =
     
     let saveVersioned (model : DrawingModel) (path : string) =
         Log.startTimed "[Drawing] Writing annotation grouping %s" path
-        getSerialized model
-        |> Serialization.writeToFile path
-
-        Log.stop()
+        try
+            getSerialized model
+            |> Serialization.writeToFile path
+        finally
+            Log.stop()
             
         model
 

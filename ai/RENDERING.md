@@ -101,6 +101,8 @@ FShade inlines the *rest of the effect* once per return path of a stage, so the 
 
 `SurfaceEffectVariantTest` pins the GLSL size so a reintroduced second return fails a test instead of quietly halving start-up speed.
 
+**Frustum tests on boxes:** never `TransformPosProj` the corners and box the NDC result; corners behind the camera (w < 0) mirror and near boxes get culled. Use `ViewProjection.intersects` (Aardvark.Rendering.Common; plane test, no divide). Our projection is `PerspectiveProjectionGL` (z in [-w, w]); `ViewProjection.intersectsDX` and `Box3d.IntersectsFrustum` are for `PerspectiveProjectionRH` (z in [0, w]). See docs/SurfaceLevelOfDetail.md.
+
 ---
 
 ## Picking

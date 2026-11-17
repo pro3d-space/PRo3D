@@ -16,10 +16,11 @@ three — see [the proof](#the-proof) below.
 Things that still make images look wrong independently of the projection itself:
 
 1. **Orientation Source** set to *SPICE* reads no pointing from the image at all
-   — it aims the camera at the body centre with a fixed roll, so real frames land
+   — it aims the camera at the body centre (with SPICE's roll since the
+   orientation sources were unified; an arbitrary one before), so real frames land
    on the body with their features out of place. It used to be the default, which
-   made a correct projection look broken out of the box; **MBI** is the default
-   now.
+   made a correct projection look broken out of the box; the default is now
+   **MbiAttitudeSpiceRange** (the image's own attitude, SPICE range).
 2. A sidecar can state the pointing wrongly, and the projector will follow it
    faithfully. The HERA COP delivery does exactly this.
 3. **The scene has to be set up before any of it can work.** From an empty
@@ -75,6 +76,8 @@ single state, so the page cannot drift out of internal consistency:
 - OPC `Dimorphos_opc` (the current export)
 - texture layer **DRACO_2**, epoch **2027-03-21T20:00**, range 6 706.8 m
 - viewer window 1100×1100, *Focal (mm)* 122.563 = AFC-1's 5.5307°
+  (measured before #882: the test set has since been regenerated on shape model v004 at
+  5.5°, *Focal (mm)* 123.247, and these numbers have not been re-measured on it)
 - *Orientation Source* MBI, *Transfer Function* off
 
 | rung | correlation at zero shift | best shift found | mean ΔDN |
@@ -157,7 +160,7 @@ rather than through a colour map.
 |---|---|---|
 | ![source](images/projectionValidation/step1-source.png) | ![reprojected](images/projectionValidation/step1-reprojected.png) | ![difference](images/projectionValidation/step1-diff.png) |
 
-(AFC-1 frames are **1020 × 1020** — square, per `hera_afc_v06.ti`. These three
+(AFC-1 frames are **1020 × 1020** — square, per the AFC instrument kernel. These three
 are the same square crop around the body, at the same scale.)
 
 | | |
@@ -233,7 +236,8 @@ what the surface is textured with.
 
 Setup: one simulated AFC-1 frame of Dimorphos, projected onto
 `Dimorphos_opc`. *Fly to image* puts the camera on that frame's projector
-axis; *Focal (mm)* = 122.563 makes the viewer's field of view AFC-1's 5.5307°;
+axis; *Focal (mm)* = 123.247 makes the viewer's field of view AFC-1's 5.5° (122.563 /
+5.5307° before #882);
 *Orientation Source* = MBI; *Transfer Function* off, so the layer is painted as
 its own RGB. Window 1100×1100, square, because a 16:9 window would frame the
 body by its shorter vertical fov instead of the instrument's.
@@ -338,8 +342,14 @@ ships.
 
 | mode | where the pointing comes from |
 |---|---|
-| **SPICE** | Nowhere in the image. The spacecraft position is SPICE's, but the camera is then aimed at the **body centre** with a fixed up-vector — `InstrumentProjection.getLookAt` computes an attitude and discards it. Every image is painted as if shot dead-centre with one roll. |
-| **MBI** (default) | The image's measured attitude (`SC_QUAT`) and range (`TRG_POS`). Correct when the sidecar is, and faithfully wrong when it is not. |
+| **SPICE** | Nowhere in the image. Position and attitude are SPICE's (SPK and spacecraft CK), and the camera is then turned onto the **body centre**. Every image is painted as if shot dead-centre. (Measured below before the roll came from the CK: then it had an arbitrary roll as well.) |
+| **MBI** | The image's measured attitude (`SC_QUAT`) and range (`TRG_POS`). Correct when the sidecar is, and faithfully wrong when it is not. |
+| **MbiAttitudeSpiceRange** (default) | The image's attitude (`SC_QUAT`), target on the boresight at the SPICE range. Dead-centre like SPICE, but with the image's own roll; for sidecars without `TRG_POS`. |
+
+All three accept the *Registration* pitch/yaw/roll, which turn the projector
+about its own position — the way to move a dead-centre image onto a body that
+sits off-centre in the frame. See
+[MultiImageProjection.md](MultiImageProjection.md#if-an-image-does-not-land-on-the-terrain).
 
 So the symptom tells you where to look: *"lands on the body but the features do
 not line up"* is the first mode; *"does not land at all"* is the second plus a
@@ -527,7 +537,7 @@ cd tests-ui
 PRO3D_SCENE=<...>/ProjectionTest.pro3d \
 PRO3D_PROBE_IMAGE_DIR=<...> PRO3D_PROBE_IMAGE=AFC1_DRACO2_20270321_200000.png \
 PRO3D_PROBE_METHOD=MbiBased PRO3D_PROBE_TRANSFER=off \
-PRO3D_PROBE_FLYTO=1 PRO3D_PROBE_FOCAL=122.563 \
+PRO3D_PROBE_FLYTO=1 PRO3D_PROBE_FOCAL=123.247 \
 PRO3D_PROBE_VIEWPORT=1100x1100 PRO3D_PROBE_LABEL=rung3 \
   npx tsx src/probe-projection-landing.ts
 

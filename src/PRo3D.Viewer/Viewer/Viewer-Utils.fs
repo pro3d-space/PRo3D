@@ -1666,7 +1666,7 @@ module ViewerUtils =
         // per surface, shared by the per-patch applicator, the frustum wireframe and
         // the surface-effect variant switch (does not depend on the body value)
         let projectedImageData (surfaceId : Guid) (projectionRefused : aval<bool>) =
-            PRo3D.GIS.ProjectedImagesListAppHelper.getProjectedImageData m.scene.gisApp sunShadow.lightViewProj surfaceId "MARS"
+            PRo3D.GIS.ProjectedImagesListAppHelper.getProjectedImageData m.scene.gisApp sunShadow.lightViewProj surfaceId
             |> Option.map (ProjectionPreconditions.withoutProjection projectionRefused)
 
         let wrapGisData (surfaceTrafo : aval<Trafo3d>) (projData : Option<Sg.ProjectedImages>) (sg : ISg<_>) =

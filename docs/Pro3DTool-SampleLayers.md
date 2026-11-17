@@ -70,7 +70,7 @@ OPC needs kd-trees: build them once with [`pro3d-tool kdtree`](./Pro3DTool-KdTre
 | `--observer <name>` | spacecraft; default follows the instrument per image (ASPECT → `MILANI`, else `HERA`) |
 | `--kernel <file>` | explicit metakernel; default is the one the first sidecar names |
 | `--kernel-root <dir>` | SPICE kernel tree; overrides `$PRO3D_SPICE_KERNELS` |
-| `--method <spice\|mbi>` | projection method, as in [`unproject`](./Pro3DTool-Unproject.md) (default `mbi`) |
+| `--method <spice\|mbi\|mbi-spice-range>` | projection method, as in [`unproject`](./Pro3DTool-Unproject.md) (default `mbi`) |
 | `--occlusion-tolerance <m>` | how far in front of a vertex something must be to hide it (default `0.05`) |
 
 The body defaults to the images' own target, not a fixed name: Dimorphos frames sampled in

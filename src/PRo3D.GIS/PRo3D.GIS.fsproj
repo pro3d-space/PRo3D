@@ -51,6 +51,7 @@
     <None Include="paket.references" />
     <Compile Include="DualRangeSlider.fs" />
     <Compile Include="ProjectedImageApp.fs" />
+    <Compile Include="InstrumentFovApp.fs" />
     <Compile Include="ProjectedImageListApp.fs" />
     <Compile Include="GisApp.fs" />
     <Compile Include="ProjectedImagesListHelpers.fs" />

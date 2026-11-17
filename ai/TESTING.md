@@ -195,12 +195,14 @@ is the shape to copy.
   (`drawing.ts:selectByOption`).
 - **The shared test scene carries the HERA AFC *instrument* camera.**
   `fixture.sceneTemplate` is `AFC_2027-03-21/ProjectionTest.pro3d`, and `sceneFor`
-  only re-points its paths, so every spec inherits `focal = 122.563`, i.e. an
-  hfov of 5.53° instead of PRo3D's 60°. Only `focal` counts: `Scene.applyScene`
+  only re-points its paths, so every spec inherits `focal = 123.247`, i.e. an
+  hfov of 5.5° instead of PRo3D's 60°. The template and the frames belong to the V4
+  OPC (`fixture.framesOpc`, `TestUtils.Roots.dimorphosV4Opc`; shape model v004), not to
+  the general-purpose `fixture.opc` (v003): the template names its hierarchy. Only `focal` counts: `Scene.applyScene`
   recomputes the frustum from it, ignoring the stored frustum. Unless you test
   projection, set `focal = 10.25` and move the camera in (`drawing.ts:drawingScene`).
   It matters beyond framing: a selected annotation's outline spheres are scaled
-  without the field of view (`Utilities.drawSpheresFast`, issue #770), so at 5.53°
+  without the field of view (`Utilities.drawSpheresFast`, issue #770), so at 5.5°
   they are drawn ~10x too large. The template's **near plane is 10 m** as well, against
   PRo3D's default 0.1 m; annotation depth offset scales with `distance / near`, so draped
   lines and ellipse outlines z-fight with the terrain. `drawingScene` resets it to 0.1.

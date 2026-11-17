@@ -35,6 +35,8 @@ module ProjectedImageListApp =
             { m with useTransferFunction = not m.useTransferFunction }
         | ToggleWindingCorrection ->
             { m with windingCorrection = not m.windingCorrection }
+        | InstrumentFovMessage msg ->
+            { m with instrumentFovs = InstrumentFovApp.update m.instrumentFovs msg }
         | LoadSpiceAndTime _ ->
             // handled by GisApp.update, which owns the spice kernel + observation time state
             m
@@ -663,7 +665,17 @@ module ProjectedImageListApp =
                                                 )
                                             ]
                                             div [attributesInstrument] [ Incremental.text img.instrument ]
-                                            div [attributesAttr1] [ Incremental.text (img.distance |> AVal.map (fun f -> sprintf "%.2f" f)) ]
+                                            // distance = |TRG_POS|; zero means the sidecar does not say where the
+                                            // camera was, which only the MbiBased orientation source needs
+                                            Incremental.div (AttributeMap.ofList [ attributesAttr1 ]) (
+                                                alist {
+                                                    let! f = img.distance
+                                                    if f > 0.0 then yield text (sprintf "%.2f" f)
+                                                    else
+                                                        yield span [ style "color: #e07070"
+                                                                     attribute "title" "The sidecar's TRG_POS is zero: no distance, and the MbiBased orientation source cannot place this image. Use Spice or MbiAttitudeSpiceRange." ] [
+                                                            text "no TRG_POS" ]
+                                                })
                                             div [attributesAttr2] [ Incremental.text (img.time |> AVal.map (fun t -> t.ToUniversalTime().ToString())) ]
                                         ]
                                 ]
@@ -816,6 +828,11 @@ module ProjectedImageListApp =
                             Html.row "Yaw:"   [Numeric.view' [NumericInputType.InputBox] m.boresightAdjustment.yaw   |> UI.map SetYaw]
                         ]
                     ]
+                ]
+
+                // the fields of view projection uses, next to the projection settings
+                accordion "Instruments" "camera" false (style "margin-top: 6px") [
+                    InstrumentFovApp.view m.instrumentFovs |> UI.map InstrumentFovMessage
                 ]
 
                 accordion "Selected Image" "image" true (style "margin-top: 6px") [

@@ -37,7 +37,7 @@ function drawingSetup(d: any, edit: (d: any) => void) {
     d.referenceSystem.planet = 2; // Planet.None, filled in on load
     d.navigationMode = 0; // FreeFly
     // The template is a projection-test scene, so it carries the HERA AFC INSTRUMENT
-    // frustum (hfov 5.53 deg, focal 122.563) rather than a viewing camera. Keep it and
+    // frustum (hfov 5.5 deg, focal 123.247) rather than a viewing camera. Keep it and
     // the annotation selection outline is drawn ~10x too large, because
     // Utilities.drawSpheresFast converts pixels to world units as dist/viewportWidth,
     // omitting the field of view -- correct only near hfov 53 deg (issue #770).

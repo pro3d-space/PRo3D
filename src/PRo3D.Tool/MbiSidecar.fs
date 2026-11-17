@@ -398,14 +398,14 @@ type Residual =
 /// This is what makes the sidecar trustworthy rather than merely plausible: it is the same
 /// `Visualization.projectDirect` the viewer calls, on the file as written, so a convention
 /// slip shows up here instead of as a puzzling offset on screen.
-let verify (ctx : Context) (imagePath : string) (rendered : Trafo3d) (observer : string) : Result<Residual, string> =
+let verify (ctx : Context) (imagePath : string) (rendered : Trafo3d) : Result<Residual, string> =
     let metadata = InstrumentMetadata.tryParseMetadataForImagePath imagePath
     match metadata with
     | None, _ -> Result.Error "the sidecar we just wrote does not parse as mbi metadata"
     | Some _, _ ->
 
     match PRo3D.InstrumentProjection.Visualization.projectDirect
-              observer ctx.frame metadata ctx.body None ProjectionMethod.MbiBased with
+              ctx.body ctx.frame metadata None ProjectionMethod.MbiBased with
     | None -> Result.Error "the viewer's projectDirect returned nothing for the sidecar we just wrote"
     | Some (readBack : Trafo3d) ->
 

@@ -207,7 +207,7 @@ let processImage (runtime : IRuntime) (o : SunAnglesOptions)
                          (methodValue : ProjectionMethod) (outDir : string) (kernel : string)
                          (hierarchies : string[]) (img : ResolvedImage) : Result<string list, string> =
 
-    match InstrumentObservation.projectorCamera None observer frame body methodValue img with
+    match InstrumentObservation.projectorCamera None frame body methodValue img with
     | Result.Error e -> Result.Error e
     | Ok cam ->
 
@@ -309,10 +309,11 @@ let run (o : SunAnglesOptions) : int =
         match (if isNull o.method then "mbi" else o.method).ToLowerInvariant() with
         | "spice" -> Some ProjectionMethod.Spice
         | "mbi"   -> Some ProjectionMethod.MbiBased
+        | "mbi-spice-range" -> Some ProjectionMethod.MbiAttitudeSpiceRange
         | _       -> None
 
     match methodValue with
-    | None -> Log.error "unknown --method '%s' (expected spice or mbi)" o.method; 1
+    | None -> Log.error "unknown --method '%s' (expected spice, mbi or mbi-spice-range)" o.method; 1
     | Some methodValue ->
 
     if not (Directory.Exists o.opc) then Log.error "OPC directory not found: %s" o.opc; 1

@@ -296,7 +296,7 @@ frame itself (for AFC-1, 0.146° off the spacecraft's +Z; `fk/hera_v16.tf`,
 How these were chosen:
 - **AFC-1** matches comet-toolbox's HERA dashboard (<https://comet-toolbox.com/dashboard/hera/>).
   render-view, which uses the same axes, matches its frames in orientation at eight epochs.
-  The AFC instrument kernel's FOV diagram (`hera_afc_v06.ti`, "Apparent FOV Layout") draws
+  The AFC instrument kernel's FOV diagram ("Apparent FOV Layout") draws
   +X to the right and +Y downward; that layout is this one turned by 90°. Which of the two a
   real AFC frame shows has not been checked yet (#801).
 - **AFC-2** is AFC-1 turned by 180°.

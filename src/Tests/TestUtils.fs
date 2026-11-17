@@ -48,6 +48,13 @@ module Roots =
     let dimorphosOpc (testDataSource : Option<string>) =
         testDataDir testDataSource [ "HERA"; "Dimorphos_opc"; "Dimorphos_DRACO1_DRACO2_Earth"; "Dimorphos" ]
 
+    /// Dimorphos shape model v004 (DRACO_1/DRACO_2 layers), the OPC the simulated frames
+    /// in HERA/Dimorphos_opc/AFC_2027-03-21 and SampleLayers_2027-03-21 were rendered from
+    /// (#882). Their ProjectionTest.pro3d names its hierarchy, so a test that opens that
+    /// template, or projects those frames, needs this OPC and not `dimorphosOpc`.
+    let dimorphosV4Opc (testDataSource : Option<string>) =
+        testDataDir testDataSource [ "HERA"; "Dimorphos_opc"; "Dimorphos_DRACO_V4"; "Dimorphos_DRACO" ]
+
     /// The MSL Stimson OPC (one patch of the Stimson_1087 dataset).
     let mslOpc (testDataSource : Option<string>) =
         testDataDir testDataSource [ "MSL"; "1087_004779_MSLMST_0011" ]

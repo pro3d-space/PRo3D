@@ -249,8 +249,7 @@ let private crossCheck =
             // and it is swapped by DeInit+Init, so bypassing it corrupts whatever ran before.
             HeraSpiceTests.ensureKernelAt [ kernel ]
 
-            let observer = PRo3D.SPICE.InstrumentProjection.instrument2CameraSource img.mbi.instrument
-            match InstrumentObservation.projectorCamera None observer frame body ProjectionMethod.MbiBased img,
+            match InstrumentObservation.projectorCamera None frame body ProjectionMethod.MbiBased img,
                   img.size with
             | Result.Error e, _ -> failtestf "no projector camera: %s" e
             | _, None -> skiptest "the sidecar does not declare the image size"

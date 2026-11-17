@@ -17,7 +17,7 @@ type ProjectorCamera =
         proj     : Trafo3d
         /// view * proj, i.e. exactly what projectDirect returns.
         full     : Trafo3d
-        /// Distance to the target in metres, from the sidecar.
+        /// Distance from the projector to the target centre in metres, as resolved.
         distance : float
         near     : float
         far      : float
@@ -115,62 +115,34 @@ module InstrumentObservation =
             Result.Error (sprintf "no sun ephemeris relative to %s in %s at %s"
                               primary renderFrame (time.ToString "o"))
 
-    /// Build the instrument's camera for this observation.
+    /// Build the instrument's camera for this observation, in the body-fixed `referenceFrame`
+    /// of `body` (the body the OPC's coordinates are relative to).
     ///
-    /// The projector trafo comes back as a single view*proj matrix, but rendering needs the
-    /// two separately (stableTrafo relies on the model-view split for precision). The
-    /// projection half is reconstructible from the instrument's frustum, so view falls out
-    /// as full * proj⁻¹.
-    let projectorCamera (nearFar : Option<float * float>)
-                        (observer : string) (referenceFrame : string) (body : string)
+    /// Warnings of the resolved projector (e.g. a TARGET SPICE cannot place) are logged.
+    let projectorCameraWith (instruments : InstrumentProjection.Instruments) (nearFar : Option<float * float>)
+                        (referenceFrame : string) (body : string)
                         (projectionMethod : PRo3D.ImageMapping.ProjectionMethod)
                         (img : ResolvedImage) : Result<ProjectorCamera, string> =
-        // targetPos is in km
-        let distance = img.mbi.targetPos.Length * 1000.0
-        let near, far =
-            match nearFar with
-            | Some (n, f) -> n, f
-            | None -> InstrumentProjection.nearFarForDistance distance
+        match PRo3D.InstrumentProjection.Visualization.resolveProjectorWith instruments
+                nearFar body referenceFrame img.metadata None projectionMethod with
+        | Result.Error e ->
+            Result.Error (sprintf "%s at %s (frame %s): %s"
+                              img.spiceName (img.mbi.obs_date.ToString("o")) referenceFrame e)
+        | Ok p ->
+            for w in p.warnings do Log.warn "[projection] %s" w
+            Ok {
+                view = p.view
+                proj = p.proj
+                full = p.full
+                distance = p.distance
+                near = p.near
+                far = p.far
+            }
 
-        match Map.tryFind img.spiceName (InstrumentProjection.instruments near far) with
-        | None -> Result.Error (sprintf "no frustum defined for instrument frame '%s'" img.spiceName)
-        | Some frustum ->
-            let full =
-                PRo3D.InstrumentProjection.Visualization.projectDirectWithNearFar
-                    (Some (near, far)) observer referenceFrame img.metadata
-                    body None projectionMethod
-            match full with
-            | None ->
-                Result.Error (sprintf
-                    "projection did not resolve for %s at %s (frame %s, observer %s). \
-                     Most likely the loaded kernel has no coverage at this epoch."
-                    img.spiceName (img.mbi.obs_date.ToString("o")) referenceFrame observer)
-            // Checking the matrix elements alone is not enough: with no CK coverage the
-            // chain came back with finite entries but a camera sitting exactly on the
-            // target, so the body centre projected to w = 0 and only the perspective
-            // divide produced the NaN. Test the thing we actually rely on.
-            | Some full when not (full.Forward.ToArray() |> Array.forall Double.IsFinite)
-                          || not (full.Forward.TransformPosProj V3d.Zero
-                                  |> fun p -> Double.IsFinite p.X && Double.IsFinite p.Y && Double.IsFinite p.Z) ->
-                // A non-finite matrix is worse than no matrix: it renders a blank frame,
-                // which reads as "the geometry is wrong" rather than "the pointing never
-                // resolved". Observed with the spice method at epochs where the frame chain
-                // has no CK coverage yet something still returned Some rather than None.
-                Result.Error (sprintf
-                    "projection resolved to a non-finite matrix for %s at %s (frame %s). \
-                     The kernel most likely lacks coverage for this frame chain and the \
-                     failure was not reported as such."
-                    img.spiceName (img.mbi.obs_date.ToString("o")) referenceFrame)
-            | Some full ->
-                let proj = Frustum.projTrafo frustum
-                Ok {
-                    view = full * proj.Inverse
-                    proj = proj
-                    full = full
-                    distance = distance
-                    near = near
-                    far = far
-                }
+    /// projectorCameraWith at the kernels' instrument values (the tools).
+    let projectorCamera (nearFar : Option<float * float>) (referenceFrame : string) (body : string)
+                        (projectionMethod : PRo3D.ImageMapping.ProjectionMethod) (img : ResolvedImage) =
+        projectorCameraWith Map.empty nearFar referenceFrame body projectionMethod img
 
     /// Where the image coordinate system's origin sits and which way rows count.
     type PixelOrigin =

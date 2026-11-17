@@ -20,6 +20,7 @@ let featureTests () : Test =
         PRo3D.Tests.Section09_ViewerConfiguration.tests
         PRo3D.Tests.Section10_Grouping.tests
         PRo3D.Tests.Section12_GisView.tests
+        PRo3D.Tests.InstrumentFovTests.tests
         PRo3D.Tests.Section12_SceneBody.tests
         PRo3D.Tests.Section13_ContourMultitexturing.tests
         PRo3D.Tests.Section14_SurfaceComparison.tests
@@ -41,6 +42,7 @@ let allTests (parameters : TestUtils.TestParameters) : Test =
     // whole suite; per-list testSequenced is not enough, lists still interleave.
     testSequenced <| testList "all tests" [
         // kernel-independent tests (use only the default SPICE kernels)
+        BrokenAnnotationSaveTest.tests()
         GeoJsonRework.Tests.tests()
         AnnotationExportTest.tests()
         EllipseExportTest.tests()
@@ -101,6 +103,11 @@ let allTests (parameters : TestUtils.TestParameters) : Test =
             DidymosProjectionSpiceTest.tests()
             InstrumentProjectionComparisonTest.tests()
 
+        // projector poses: the geometry cases need no SPICE; the consistency cases load
+        // hera_ops.tm (one more swap, hence after the comparison tests) and self-skip
+        // without kernels or coverage
+        ProjectorPoseTest.tests()
+
         // pro3d-tool verbs. Placed after the kernel-sensitive tests for the same reason
         // they are ordered above: the sun-angles case needs the plan kernel, and every
         // swap degrades DAF handles. It reuses HeraSpiceTests' kernel tracking rather
@@ -112,6 +119,9 @@ let allTests (parameters : TestUtils.TestParameters) : Test =
         // unproject: the pixel addressing and table cases need no data; the shape-model
         // cross-check reuses the same kernel tracking and self-skips without kernels.
         UnprojectTest.tests()
+
+        // LoD frustum cull: pure math on a camera/box taken from a real scene.
+        LodCullTest.tests()
 
         // sample-layers: band readers and discovery need nothing; the shape-model case
         // uses a made-up camera, so it needs the Dimorphos OPC but no kernels or GPU.

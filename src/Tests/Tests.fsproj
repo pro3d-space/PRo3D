@@ -40,6 +40,7 @@
     <Compile Include="ProjectedImageMetadataTest.fs" />
     <Compile Include="ProjectedImageStackTest.fs" />
     <Compile Include="InstrumentProjectionComparisonTest.fs" />
+    <Compile Include="ProjectorPoseTest.fs" />
     <Compile Include="DidymosProjectionSpiceTest.fs" />
     <None Include="RemoteApi.rest" />
     <Compile Include="TriangleSetTests.fs" />
@@ -57,6 +58,7 @@
     <Compile Include="EllipseStatisticsTest.fs" />
     <Compile Include="OpcSidecarTests.fs" />
     <Compile Include="UnprojectTest.fs" />
+    <Compile Include="LodCullTest.fs" />
     <Compile Include="SampleLayersTest.fs" />
     <Compile Include="BaseTests.fs" />
     <None Include="data\bulk-rose-annotations.pro3d.ann" />
@@ -104,11 +106,13 @@
     <Compile Include="SurfaceEffectSwitchTest.fs" />
     <Compile Include="SceneRenderTests.fs" />
     <Compile Include="RenderViewTests.fs" />
+    <Compile Include="InstrumentFovTests.fs" />
     <Compile Include="MapProjectionRenderTest.fs" />
     <Compile Include="FillRenderTest.fs" />
     <Compile Include="SlowProfileExportTest.fs" />
     <Compile Include="BoulderStatisticsExportTest.fs" />
     <Compile Include="SurfaceComparisonTest.fs" />
+    <Compile Include="BrokenAnnotationSaveTest.fs" />
     <Compile Include="SurfaceEffectBenchmark.fs" />
     <Compile Include="MapProjectionBenchmark.fs" />
     <Compile Include="Program.fs" />

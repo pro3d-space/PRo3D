@@ -69,7 +69,7 @@ type SunAnglesOptions =
         [<Option("kernel-root", HelpText = "SPICE kernel tree: a clone of https://spiftp.esac.esa.int/git/hera.git or its 'kernels' dir. Defaults to $PRO3D_SPICE_KERNELS.")>]
         kernelRoot : string
 
-        [<Option("method", HelpText = "Projection method: spice or mbi (default mbi)")>]
+        [<Option("method", HelpText = "Projection method (orientation source): spice (SPICE position and attitude, aimed at the target), mbi (the sidecar's SC_QUAT and TRG_POS) or mbi-spice-range (SC_QUAT, target on the boresight at the SPICE range; for sidecars without TRG_POS). Default mbi")>]
         method : string
 
         [<Option("false-color", HelpText = "Also write one false-colour PNG per angle (blue=low to red=high), using the same colour ramp as the projection testbed")>]
@@ -217,7 +217,7 @@ type UnprojectOptions =
         [<Option("kernel-root", HelpText = "SPICE kernel tree. Defaults to $PRO3D_SPICE_KERNELS.")>]
         kernelRoot : string
 
-        [<Option("method", HelpText = "Projection method: spice or mbi (default mbi)")>]
+        [<Option("method", HelpText = "Projection method (orientation source): spice (SPICE position and attitude, aimed at the target), mbi (the sidecar's SC_QUAT and TRG_POS) or mbi-spice-range (SC_QUAT, target on the boresight at the SPICE range; for sidecars without TRG_POS). Default mbi")>]
         method : string
 
         [<Option("pixel-convention", HelpText = "How the input addresses pixels: 'image' (default, 0-based, top-left, y down) or 'fits' (1-based, bottom-left, y up)")>]
@@ -258,7 +258,7 @@ type SampleLayersOptions =
         [<Option("kernel-root", HelpText = "SPICE kernel tree. Defaults to $PRO3D_SPICE_KERNELS.")>]
         kernelRoot : string
 
-        [<Option("method", HelpText = "Projection method: spice or mbi (default mbi)")>]
+        [<Option("method", HelpText = "Projection method (orientation source): spice (SPICE position and attitude, aimed at the target), mbi (the sidecar's SC_QUAT and TRG_POS) or mbi-spice-range (SC_QUAT, target on the boresight at the SPICE range; for sidecars without TRG_POS). Default mbi")>]
         method : string
 
         [<Option("occlusion-tolerance", Default = 0.05, HelpText = "A vertex counts as hidden only if something lies on its line of sight more than this many metres in front of it (default 0.05)")>]
