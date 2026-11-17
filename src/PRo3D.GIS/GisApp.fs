@@ -840,7 +840,8 @@ module GisApp =
         div [] [ 
             // the kernel is loaded from the top bar (next to Reference System) or the
             // main menu; same hint as the Projected Images panel
-            div [style "padding: 5px; font-style: italic; color: white"] [
+            // stays at the top while the panel scrolls (.pro3d-info-bar, semui-overrides.css)
+            div [clazz "pro3d-info-bar"] [
                 // underlined: the term has a tooltip saying where the kernel is set
                 text "ensure that the correct "
                 span [style "text-decoration: underline; text-underline-offset: 2px; cursor: help"

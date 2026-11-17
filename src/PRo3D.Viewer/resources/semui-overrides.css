@@ -538,3 +538,18 @@ div.fullwidth.textcontainer > input {
     width: 100%;
     box-sizing: border-box;
 }
+
+/* Info line at the top of the GIS and Projected Images panels ("ensure that the correct
+   SPICE kernel ..."): sticks to the top while the panel scrolls. Opaque, so the content
+   scrolling under it does not show through; a muted blue, an info and not a warning. */
+.pro3d-info-bar {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    padding: 5px 8px;
+    margin-bottom: 4px;
+    font-style: italic;
+    color: white;
+    background: #23384d;
+    border-bottom: 1px solid rgba(120, 170, 220, 0.35);
+}

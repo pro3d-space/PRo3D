@@ -765,7 +765,8 @@ module ProjectedImageListApp =
             // strip at the bottom of the tab, under which the panel scrolled away.
             div [style "color: white;"] [
 
-                div [style "padding: 5px; font-style: italic"] [
+                // stays at the top while the panel scrolls (.pro3d-info-bar, semui-overrides.css)
+                div [clazz "pro3d-info-bar"] [
                     // underlined: the term has a tooltip saying where the kernel is set
                     text "ensure that the correct "
                     span [style "text-decoration: underline; text-underline-offset: 2px; cursor: help"
