@@ -22,9 +22,125 @@ module ProjectedImageListApp =
 
     let initial : ProjectedImageListModel = ProjectedImageListModel.initial
 
-    let update (m : ProjectedImageListModel) (msg : ProjectedImageListMessage) =
+    let rec update (m : ProjectedImageListModel) (msg : ProjectedImageListMessage) =
         match msg with
         | Nop -> m
+        | StacMessage msg ->
+            let s = m.stacSearch
+            /// a 401 during a session: the dialog again, with a word why
+            let signInAgain (s : StacSearchModel) =
+                { s with connection = SigningIn { message = Some "The catalog asks to sign in again."; busy = false }
+                         status = StacSearchStatus.Idle }
+            match msg with
+            | SetServerUrl url when url = s.serverUrl -> m
+            | SetServerUrl url ->
+                // another catalog: the sign-in was for the old one (the Viewer drops it)
+                // and its results: a click on one would go to the old catalog
+                { m with stacSearch = { s with serverUrl = url; connection = Disconnected; candidates = IndexList.empty; query = None; hovered = None; status = StacSearchStatus.Idle } }
+            | Connect ->
+                match s.connection with
+                | Connected _ | Connecting | SigningIn _ -> m
+                | Disconnected | ConnectionFailed _ -> { m with stacSearch = { s with connection = Connecting } }
+            | Disconnect ->
+                let status =
+                    match s.status with
+                    | StacSearchStatus.Searching | StacSearchStatus.Checking _ -> StacSearchStatus.Idle
+                    | other -> other
+                // the results go too: their downloads would need the sign-in just dropped
+                { m with stacSearch = { s with connection = Disconnected; status = status; candidates = IndexList.empty; query = None; hovered = None } }
+            | SignIn (user, _) ->
+                // the Viewer sends the attempt; the password is not kept here
+                { m with stacSearch = { s with connection = SigningIn { message = None; busy = true }; lastUser = user } }
+            | CancelSignIn ->
+                { m with stacSearch = { s with connection = Disconnected } }
+            | ConnectFinished (user, probe) ->
+                match s.connection with
+                // only the answer to the attempt in progress: a cancel or disconnect since
+                // leaves the state alone
+                | Connecting | SigningIn { busy = true } ->
+                    let connection =
+                        match probe with
+                        | ProbeOk -> Connected user
+                        | ProbeNeedsSignIn -> SigningIn { message = None; busy = false }
+                        | ProbeRejected -> SigningIn { message = Some "Wrong user name or password."; busy = false }
+                        // a failed sign-in stays in the dialog, which the user is looking at
+                        | ProbeFailed e when user.IsSome -> SigningIn { message = Some e; busy = false }
+                        | ProbeFailed e -> ConnectionFailed e
+                    { m with stacSearch = { s with connection = connection } }
+                | _ -> m
+            // a 401 reopens the dialog only while connected: not after a disconnect or a URL change
+            | QueryFinished (n, Result.Error e) when PRo3D.GIS.StacSearch.isSignInNeeded e && StacSearchModel.isConnected s && s.query |> Option.exists (fun q -> q.seq = n) ->
+                { m with stacSearch = signInAgain s }
+            | FetchFinished (itemId, Result.Error e) when PRo3D.GIS.StacSearch.isSignInNeeded e && StacSearchModel.isConnected s ->
+                { m with stacSearch = signInAgain { s with downloading = s.downloading |> HashSet.remove itemId } }
+            | SetTimeFrom t ->
+                { m with stacSearch = { s with timeFrom = t } }
+            | SetTimeTo t ->
+                { m with stacSearch = { s with timeTo = t } }
+            | SetIncidenceMin a ->
+                { m with stacSearch = { s with incidenceMin = clamp 0.0 180.0 a } }
+            | SetIncidenceMax a ->
+                { m with stacSearch = { s with incidenceMax = clamp 0.0 180.0 a } }
+            | QueryStarted q ->
+                { m with stacSearch = { s with query = Some q; status = StacSearchStatus.Searching } }
+            // the Query* answers of a search that is no longer the current one are
+            // dropped: a newer point is being searched already
+            | QueryListed (n, candidates, matched, listing) when s.query |> Option.exists (fun q -> q.seq = n) ->
+                { m with stacSearch = { s with status = StacSearchStatus.Checking (matched, 0, listing); candidates = IndexList.ofArray candidates } }
+            | QueryChecked (n, itemId, check) when s.query |> Option.exists (fun q -> q.seq = n) ->
+                // choose keeps the other rows' indices, so only this row changes on screen
+                let candidates =
+                    s.candidates |> IndexList.choose (fun c ->
+                        if c.itemId = itemId then check |> Option.map (fun check -> { c with check = check })
+                        else Some c)
+                let status =
+                    match s.status with
+                    | StacSearchStatus.Checking (matched, n, listing) -> StacSearchStatus.Checking (matched, n + 1, listing)
+                    | other -> other
+                { m with stacSearch = { s with candidates = candidates; status = status } }
+            | QueryFinished (n, result) when s.query |> Option.exists (fun q -> q.seq = n) ->
+                match result with
+                | Ok dropped ->
+                    let matched, listing =
+                        match s.status with
+                        | StacSearchStatus.Checking (matched, _, listing) -> matched, listing
+                        | _ -> s.candidates.Count, ByFootprint
+                    let sorted = s.candidates |> IndexList.toArray |> PRo3D.GIS.StacSearch.sortCandidates
+                    // the best maxResults only: the rest would bury them
+                    let shown = if sorted.Length > StacSearchModel.maxResults then Array.sub sorted 0 StacSearchModel.maxResults else sorted
+                    // kept = the images that show the point; red rows are counted apart
+                    let kept = sorted |> Array.sumBy (fun c -> match c.check with Resolved _ -> 1 | _ -> 0)
+                    let dropped = { dropped with unresolvedListed = sorted.Length - kept }
+                    { m with stacSearch = { s with status = StacSearchStatus.Found (matched, kept, listing, dropped); candidates = IndexList.ofArray shown } }
+                | Result.Error e ->
+                    { m with stacSearch = { s with status = StacSearchStatus.Failed e; candidates = IndexList.empty } }
+            | QueryListed _ | QueryChecked _ | QueryFinished _ ->
+                m
+            | Fetch _ when not (StacSearchModel.isConnected s) -> m
+            | Fetch itemId ->
+                // the download itself is started by the Viewer, which owns the worker
+                { m with stacSearch = { s with downloading = s.downloading |> HashSet.add itemId } }
+            | FetchFinished (itemId, result) ->
+                let m = { m with stacSearch = { s with downloading = s.downloading |> HashSet.remove itemId } }
+                match result with
+                | Result.Error e ->
+                    Log.warn "[STAC] could not download %s: %s" itemId e
+                    { m with stacSearch = { m.stacSearch with status = StacSearchStatus.Failed (sprintf "download failed: %s" e) } }
+                | Ok path ->
+                    // fetching the same item twice must not duplicate it in the library
+                    let image, images =
+                        match m.images |> IndexList.tryFind (fun _ img -> img.texture = path) with
+                        | Some img -> img, m.images
+                        | None ->
+                            let img = ProjectedImageApp.loadFile path
+                            img, m.images |> IndexList.add img
+                    update { m with images = images; selectedImage = Some image.id } (AddToStack image.id)
+            // done by the Viewer (files); nothing to change here
+            | ClearCache -> m
+            | ClearResults ->
+                { m with stacSearch = { s with candidates = IndexList.empty; query = None; status = StacSearchStatus.Idle; hovered = None } }
+            | HoverCandidate itemId ->
+                { m with stacSearch = { s with hovered = itemId } }
         | SetLightingMode mode ->
             { m with lightingMode = mode }
         | SetInstrumentVisbilityMode mode ->
@@ -141,6 +257,95 @@ module ProjectedImageListApp =
     let tryFindAdaptive (id : Guid) (m : AdaptiveProjectedImageListModel) =
         m.images.Content
         |> AVal.map (IndexList.tryFind (fun _ (img : AdaptiveProjectedImageModel) -> img.id = id))
+
+    /// The catalog's sign-in dialog, over the whole window: the Viewer mounts it on
+    /// its main page (ViewerGUI), since the GIS tab may be hidden when the Image
+    /// Search tool connects. Absent from the DOM unless signing in.
+    ///
+    /// The password is not bound to the model: it is read from the field when the
+    /// button is clicked and crosses to PRo3D once, as a Secret. Enter and Escape are
+    /// handled in the browser, so typing sends nothing. The dialog is rebuilt on a
+    /// failed attempt, which clears the password field.
+    let signInDialog (m : AdaptiveProjectedImageListModel) : DomNode<ProjectedImageListMessage> =
+        let s = m.stacSearch
+        // marked with data-stac, never with id: aardvark.media owns the elements' ids and
+        // finds them by id to update them
+        let userId = "user"
+        let passwordId = "password"
+        let submitId = "submit"
+        let cancelId = "cancel"
+        let find (key : string) = sprintf "document.querySelector('.stac-signin-dimmer [data-stac=%s]')" key
+        let fieldValue (key : string) = find key + ".value"
+        /// the password, read and cleared in one step, before it is sent: it does not
+        /// stay in the page for anyone with the developer tools to read later
+        let takePassword (key : string) = sprintf "(function () { var e = %s; var v = e.value; e.value = ''; return v; })()" (find key)
+        let unquote (json : string) =
+            try System.Text.Json.JsonSerializer.Deserialize<string> json with _ -> ""
+        let keys =
+            clientEvent "onkeydown"
+                (sprintf "if (event.key === 'Enter') { event.preventDefault(); %s.click(); } else if (event.key === 'Escape') { event.preventDefault(); %s.click(); }" (find submitId) (find cancelId))
+        let fieldStyle = "width: 100%; box-sizing: border-box; background: #111; color: #eee; border: 1px solid #555; border-radius: 3px; padding: 6px 8px; margin-top: 3px"
+        Incremental.div AttributeMap.empty (
+            alist {
+                let! connection = s.connection
+                match connection with
+                | SigningIn signIn ->
+                    let! serverUrl = s.serverUrl
+                    let! lastUser = s.lastUser
+                    let host =
+                        match Uri.TryCreate(serverUrl, UriKind.Absolute) with
+                        | true, uri -> uri.Host
+                        | _ -> serverUrl
+                    // the field to type into first: the password when the name is known
+                    let focus (node : DomNode<ProjectedImageListMessage>) = onBoot "setTimeout(() => document.getElementById('__ID__').focus(), 0);" node
+                    let userField =
+                        input [
+                            attribute "data-stac" userId; attribute "type" "text"; attribute "value" lastUser
+                            attribute "autocomplete" "username"; attribute "spellcheck" "false"
+                            style fieldStyle; keys
+                        ]
+                    let passwordField =
+                        input [
+                            attribute "data-stac" passwordId; attribute "type" "password"
+                            attribute "autocomplete" "current-password"
+                            style fieldStyle; keys
+                        ]
+                    yield div [
+                        clazz "stac-signin-dimmer"
+                        style "position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 20000; display: flex; align-items: center; justify-content: center"
+                    ] [
+                        div [style "width: 340px; background: #1b1c1d; color: #eee; border: 1px solid #555; border-radius: 6px; box-shadow: 0 8px 30px rgba(0,0,0,0.7); padding: 18px 20px; font-size: 14px"] [
+                            div [style "display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: bold"] [
+                                i [clazz "lock icon"] []
+                                text "Sign in to the image catalog"
+                            ]
+                            div [style "color: #aaa; margin: 4px 0 14px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap"; attribute "title" serverUrl] [
+                                text host
+                            ]
+                            label [style "display: block; color: #ccc"] [ text "User name"; (if lastUser = "" then focus userField else userField) ]
+                            label [style "display: block; color: #ccc; margin-top: 10px"] [ text "Password"; (if lastUser = "" then passwordField else focus passwordField) ]
+                            div [style "min-height: 20px; margin-top: 10px; color: #f88"] [
+                                text (signIn.message |> Option.defaultValue "")
+                            ]
+                            div [style "color: #888; font-size: 12px; margin-top: 2px"] [
+                                text "Kept for this session only; PRo3D does not store the password."
+                            ]
+                            div [style "display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px"] [
+                                button [attribute "data-stac" cancelId; clazz "ui button"; onClick (fun _ -> StacMessage CancelSignIn)] [ text "Cancel" ]
+                                button [
+                                    yield attribute "data-stac" submitId
+                                    yield clazz (if signIn.busy then "ui primary loading disabled button" else "ui primary button")
+                                    if not signIn.busy then
+                                        yield onEvent' "onclick" [fieldValue userId; takePassword passwordId] (function
+                                            | [user; password] ->
+                                                Seq.singleton (StacMessage (SignIn ((unquote user).Trim(), Secret.create (unquote password))))
+                                            | _ -> Seq.empty)
+                                ] [ text "Sign in" ]
+                            ]
+                        ]
+                    ]
+                | _ -> ()
+            })
 
     let selectedImage (m : AdaptiveProjectedImageListModel) =
         adaptive {
@@ -606,6 +811,266 @@ module ProjectedImageListApp =
                         yield div [style "padding: 5px; font-style: italic"] [text "No image is currently selected"]
                 })
 
+        /// STAC search: the images containing the point picked with the Image Search
+        /// tool, with their pixel size, range and sun incidence at the central pixel.
+        /// Clicking one downloads it and puts it on top of the stack.
+        let stacPanel =
+            let s = m.stacSearch
+            let formatLength (metres : float) =
+                if metres >= 10000.0 then sprintf "%.0f km" (metres / 1000.0)
+                elif metres >= 1000.0 then sprintf "%.1f km" (metres / 1000.0)
+                elif metres >= 1.0 then sprintf "%.1f m" metres
+                else sprintf "%.0f cm" (metres * 100.0)
+            let cell (width : int) = attribute "style" $"width: {width}px; text-align: right; flex-shrink: 0"
+            // native inputs in the panel's dark style; color-scheme darkens the date picker
+            let inputStyle (width : string) =
+                $"width: {width}; background: #1b1c1d; color: #eee; border: 1px solid #555; border-radius: 3px; padding: 2px 5px; color-scheme: dark"
+            let dateInput (value : aval<string>) (msg : string -> StacSearchMessage) =
+                Incremental.input (AttributeMap.ofAMap (amap {
+                    let! v = value
+                    yield attribute "type" "date"
+                    yield attribute "value" v
+                    yield style (inputStyle "135px")
+                    yield onChange (fun t -> StacMessage (msg (t.Trim())))
+                }))
+            let degreeInput (value : aval<float>) (msg : float -> StacSearchMessage) =
+                Incremental.input (AttributeMap.ofAMap (amap {
+                    let! v = value
+                    yield attribute "type" "number"
+                    yield attribute "min" "0"
+                    yield attribute "max" "180"
+                    yield attribute "step" "5"
+                    yield attribute "value" (sprintf "%g" v)
+                    yield style (inputStyle "64px")
+                    yield onChange (fun t ->
+                        match Double.TryParse(t, Globalization.NumberStyles.Float, Globalization.CultureInfo.InvariantCulture) with
+                        | true, a -> StacMessage (msg a)
+                        | _ -> Nop)
+                }))
+            /// the status line: a few words, and the whole story for its tooltip
+            let status =
+                (s.query, s.status) ||> AVal.map2 (fun query status ->
+                    let at =
+                        query |> Option.map (fun q -> sprintf "%.4f°E %.4f°N (%s)" q.lon q.lat q.body)
+                    // the short line's optional parts
+                    let tags (parts : list<bool * string>) =
+                        parts |> List.choose (fun (shown, t) -> if shown then Some (" · " + t) else None) |> String.concat ""
+                    let best kept = kept > StacSearchModel.maxResults, sprintf "best %d" StacSearchModel.maxResults
+                    let more kept =
+                        if kept > StacSearchModel.maxResults then sprintf " (the best %d shown)" StacSearchModel.maxResults else ""
+                    let outside (dropped : StacDropped) =
+                        if dropped.outsideIncidence > 0 then sprintf "; %d outside the incidence range" dropped.outsideIncidence else ""
+                    match status, at with
+                    | StacSearchStatus.Searching, Some at ->
+                        "searching ...", sprintf "searching at %s ..." at
+                    | StacSearchStatus.Checking (matched, n, ByFootprint), Some at ->
+                        sprintf "checking %d/%d ..." n matched,
+                        sprintf "checking %d of %d footprint(s) at %s ..." n matched at
+                    | StacSearchStatus.Checking (matched, n, WithoutFootprint), Some at ->
+                        sprintf "checking %d/%d by pointing ..." n matched,
+                        sprintf "no footprint at %s -- checking the pointing of %d of %d image(s) without footprint ..." at n matched
+                    | StacSearchStatus.Found (matched, kept, ByFootprint, dropped), Some at ->
+                        sprintf "%d images%s" kept (tags [ dropped.unresolvedListed > 0, sprintf "%d red" dropped.unresolvedListed; dropped.outsideIncidence > 0, sprintf "%d off incidence" dropped.outsideIncidence; best (kept + dropped.unresolvedListed) ]),
+                        sprintf "%d image(s) at %s -- %d footprint(s) matched%s%s" kept at matched (outside dropped) (more (kept + dropped.unresolvedListed))
+                    | StacSearchStatus.Found (matched, kept, WithoutFootprint, dropped), Some at ->
+                        let unresolved =
+                            match dropped.reason with
+                            | Some reason when dropped.count > 0 -> sprintf "; %d not checkable, e.g.: %s" dropped.count reason
+                            | _ -> ""
+                        let spice =
+                            if dropped.noSpiceCoverage > 0 then
+                                sprintf "; %d not covered by the loaded SPICE kernel (load one that covers their time)" dropped.noSpiceCoverage
+                            else ""
+                        sprintf "%d images by pointing%s" kept
+                            (tags [ dropped.noSpiceCoverage > 0, sprintf "%d no SPICE coverage" dropped.noSpiceCoverage
+                                    dropped.count > 0, sprintf "%d uncheckable" dropped.count
+                                    dropped.outsideIncidence > 0, sprintf "%d off incidence" dropped.outsideIncidence
+                                    best (kept + dropped.unresolvedListed) ]),
+                        sprintf "%d image(s) at %s by pointing, of %d without footprint%s%s%s%s" kept at matched (outside dropped) spice unresolved (more (kept + dropped.unresolvedListed))
+                    | StacSearchStatus.Failed e, _ when e = PRo3D.GIS.StacSearch.noSpiceKernel -> "no SPICE kernel (hover)", e
+                    | StacSearchStatus.Failed e, _ -> "error (hover)", sprintf "error: %s" e
+                    | _ ->
+                        "use the Image Search tool",
+                        "Select the Image Search tool in the toolbar (magnifier), then click the surface, or hold Ctrl and move over it.")
+            let header =
+                div [attribute "style" "display: flex; gap: 6px; padding: 3px 5px; font-weight: bold; background: black"] [
+                    div [attribute "style" "flex: 1"] [text "Image"]
+                    div [cell 62; attribute "title" "ground size of one pixel at the central pixel"] [text "px"]
+                    div [cell 62; attribute "title" "spacecraft to the central pixel's surface point"] [text "range"]
+                    div [cell 40; attribute "title" "sun incidence at the central pixel"] [text "inc."]
+                    div [cell 20] []
+                ]
+            let row (c : StacCandidate) =
+                let id = c.itemId
+                let values =
+                    match c.check with
+                    | Resolved v ->
+                        // * : the boresight missed the loaded surface, so range and
+                        // incidence are the cursor point's instead
+                        let mark = if v.centralOnSurface then "" else "*"
+                        [
+                            div [cell 62] [text (formatLength v.pixelSizeM)]
+                            div [cell 62] [text (formatLength v.rangeM + mark)]
+                            div [cell 40] [text ((v.incidenceDeg |> Option.map (sprintf "%.0f°") |> Option.defaultValue "-") + mark)]
+                        ]
+                    | StacCheck.Checking ->
+                        [ div [attribute "style" "width: 176px; color: #888; font-size: 0.85em"] [text "checking ..."] ]
+                    | Unresolved e ->
+                        [ div [attribute "style" "width: 176px; color: #e88; font-size: 0.85em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap"; attribute "title" e] [text e] ]
+                let tooltip =
+                    match c.check with
+                    | Resolved v when not v.centralOnSurface -> "click: download and project. * the boresight misses the loaded surface; range and incidence are at the cursor point"
+                    | _ -> "click: download and project"
+                div [
+                    attribute "style" $"display: flex; align-items: center; gap: 6px; padding: 3px 5px; cursor: pointer; border-bottom: 1px solid {borderColor}"
+                    attribute "title" tooltip
+                    onClick (fun _ -> StacMessage (Fetch id))
+                    // the frustum and footprint of the hovered row, and the large preview
+                    onMouseEnter (fun _ -> StacMessage (HoverCandidate (Some id)))
+                    onMouseLeave (fun _ -> StacMessage (HoverCandidate None))
+                ] [
+                    yield
+                        // through PRo3D's own server, which has the sign-in (StacSearch.overviewPath)
+                        match c.assets.overview with
+                        | Some _ -> img [attribute "src" (PRo3D.GIS.StacSearch.overviewPath c.itemId); attribute "style" "width: 40px; height: 40px; object-fit: contain; background: #111; flex-shrink: 0"]
+                        | None -> div [attribute "style" "width: 40px; height: 40px; flex-shrink: 0"] []
+                    yield div [attribute "style" "flex: 1; min-width: 0"] [
+                        div [attribute "style" "white-space: nowrap; overflow: hidden; text-overflow: ellipsis"] [text c.title]
+                        div [attribute "style" "color: #aaa; font-size: 0.85em"] [
+                            text (sprintf "%s  %s" c.instrument (c.time.ToString("yyyy-MM-dd HH:mm:ss")))
+                        ]
+                    ]
+                    yield! values
+                    yield Incremental.div (AttributeMap.ofList [cell 20]) (
+                        alist {
+                            let! downloading = s.downloading |> ASet.contains id
+                            if downloading then yield i [clazz "spinner loading icon"] []
+                            else yield i [clazz "download icon"; style "opacity: 0.6"] []
+                        })
+                ]
+            div [] [
+                Html.table [
+                    PRo3D.Core.UI.rowWithTip "Catalog:"
+                        "The STAC catalog's API root (/search is appended). Default: the PRO3D_STAC_URL environment variable."
+                        [
+                            Incremental.input (AttributeMap.ofAMap (amap {
+                                let! url = s.serverUrl
+                                yield attribute "type" "text"
+                                yield attribute "value" url
+                                yield attribute "placeholder" "https://.../api"
+                                yield style (inputStyle "100%")
+                                yield onChange (fun u -> StacMessage (SetServerUrl (u.Trim())))
+                            }))
+                        ]
+                    PRo3D.Core.UI.rowWithTip "Connection:"
+                        "Off at start: nothing is sent to the catalog until you connect (or select the Image Search tool). If the catalog wants a sign-in, a dialog asks for it; the password is kept for this session only."
+                        [
+                            Incremental.div (AttributeMap.ofList [style "display: flex; align-items: center; gap: 8px"]) (
+                                alist {
+                                    let! connection = s.connection
+                                    let chip (color : string) (label : string) (tip : string) =
+                                        span [style "display: inline-flex; align-items: center; gap: 5px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap"; attribute "title" tip] [
+                                            span [style ("width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: " + color)] []
+                                            text label
+                                        ]
+                                    let action (label : string) (icon : string) (msg : StacSearchMessage) =
+                                        button [clazz "ui mini compact button"; style ("margin: 0; flex-shrink: 0"); onClick (fun _ -> StacMessage msg)] [
+                                            i [clazz (icon + " icon")] []
+                                            text label
+                                        ]
+                                    match connection with
+                                    | Disconnected ->
+                                        yield chip "#777" "off" "not connected"
+                                        yield action "Connect" "plug" Connect
+                                    | Connecting ->
+                                        yield chip "#e0b040" "connecting ..." "asking the catalog"
+                                    | SigningIn { busy = true } ->
+                                        yield chip "#e0b040" "signing in ..." "checking the user name and password"
+                                    | SigningIn _ ->
+                                        yield chip "#e0b040" "sign-in needed" "the sign-in dialog is open"
+                                    | Connected user ->
+                                        let label = match user with Some u -> sprintf "connected as %s" u | None -> "connected"
+                                        yield chip "#3c3" label label
+                                        yield action "Disconnect" "power off" Disconnect
+                                    | ConnectionFailed e ->
+                                        yield chip "#e55" "failed (hover)" e
+                                        yield action "Retry" "redo" Connect
+                                })
+                        ]
+                    PRo3D.Core.UI.rowWithTip "Time (UTC):"
+                        "Observation date range, both days included. Clear a field for an open end."
+                        [
+                            div [style "display: flex; align-items: center; gap: 6px"] [
+                                dateInput s.timeFrom SetTimeFrom
+                                text "to"
+                                dateInput s.timeTo SetTimeTo
+                            ]
+                        ]
+                    PRo3D.Core.UI.rowWithTip "Sun incidence:"
+                        "Sun incidence at the picked point, degrees: 0 = sun overhead, 90 = sun on the horizon, above 90 = night. Low (0-40) for albedo and colour, high (55-80) for relief: long shadows. Images whose sidecar has no sun position are kept."
+                        [
+                            div [style "display: flex; align-items: center; gap: 6px"] [
+                                degreeInput s.incidenceMin SetIncidenceMin
+                                text "° to"
+                                degreeInput s.incidenceMax SetIncidenceMax
+                                text "°"
+                            ]
+                        ]
+                ]
+                div [attribute "style" "display: flex; align-items: center; gap: 6px; padding: 2px 5px; color: #bbb; font-size: 0.85em"] [
+                    // one line; the details are in the tooltip
+                    Incremental.div
+                        (AttributeMap.ofAMap (amap {
+                            let! (_, full) = status
+                            yield attribute "title" full
+                            yield style "flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis"
+                        }))
+                        (alist {
+                            let! (short, _) = status
+                            yield text short
+                        })
+                    i [clazz "eraser icon"; style "cursor: pointer"; attribute "title" "clear the results"; onClick (fun _ -> StacMessage ClearResults)] []
+                    i [clazz "trash alternate outline icon"; style "cursor: pointer"
+                       attribute "title" "delete the downloaded images and sidecars (%TEMP%\\PRo3D\\stac); a search downloads them again"
+                       onClick (fun _ -> StacMessage ClearCache)] []
+                ]
+                // the hovered row's overview, large, over the image column (its
+                // caption repeats the title); ignores the mouse so the row stays hovered.
+                // Off for now: it hides too much of the list.
+                let showLargePreview = false
+                let preview =
+                    alist {
+                        let! hovered = s.hovered
+                        match hovered with
+                        | _ when not showLargePreview -> ()
+                        | None -> ()
+                        | Some id ->
+                            let! candidates = s.candidates.Content
+                            match candidates |> IndexList.tryFind (fun _ c -> c.itemId = id) with
+                            | Some c ->
+                                match c.assets.overview with
+                                | Some _ ->
+                                    yield div [attribute "style" "position: absolute; left: 4px; top: 26px; width: 208px; z-index: 10; pointer-events: none; background: #111; border: 1px solid #666; padding: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.8)"] [
+                                        img [attribute "src" (PRo3D.GIS.StacSearch.overviewPath c.itemId); attribute "style" "display: block; width: 200px; height: 200px; object-fit: contain"]
+                                        div [attribute "style" "color: #ccc; font-size: 0.8em; padding-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis"] [
+                                            text (sprintf "%s  %s" c.title (c.time.ToString("yyyy-MM-dd HH:mm")))
+                                        ]
+                                    ]
+                                | None -> ()
+                            | None -> ()
+                    }
+                div [attribute "style" "border: 2px solid black; position: relative"] [
+                    Incremental.div AttributeMap.empty preview
+                    header
+                    Incremental.div (AttributeMap.ofList [attribute "style" "max-height: 320px; overflow-y: auto"]) (
+                        // not-yet-checked rows stay hidden: hundreds of "checking" rows
+                        // would bury the hits; the status line counts them instead
+                        s.candidates
+                        |> AList.choose (fun c -> match c.check with StacCheck.Checking -> None | _ -> Some (row c))
+                    )
+                ]
+            ]
+
         // library column header and rows, framed together by imagesPanel
         let libraryHeader, libraryRows =
             // one column: its width (shared by header and rows, so they line up) and the
@@ -621,6 +1086,7 @@ module ProjectedImageListApp =
             let attributesInstrument = column 90 false true rowHeight
             let attributesAttr1 = column 120 true true rowHeight
             let attributesAttr2 = column 120 true false rowHeight
+
 
             let header =
                 div [
@@ -857,6 +1323,10 @@ module ProjectedImageListApp =
                     // flows with the page: nothing pinned, no scroll area of its own
                     filterPanel
                     imagesPanel
+                ]
+
+                accordion "Image Search (STAC)" "search" false (style "margin-top: 6px") [
+                    stacPanel
                 ]
 
                 accordion "Projected Images" "layer group" false (style "margin-top: 6px") [

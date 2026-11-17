@@ -155,6 +155,268 @@ type ProjectionMethod =
     | MbiBased = 1
     | MbiAttitudeSpiceRange = 2
 
+/// Where a STAC item keeps the files a projection needs. `mbi` and `image` are
+/// what the projection reads; the statistics sidecar and the overview are optional.
+type StacAssets =
+    {
+        mbi           : string
+        image         : string
+        imageMetadata : Option<string>
+        overview      : Option<string>
+    }
+
+/// Observation geometry of one STAC hit, see StacSearch.metrics.
+type StacMetrics =
+    {
+        /// spacecraft to the central pixel's surface point, metres; to the queried
+        /// point when the boresight misses the loaded surface
+        rangeM           : float
+        /// ground size of one pixel at rangeM, metres
+        pixelSizeM       : float
+        /// sun incidence at the central pixel (at the queried point when the
+        /// boresight misses), degrees. None when the image carries no sun position.
+        incidenceDeg     : Option<float>
+        /// sun incidence at the picked point itself, degrees (0 = sun overhead,
+        /// > 90 = night): what the incidence filter compares. None when the image
+        /// carries no sun position or the point has no normal.
+        pointIncidenceDeg : Option<float>
+        /// the queried point in the image, pixels, 0-based, origin top-left
+        pixel            : V2d
+        /// true: range and incidence are measured at the central pixel's surface
+        /// point; false: the boresight missed the loaded surface, they are the
+        /// queried point's
+        centralOnSurface : bool
+    }
+
+/// Where the local check of one catalog hit stands.
+type StacCheck =
+    /// listed by the server, not checked yet
+    | Checking
+    /// the point is in the image and visible: its observation geometry
+    | Resolved   of StacMetrics
+    /// the image's pointing could not be resolved (no sidecar, no attitude, no
+    /// frustum for the instrument, no SPICE coverage); it would not project either
+    | Unresolved of string
+
+type StacCandidate =
+    {
+        itemId     : string
+        collection : string
+        title      : string
+        time       : DateTime
+        instrument : string
+        assets     : StacAssets
+        check      : StacCheck
+    }
+
+/// One cursor position being searched for. `seq` orders the searches, so a slow
+/// answer to an old position cannot overwrite a newer one.
+type StacQueryPoint =
+    {
+        seq  : int
+        /// SPICE body of the picked surface, e.g. "MARS" -- matched against the
+        /// items' ssys:targets
+        body : string
+        /// planetocentric, east-positive, degrees -- the convention of the STAC footprints
+        lon  : float
+        lat  : float
+    }
+
+/// How the server's list for a point came about.
+type StacListing =
+    /// the items whose footprint contains the point
+    | ByFootprint
+    /// no footprint contains the point: the items without any footprint (in the
+    /// time range), to be found by their pointing alone. See docs/StacImageSearch.md.
+    | WithoutFootprint
+
+/// Images a search dropped although the server listed them.
+type StacDropped =
+    {
+        /// pointing did not resolve. Only for WithoutFootprint: there nothing says
+        /// the image shows the point, so an image that cannot be checked is not
+        /// listed (in red) but counted.
+        count            : int
+        /// the first reason, as an example
+        reason           : Option<string>
+        /// the point is in the image, but its sun incidence is outside the filter
+        outsideIncidence : int
+        /// listed in red: the footprint matched, the pointing did not resolve
+        unresolvedListed : int
+        /// not checkable because the loaded SPICE kernel does not cover the image's
+        /// time (or its frames). Counted apart from `count`: a kernel that covers them
+        /// fixes these, and the user should be told so.
+        noSpiceCoverage  : int
+    }
+
+module StacDropped =
+    let none = { count = 0; reason = None; outsideIncidence = 0; unresolvedListed = 0; noSpiceCoverage = 0 }
+
+type StacSearchStatus =
+    | Idle
+    /// waiting for the server
+    | Searching
+    /// the server found `matched` items; `checked` of them are checked so far
+    | Checking of matched : int * checked : int * StacListing
+    /// `matched` is how many items the server found, `kept` how many survive the
+    /// local check that the point really projects into the image (and the
+    /// incidence filter); the list shows at most StacSearchModel.maxResults
+    | Found  of matched : int * kept : int * StacListing * StacDropped
+    | Failed of string
+
+/// A password. Prints as *** (ToString and %A), so a message or model that carries
+/// one cannot write it into a log. The text is private: outside this assembly
+/// `Secret.create` makes one and `Secret.reveal` is the only way to read it, so
+/// every use of the plain text is found by searching for `Secret.reveal`.
+[<Sealed; StructuredFormatDisplay("***")>]
+type Secret internal (value : string) =
+    member internal _.Value = value
+    override _.ToString() = "***"
+
+module Secret =
+    let create (text : string) = Secret(text)
+    /// The plain text. Keep the calls few: each one is a place the password exists.
+    let reveal (secret : Secret) = secret.Value
+
+/// What a connection attempt found (StacSearch.probe).
+type StacProbe =
+    /// the catalog answered a search
+    | ProbeOk
+    /// it wants a sign-in (401), and none was sent
+    | ProbeNeedsSignIn
+    /// it refused the user name and password sent (401)
+    | ProbeRejected
+    /// anything else: unreachable, 403, not a STAC catalog, ...
+    | ProbeFailed of string
+
+/// The sign-in dialog: an error to show (wrong password, session expired), and
+/// whether an attempt is running.
+type StacSignIn =
+    {
+        message : Option<string>
+        busy    : bool
+    }
+
+/// The catalog connection (docs/StacImageSearch.md). Off at start: nothing is sent
+/// to the catalog until the user enables it, or selects the Image Search tool.
+type StacConnection =
+    | Disconnected
+    /// asking the catalog, without credentials
+    | Connecting
+    /// the sign-in dialog is open
+    | SigningIn of StacSignIn
+    /// searches run; the user signed in as, if the catalog wanted a sign-in
+    | Connected of user : Option<string>
+    /// the last attempt failed, and why; searches stay off
+    | ConnectionFailed of string
+
+/// STAC search for the images containing a point picked with the Image Search
+/// tool. Session state only; nothing of it is saved with the scene.
+[<ModelType>]
+type StacSearchModel =
+    {
+        serverUrl    : string
+        /// observation time range, UTC, "YYYY-MM-DD" (an ISO 8601 time also
+        /// works); empty = open. Parsed when searching (StacSearch.parseTimeRange).
+        timeFrom     : string
+        timeTo       : string
+        /// sun incidence at the picked point, degrees: images outside are dropped.
+        /// 0 = sun overhead, 90 = sun on the horizon.
+        incidenceMin : float
+        incidenceMax : float
+        query        : Option<StacQueryPoint>
+        status       : StacSearchStatus
+        candidates   : IndexList<StacCandidate>
+        /// item ids whose files are being downloaded
+        downloading  : HashSet<string>
+        /// the result row under the mouse: its frustum and footprint are drawn like
+        /// a hovered library image's (from the sidecar the check downloaded)
+        hovered      : Option<string>
+        connection   : StacConnection
+        /// the user name the sign-in dialog starts with: the last one that worked.
+        /// The password is never kept, here or anywhere else.
+        lastUser     : string
+    }
+
+module StacSearchModel =
+    /// No catalog is built in: the default comes from the PRO3D_STAC_URL environment
+    /// variable, otherwise the user enters the server in the GIS tab.
+    let defaultServerUrl =
+        match System.Environment.GetEnvironmentVariable "PRO3D_STAC_URL" with
+        | null -> ""
+        | url -> url.Trim()
+
+    /// What PRo3D remembers of the catalog between sessions, per user: the last catalog
+    /// URL that connected and the last user name that signed in, so the panel and the
+    /// sign-in dialog start with them. Never the password: it is asked for in every
+    /// session. PRO3D_STAC_REMEMBERED puts it elsewhere (UI tests, so they do not
+    /// overwrite the developer's own); tests in process set it directly.
+    let mutable rememberedFile =
+        match System.Environment.GetEnvironmentVariable "PRO3D_STAC_REMEMBERED" with
+        | null | "" ->
+            System.IO.Path.Combine(System.Environment.GetFolderPath System.Environment.SpecialFolder.ApplicationData, "Pro3D", "stac.json")
+        | path -> path
+
+    /// (url, user); empty strings for what is not known
+    let remembered () : string * string =
+        try
+            let f = rememberedFile
+            if System.IO.File.Exists f then
+                use doc = System.Text.Json.JsonDocument.Parse(System.IO.File.ReadAllText f)
+                let field (name : string) =
+                    match doc.RootElement.TryGetProperty name with
+                    | true, v when v.ValueKind = System.Text.Json.JsonValueKind.String -> v.GetString().Trim()
+                    | _ -> ""
+                field "url", field "user"
+            else "", ""
+        with _ -> "", ""
+
+    /// After a successful connect: this URL, and the user if one signed in (else the
+    /// remembered user stays).
+    let remember (url : string) (user : Option<string>) =
+        try
+            let _, previousUser = remembered ()
+            let user = user |> Option.defaultValue previousUser
+            let f = rememberedFile
+            System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName f) |> ignore
+            let json = System.Text.Json.JsonSerializer.Serialize(dict [ "url", url.Trim(); "user", user ])
+            System.IO.File.WriteAllText(f, json)
+        with e -> Log.warn "[STAC] could not remember the catalog: %s" e.Message
+
+    /// The Catalog field at start: PRO3D_STAC_URL when set (tests, scripted runs), else
+    /// the last catalog that connected.
+    let initialServerUrl () =
+        if defaultServerUrl <> "" then defaultServerUrl
+        else fst (remembered ())
+
+    /// Searches run only while connected.
+    let isConnected (s : StacSearchModel) =
+        match s.connection with
+        | Connected _ -> true
+        | _ -> false
+
+    /// The result list shows the best this many, by pixel size.
+    [<Literal>]
+    let maxResults = 100
+
+    let initial =
+        {
+            serverUrl    = initialServerUrl ()
+            // HERA at Didymos: arrival to the end of the nominal mission
+            timeFrom     = "2026-10-01"
+            timeTo       = "2027-05-31"
+            // daylight only
+            incidenceMin = 0.0
+            incidenceMax = 90.0
+            query        = None
+            status       = Idle
+            candidates   = IndexList.empty
+            downloading  = HashSet.empty
+            hovered      = None
+            connection   = Disconnected
+            lastUser     = snd (remembered ())
+        }
+
 module ProjectedImages =
     /// Upper bound on how many images can be projected at once. Sizes the
     /// shader's uniform matrix/min-max arrays and the projected-texture array:
@@ -465,6 +727,7 @@ type ProjectedImageListModel =
         windingCorrection    : bool
         /// Library filters; transient, see ImageFilter.
         filter               : ImageFilter
+        stacSearch           : StacSearchModel
         /// Field of view per instrument (SPICE frame name) used to project images:
         /// the kernel defaults unless the scene changed them. Saved per scene, only
         /// the values that differ from the kernels (GisApp "instrumentFovs").
@@ -593,6 +856,7 @@ module ProjectedImageListModel =
         useTransferFunction = true
         windingCorrection = false
         filter = ImageFilter.initial
+        stacSearch = StacSearchModel.initial
         instrumentFovs = InstrumentFov.defaults
     }
 
@@ -608,7 +872,49 @@ type ImageMessage =
     | Empty
 
 
+type StacSearchMessage =
+    | SetServerUrl    of string
+    | SetTimeFrom     of string
+    | SetTimeTo       of string
+    | SetIncidenceMin of float
+    | SetIncidenceMax of float
+    /// The viewer's STAC worker started searching this point. The Query*
+    /// messages below carry the search's `seq` and are dropped once a newer
+    /// search has started.
+    | QueryStarted  of StacQueryPoint
+    /// The server's answer, every candidate still Checking, and how many items
+    /// it matched.
+    | QueryListed   of seq : int * array<StacCandidate> * matched : int * StacListing
+    /// One candidate checked. None: the point is not in that image (or hidden
+    /// in it), so the candidate goes.
+    | QueryChecked  of seq : int * itemId : string * Option<StacCheck>
+    /// All candidates checked (and those dropped as unresolvable), or the search failed.
+    | QueryFinished of seq : int * Result<StacDropped, string>
+    /// Download a candidate's files and put it on top of the projection stack.
+    /// The download is started by the Viewer (it owns the worker); this model
+    /// only tracks that it is running.
+    | Fetch         of itemId : string
+    /// Download finished: the local image path, or why it failed.
+    | FetchFinished of itemId : string * Result<string, string>
+    | ClearResults
+    /// The result row under the mouse, or None.
+    | HoverCandidate of itemId : Option<string>
+    /// Connect to the catalog (the panel's switch, or selecting the Image Search
+    /// tool): asks it without credentials, and opens the sign-in dialog if it wants
+    /// one. The Viewer runs the attempt; ConnectFinished brings the answer.
+    | Connect
+    /// Stop searching and forget the credentials.
+    | Disconnect
+    /// The sign-in dialog's button: try these. The Viewer runs the attempt.
+    | SignIn of user : string * password : Secret
+    | CancelSignIn
+    /// A connection attempt's answer, with the user it was made for.
+    | ConnectFinished of user : Option<string> * StacProbe
+    /// Delete the downloaded files (%TEMP%\PRo3D\stac). Done by the Viewer.
+    | ClearCache
+
 type ProjectedImageListMessage =
+    | StacMessage of StacSearchMessage
     | OrbitCameraMessage of OrbitMessage
     /// Selects the image; the already selected image is deselected (single selection).
     | SelectImage of Guid

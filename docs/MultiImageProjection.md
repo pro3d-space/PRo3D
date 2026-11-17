@@ -142,6 +142,9 @@ selected, or, for *Instrument*, while no instrument is selected. An active filte
 label turns amber with a filter icon, and ↶ next to it resets it. Filters are not
 saved with the scene and are reset when a folder is imported.
 
+To find images of a spot in a STAC catalog instead of a local folder, see
+[Image Search (STAC)](StacImageSearch.md).
+
 ## 3. Find images by hovering
 
 **Hovering a library row previews that image in 3D as the top layer of the

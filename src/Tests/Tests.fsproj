@@ -28,6 +28,8 @@
     <Compile Include="ColorByCategoryColorTest.fs" />
     <Compile Include="SpiceTests.fs" />
     <Compile Include="HeraSpiceTests.fs" />
+    <Compile Include="FakeStacCatalog.fs" />
+    <Compile Include="StacSearchTests.fs" />
     <Compile Include="SbmtImportAlignmentTest.fs" />
     <Compile Include="PolygonCsvImportTests.fs" />
     <None Include="data\AF2_0CO72A_250311T025652_1B.mbi.json" />

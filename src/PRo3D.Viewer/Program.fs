@@ -410,6 +410,25 @@ let main argv =
                 http.route "/activity" >=> http.mimeType "application/json" >=> http.request (fun _ ->
                     http.ok (Activity.toJson ()))
 
+                // Image catalog thumbnails, downloaded with the session's sign-in
+                // (StacSearch.overviewPath). Only listed results' overviews; anything
+                // else is 404. Blocks this request while downloading, not the update thread.
+                http.routef "/stac-overview/%s" (fun key ->
+                    match PRo3D.GIS.StacSearch.overviewFile key with
+                    | Some path ->
+                        let mime =
+                            match (Path.GetExtension path).ToLowerInvariant() with
+                            | ".jpg" | ".jpeg" -> "image/jpeg"
+                            | ".tif" | ".tiff" -> "image/tiff"
+                            | _ -> "image/png"
+                        // the bytes, not http.sendFile: Giraffe's resolves the path against
+                        // the content root, and the cache is in %TEMP% (thumbnails were
+                        // blank). An overview is small.
+                        match (try Some (File.ReadAllBytes path) with _ -> None) with
+                        | Some bytes -> http.mimeType mime >=> http.ok bytes
+                        | None -> http.notFound "thumbnail not readable"
+                    | None -> http.notFound "no such thumbnail")
+
                 http.route "/crash.txt" >=> http.mimeType "text/plain" >=> http.sendFile logFilePath
 
                 http.route "/minilog.txt" >=> http.mimeType "text/plain" >=> http.request (fun r ->

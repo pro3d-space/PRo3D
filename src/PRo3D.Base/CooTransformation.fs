@@ -177,7 +177,8 @@ module CooTransformation =
     let tryLoadKernel (kernelDirectory : string) (name : string) =
         let fullPath = Path.GetFullPath(Path.Combine(kernelDirectory,name))
         if File.Exists fullPath then () else failwith ("spice kernel file does not exist: " + fullPath)
-        let r = CooTransformation.AddSpiceKernel(materializeMetaKernel fullPath)
+        let kernel = materializeMetaKernel fullPath
+        let r = lock PRo3D.SPICE.CooTransformation.l (fun () -> CooTransformation.AddSpiceKernel kernel)
         if r <> 0 then
             Log.warn "could not load spice kernel: %s in %s." name kernelDirectory
             None
@@ -311,8 +312,10 @@ module CooTransformation =
             Log.warn "[CooTransformation] switchKernel called before initCooTrafo -- cannot determine log directory"
             None
         | Some logDir ->
-            CooTransformation.DeInit()
-            let errorCode = CooTransformation.Init(true, Path.Combine(logDir, "CooTransformation.log"), 1, 2)
+            let errorCode =
+                lock PRo3D.SPICE.CooTransformation.l (fun () ->
+                    CooTransformation.DeInit()
+                    CooTransformation.Init(true, Path.Combine(logDir, "CooTransformation.log"), 1, 2))
             if errorCode <> 0 then
                 Log.warn "[CooTransformation] failed to reinit SPICE after DeInit (code %d)" errorCode
                 None
@@ -321,7 +324,7 @@ module CooTransformation =
 
     let deInitCooTrafo () =
         Log.line "[CooTransformation] shutting down..."
-        CooTransformation.DeInit()
+        lock PRo3D.SPICE.CooTransformation.l (fun () -> CooTransformation.DeInit())
         Log.line "[CooTransformation] down."
 
     /// Coordinate convention used per body.
@@ -449,7 +452,10 @@ module CooTransformation =
         let mutable lat = nan
         let mutable lon = nan
         let mutable alt = nan
-        let errorCode = CooTransformation.Xyz2LatLonAlt(planetName, p.X, p.Y, p.Z, &lat, &lon, &alt)
+        // CSPICE is not thread-safe: every native call takes the one SPICE lock
+        // (SpiceInterfacing's), or a call from another thread corrupts its state --
+        // seen as SPICE(BADSUBSCRIPT) in trcpkg and a dead viewer
+        let errorCode = lock PRo3D.SPICE.CooTransformation.l (fun () -> CooTransformation.Xyz2LatLonAlt(planetName, p.X, p.Y, p.Z, &lat, &lon, &alt))
         if errorCode <> 0 then None
         else Some { latitude = lat; longitude = lon; altitude = alt; radian = 0.0 }
 
@@ -458,7 +464,7 @@ module CooTransformation =
         let mutable pY = nan
         let mutable pZ = nan
         let errorCode =
-            CooTransformation.LatLonAlt2Xyz(planetName, sc.latitude, sc.longitude, sc.altitude, &pX, &pY, &pZ)
+            lock PRo3D.SPICE.CooTransformation.l (fun () -> CooTransformation.LatLonAlt2Xyz(planetName, sc.latitude, sc.longitude, sc.altitude, &pX, &pY, &pZ))
         if errorCode <> 0 then None
         else Some (V3d(pX, pY, pZ))
 

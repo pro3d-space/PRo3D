@@ -29,6 +29,8 @@ type Interactions =
     | EditAnnotation        = 22 // move the control points of the selected annotation
     /// give map units of the active geological map the active legend unit (#843)
     | AssignUnit            = 23
+    /// pick a point and search the STAC catalog for images of it (docs/StacImageSearch.md)
+    | PickStacPoint         = 24
 
 
 module Interactions =
