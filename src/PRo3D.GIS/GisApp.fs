@@ -83,7 +83,9 @@ module GisApp =
 
     let loadSpiceKernel (force : bool) (path : string) (m : GisApp) =
         match m.spiceKernel, force with
-        | Some s, false when s = CooTransformation.SPICEKernel.ofPath path -> m
+        // skip only a kernel that is already loaded: a failed one (also a failed
+        // --defaultSpiceKernel) must load when the same path is chosen again
+        | Some s, false when s = CooTransformation.SPICEKernel.ofPath path && m.spiceKernelLoadSuccess -> m
         | _ -> 
             if File.Exists path then
                 let directory = Path.GetDirectoryName path

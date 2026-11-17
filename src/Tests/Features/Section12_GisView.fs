@@ -39,6 +39,22 @@ let tests =
                 skiptest (sprintf "default SPICE kernel not installed at %s" kernel)
         }
 
+        test "TC-12.1 a kernel that failed loads when the same path is chosen again" {
+            // the failed path stays in the model (the top bar shows it as failed), so
+            // choosing it again (SetSpiceKernel: not forced) must not be skipped as loaded
+            let appData = Path.Combine(Environment.GetFolderPath Environment.SpecialFolder.ApplicationData, "Pro3D")
+            let kernel  = Path.Combine(appData, "JR", "CooTransformationConfig", "pck00010.tpc")
+            if File.Exists kernel then
+                let failed =
+                    { GisApp.initial None with
+                        spiceKernel = Some (CooTransformation.SPICEKernel.ofPath kernel)
+                        spiceKernelLoadSuccess = false }
+                let m = GisApp.loadSpiceKernel false kernel failed
+                Expect.isTrue m.spiceKernelLoadSuccess "the retried kernel should load"
+            else
+                skiptest (sprintf "default SPICE kernel not installed at %s" kernel)
+        }
+
         // TC-12.2 Observation Settings
 
         test "TC-12.2 SetObserver sets the observed body" {
