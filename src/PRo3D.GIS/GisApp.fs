@@ -839,7 +839,13 @@ module GisApp =
             // the kernel is loaded from the top bar (next to Reference System) or the
             // main menu; same hint as the Projected Images panel
             div [style "padding: 5px; font-style: italic; color: white"] [
-                text "ensure that the correct SPICE kernel is set for the image projection"
+                // underlined: the term has a tooltip saying where the kernel is set
+                text "ensure that the correct "
+                span [style "text-decoration: underline; text-underline-offset: 2px; cursor: help"
+                      attribute "title" "Load it in the top bar: Load SPICE kernel, next to Reference System"] [
+                    text "SPICE kernel"
+                ]
+                text " is set for the image projection"
             ]
             div [clazz "ui inverted segment"] [ 
                 h5 [clazz "ui inverted horizontal divider header"

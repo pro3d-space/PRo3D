@@ -740,7 +740,13 @@ module ProjectedImageListApp =
             div [style "color: white;"] [
 
                 div [style "padding: 5px; font-style: italic"] [
-                    text "ensure that the correct SPICE kernel is set for the image projection"
+                    // underlined: the term has a tooltip saying where the kernel is set
+                    text "ensure that the correct "
+                    span [style "text-decoration: underline; text-underline-offset: 2px; cursor: help"
+                          attribute "title" "Load it in the top bar: Load SPICE kernel, next to Reference System"] [
+                        text "SPICE kernel"
+                    ]
+                    text " is set for the image projection"
                 ]
 
                 div [style "padding: 5px;"] [
