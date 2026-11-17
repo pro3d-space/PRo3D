@@ -66,7 +66,6 @@
     <Compile Include="OutcropTraceAttitudeTest.fs" />
     <Compile Include="OutcropTraceShaderTest.fs" />
     <Compile Include="SurfaceEffectVariantTest.fs" />
-    <Compile Include="BrightnessContrastTest.fs" />
     <Compile Include="MapProjectionMathTests.fs" />
     <Compile Include="MapProjectionShaderTest.fs" />
     <Compile Include="MapProjectionAnnotationFixture.fs" />
@@ -109,6 +108,8 @@
     <Compile Include="InstrumentFovTests.fs" />
     <Compile Include="MapProjectionRenderTest.fs" />
     <Compile Include="FillRenderTest.fs" />
+    <!-- after Features\TestHelpers.fs: renders through its GL context -->
+    <Compile Include="BrightnessContrastTest.fs" />
     <Compile Include="SlowProfileExportTest.fs" />
     <Compile Include="BoulderStatisticsExportTest.fs" />
     <Compile Include="SurfaceComparisonTest.fs" />
