@@ -472,7 +472,7 @@ module ProjectedImageListApp =
                     } |> AttributeMap.ofAMap
                 Incremental.input attributes
             tr [] [
-                filterLabel "Date [UTC]" (Some "Observation time. Images without one (no sidecar) are hidden while this filter is set") active
+                filterLabel "Date [UTC]" (Some "Observation time, from the image's metadata. Images without one (no metadata) are hidden while this filter is set") active
                 td [attribute "colspan" "3"] [
                     dualSlider RangeFilterKind.Time r
                     div [style "display: flex; justify-content: space-between; gap: 6px; margin-top: 4px"] [
@@ -484,9 +484,11 @@ module ProjectedImageListApp =
             ]
 
         let phaseAngleTooltip =
-            Some "Phase angle: the angle at the target between the sun and the camera. Low: lit from behind the camera, flat with few shadows; around 90°: side lighting, long shadows; high: backlit. Images without it (no sidecar) are hidden while this filter is set"
+            Some "Phase angle: the angle at the target between the sun and the camera. Low: lit from behind the camera, flat with few shadows; around 90°: side lighting, long shadows; high: backlit. Images without it (no metadata) are hidden while this filter is set"
         let resolutionTooltip =
-            Some "Ground resolution at the target: distance × the angle one pixel spans (instrument field of view / image width). Images without it (no sidecar or unknown instrument) are hidden while this filter is set"
+            Some "Ground resolution at the target: distance × the angle one pixel spans (instrument field of view / image width). Images without it (no metadata or unknown instrument) are hidden while this filter is set"
+        let distanceTooltip =
+            Some "Distance from the camera to the target's centre at the time of the image: the length of the target position vector in the image's metadata. Images without metadata count as 0 km"
 
         let filterPanel =
             let header =
@@ -528,7 +530,7 @@ module ProjectedImageListApp =
                             yield rangeFilterRow "Phase Angle [°]" phaseAngleTooltip RangeFilterKind.PhaseAngle
                             yield instrumentFilterRow
                             yield rangeFilterRow "Resolution [m/px]" resolutionTooltip RangeFilterKind.Resolution
-                            yield rangeFilterRow "Distance [km]" None RangeFilterKind.Distance
+                            yield rangeFilterRow "Distance [km]" distanceTooltip RangeFilterKind.Distance
                             yield timeFilterRow
                     })
             ]
