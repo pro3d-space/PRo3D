@@ -49,6 +49,8 @@ module SgExtensions =
                 channel : int
                 /// brightness (x) and contrast (y) on the normalised value; (0, 1) = unchanged
                 brightnessContrast : V2f
+                /// through the colour map (the image's False Colour switch); false: grey values
+                falseColor : bool
             }
 
         type ProjectedImages =

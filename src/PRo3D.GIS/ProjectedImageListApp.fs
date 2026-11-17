@@ -570,6 +570,19 @@ module ProjectedImageListApp =
         let selectedImageContent =
             let selected = selectedImage m
             let hasSelection = selected |> AVal.map Option.isSome
+            // the surface ignores Data/Tone/False Colour while it shows the original
+            // pixels: say so where they are edited, with the switch at hand
+            let originalPixelsHint =
+                Incremental.div AttributeMap.empty (
+                    alist {
+                        let! adjusted = m.useTransferFunction
+                        if not adjusted then
+                            yield div [style "display: flex; align-items: center; gap: 8px; margin: 4px 0 8px 0; padding: 6px 8px; border: 1px solid rgba(255,255,255,0.15); border-radius: 4px"] [
+                                i [clazz "exclamation triangle icon"; style "color: #e3b341; margin: 0"] []
+                                span [style "flex: 1"] [ text "Image adjustments are off: these settings only change the preview, not the projection." ]
+                                button [clazz "ui mini button"; style "flex-shrink: 0"; onClick (fun _ -> ToggleTransferFunction)] [ text "Apply image adjustments" ]
+                            ]
+                    })
             // built once: binding on the selection would rebuild the preview's render
             // control on every click; it follows `selected` itself
             let preview = div [style "width: 100%"] [showRelative2DImage selected]
@@ -578,6 +591,7 @@ module ProjectedImageListApp =
                     alist {
                         match! selected with
                         | Some img ->
+                            yield originalPixelsHint
                             yield showDOM img |> UI.map (fun msg -> ProjectedImageListMessage.ImageMessage (img.id, msg))
                         | None -> ()
                     })
@@ -800,11 +814,13 @@ module ProjectedImageListApp =
                         settingRow "Sun / Lighting Mode:" None [
                             Html.SemUi.dropDown m.lightingMode SetLightingMode
                         ]
-                        // off = the image's own RGB, untouched. Instrument data needs
-                        // the colour map to be readable at all, but an ordinary RGB
-                        // image does not -- and only untransformed pixels can be
-                        // compared against the source to check a projection.
-                        settingRow "Transfer Function:" None [
+                        // off = the image's own RGB, untouched (internally: the
+                        // transfer function off). Instrument data needs the colour
+                        // map to be readable at all, but an ordinary RGB image does not
+                        // -- and only untransformed pixels can be compared against the
+                        // source to check a projection.
+                        settingRow "Apply Image Adjustments:"
+                                   (Some "On: each image's Range, Brightness/Contrast and False Colour (Selected Image › Properties) are applied to its projection on the surface. Off: the images are projected as stored, untouched -- for RGB images and for checking a projection against its source.") [
                             GuiEx.iconCheckBox m.useTransferFunction ToggleTransferFunction
                         ]
                         // for OPCs whose triangles are wound inward: without it the

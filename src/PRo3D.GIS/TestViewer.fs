@@ -281,7 +281,7 @@ module TestViewer =
                     |> Array.choose id
                     |> Array.map (fun t ->
                         let layer : Sg.ProjectedStackLayer =
-                            { trafo = Some t; minMax = V2f(0.0f, 1.0f); texturePath = ""; channel = 0; brightnessContrast = V2f.OI }
+                            { trafo = Some t; minMax = V2f(0.0f, 1.0f); texturePath = ""; channel = 0; brightnessContrast = V2f.OI; falseColor = true }
                         layer)
                     |> AVal.constant
 

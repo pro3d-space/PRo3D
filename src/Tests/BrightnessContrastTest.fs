@@ -80,13 +80,14 @@ let tests () =
         test "the surface effect applies the per-layer values and needs no GL extension (macOS: core 4.1)" {
             let code = OutcropTraceShaderTest.surfaceEffectGlsl.Value
             Expect.stringContains code "ProjectedStackBrightnessContrast[i]" "per-layer brightness/contrast"
+            Expect.stringContains code "ProjectedStackFalseColor[i]" "per-layer false colour switch"
             let extensions =
                 code.Split('\n')
                 |> Array.filter (fun l -> l.TrimStart().StartsWith "#extension")
             Expect.isEmpty extensions "an extension pragma fails the whole program on macOS"
         }
     
-        test "the surface layers follow the selected image's range and brightness/contrast" {
+        test "the surface layers follow the selected image's range, brightness/contrast and False Colour switch" {
             let image = { ProjectedImageApp.initial with id = Guid.NewGuid(); texture = "image.tif" }
             let observation =
                 { (GisApp.initial None).defaultObservationInfo with
@@ -111,6 +112,7 @@ let tests () =
                 | Some l -> l
                 | None -> failtest "no stack layer"
             Expect.equal (layer ()).brightnessContrast V2f.OI "unchanged at first"
+            Expect.isFalse (layer ()).falseColor "False Colour off by default, as in the preview"
 
             let edit (msg : ImageMessage) (m : GisApp) =
                 { m with projectedImageList = ProjectedImageListApp.update m.projectedImageList (ProjectedImageListMessage.ImageMessage (image.id, msg)) }
@@ -120,9 +122,11 @@ let tests () =
                 |> edit (SetCustomMax 7.0)
                 |> edit (BrightnessContrastMessage (SetBrightness (Numeric.Action.SetValue 0.25)))
                 |> edit (BrightnessContrastMessage (SetContrast (Numeric.Action.SetValue 2.0)))
+                |> edit ToggleFalseColor
             transact (fun () -> g.Update m')
             Expect.equal (layer ()).minMax (V2f(3.0f, 7.0f)) "range reaches the surface"
             Expect.equal (layer ()).brightnessContrast (V2f(0.25f, 2.0f)) "brightness/contrast reach the surface"
+            Expect.isTrue (layer ()).falseColor "the False Colour switch reaches the surface"
         }
     
         test "a per-layer vec2 array reaches the shader for every layer (std140 stride)" {
@@ -133,5 +137,19 @@ let tests () =
                 | Some got ->
                     Expect.isTrue (abs (got.X - expected.X) < 0.02f && abs (got.Y - expected.Y) < 0.02f)
                         (sprintf "layer %d: expected %A, got %A" i expected got)
+        }
+    
+        // magma.png's own pixels (first row): x = 0 is (0, 0, 3), x = 639 is (251, 252, 191).
+        // The legend runs top = high values, so its first stop is the bright end.
+        test "the legend shows the colour map's colours (red and blue not swapped)" {
+            let stream = PRo3D.InstrumentVisualization.InstrumentImageVisualization.getResourceStream "magma.png" ()
+            let stops = PRo3D.FalseColorLegendApp.Draw.buildGradiantsOfImage false 100 stream
+            let close (c : C3b) (r, g, b) =
+                abs (int c.R - r) <= 6 && abs (int c.G - g) <= 6 && abs (int c.B - b) <= 6
+            match List.tryHead stops, List.tryLast stops with
+            | Some (_, top), Some (_, bottom) ->
+                Expect.isTrue (close top (251, 252, 191)) (sprintf "top: magma's cream, got %A" top)
+                Expect.isTrue (close bottom (0, 0, 3)) (sprintf "bottom: magma's black, got %A" bottom)
+            | _ -> failtest "no legend stops"
         }
     ]

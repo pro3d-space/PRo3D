@@ -130,6 +130,9 @@ module ImageProjection =
             member x.ProjectedUseTransferFunction : bool = uniform?ProjectedUseTransferFunction
             /// per layer: brightness (x) and contrast (y), (0, 1) = unchanged
             member x.ProjectedStackBrightnessContrast : Arr<N<32>, V2f> = uniform?ProjectedStackBrightnessContrast
+            /// per layer: 1 = through the colour map (the image's False Colour switch),
+            /// 0 = grey values -- as the image's preview shows it
+            member x.ProjectedStackFalseColor : Arr<N<32>, int> = uniform?ProjectedStackFalseColor
 
         /// The projection stack: layers bottom -> top, painter's order -- the
         /// TOPMOST layer that covers a fragment with a projector-facing normal
@@ -187,7 +190,7 @@ module ImageProjection =
                             let mapped =
                                 if not uniform.ProjectedUseTransferFunction then
                                     sample.XYZ
-                                elif uniform.StackUseFalseColor then
+                                elif uniform.StackUseFalseColor && uniform.ProjectedStackFalseColor.[i] <> 0 then
                                     stackColormapSampler.Sample(V2f(normalized, 0.0f)).XYZ
                                 else
                                     V3f(normalized, normalized, normalized)

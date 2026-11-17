@@ -90,13 +90,15 @@ sections:
   - **Tone** — *how* it looks, purely visual: *Brightness* (−1…1, default 0) shifts
     the values, *Contrast* (0…3, default 1) scales them around mid grey; reset by the
     header's undo icon. Acts on the values within the *Data* range, before the colour
-    map, in the preview and on the surface — there only with *Transfer Function* on,
-    which otherwise shows the image untouched. While either is changed the header
-    shows an amber *legend does not match*: the legend labels the *Data* range, and
-    the adjusted colours no longer stand for those values.
+    map, in the preview and on the surface — there only with *Apply Image Adjustments* on
+    (off, the surface shows the image untouched, and Properties says so in an amber
+    hint with an *Apply image adjustments* button).
   - **False Colour** — the header's checkbox switches the colour map on (off: grey
     values); *Colour Map* and *Legend* (in the main view) are dimmed while it is off,
     and the legend is not shown in the main view then, whatever its checkbox says.
+    The switch applies per image, in the preview and on the surface alike (with
+    *Apply Image Adjustments* on): an image with it off is projected in grey values.
+    Which colour map the surface uses is still the *selected* image's, for all layers.
 
   Every image keeps its own settings; they are not saved with the scene. *No image is
   currently selected* when there is none.
@@ -110,7 +112,7 @@ sections:
 |---|---|
 | **Image Opacity** | blends the projected stack over the surface texture (formerly labelled *Visualization*) |
 | **Visibility** | *RelativeCount* shows the coverage view (see 6.) |
-| **Transfer Function** | on (default): samples go through the per-image min/max remap and the colour map, which instrument data needs to be readable. Off: the image's own pixels, untouched — for RGB images, and for checking a projection against its source |
+| **Apply Image Adjustments** | on (default): samples go through each image's *Range*, *Brightness/Contrast* and *False Colour* (Selected Image › Properties), which instrument data needs to be readable. Off: the image's own pixels, untouched — for RGB images, and for checking a projection against its source. While it is off, the selected image's Properties show a hint with a button to turn it on. (Formerly *Transfer Function*.) |
 | **Winding Correction** | off (default). Turn it on only when an image survives **only near the limb** of the body: that is an OPC whose triangles are wound inward, so the projector-facing test rejects exactly the terrain facing the projector. On: PRo3D estimates each OPC hierarchy's winding from its coarsest patch (loaded once, the first time something is projected) and corrects the inward ones. The estimate assumes a roughly convex body seen from orbit; it is not reliable for near-vertical terrain such as rover outcrops. Saved with the scene. |
 | **Orientation Source** | where the projector's position and attitude come from — `MbiAttitudeSpiceRange` (default), `MbiBased` or `Spice`; see [If an image does not land on the terrain](#if-an-image-does-not-land-on-the-terrain) |
 | **Registration** | roll / pitch / yaw in degrees, turning the projector about its own position (a pointing correction); applies to every image of the stack |
@@ -209,7 +211,7 @@ of it differs. That residue is the image's own noise and shading. A projection
 landing in the wrong place moves crater edges, which shows up as a much larger
 difference concentrated along them.
 
-Set two things first, or the comparison is meaningless: **Transfer Function off**
+Set two things first, or the comparison is meaningless: **Apply Image Adjustments off**
 (otherwise you are comparing a false-coloured image against a greyscale texture)
 and **Orientation Source → `MbiBased`** (the sidecar pointing the frame was
 generated with).

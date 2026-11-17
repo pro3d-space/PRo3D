@@ -15,6 +15,12 @@ release folds them into `PRODUCT_RELEASE_NOTES.md`.
 
 ## Pending
 
+- Projected images (macOS): **the colour legend shows the colour map's real colours.** It read the map with red and blue swapped, so e.g. Magma's orange and cream appeared as blue and cyan in the legend (docs/MultiImageProjection.md)
+
+- Projected images: **an image's *False Colour* switch now applies on the surface too**, not only in its preview: with it off the image is projected in grey values (docs/MultiImageProjection.md)
+
+- Projected images: **the *Transfer Function* checkbox is now *Apply Image Adjustments*.** While it is off, the selected image's Properties say that Range, Brightness/Contrast and False Colour only change the preview, with a button to turn it on (docs/MultiImageProjection.md)
+
 - Image projection: **each instrument's field of view can be set per scene** in *Projected Images → Instruments*, prefilled from the SPICE instrument kernels. HyperScout-H now defaults to the kernel's paraxial 15.5 × 8.3° (was 15.24 × 8.09°), and TIRI images can be projected (13.3 × 10°, image axes not yet checked against a real image) (#882, docs/InstrumentFieldOfView.md)
 
 - Projected images: **the *Spice* orientation source projects again when the image's sidecar has no target vector.** Its depth range came from the sidecar's `TRG_POS`; with `TRG_POS = 0` the far plane sat at 100 m and nothing was painted. Spice now takes the distance from SPICE, aims at the sidecar's `TARGET` and keeps the spacecraft's roll from the SPICE attitude instead of an arbitrary one (docs/MultiImageProjection.md)

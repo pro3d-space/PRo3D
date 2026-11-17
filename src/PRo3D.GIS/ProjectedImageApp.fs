@@ -354,32 +354,14 @@ module ProjectedImageApp =
         ]
 
     /// Tone: brightness / contrast on the normalised value, before the colour map --
-    /// purely visual. While either is changed, a hint in the header says the legend no
-    /// longer matches: it labels the Range values, which the adjustment shifts.
+    /// purely visual.
     let private viewTone (m : AdaptiveProjectedImageModel) =
         let bc = m.brightnessContrast
         let row (label : string) (input : AdaptiveNumericInput) (action : Numeric.Action -> BrightnessContrastAction) =
             propertyRow label [ Numeric.view' [NumericInputType.Slider] input |> UI.map (action >> BrightnessContrastMessage) ]
-        let adjusted =
-            adaptive {
-                let! b = bc.brightness.value
-                let! c = bc.contrast.value
-                return b <> BrightnessContrast.init.brightness.value || c <> BrightnessContrast.init.contrast.value
-            }
-        let hint =
-            Incremental.span AttributeMap.empty (
-                alist {
-                    let! adjusted = adjusted
-                    if adjusted then
-                        yield span [style "color: #e3b341; font-weight: normal; font-size: 0.9em"
-                                    attribute "title" "Brightness/contrast are changed: colours and grey values no longer match the values the legend shows (it labels the Data range)"] [
-                            i [clazz "exclamation triangle icon"] []
-                            text "legend does not match"
-                        ]
-                })
         section "Tone"
-            (Some "visual only: on the image's values within its Data range, before the colour map; on the surface only with Transfer Function on")
-            [] [hint] (Some ("reset brightness and contrast", BrightnessContrastMessage ResetBrightnessContrast)) [
+            (Some "visual only: on the image's values within its Data range, before the colour map; on the surface only with Apply Image Adjustments on")
+            [] [] (Some ("reset brightness and contrast", BrightnessContrastMessage ResetBrightnessContrast)) [
             row "Brightness:" bc.brightness SetBrightness
             row "Contrast:" bc.contrast SetContrast
         ]
@@ -388,7 +370,7 @@ module ProjectedImageApp =
     /// values); the map and the legend are dimmed while it is off.
     let private viewFalseColour (m : AdaptiveProjectedImageModel) =
         let on = m.falseColorPreview
-        section "False Colour" (Some "off: grey values")
+        section "False Colour" (Some "off: grey values, in the preview and on the surface")
             [ div [style "font-weight: normal"] [ GuiEx.iconCheckBox on ToggleFalseColor ] ] [] None [
             switchedRow on "Colour Map:" [
                 Html.SemUi.dropDown m.colorMap SetColorMap

@@ -225,6 +225,7 @@ module ProjectedImagesListAppHelper =
                                     channel = img.selectedChannel.idx
                                     brightnessContrast =
                                         V2f(img.brightnessContrast.brightness.value, img.brightnessContrast.contrast.value)
+                                    falseColor = img.falseColorPreview
                                 }
                             Some layer
                     )

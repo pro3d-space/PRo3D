@@ -822,7 +822,8 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
                                  minMax = V2f(0.0f, 1.0f)
                                  texturePath = imagePath
                                  channel = 0
-                                 brightnessContrast = V2f.OI } |]
+                                 brightnessContrast = V2f.OI
+                                 falseColor = true } |]
                         | _ -> [||])
                 stackCoverageEnabled = AVal.constant false
                 hoveredProjection = AVal.constant None
