@@ -673,7 +673,7 @@ module ProjectedImageListApp =
                                                     if f > 0.0 then yield text (sprintf "%.2f" f)
                                                     else
                                                         yield span [ style "color: #e07070"
-                                                                     attribute "title" "The sidecar's TRG_POS is zero: no distance, and the MbiBased orientation source cannot place this image. Use Spice or MbiAttitudeSpiceRange." ] [
+                                                                     attribute "title" "The metadata's target position (TRG_POS) is zero: no distance, and the MbiBased orientation source cannot place this image. Use Spice or MbiAttitudeSpiceRange." ] [
                                                             text "no TRG_POS" ]
                                                 })
                                             div [attributesAttr2] [ Incremental.text (img.time |> AVal.map (fun t -> t.ToUniversalTime().ToString())) ]
