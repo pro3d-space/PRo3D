@@ -119,8 +119,15 @@ module ProjectedImagesListAppHelper =
             |> AMap.mapA (fun _ f -> f.Current)
             |> AMap.toAVal
             |> AVal.map InstrumentFov.toInstruments
+        // The loaded SPICE kernel: SPICE's own state is not adaptive, so the projectors
+        // read this to be recomputed when a kernel is loaded -- otherwise images
+        // imported before their kernel keep the projection that failed without it.
+        // Hoisted like the above.
+        let kernelA =
+            (g.spiceKernel, g.spiceKernelLoadSuccess) ||> AVal.map2 (fun kernel ok -> kernel, ok)
         let imageTrafo =
             AVal.custom (fun t ->
+                kernelA.GetValue(t) |> ignore
                 match observer.GetValue(t) with
                 | None -> None
                 | Some o ->
@@ -152,6 +159,9 @@ module ProjectedImagesListAppHelper =
         // by texture path (sidecars do not change during a session).
         let metadataCache = System.Collections.Generic.Dictionary<string, InstrumentMetadata.ParsedMetadata>()
         let projectorCache = System.Collections.Generic.Dictionary<Guid * PRo3D.ImageMapping.ProjectionMethod * (float * float * float) * string * string * PRo3D.SPICE.InstrumentProjection.Instruments, Option<Trafo3d>>()
+        // the kernel the cached projectors were computed with: a newly loaded kernel
+        // invalidates all of them (a projector that failed without it is cached as None)
+        let mutable projectorCacheKernel = None
 
         /// one image's projector in the surface frame at its own obs time,
         /// memoized (D8: SPICE is single-threaded behind a global lock)
@@ -159,6 +169,10 @@ module ProjectedImagesListAppHelper =
             match ProjectedImageListModel.tryFind id model with
             | None -> None
             | Some img ->
+                let kernel = Some (kernelA.GetValue(t))
+                if kernel <> projectorCacheKernel then
+                    projectorCache.Clear()
+                    projectorCacheKernel <- kernel
                 let originBody, originFrame = originOf t observer
                 let boresightTrafo = boresightAdjustment.GetValue(t)
                 let instruments = instrumentsA.GetValue(t)
