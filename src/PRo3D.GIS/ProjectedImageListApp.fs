@@ -37,9 +37,6 @@ module ProjectedImageListApp =
             { m with windingCorrection = not m.windingCorrection }
         | InstrumentFovMessage msg ->
             { m with instrumentFovs = InstrumentFovApp.update m.instrumentFovs msg }
-        | LoadSpiceAndTime _ ->
-            // handled by GisApp.update, which owns the spice kernel + observation time state
-            m
         | OrbitCameraMessage msg ->
             { m with cameraState = OrbitController.update m.cameraState msg }
         | SetProjectionOpacity opacity -> 

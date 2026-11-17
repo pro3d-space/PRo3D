@@ -72,8 +72,8 @@ content.
 ```
 
 The metakernel the sidecar was generated against belongs in the *value*;
-comments are not machine-readable. PRo3D uses `SPICE_MK` to verify/load the
-matching kernel for an image ("Load Spice and Time").
+comments are not machine-readable. PRo3D's tools use `SPICE_MK` to find the
+matching kernel for an image (`SpiceBoot.resolveSidecarKernel`).
 
 *Fix:* `"value": "hera_plan.tm"` (or the fully qualified kernel id).
 

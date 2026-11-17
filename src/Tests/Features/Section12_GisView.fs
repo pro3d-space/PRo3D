@@ -437,8 +437,6 @@ let tests =
                 // fly-to moves the time too, but frames the image itself
                 let flyTo = GisAppAction.ProjectedImageListMessage (PRo3D.ImageMapping.ProjectedImageListMessage.FlyToImage (Guid.NewGuid()))
                 Expect.isFalse (GisApp.reaimsCamera on flyTo) "fly-to keeps its own camera"
-                let loadSpiceAndTime = GisAppAction.ProjectedImageListMessage (PRo3D.ImageMapping.ProjectedImageListMessage.LoadSpiceAndTime "x")
-                Expect.isFalse (GisApp.reaimsCamera on loadSpiceAndTime) "Load Spice and Time keeps the camera"
         }
 
         // TC-12.4 Scene body (#758) — the global planet and the GIS observation are one

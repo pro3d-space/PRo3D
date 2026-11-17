@@ -147,7 +147,6 @@ function pro3dDeleteKey(event) {
 	var shown = false;
 	var mouseX = 0, mouseY = 0;
 	var observer = null;
-	var ownChange = false;     // our removeAttribute must not count as a server change
 
 	function tooltipElement() {
 		if (tip) { return tip; }
@@ -199,7 +198,9 @@ function pro3dDeleteKey(event) {
 		if (observer) { observer.disconnect(); observer = null; }
 		if (current) {
 			if (current.hasAttribute('data-pro3d-title')) {
-				if (!current.hasAttribute('title')) { current.setAttribute('title', text); }
+				// the empty placeholder still there: hand the title back. Gone: the
+				// server removed the title while hovered, so it stays removed.
+				if (current.getAttribute('title') === '') { current.setAttribute('title', text); }
 				current.removeAttribute('data-pro3d-title');
 			}
 		}
@@ -207,24 +208,35 @@ function pro3dDeleteKey(event) {
 		text = '';
 	}
 
+	// While hovered the title is replaced by an empty one, not removed: title="" shows
+	// no native tooltip, and a removal by the server stays observable (removing an
+	// attribute that is not there reports nothing).
 	function hold(el) {
 		current = el;
 		text = el.getAttribute('title') || '';
-		ownChange = true;
 		el.setAttribute('data-pro3d-title', text);
-		el.removeAttribute('title');
-		ownChange = false;
+		el.setAttribute('title', '');
+		// Observer callbacks run later (microtasks): our own changes inside the callback
+		// are discarded with takeRecords(). The change above happens before observe().
 		observer = new MutationObserver(function () {
-			if (ownChange || current !== el) { return; }
+			if (current !== el) { return; }
 			var t = el.getAttribute('title');
-			if (t === null) { return; }
+			if (t === '') { return; }
+			if (t === null) {
+				// the server removed the title while hovered: drop the held one, or
+				// release() would put back a title the server no longer has
+				text = '';
+				el.removeAttribute('data-pro3d-title');
+				hide();
+				return;
+			}
 			// the server set a new title while hovered: take it, keep the native one off
 			text = t;
-			ownChange = true;
 			el.setAttribute('data-pro3d-title', t);
-			el.removeAttribute('title');
-			ownChange = false;
+			el.setAttribute('title', '');
+			observer.takeRecords();
 			if (shown) { tooltipElement().textContent = t; place(); }
+			else if (!timer) { timer = setTimeout(show, TOOLTIP_DELAY_MS); }
 		});
 		observer.observe(el, { attributes: true, attributeFilter: ['title'] });
 		timer = setTimeout(show, TOOLTIP_DELAY_MS);

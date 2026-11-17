@@ -25,11 +25,9 @@ every element with one, in every panel.
 ## How it works
 
 `resources/utilities.js`, section *tooltips*. On hover the script moves the element's
-`title` to `data-pro3d-title`, so the native tooltip never shows, and shows its own after
-the delay. On leave it puts the `title` back, so the DOM is again exactly what
-aardvark.media's diff expects. While an element is hovered a `MutationObserver` watches
-its `title`: a new one from the server is taken over instead of reaching the browser.
-
-Limitation: a `title` the server *removes* while the element is hovered is put back on
-leave (a removal of an attribute that is not there cannot be observed); it disappears
-with the element's next update.
+`title` to `data-pro3d-title` and leaves an empty `title=""` in its place, so the native
+tooltip never shows, and shows its own after the delay. On leave it puts the `title`
+back, so the DOM is again exactly what aardvark.media's diff expects. While an element is
+hovered a `MutationObserver` watches its `title`: a new one from the server is taken
+over instead of reaching the browser, and one the server removes stays removed (the
+empty placeholder is what keeps that removal observable).

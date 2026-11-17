@@ -116,28 +116,6 @@ module GisApp =
         | Some kernel -> loadSpiceKernel true kernel.FullPath m
         | None -> m
 
-    /// Like loadSpiceKernel, but resets SPICE's kernel pool first (see
-    /// CooTransformation.switchKernel) instead of just adding on top of
-    /// whatever is already loaded. Used when switching to a kernel from a
-    /// possibly different mission phase (e.g. via LoadSpiceAndTime), where
-    /// layering would risk silently conflicting kernel data.
-    let loadSpiceKernelSwitching (path : string) (m : GisApp) =
-        if File.Exists path then
-            let directory = Path.GetDirectoryName path
-            let name = Path.GetFileName path
-            match CooTransformation.switchKernel directory name with
-            | None ->
-                Log.line "[GisApp] Could not load spice kernel %s" path
-                {m with spiceKernel = Some (CooTransformation.SPICEKernel.ofPath path)
-                        spiceKernelLoadSuccess = false}
-            | Some spiceKernel ->
-                Log.line "[GisApp] Successfully loaded spice kernel %s" path
-                {m with spiceKernel = Some spiceKernel
-                        spiceKernelLoadSuccess = true}
-        else
-            Log.line "[GisApp] Could not find path %s" path
-            {m with spiceKernelLoadSuccess = false}
-
     let getMissionTimeEntriesData () : list<MissionTimeEntry> = 
         let getNumericInput v = { min = 0.0; max = 1.0; step = 0.001; value = v; format = "{0:0.000}" }
         // UTC, like every observation time (see Calendar.toUtc)
@@ -168,7 +146,7 @@ module GisApp =
     let private setObservationTime (date : DateTime) (m : GisApp) =
         { m with defaultObservationInfo = ObservationInfo.update m.defaultObservationInfo (ObservationInfoAction.SetTime date) }
 
-    /// Scene time := the image's observation time (fly-to, Load Spice and Time).
+    /// Scene time := the image's observation time (fly-to).
     let private setObservationTimeToImage (mbi : InstrumentMetadata.Tiff_Mbi_Json.Mbi) (m : GisApp) =
         let current = Calendar.toUtc m.defaultObservationInfo.time.date
         let epoch = Calendar.toUtc mbi.obs_date
@@ -321,36 +299,6 @@ module GisApp =
                 match InstrumentMetadata.tryParseMetadataForImagePath image.texture with
                 | Some mbi, _ -> viewer, setObservationTimeToImage mbi m
                 | None, _ -> viewer, m
-        | GisAppAction.ProjectedImageListMessage (ProjectedImageListMessage.LoadSpiceAndTime directory) ->
-            if String.IsNullOrEmpty directory then
-                viewer, m // user cancelled the folder dialog
-            else
-                let selectedTexturePath =
-                    m.projectedImageList.selectedImage
-                    |> Option.bind (fun id -> ProjectedImageListModel.tryFind id m.projectedImageList)
-                    |> Option.map (fun img -> img.texture)
-                match selectedTexturePath with
-                | None ->
-                    Log.warn "[GisApp] no image selected -- select an image before loading its spice kernel"
-                    viewer, m
-                | Some texturePath ->
-                    match InstrumentMetadata.tryParseMetadataForImagePath texturePath with
-                    | None, _ ->
-                        Log.warn "[GisApp] selected image has no mbi sidecar metadata"
-                        viewer, m
-                    | Some mbi, _ ->
-                        let m = setObservationTimeToImage mbi m
-                        match mbi.spiceMk with
-                        | None ->
-                            Log.warn "[GisApp] selected image's mbi sidecar does not declare a SPICE_MK kernel name"
-                            viewer, m
-                        | Some mkName ->
-                            match CooTransformation.tryFindSpiceKernelFile directory mkName with
-                            | None ->
-                                Log.warn "[GisApp] could not find kernel \"%s\" (.tm) under %s" mkName directory
-                                viewer, {m with spiceKernelLoadSuccess = false}
-                            | Some kernelPath ->
-                                viewer, loadSpiceKernelSwitching kernelPath m
         | GisAppAction.ProjectedImageListMessage msg ->
             viewer, {m with projectedImageList = ProjectedImageListApp.update m.projectedImageList msg }
         | GisAppAction.InitializeMissionTimeEntries ->
@@ -1237,7 +1185,7 @@ module GisApp =
     /// Whether `msg`, applied to give `m`, re-aims the camera from the camera source body
     /// (lookAtObserver). Choosing bodies or frame and "Re-use settings above" always do;
     /// a time change - calendar or mission time table - only while cameraFollowsSource is
-    /// on. Fly-to and Load Spice and Time move the time too but frame the camera themselves.
+    /// on. Fly-to moves the time too but frames the camera itself.
     let reaimsCamera (m : GisApp) (msg : GisAppAction) =
         match msg with
         | GisAppAction.ObservationInfoMessage (ObservationInfoAction.Reset

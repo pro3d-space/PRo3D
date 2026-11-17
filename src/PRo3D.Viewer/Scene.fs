@@ -420,12 +420,28 @@ module SceneLoader =
     let disarmContinuousExport (m : Model) =
         { m with drawing = PRo3D.Core.Drawing.DrawingApp.disarmAutomaticGeoJsonExport m.drawing }
 
+    /// SPICE kernels are process-wide: loading a scene does not unload them. A scene
+    /// that names no kernel of its own keeps showing the loaded one (as New Scene does),
+    /// instead of the top bar claiming the built-in default while a mission kernel is in
+    /// use. A scene that names one has just loaded it (updateGisApp) and shows that.
+    let private keepLoadedKernel (previous : PRo3D.Core.Gis.GisApp) (m : Model) =
+        match m.scene.gisApp.spiceKernel with
+        | Some _ -> m
+        | None ->
+            let gisApp =
+                { m.scene.gisApp with
+                    spiceKernel            = previous.spiceKernel
+                    spiceKernelLoadSuccess = previous.spiceKernelLoadSuccess }
+            { m with scene = { m.scene with gisApp = gisApp } }
+
     let private applyScene (scene : Scene) (m : Model) (runtime : IRuntime) (signature : IFramebufferSignature)=
+        let previousGis = m.scene.gisApp
         let m =
             m
             |> Model.withScene scene
             |> disarmContinuousExport
             |> updateGisApp
+            |> keepLoadedKernel previousGis
             |> resetControllerState
             |> updateNavigation
 

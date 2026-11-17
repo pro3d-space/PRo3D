@@ -651,10 +651,5 @@ type ProjectedImageListMessage =
     | ToggleTransferFunction
     | ToggleWindingCorrection
     | InstrumentFovMessage of InstrumentFovMessage
-    /// User picked a SPICE kernel root folder to load the kernel (and
-    /// observation time) the selected image's mbi sidecar was generated
-    /// against. Handled by GisApp.update (needs the mbi + spice state that
-    /// live outside this model), not locally.
-    | LoadSpiceAndTime of directory : string
     | FilterMessage of ImageFilterMessage
     | Nop
