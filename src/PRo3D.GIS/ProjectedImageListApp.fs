@@ -852,17 +852,17 @@ module ProjectedImageListApp =
                     InstrumentFovApp.view m.instrumentFovs |> UI.map InstrumentFovMessage
                 ]
 
-                accordion "Selected Image" "image" true (style "margin-top: 6px") [
+                accordion "Selected Image" "image" false (style "margin-top: 6px") [
                     selectedImageContent
                 ]
 
-                accordion "Image Library" "images" true (style "margin-top: 6px") [
+                accordion "Image Library" "images" false (style "margin-top: 6px") [
                     // flows with the page: nothing pinned, no scroll area of its own
                     filterPanel
                     imagesPanel
                 ]
 
-                accordion "Projected Images" "layer group" true (style "margin-top: 6px") [
+                accordion "Projected Images" "layer group" false (style "margin-top: 6px") [
                     stackPanel
                 ]
             ]
