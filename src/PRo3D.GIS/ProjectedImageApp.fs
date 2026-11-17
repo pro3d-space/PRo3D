@@ -339,13 +339,14 @@ module ProjectedImageApp =
             // min | two-handle slider (as the library filters) | max
             propertyRow "Range:" [
                 div [style "display: flex; align-items: center; gap: 6px"] [
-                    div [style "width: 80px; flex-shrink: 0"] [
+                    div [clazz "pro3d-range-bound"; style "width: 80px; flex-shrink: 0"] [
                         Numeric.view' [NumericInputType.InputBox] lower |> UI.map (onValue SetCustomMin)
                     ]
-                    div [style "flex: 1; min-width: 80px"] [
+                    // padded at both ends: a gap to the min and max boxes
+                    div [style "flex: 1; min-width: 80px; padding: 0 6px"] [
                         DualRangeSlider.view lower upper (AVal.constant false) SetCustomMin SetCustomMax ImageMessage.Empty
                     ]
-                    div [style "width: 80px; flex-shrink: 0"] [
+                    div [clazz "pro3d-range-bound"; style "width: 80px; flex-shrink: 0"] [
                         Numeric.view' [NumericInputType.InputBox] upper |> UI.map (onValue SetCustomMax)
                     ]
                 ]

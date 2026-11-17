@@ -530,3 +530,11 @@ div.fullwidth.textcontainer > input {
     border: 1px solid #888888;
     cursor: pointer;
 }
+
+/* the min/max boxes beside a two-handle slider (Selected Image › Properties › Data ›
+   Range): a number input is wider than its 80px box by default and spilled over the
+   slider's left end; fit it to the box */
+.pro3d-range-bound input {
+    width: 100%;
+    box-sizing: border-box;
+}

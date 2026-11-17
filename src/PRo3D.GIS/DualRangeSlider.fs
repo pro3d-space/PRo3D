@@ -20,29 +20,38 @@ module DualRangeSlider =
     /// `nop` is sent for an unparsable value.
     let view (lower : AdaptiveNumericInput) (upper : AdaptiveNumericInput) (active : aval<bool>)
              (setLower : float -> 'msg) (setUpper : float -> 'msg) (nop : 'msg) : DomNode<'msg> =
+        // aardvark.media applies attributes in no fixed order and sets `value` as the
+        // DOM property. A value applied before min/step is snapped by the browser to
+        // its defaults (step 1, counted from the new min): with a range of -0.1..1.1 a
+        // value of 0 sat at -0.1, 1 at 0.9 -- until a later value change. So the input is
+        // rebuilt whenever min/max/step change, and its boot script applies the value
+        // again once all attributes are there; value-only updates are then safe.
         let thumb (input : AdaptiveNumericInput) (isLower : bool) =
-            let attributes =
-                amap {
-                    yield attribute "type" "range"
-                    let! min = input.min
-                    let! max = input.max
-                    let! step = input.step
-                    let! value = input.value
-                    yield attribute "min" (invariant min)
-                    yield attribute "max" (invariant max)
-                    yield attribute "step" (invariant step)
-                    yield attribute "value" (invariant value)
-                    // a lower thumb pushed to the far right would sit under the
-                    // upper one and could never be dragged back: lift it then
-                    let! upperValue = upper.value
-                    if isLower && value > min + 0.5 * (max - min) && value >= upperValue then
-                        yield style "z-index: 2"
-                    yield onChange (fun s ->
-                        match Double.TryParse(s.Trim('"'), Globalization.NumberStyles.Float, Globalization.CultureInfo.InvariantCulture) with
-                        | true, v -> if isLower then setLower v else setUpper v
-                        | _ -> nop)
-                } |> AttributeMap.ofAMap
-            Incremental.input attributes
+            let range = AVal.map3 (fun min max step -> min, max, step) input.min input.max input.step
+            Incremental.div AttributeMap.empty (
+                alist {
+                    let! (min, max, step) = range
+                    let attributes =
+                        amap {
+                            yield attribute "type" "range"
+                            yield attribute "min" (invariant min)
+                            yield attribute "max" (invariant max)
+                            yield attribute "step" (invariant step)
+                            let! value = input.value
+                            yield attribute "value" (invariant value)
+                            // a lower thumb pushed to the far right would sit under the
+                            // upper one and could never be dragged back: lift it then
+                            let! upperValue = upper.value
+                            if isLower && value > min + 0.5 * (max - min) && value >= upperValue then
+                                yield style "z-index: 2"
+                            yield onChange (fun s ->
+                                match Double.TryParse(s.Trim('"'), Globalization.NumberStyles.Float, Globalization.CultureInfo.InvariantCulture) with
+                                | true, v -> if isLower then setLower v else setUpper v
+                                | _ -> nop)
+                        } |> AttributeMap.ofAMap
+                    yield onBoot "var e = document.getElementById('__ID__'); e.value = e.getAttribute('value');" (
+                        Incremental.input attributes)
+                })
 
         let fillAttributes =
             amap {
