@@ -8,9 +8,9 @@ open Aardvark.Opc
 
 type Kind = Scene | Annotations | Solarsystem | MultiTexturing
 
-[<EntryPoint>]
-let main argv =
-    
+/// the hard-coded viewers (no command line arguments)
+let hardcoded () =
+
     let kind = MultiTexturing
 
     let shaler =
@@ -234,3 +234,19 @@ let main argv =
 
         AnnotationViewer.run scene annotations
 
+
+/// With arguments: the shadow/highlight testbed (ShadowHighlightViewer, docs/ShadowHighlight.md).
+/// Without: the hard-coded viewers above.
+[<EntryPoint>]
+let main argv =
+    if argv.Length = 0 then
+        hardcoded ()
+    elif Array.contains "--help" argv || Array.contains "-h" argv then
+        printfn "%s" ShadowHighlightViewer.usage
+        0
+    else
+        match ShadowHighlightViewer.parseArgs argv with
+        | Result.Ok options -> ShadowHighlightViewer.run options
+        | Result.Error e ->
+            eprintfn "%s%s%s" e Environment.NewLine ShadowHighlightViewer.usage
+            1

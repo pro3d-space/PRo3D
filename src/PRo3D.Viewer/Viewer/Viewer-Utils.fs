@@ -2060,6 +2060,12 @@ module ViewerUtils =
             ]
 
         alist {
+            // TODO (shadows & highlights): once the effect in PRo3D.Core/ShadowHighlight.fs is
+            // done and tested in the OpcViewer testbed (docs/ShadowHighlight.md), apply it here
+            // by replacing this blit with
+            //   ShadowHighlight.blit <enabled : aval<bool>> runtime samples values.signature.Samples size color depth
+            // (`enabled` from the scene config/UI). Everything after this line - annotations,
+            // fills, overlays - then draws over the processed surfaces, unaffected by the effect.
             yield RenderCommand<_>.Render (OffscreenSurfaces.blit samples values.signature.Samples color depth |> Sg.noEvents)
 
             for sg in grouped do

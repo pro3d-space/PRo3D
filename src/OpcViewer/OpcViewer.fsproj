@@ -14,6 +14,7 @@
   <ItemGroup>
     <Compile Include="MultiTexturingViewer.fs" />
     <Compile Include="TestViewer.fs" />
+    <Compile Include="ShadowHighlightViewer.fs" />
     <Compile Include="AnnotationViewer.fs" />
     <Compile Include="Solarsystem.fs" />
     <Compile Include="Program.fs" />
