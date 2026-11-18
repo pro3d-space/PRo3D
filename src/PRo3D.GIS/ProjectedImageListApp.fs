@@ -1311,7 +1311,7 @@ module ProjectedImageListApp =
                 ]
 
                 // the fields of view projection uses, next to the projection settings
-                accordion "Instruments" "camera" false (style "margin-top: 6px") [
+                accordion "Instrument Settings" "camera" false (style "margin-top: 6px") [
                     InstrumentFovApp.view m.instrumentFovs |> UI.map InstrumentFovMessage
                 ]
 

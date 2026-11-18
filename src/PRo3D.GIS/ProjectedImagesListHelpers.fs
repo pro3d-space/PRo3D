@@ -113,7 +113,7 @@ module ProjectedImagesListAppHelper =
                 body, v.referenceFrame.Value))
         let originOf (t : FSharp.Data.Adaptive.AdaptiveToken) (observer : string) =
             surfaceOriginA.GetValue(t) |> Option.defaultValue (observer, "J2000")
-        // the scene's instruments (field of view, row flip; Instruments section); hoisted like the above
+        // the scene's instruments (field of view, row flip; Instrument Settings section); hoisted like the above
         let instrumentsA : aval<PRo3D.SPICE.InstrumentProjection.Instruments> =
             g.projectedImageList.instrumentFovs
             |> AMap.mapA (fun _ f -> f.Current)

@@ -145,7 +145,7 @@ the status line.
 The catalog finds images by footprint: a lon/lat polygon per image, about a
 dozen vertices. That is coarse, so every hit is checked again in PRo3D with
 the image's own pointing, the same projector the projection uses (the
-*Orientation Source* and the per-instrument settings under *Instruments*):
+*Orientation Source* and the per-instrument settings under *Instrument Settings*):
 
 - the point must project into the image (4 pixels of slack for the known AFC
   field-of-view error, #801), and

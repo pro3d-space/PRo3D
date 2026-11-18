@@ -117,7 +117,7 @@ sections:
 | **Orientation Source** | where the projector's position and attitude come from — `MbiAttitudeSpiceRange` (default), `MbiBased` or `Spice`; see [If an image does not land on the terrain](#if-an-image-does-not-land-on-the-terrain) |
 | **Registration** | roll / pitch / yaw in degrees, turning the projector about its own position (a pointing correction); applies to every image of the stack |
 
-The **Instruments** section below it holds each instrument's field of view, prefilled from
+The **Instrument Settings** section below it holds each instrument's field of view, prefilled from
 the SPICE instrument kernels and editable per scene: see
 [InstrumentFieldOfView.md](InstrumentFieldOfView.md).
 
@@ -310,7 +310,7 @@ stands in, and the log says so.
 
 An image that lands **mirrored** (lit limb where the terminator should be, a moon on the
 wrong side) is stored bottom-up: tick **flip** for its instrument under
-*Instruments* ([InstrumentFieldOfView.md](InstrumentFieldOfView.md#flipped-rows)).
+*Instrument Settings* ([InstrumentFieldOfView.md](InstrumentFieldOfView.md#flipped-rows)).
 Registration cannot undo a mirror.
 
 The pointing comes from two sidecar fields, and they have one convention:
