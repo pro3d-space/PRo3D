@@ -1100,7 +1100,7 @@ module ProjectedImageListApp =
                     ]
                     div [ column 120 true false headerHeight ] [
                         i [clazz "sort icon"; onClick (fun _ -> SortEntriesByDate);] []
-                        text "OBS Date"
+                        text "OBS Date (UTC)"
                     ]
                 ]
             let rows =
@@ -1153,7 +1153,12 @@ module ProjectedImageListApp =
                                                                      attribute "title" "The metadata's target position (TRG_POS) is zero: no distance, and the MbiBased orientation source cannot place this image. Use Spice or MbiAttitudeSpiceRange." ] [
                                                             text "no TRG_POS" ]
                                                 })
-                                            div [attributesAttr2] [ Incremental.text (img.time |> AVal.map (fun t -> t.ToUniversalTime().ToString())) ]
+                                            // ISO and UTC, like the Date filter -- not the system's local date format
+                                            div [attributesAttr2] [
+                                                Incremental.text (img.time |> AVal.map (fun t ->
+                                                    if t = DateTime.MinValue then "-"
+                                                    else t.ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss", Globalization.CultureInfo.InvariantCulture)))
+                                            ]
                                         ]
                                 ]
                             )
