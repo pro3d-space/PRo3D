@@ -895,7 +895,7 @@ module StacSearch =
 
     /// Said before searching when no kernel is loaded: every check would fail.
     [<Literal>]
-    let noSpiceKernel = "no SPICE kernel loaded: checking an image's pointing needs one that covers its time (GIS tab, SPICE kernel)"
+    let noSpiceKernel = "no SPICE kernel loaded: checking an image's pointing needs one that covers its time. Load it in the top bar: Load SPICE kernel, next to Reference System"
 
     /// Runs one check (KdTree loads, SPICE): the viewer sets it to its background busy
     /// indicator, so a long check shows up there (CLAUDE.md, busy indicator).
