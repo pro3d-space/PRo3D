@@ -21,6 +21,7 @@ release folds them into `PRODUCT_RELEASE_NOTES.md`.
 
 - Projected images: **one set of filters for the Image Library and the Image Search (STAC)**, in its own *Filters* section. A catalog result is checked on its downloaded metadata by the library's own rules; the date and distance ranges also narrow the catalog's answer. The ranges are fixed (distance and resolution on a log scale) and stay when a folder is imported; the Date filter starts at 2026-10-01 to 2027-05-31 (HERA at Didymos). The STAC panel's own time range and the sun incidence filter are gone (docs/MultiImageProjection.md, docs/StacImageSearch.md)
 
+- Projected images: **each image in the projection stack is drawn with its own colour map.** All layers used the selected image's map (and its data type), so different maps set per image did not show on the surface (docs/MultiImageProjection.md)
 - Projected images (macOS): **the colour legend shows the colour map's real colours.** It read the map with red and blue swapped, so e.g. Magma's orange and cream appeared as blue and cyan in the legend (docs/MultiImageProjection.md)
 
 - Projected images: **an image's *False Colour* switch now applies on the surface too**, not only in its preview: with it off the image is projected in grey values (docs/MultiImageProjection.md)

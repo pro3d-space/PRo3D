@@ -81,6 +81,8 @@ let tests () =
             let code = OutcropTraceShaderTest.surfaceEffectGlsl.Value
             Expect.stringContains code "ProjectedStackBrightnessContrast[i]" "per-layer brightness/contrast"
             Expect.stringContains code "ProjectedStackFalseColor[i]" "per-layer false colour switch"
+            Expect.stringContains code "ProjectedStackColorMap[i]" "per-layer colour map"
+            Expect.stringContains code "ProjectedStackDataType[i]" "per-layer data type"
             let extensions =
                 code.Split('\n')
                 |> Array.filter (fun l -> l.TrimStart().StartsWith "#extension")
@@ -129,6 +131,65 @@ let tests () =
             Expect.isTrue (layer ()).falseColor "the False Colour switch reaches the surface"
         }
     
+        test "each stack layer carries its own image's colour map and data type" {
+            let a = { ProjectedImageApp.initial with id = Guid.NewGuid(); texture = "a.tif"; dataType = DataType.Float }
+            let b = { ProjectedImageApp.initial with id = Guid.NewGuid(); texture = "b.tif"; dataType = DataType.UInt16 }
+            let observation =
+                { (GisApp.initial None).defaultObservationInfo with
+                    observer = Some (EntitySpiceName "MARS")
+                    referenceFrame = Some (FrameSpiceName "IAU_MARS") }
+            let initial = GisApp.initial None
+            let m =
+                { initial with
+                    defaultObservationInfo = observation
+                    projectedImageList =
+                        { initial.projectedImageList with
+                            images = IndexList.ofList [ a; b ]
+                            stack = IndexList.ofList [ a.id; b.id ]
+                            // the selected image used to set every layer's colour map
+                            selectedImage = Some a.id } }
+            let edit (id : Guid) (msg : ImageMessage) (m : GisApp) =
+                { m with projectedImageList = ProjectedImageListApp.update m.projectedImageList (ProjectedImageListMessage.ImageMessage (id, msg)) }
+            let m =
+                m
+                |> edit a.id (SetColorMap ColorMap.Viridis)
+                |> edit b.id (SetColorMap ColorMap.PiYG)
+            let g = AdaptiveGisApp.Create m
+            match PRo3D.GIS.ProjectedImagesListAppHelper.getProjectedImageData g (AVal.constant None) (Guid.NewGuid()) with
+            | None -> failtest "no projection data"
+            | Some p ->
+                let layers = AVal.force p.stackProjections
+                Expect.equal (layers |> Array.map (fun l -> l.colorMap)) [| int ColorMap.Viridis; int ColorMap.PiYG |] "each layer its own colour map"
+                Expect.equal (layers |> Array.map (fun l -> l.dataType)) [| int DataType.Float; int DataType.UInt16 |] "each layer its own data type"
+        }
+
+        test "the colour-map atlas has a segment for every colour map, and lookups stay inside it" {
+            Expect.equal (Enum.GetValues(typeof<ColorMap>).Length) PRo3D.InstrumentVisualization.ColormapAtlas.count "one segment per ColorMap value"
+            let n = float32 PRo3D.InstrumentVisualization.ColormapAtlas.count
+            let w = float32 PRo3D.InstrumentVisualization.ColormapAtlas.segmentWidth
+            for map in 0 .. PRo3D.InstrumentVisualization.ColormapAtlas.count - 1 do
+                let lo = PRo3D.Core.ImageProjection.Shaders.stackColormapCoordinate map 0.0f
+                let hi = PRo3D.Core.ImageProjection.Shaders.stackColormapCoordinate map 1.0f
+                Expect.floatClose Accuracy.high (float lo) (float ((float32 map * w + 0.5f) / (w * n))) "first texel centre"
+                Expect.floatClose Accuracy.high (float hi) (float ((float32 map * w + w - 0.5f) / (w * n))) "last texel centre"
+                Expect.isGreaterThan (float lo) (float (float32 map / n)) "not into the map before"
+                Expect.isLessThan (float hi) (float (float32 (map + 1) / n)) "not into the map after"
+        }
+
+        test "the colour-map atlas loads from the embedded colour maps" {
+            match PRo3D.InstrumentVisualization.InstrumentImageVisualization.stackColormapAtlas.Value with
+            | :? PixTexture2d as t ->
+                let size = t.PixImageMipMap.ImageArray.[0].Size
+                Expect.equal size (V2i(PRo3D.InstrumentVisualization.ColormapAtlas.segmentWidth * PRo3D.InstrumentVisualization.ColormapAtlas.count, 1)) "all maps in one row"
+                // magma (segment 0) runs from (0, 0, 3) to (251, 252, 191): red and blue not swapped
+                let row = (t.PixImageMipMap.ImageArray.[0] :?> PixImage<byte>).GetMatrix<C4b>()
+                let close (c : C4b) (r, g, b) = abs (int c.R - r) <= 6 && abs (int c.G - g) <= 6 && abs (int c.B - b) <= 6
+                Expect.isTrue (close row.[0L, 0L] (0, 0, 3)) (sprintf "magma's black, got %A" row.[0L, 0L])
+                let last = int64 (PRo3D.InstrumentVisualization.ColormapAtlas.segmentWidth - 1)
+                Expect.isTrue (close row.[last, 0L] (251, 252, 191)) (sprintf "magma's cream, got %A" row.[last, 0L])
+            | other -> failtestf "unexpected texture %A" other
+        }
+
         test "a per-layer vec2 array reaches the shader for every layer (std140 stride)" {
             let pairs = AVal.constant [| V2f(0.2f, 0.4f); V2f(0.6f, 0.8f); V2f(1.0f, 0.0f) |]
             for i, expected in [0, V2f(0.2f, 0.4f); 1, V2f(0.6f, 0.8f); 2, V2f(1.0f, 0.0f)] do

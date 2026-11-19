@@ -51,6 +51,11 @@ module SgExtensions =
                 brightnessContrast : V2f
                 /// through the colour map (the image's False Colour switch); false: grey values
                 falseColor : bool
+                /// the image's colour map: its ColorMap value, the row of the stack's
+                /// colour-map atlas (ColorMapping.stackColormapAtlas)
+                colorMap : int
+                /// the image's DataType value (2 = Float, otherwise 16-bit integer)
+                dataType : int
             }
 
         type ProjectedImages =

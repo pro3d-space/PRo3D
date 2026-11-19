@@ -109,19 +109,33 @@ module ImageProjection =
                 borderColor C4f.White
             }
 
-        // same texture + state as ColorMapping's colormapTextureSampler; local
-        // because the stack shader inlines its remap (see the NOTE there)
+        // every colour map side by side (ColorMapping.stackColormapAtlas), so each
+        // layer uses its own. No mip maps: the texture has none, and a mip level
+        // would blend neighbouring maps.
         let private stackColormapSampler =
             sampler2d {
-                texture uniform?ColormapTexture
-                filter Filter.MinMagMipLinear
+                texture uniform?ProjectedStackColormaps
+                filter Filter.MinMagLinear
                 addressU WrapMode.Clamp
                 addressV WrapMode.Clamp
             }
 
+        /// `t` (0..1) through colour map `map`: within the map's own segment of the
+        /// atlas, between its first and last texel centres, so the linear filter
+        /// never reaches into the neighbouring map.
+        [<ReflectedDefinition>]
+        let stackColormapCoordinate (map : int) (t : float32) =
+            let w = float32 PRo3D.InstrumentVisualization.ColormapAtlas.segmentWidth
+            let n = float32 PRo3D.InstrumentVisualization.ColormapAtlas.count
+            let m = clamp 0.0f (n - 1.0f) (float32 map)
+            let inSegment = 0.5f + clamp 0.0f 1.0f t * (w - 1.0f)
+            (m * w + inSegment) / (w * n)
+
         type UniformScope with
-            member x.StackUseFalseColor : bool = uniform?UseFalseColor
-            member x.StackDataType : int = uniform?DataType
+            /// per layer: its ColorMap value (the row of the colour-map atlas)
+            member x.ProjectedStackColorMap : Arr<N<32>, int> = uniform?ProjectedStackColorMap
+            /// per layer: its DataType value (2 = Float, otherwise 16-bit integer)
+            member x.ProjectedStackDataType : Arr<N<32>, int> = uniform?ProjectedStackDataType
             /// false = paint the layer's own RGB untouched, skipping both the
             /// per-layer min/max remap and the colour map. Instrument data needs
             /// the transfer function to be readable; an ordinary RGB image does
@@ -139,8 +153,8 @@ module ImageProjection =
         /// wins (walked top-down with an early-out, so the common single-cover
         /// case samples once). Opaque stacking; the global opacity only blends
         /// the stack's result with the underlying terrain color. Each layer
-        /// remaps its sample with its own min/max (colormap/false-color/data
-        /// type are global, D2). Subsumes the old single-image projection: a
+        /// remaps its sample with its own min/max, data type, brightness/contrast,
+        /// false-colour switch and colour map. Subsumes the old single-image projection: a
         /// stack of one behaves identically, minus the green border (the
         /// hovered layer gets an outline in a later phase instead).
         let stableImageProjectionStack (v : Vertex) =
@@ -186,12 +200,13 @@ module ImageProjection =
                             let bc = uniform.ProjectedStackBrightnessContrast.[i]
                             let normalized =
                                 PRo3D.ImageMapping.BrightnessContrastShader.apply
-                                    (if uniform.StackDataType = 2 then normalizedFloat else normalizedInt16) bc.X bc.Y
+                                    (if uniform.ProjectedStackDataType.[i] = 2 then normalizedFloat else normalizedInt16) bc.X bc.Y
                             let mapped =
                                 if not uniform.ProjectedUseTransferFunction then
                                     sample.XYZ
-                                elif uniform.StackUseFalseColor && uniform.ProjectedStackFalseColor.[i] <> 0 then
-                                    stackColormapSampler.Sample(V2f(normalized, 0.0f)).XYZ
+                                elif uniform.ProjectedStackFalseColor.[i] <> 0 then
+                                    let x = stackColormapCoordinate uniform.ProjectedStackColorMap.[i] normalized
+                                    stackColormapSampler.Sample(V2f(x, 0.5f)).XYZ
                                 else
                                     V3f(normalized, normalized, normalized)
                             if topIndex < 0 then

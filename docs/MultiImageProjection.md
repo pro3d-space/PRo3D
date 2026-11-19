@@ -113,7 +113,7 @@ sections:
     and the legend is not shown in the main view then, whatever its checkbox says.
     The switch applies per image, in the preview and on the surface alike (with
     *Apply Image Adjustments* on): an image with it off is projected in grey values.
-    Which colour map the surface uses is still the *selected* image's, for all layers.
+    So is the **colour map**: every layer on the surface uses its own image's map.
 
   Every image keeps its own settings; they are not saved with the scene. *No image is
   currently selected* when there is none.
@@ -290,9 +290,9 @@ is blended at 20% over the surface colour:
   comes from the sidecar's `TARGET`. See
   [COP-sidecar-issues.md](COP-sidecar-issues.md) for the data defects these
   fallbacks absorb.
-- Per-image display settings (channel, min/max, false-color preview) work
-  under *Selected Image*, for the selected image; colormap and false-color toggle apply to the
-  whole stack (one instrument, one legend).
+- Per-image display settings (channel, min/max, brightness/contrast, false colour
+  and colour map) are edited under *Selected Image* and apply to that image's layer
+  only. The legend shows the selected image's map and range.
 
 ## If an image does not land on the terrain
 

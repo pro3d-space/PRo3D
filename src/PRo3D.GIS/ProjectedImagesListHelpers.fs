@@ -226,6 +226,8 @@ module ProjectedImagesListAppHelper =
                                     brightnessContrast =
                                         V2f(img.brightnessContrast.brightness.value, img.brightnessContrast.contrast.value)
                                     falseColor = img.falseColorPreview
+                                    colorMap = int img.colorMap
+                                    dataType = int img.dataType
                                 }
                             Some layer
                     )
