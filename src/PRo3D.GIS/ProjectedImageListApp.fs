@@ -1042,7 +1042,7 @@ module ProjectedImageListApp =
                 // string literals without escaping line breaks, and a newline in one breaks
                 // every later DOM update (the list stayed empty, the fold stuck)
                 let tooltip =
-                    (sprintf "%s. %s. %s%s. Added images (+) also go to the Image Library: select them there to edit them. They are not saved with the scene." c.title c.instrument (formatFullDate c.time) atPoint)
+                    (sprintf "%s. %s. %s%s" c.title c.instrument (formatFullDate c.time) atPoint)
                         .Replace('\r', ' ').Replace('\n', ' ')
                 let nameColor = match c.check with Unresolved _ -> "#e88" | _ -> "inherit"
                 let instrument, distance, resolution =
@@ -1067,7 +1067,7 @@ module ProjectedImageListApp =
                             | Some _ -> img [attribute "src" (PRo3D.GIS.StacSearch.overviewPath c.itemId); attribute "style" "width: 40px; height: 40px; object-fit: contain; background: #111"]
                             | None -> div [] []
                         ]
-                        Incremental.div (AttributeMap.ofList [listCell wAdd true true listRowHeight; attribute "title" "download and add to the projection stack"; onClick (fun _ -> StacMessage (Fetch id))]) (
+                        Incremental.div (AttributeMap.ofList [listCell wAdd true true listRowHeight; attribute "title" "Download and add to the projection stack and the Image Library. The downloaded images can be selected for editing from the Image Library. They are not saved with the scene."; onClick (fun _ -> StacMessage (Fetch id))]) (
                             alist {
                                 let! downloading = s.downloading |> ASet.contains id
                                 if downloading then yield i [clazz "spinner loading icon"] []
