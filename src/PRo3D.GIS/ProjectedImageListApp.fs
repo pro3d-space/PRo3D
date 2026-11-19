@@ -77,21 +77,23 @@ module ProjectedImageListApp =
                 { m with stacSearch = { s with timeFrom = t } }
             | SetTimeTo t ->
                 { m with stacSearch = { s with timeTo = t } }
-            | SetIncidenceMin a ->
-                { m with stacSearch = { s with incidenceMin = clamp 0.0 180.0 a } }
-            | SetIncidenceMax a ->
-                { m with stacSearch = { s with incidenceMax = clamp 0.0 180.0 a } }
+            // SUN INCIDENCE (disabled, see docs/StacImageSearch.md): no row sends these
+            | SetIncidenceMin _ -> m
+                // { m with stacSearch = { s with incidenceMin = clamp 0.0 180.0 a } }
+            | SetIncidenceMax _ -> m
+                // { m with stacSearch = { s with incidenceMax = clamp 0.0 180.0 a } }
             | QueryStarted q ->
                 { m with stacSearch = { s with query = Some q; status = StacSearchStatus.Searching } }
             // the Query* answers of a search that is no longer the current one are
             // dropped: a newer point is being searched already
             | QueryListed (n, candidates, matched, listing) when s.query |> Option.exists (fun q -> q.seq = n) ->
                 { m with stacSearch = { s with status = StacSearchStatus.Checking (matched, 0, listing); candidates = IndexList.ofArray candidates } }
-            | QueryChecked (n, itemId, check) when s.query |> Option.exists (fun q -> q.seq = n) ->
+            | QueryChecked (n, itemId, check, values) when s.query |> Option.exists (fun q -> q.seq = n) ->
                 // choose keeps the other rows' indices, so only this row changes on screen
                 let candidates =
                     s.candidates |> IndexList.choose (fun c ->
-                        if c.itemId = itemId then check |> Option.map (fun check -> { c with check = check })
+                        if c.itemId = itemId then
+                            check |> Option.map (fun check -> { c with check = check; values = values |> Option.orElse c.values })
                         else Some c)
                 let status =
                     match s.status with
@@ -108,6 +110,11 @@ module ProjectedImageListApp =
                     let sorted = s.candidates |> IndexList.toArray |> PRo3D.GIS.StacSearch.sortCandidates
                     // the best maxResults only: the rest would bury them
                     let shown = if sorted.Length > StacSearchModel.maxResults then Array.sub sorted 0 StacSearchModel.maxResults else sorted
+                    // the user's column sort, on the best maxResults
+                    let shown =
+                        match s.sort with
+                        | Some sort -> PRo3D.GIS.StacSearch.sortCandidatesBy sort shown
+                        | None -> shown
                     // kept = the images that show the point; red rows are counted apart
                     let kept = sorted |> Array.sumBy (fun c -> match c.check with Resolved _ -> 1 | _ -> 0)
                     let dropped = { dropped with unresolvedListed = sorted.Length - kept }
@@ -141,6 +148,14 @@ module ProjectedImageListApp =
                 { m with stacSearch = { s with candidates = IndexList.empty; query = None; status = StacSearchStatus.Idle; hovered = None } }
             | HoverCandidate itemId ->
                 { m with stacSearch = { s with hovered = itemId } }
+            | SortCandidatesBy key ->
+                let sort = PRo3D.GIS.StacSearch.nextSort s.sort key
+                let candidates = s.candidates |> IndexList.toArray |> PRo3D.GIS.StacSearch.sortCandidatesBy sort |> IndexList.ofArray
+                { m with stacSearch = { s with sort = Some sort; candidates = candidates } }
+            | ToggleImagesExpanded ->
+                { m with stacSearch = { s with imagesExpanded = not s.imagesExpanded } }
+            // the time and the camera are GisApp's and the Viewer's (FlyToImage alike)
+            | FlyToCandidate _ -> m
         | SetLightingMode mode ->
             { m with lightingMode = mode }
         | SetInstrumentVisbilityMode mode ->
@@ -188,8 +203,10 @@ module ProjectedImageListApp =
                 stack = IndexList.Empty
                 stackDrag = None
                 hoveredImage = None
+                // the filters stay: they are shared with the Image Search (STAC)
+                // and have fixed ranges, independent of the library
                 selectedImage = first
-                filter = ImageFilter.forImages images' m.filter.expanded }
+                librarySort = None }
         | SelectImage id ->
             // single selection; clicking the selected image again deselects it
             { m with selectedImage = if m.selectedImage = Some id then None else Some id }
@@ -246,10 +263,18 @@ module ProjectedImageListApp =
         // to be ~30 lines of index bookkeeping per sort, via a partial Seq.head.
         // Fresh indices (replaceImages): sortBy reuses the old ones, which left
         // every row with the id of the image that used to be there.
-        | SortEntriesByDistance ->
-            { m with images = ProjectedImageListModel.replaceImages (m.images |> IndexList.sortBy (fun p -> p.distance)) m }
-        | SortEntriesByDate ->
-            { m with images = ProjectedImageListModel.replaceImages (m.images |> IndexList.sortBy (fun p -> p.time)) m }
+        | SortEntriesByDistance -> update m (SortLibraryBy SortDistance)
+        | SortEntriesByDate -> update m (SortLibraryBy SortDate)
+        | SortLibraryBy key ->
+            let (key, ascending) as sort = PRo3D.GIS.StacSearch.nextSort m.librarySort key
+            let byKey : ProjectedImageModel[] -> ProjectedImageModel[] =
+                match key with
+                | SortInstrument -> PRo3D.GIS.StacSearch.sortByOptional ascending (fun i -> Some (ImageFilter.instrumentKey i.instrument))
+                | SortDistance -> PRo3D.GIS.StacSearch.sortByOptional ascending (fun i -> Some i.distance)
+                | SortDate -> PRo3D.GIS.StacSearch.sortByOptional ascending (fun i -> if i.time = DateTime.MinValue then None else Some i.time)
+                | SortResolution -> PRo3D.GIS.StacSearch.sortByOptional ascending (fun i -> i.resolution)
+            let sorted = m.images |> IndexList.toArray |> byKey |> IndexList.ofArray
+            { m with images = ProjectedImageListModel.replaceImages sorted m; librarySort = Some sort }
 
     /// Adaptive counterpart of ProjectedImageListModel.tryFind. `id` is
     /// NonAdaptive, so this is a plain lookup inside a single AVal.map rather
@@ -369,7 +394,9 @@ module ProjectedImageListApp =
             "top.aardvark.dialog.showOpenDialog({tile: 'Select directory', filters: [{ name: 'directories'}], properties: ['openDirectory']}).then(result => {aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
 
 
-        let accordion text' icon active styling content' =
+        /// A section with a title node: plain text, or text with extras such as the
+        /// Filters section's "(n active)".
+        let accordion' (titleNode : DomNode<ProjectedImageListMessage>) icon active styling content' =
                 let title = if active then "title active inverted" else "title inverted"
                 let content = if active then "content active" else "content"
                                     
@@ -383,7 +410,7 @@ module ProjectedImageListApp =
                         div [clazz "ui inverted accordion fluid"] [
                             div [clazz title; style "background-color: #282828"] [
                                     i [clazz ("dropdown icon")] []
-                                    text text'                                
+                                    titleNode
                                     div [style "float:right"] [i [clazz (icon + " icon")] []]
                                 
                             ]
@@ -393,6 +420,9 @@ module ProjectedImageListApp =
                         ]
                     ]
                 )
+
+        let accordion (text' : string) icon active styling content' =
+            accordion' (text text') icon active styling content'
 
         /// Sub-headers inside a section (Filters, Selected Image): lighter than the
         /// section titles -- not bold, a bit smaller, slightly gray.
@@ -567,9 +597,10 @@ module ProjectedImageListApp =
         let filterMsg (f : 'a -> ImageFilterMessage) (a : 'a) = FilterMessage (f a)
 
         /// The filter's two-handle slider (DualRangeSlider, shared with an image's
-        /// display range); amber while the filter hides rows.
+        /// display range); amber while the filter hides rows. Log scale for the
+        /// ranges spanning orders of magnitude (ImageFilter.isLogScale).
         let dualSlider (kind : RangeFilterKind) (r : AdaptiveRangeFilter) =
-            DualRangeSlider.view r.lower r.upper (rangeIsActive r)
+            DualRangeSlider.viewWith (ImageFilter.isLogScale kind) r.lower r.upper (rangeIsActive r)
                 (fun v -> FilterMessage (SetLower (kind, Numeric.SetValue v)))
                 (fun v -> FilterMessage (SetUpper (kind, Numeric.SetValue v)))
                 Nop
@@ -619,12 +650,18 @@ module ProjectedImageListApp =
                 resetCell active (FilterMessage (ResetRange kind))
             ]
 
-        /// The instruments of the library as toggle chips; none selected = all shown.
+        /// The known HERA instruments and any further ones the library holds, as
+        /// toggle chips; none selected = all shown. Fixed ones too: the filter also
+        /// applies to catalog results that are not loaded.
         let instrumentFilterRow =
+            let known =
+                PRo3D.SPICE.InstrumentProjection.instrumentNames
+                |> Map.toList |> List.map fst |> ASet.ofList
             let instruments =
                 m.images
                 |> AList.mapA (fun img -> img.instrument |> AVal.map ImageFilter.instrumentKey)
                 |> AList.toASet
+                |> ASet.union known
                 |> ASet.sortBy id
             let active = filter.instruments.Content |> AVal.map (fun s -> not s.IsEmpty)
             tr [] [
@@ -694,48 +731,44 @@ module ProjectedImageListApp =
         let distanceTooltip =
             Some "Distance from the camera to the target's centre at the time of the image: the length of the target position vector in the image's metadata. Images without metadata count as 0 km"
 
+        /// The filter rows; the section title says how many are active
+        /// (filtersTitle), and a reset-all line shows while any is.
         let filterPanel =
-            let header =
-                let total = m.images.Content |> AVal.map (fun l -> l.Count)
-                let shown = visibleImages.Content |> AVal.map (fun l -> l.Count)
-                tr [] [
-                    th [attribute "colspan" "5"; style subHeaderStyle] [
-                        div [style "display: flex; align-items: center; gap: 6px"] [
-                            Incremental.span
-                                (AttributeMap.ofList [style "cursor: pointer"; onClick (fun _ -> FilterMessage ToggleExpanded)])
-                                (alist {
-                                    let! expanded = filter.expanded
-                                    yield i [clazz (if expanded then "caret down icon" else "caret right icon")] []
-                                    yield text "Filters"
-                                    let! n = activeCount
-                                    if n > 0 then
-                                        yield span [style $"color: {filterAccent}; margin-left: 6px"] [text (sprintf "(%d active)" n)]
-                                })
-                            div [style "margin-left: auto; font-weight: normal"] [
-                                Incremental.text ((shown, total) ||> AVal.map2 (sprintf "showing %d of %d"))
+            let resetAll =
+                Incremental.div AttributeMap.empty (
+                    alist {
+                        let! n = activeCount
+                        if n > 0 then
+                            yield div [style "display: flex; justify-content: flex-end; padding: 2px 5px"] [
+                                span [style "cursor: pointer; opacity: 0.85"; attribute "title" "reset all filters"
+                                      onClick (fun _ -> FilterMessage ResetAll)] [
+                                    i [clazz "undo icon"] []
+                                    text "reset all"
+                                ]
                             ]
-                            Incremental.span AttributeMap.empty (
-                                alist {
-                                    let! n = activeCount
-                                    if n > 0 then
-                                        yield i [clazz "undo icon"; style "cursor: pointer"
-                                                 attribute "title" "reset all filters"
-                                                 onClick (fun _ -> FilterMessage ResetAll)] []
-                                })
-                        ]
+                    })
+            div [] [
+                resetAll
+                table [clazz "ui celled striped inverted table unstackable"; style "margin: 0"] [
+                    tbody [] [
+                        rangeFilterRow "Phase Angle [°]" phaseAngleTooltip RangeFilterKind.PhaseAngle
+                        instrumentFilterRow
+                        rangeFilterRow "Resolution [m/px]" resolutionTooltip RangeFilterKind.Resolution
+                        rangeFilterRow "Distance [km]" distanceTooltip RangeFilterKind.Distance
+                        timeFilterRow
                     ]
                 ]
-            table [clazz "ui celled striped inverted table unstackable"; style "margin: 0"] [
-                Incremental.tbody AttributeMap.empty (
+            ]
+
+        /// The Filters section's title: "Filters", and "(n active)" in amber while any is.
+        let filtersTitle =
+            span [] [
+                text "Filters"
+                Incremental.span AttributeMap.empty (
                     alist {
-                        yield header
-                        let! expanded = filter.expanded
-                        if expanded then
-                            yield rangeFilterRow "Phase Angle [°]" phaseAngleTooltip RangeFilterKind.PhaseAngle
-                            yield instrumentFilterRow
-                            yield rangeFilterRow "Resolution [m/px]" resolutionTooltip RangeFilterKind.Resolution
-                            yield rangeFilterRow "Distance [km]" distanceTooltip RangeFilterKind.Distance
-                            yield timeFilterRow
+                        let! n = activeCount
+                        if n > 0 then
+                            yield span [style $"color: {filterAccent}; margin-left: 6px"] [text (sprintf "(%d active)" n)]
                     })
             ]
 
@@ -811,6 +844,100 @@ module ProjectedImageListApp =
                         yield div [style "padding: 5px; font-style: italic"] [text "No image is currently selected"]
                 })
 
+        // ---- image lists: the library's and the Image Search's share one layout ------
+
+        /// One column of an image list: its width (shared by header and rows, so they
+        /// line up) and height. Both lists use the same columns (imageListHeader).
+        let listCell (width : int) (pointer : bool) (separator : bool) (height : string) =
+            let cursor = if pointer then "cursor: pointer; " else ""
+            let border = if separator then $"border-right: 1px solid {borderColor}; " else ""
+            attribute "style" $"{cursor}width: {width}px; flex-shrink: 0; {height}; {border}display: flex; justify-content: center; align-items: center; overflow: hidden; white-space: nowrap;"
+        let listRowHeight = "height: 44px"
+        let listHeaderHeight = "padding: 5px 0"
+        let wPreview, wAdd, wFlyTo, wInstrument, wDistance, wDate, wResolution = 44, 32, 32, 70, 84, 110, 84
+
+        /// A length for the lists: cm, m or km.
+        let formatLength (metres : float) =
+            if metres >= 10000.0 then sprintf "%.0f km" (metres / 1000.0)
+            elif metres >= 1000.0 then sprintf "%.1f km" (metres / 1000.0)
+            elif metres >= 1.0 then sprintf "%.1f m" metres
+            else sprintf "%.0f cm" (metres * 100.0)
+        /// Distance to the target, km; compact for cruise distances.
+        let formatDistanceKm (km : float) =
+            if km < 1000.0 then sprintf "%.2f km" km
+            elif km < 1000000.0 then sprintf "%.0f km" km
+            else sprintf "%.2e km" km
+        /// UTC, to the minute: the full time is in the cell's tooltip.
+        let formatListDate (t : DateTime) =
+            if t = DateTime.MinValue then "-"
+            else t.ToUniversalTime().ToString("yyyy-MM-dd HH:mm", Globalization.CultureInfo.InvariantCulture)
+        let formatFullDate (t : DateTime) =
+            if t = DateTime.MinValue then "no observation time"
+            else t.ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss", Globalization.CultureInfo.InvariantCulture) + " UTC"
+        let formatResolution (r : Option<float>) =
+            r |> Option.map formatLength |> Option.defaultValue "-"
+
+        let resolutionTip = "Resolution: ground size of one pixel at the target's centre (distance × the angle one pixel spans), from the image's metadata"
+        let distanceTip = "Distance from the camera to the target's centre, from the image's metadata"
+
+        /// The column header of both image lists: Preview | Add | FlyTo | Instrument |
+        /// Distance | Date | Res. The last four sort (again: the other way round); the
+        /// active sort shows its direction.
+        let imageListHeader (sort : aval<Option<ImageSortKey * bool>>) (onSort : ImageSortKey -> ProjectedImageListMessage) =
+            let plain (width : int) (title : string) (tooltip : string) =
+                div [listCell width false true listHeaderHeight; attribute "title" tooltip] [text title]
+            let sortable (width : int) (separator : bool) (title : string) (tooltip : string) (key : ImageSortKey) =
+                Incremental.div
+                    (AttributeMap.ofList [listCell width true separator listHeaderHeight; attribute "title" tooltip; onClick (fun _ -> onSort key)])
+                    (alist {
+                        let! sort = sort
+                        let icon =
+                            match sort with
+                            | Some (k, true) when k = key -> "sort up icon"
+                            | Some (k, false) when k = key -> "sort down icon"
+                            | _ -> "sort icon"
+                        yield i [clazz icon; style "margin-right: 2px"] []
+                        yield text title
+                    })
+            div [attribute "style" "display: flex; font-weight: bold; border-bottom: 2px solid black; background: black"] [
+                plain wPreview "" "preview"
+                plain wAdd "Add" "add to the projection stack"
+                plain wFlyTo "Fly" "fly to the image's camera"
+                sortable wInstrument true "Instr." "Instrument" SortInstrument
+                sortable wDistance true "Distance" distanceTip SortDistance
+                sortable wDate true "Date (UTC)" "Observation time, UTC" SortDate
+                sortable wResolution false "Res." resolutionTip SortResolution
+            ]
+
+        /// A fold inside a section, in the sub-header style, with "showing x of y" on
+        /// the right; `content` is built once and re-yielded on unfold.
+        let countedFold (title : string) (expanded : aval<bool>) (toggle : ProjectedImageListMessage) (count : aval<string>) (content : DomNode<ProjectedImageListMessage>) =
+            let header =
+                tr [] [
+                    th [style subHeaderStyle] [
+                        div [style "display: flex; align-items: center; gap: 6px"] [
+                            Incremental.span
+                                (AttributeMap.ofList [style "cursor: pointer"; onClick (fun _ -> toggle)])
+                                (alist {
+                                    let! expanded = expanded
+                                    yield i [clazz (if expanded then "caret down icon" else "caret right icon")] []
+                                    yield text title
+                                })
+                            div [style "margin-left: auto; font-weight: normal"] [ Incremental.text count ]
+                        ]
+                    ]
+                ]
+            div [] [
+                table [clazz "ui celled striped inverted table unstackable"; style "margin: 0"] [
+                    tbody [] [ header ]
+                ]
+                Incremental.div AttributeMap.empty (
+                    alist {
+                        let! expanded = expanded
+                        if expanded then yield content
+                    })
+            ]
+
         /// STAC search: the images containing the point picked with the Image Search
         /// tool, with their pixel size, range and sun incidence at the central pixel.
         /// Clicking one downloads it and puts it on top of the stack.
@@ -859,7 +986,7 @@ module ProjectedImageListApp =
                     let more kept =
                         if kept > StacSearchModel.maxResults then sprintf " (the best %d shown)" StacSearchModel.maxResults else ""
                     let outside (dropped : StacDropped) =
-                        if dropped.outsideIncidence > 0 then sprintf "; %d outside the incidence range" dropped.outsideIncidence else ""
+                        if dropped.outsideFilters > 0 then sprintf "; %d outside the filters" dropped.outsideFilters else ""
                     match status, at with
                     | StacSearchStatus.Searching, Some at ->
                         "searching ...", sprintf "searching at %s ..." at
@@ -870,7 +997,7 @@ module ProjectedImageListApp =
                         sprintf "checking %d/%d by pointing ..." n matched,
                         sprintf "no footprint at %s -- checking the pointing of %d of %d image(s) without footprint ..." at n matched
                     | StacSearchStatus.Found (matched, kept, ByFootprint, dropped), Some at ->
-                        sprintf "%d images%s" kept (tags [ dropped.unresolvedListed > 0, sprintf "%d red" dropped.unresolvedListed; dropped.outsideIncidence > 0, sprintf "%d off incidence" dropped.outsideIncidence; best (kept + dropped.unresolvedListed) ]),
+                        sprintf "%d images%s" kept (tags [ dropped.unresolvedListed > 0, sprintf "%d red" dropped.unresolvedListed; dropped.outsideFilters > 0, sprintf "%d filtered" dropped.outsideFilters; best (kept + dropped.unresolvedListed) ]),
                         sprintf "%d image(s) at %s -- %d footprint(s) matched%s%s" kept at matched (outside dropped) (more (kept + dropped.unresolvedListed))
                     | StacSearchStatus.Found (matched, kept, WithoutFootprint, dropped), Some at ->
                         let unresolved =
@@ -884,7 +1011,7 @@ module ProjectedImageListApp =
                         sprintf "%d images by pointing%s" kept
                             (tags [ dropped.noSpiceCoverage > 0, sprintf "%d no SPICE coverage" dropped.noSpiceCoverage
                                     dropped.count > 0, sprintf "%d uncheckable" dropped.count
-                                    dropped.outsideIncidence > 0, sprintf "%d off incidence" dropped.outsideIncidence
+                                    dropped.outsideFilters > 0, sprintf "%d filtered" dropped.outsideFilters
                                     best (kept + dropped.unresolvedListed) ]),
                         sprintf "%d image(s) at %s by pointing, of %d without footprint%s%s%s%s" kept at matched (outside dropped) spice unresolved (more (kept + dropped.unresolvedListed))
                     | StacSearchStatus.Failed e, _ when e = PRo3D.GIS.StacSearch.noSpiceKernel -> "no SPICE kernel (hover)", e
@@ -892,61 +1019,64 @@ module ProjectedImageListApp =
                     | _ ->
                         "use the Image Search tool",
                         "Select the Image Search tool in the toolbar (magnifier), then click the surface, or hold Ctrl and move over it.")
-            let header =
-                div [attribute "style" "display: flex; gap: 6px; padding: 3px 5px; font-weight: bold; background: black"] [
-                    div [attribute "style" "flex: 1"] [text "Image"]
-                    div [cell 62; attribute "title" "ground size of one pixel at the central pixel"] [text "px"]
-                    div [cell 62; attribute "title" "spacecraft to the central pixel's surface point"] [text "range"]
-                    div [cell 40; attribute "title" "sun incidence at the central pixel"] [text "inc."]
-                    div [cell 20] []
-                ]
+            let header = imageListHeader s.sort (fun key -> StacMessage (SortCandidatesBy key))
+            /// A result: its name line (red when its pointing did not resolve), then the
+            /// image list's columns. The values are the metadata's, like a library row's;
+            /// what the check measured at the point is in the tooltip.
             let row (c : StacCandidate) =
                 let id = c.itemId
-                let values =
+                let atPoint =
                     match c.check with
                     | Resolved v ->
-                        // * : the boresight missed the loaded surface, so range and
-                        // incidence are the cursor point's instead
-                        let mark = if v.centralOnSurface then "" else "*"
-                        [
-                            div [cell 62] [text (formatLength v.pixelSizeM)]
-                            div [cell 62] [text (formatLength v.rangeM + mark)]
-                            div [cell 40] [text ((v.incidenceDeg |> Option.map (sprintf "%.0f°") |> Option.defaultValue "-") + mark)]
-                        ]
-                    | StacCheck.Checking ->
-                        [ div [attribute "style" "width: 176px; color: #888; font-size: 0.85em"] [text "checking ..."] ]
-                    | Unresolved e ->
-                        [ div [attribute "style" "width: 176px; color: #e88; font-size: 0.85em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap"; attribute "title" e] [text e] ]
-                let tooltip =
-                    match c.check with
-                    | Resolved v when not v.centralOnSurface -> "click: download and project. * the boresight misses the loaded surface; range and incidence are at the cursor point"
-                    | _ -> "click: download and project"
+                        // * : the boresight missed the loaded surface, so range and pixel
+                        // size are the cursor point's instead
+                        let where = if v.centralOnSurface then "at the central pixel" else "at the cursor point (the boresight misses the loaded surface)"
+                        sprintf "\nmeasured %s: range %s, pixel %s" where (formatLength v.rangeM) (formatLength v.pixelSizeM)
+                    | Unresolved e -> sprintf "\npointing not resolved: %s" e
+                    | StacCheck.Checking -> ""
+                let tooltip = sprintf "%s\n%s  %s%s" c.title c.instrument (formatFullDate c.time) atPoint
+                let nameColor = match c.check with Unresolved _ -> "#e88" | _ -> "inherit"
+                let instrument, distance, resolution =
+                    match c.values with
+                    | Some v -> ImageFilter.instrumentKey v.instrument, formatDistanceKm v.distanceKm, formatResolution v.resolution
+                    | None -> c.instrument, "...", "..."
+                let cell (width : int) (separator : bool) = listCell width false separator listRowHeight
                 div [
-                    attribute "style" $"display: flex; align-items: center; gap: 6px; padding: 3px 5px; cursor: pointer; border-bottom: 1px solid {borderColor}"
+                    attribute "style" "border-bottom: 1px solid black;"
                     attribute "title" tooltip
-                    onClick (fun _ -> StacMessage (Fetch id))
-                    // the frustum and footprint of the hovered row, and the large preview
+                    // the frustum and footprint of the hovered row
                     onMouseEnter (fun _ -> StacMessage (HoverCandidate (Some id)))
                     onMouseLeave (fun _ -> StacMessage (HoverCandidate None))
                 ] [
-                    yield
-                        // through PRo3D's own server, which has the sign-in (StacSearch.overviewPath)
-                        match c.assets.overview with
-                        | Some _ -> img [attribute "src" (PRo3D.GIS.StacSearch.overviewPath c.itemId); attribute "style" "width: 40px; height: 40px; object-fit: contain; background: #111; flex-shrink: 0"]
-                        | None -> div [attribute "style" "width: 40px; height: 40px; flex-shrink: 0"] []
-                    yield div [attribute "style" "flex: 1; min-width: 0"] [
-                        div [attribute "style" "white-space: nowrap; overflow: hidden; text-overflow: ellipsis"] [text c.title]
-                        div [attribute "style" "color: #aaa; font-size: 0.85em"] [
-                            text (sprintf "%s  %s" c.instrument (c.time.ToString("yyyy-MM-dd HH:mm:ss")))
-                        ]
+                    div [style $"padding: 0 5px; border-bottom: 1px solid {borderColor}; background: #333; color: {nameColor}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis"] [
+                        text c.title
                     ]
-                    yield! values
-                    yield Incremental.div (AttributeMap.ofList [cell 20]) (
-                        alist {
-                            let! downloading = s.downloading |> ASet.contains id
-                            if downloading then yield i [clazz "spinner loading icon"] []
-                            else yield i [clazz "download icon"; style "opacity: 0.6"] []
-                        })
+                    div [attribute "style" "display: flex; font-weight: bold"] [
+                        div [cell wPreview true] [
+                            // through PRo3D's own server, which has the sign-in (StacSearch.overviewPath)
+                            match c.assets.overview with
+                            | Some _ -> img [attribute "src" (PRo3D.GIS.StacSearch.overviewPath c.itemId); attribute "style" "width: 40px; height: 40px; object-fit: contain; background: #111"]
+                            | None -> div [] []
+                        ]
+                        Incremental.div (AttributeMap.ofList [listCell wAdd true true listRowHeight; attribute "title" "download and add to the projection stack"; onClick (fun _ -> StacMessage (Fetch id))]) (
+                            alist {
+                                let! downloading = s.downloading |> ASet.contains id
+                                if downloading then yield i [clazz "spinner loading icon"] []
+                                else yield i [clazz "plus icon"; style "opacity: 0.5"] []
+                            })
+                        div [cell wFlyTo true] [
+                            // needs the downloaded metadata (the check fetched it)
+                            match c.values with
+                            | Some _ -> i [clazz "location arrow icon"; style "cursor: pointer; opacity: 0.7"; attribute "title" "fly to the image's camera"; onClick (fun _ -> StacMessage (FlyToCandidate id))] []
+                            | None -> i [clazz "location arrow icon"; style "opacity: 0.2"] []
+                        ]
+                        div [cell wInstrument true] [text instrument]
+                        div [cell wDistance true] [text distance]
+                        div [cell wDate true; attribute "title" (formatFullDate c.time)] [text (formatListDate c.time)]
+                        div [cell wResolution false] [text resolution]
+                        // SUN INCIDENCE (disabled, see docs/StacImageSearch.md): the inc. column
+                        // div [cell 40 false] [text ((v.incidenceDeg |> Option.map (sprintf "%.0f°") |> Option.defaultValue "-") + mark)]
+                    ]
                 ]
             div [] [
                 Html.table [
@@ -997,25 +1127,27 @@ module ProjectedImageListApp =
                                         yield action "Retry" "redo" Connect
                                 })
                         ]
-                    PRo3D.Core.UI.rowWithTip "Time (UTC):"
-                        "Observation date range, both days included. Clear a field for an open end."
-                        [
-                            div [style "display: flex; align-items: center; gap: 6px"] [
-                                dateInput s.timeFrom SetTimeFrom
-                                text "to"
-                                dateInput s.timeTo SetTimeTo
-                            ]
-                        ]
-                    PRo3D.Core.UI.rowWithTip "Sun incidence:"
-                        "Sun incidence at the picked point, degrees: 0 = sun overhead, 90 = sun on the horizon, above 90 = night. Low (0-40) for albedo and colour, high (55-80) for relief: long shadows. Images whose sidecar has no sun position are kept."
-                        [
-                            div [style "display: flex; align-items: center; gap: 6px"] [
-                                degreeInput s.incidenceMin SetIncidenceMin
-                                text "° to"
-                                degreeInput s.incidenceMax SetIncidenceMax
-                                text "°"
-                            ]
-                        ]
+                    // The time range is the shared Date filter now (Filters section).
+                    // PRo3D.Core.UI.rowWithTip "Time (UTC):"
+                    //     "Observation date range, both days included. Clear a field for an open end."
+                    //     [
+                    //         div [style "display: flex; align-items: center; gap: 6px"] [
+                    //             dateInput s.timeFrom SetTimeFrom
+                    //             text "to"
+                    //             dateInput s.timeTo SetTimeTo
+                    //         ]
+                    //     ]
+                    // SUN INCIDENCE (disabled, see docs/StacImageSearch.md)
+                    // PRo3D.Core.UI.rowWithTip "Sun incidence:"
+                    //     "Sun incidence at the picked point, degrees: 0 = sun overhead, 90 = sun on the horizon, above 90 = night. Low (0-40) for albedo and colour, high (55-80) for relief: long shadows. Images whose sidecar has no sun position are kept."
+                    //     [
+                    //         div [style "display: flex; align-items: center; gap: 6px"] [
+                    //             degreeInput s.incidenceMin SetIncidenceMin
+                    //             text "° to"
+                    //             degreeInput s.incidenceMax SetIncidenceMax
+                    //             text "°"
+                    //         ]
+                    //     ]
                 ]
                 div [attribute "style" "display: flex; align-items: center; gap: 6px; padding: 2px 5px; color: #bbb; font-size: 0.85em"] [
                     // one line; the details are in the tooltip
@@ -1059,58 +1191,42 @@ module ProjectedImageListApp =
                                 | None -> ()
                             | None -> ()
                     }
-                div [attribute "style" "border: 2px solid black; position: relative"] [
-                    Incremental.div AttributeMap.empty preview
-                    header
-                    Incremental.div (AttributeMap.ofList [attribute "style" "max-height: 320px; overflow-y: auto"]) (
-                        // not-yet-checked rows stay hidden: hundreds of "checking" rows
-                        // would bury the hits; the status line counts them instead
-                        s.candidates
-                        |> AList.choose (fun c -> match c.check with StacCheck.Checking -> None | _ -> Some (row c))
-                    )
-                ]
+                // not-yet-checked rows stay hidden: hundreds of "checking" rows would
+                // bury the hits; the status line counts them instead
+                let shown = s.candidates |> AList.choose (fun c -> match c.check with StacCheck.Checking -> None | _ -> Some c)
+                // showing the rows listed of the items the catalog matched
+                let count =
+                    (shown.Content, s.status) ||> AVal.map2 (fun shown status ->
+                        let total =
+                            match status with
+                            | StacSearchStatus.Checking (matched, _, _)
+                            | StacSearchStatus.Found (matched, _, _, _) -> matched
+                            | _ -> shown.Count
+                        sprintf "showing %d of %d" shown.Count total)
+                let results =
+                    div [attribute "style" "border: 2px solid black; position: relative"] [
+                        Incremental.div AttributeMap.empty preview
+                        header
+                        Incremental.div (AttributeMap.ofList [attribute "style" "max-height: 320px; overflow-y: auto"]) (
+                            shown |> AList.map row
+                        )
+                    ]
+                countedFold "Images" s.imagesExpanded (StacMessage ToggleImagesExpanded) count results
             ]
 
-        // library column header and rows, framed together by imagesPanel
+        // library column header and rows, framed together by imagesPanel: the image
+        // list layout the Image Search shares (imageListHeader)
         let libraryHeader, libraryRows =
-            // one column: its width (shared by header and rows, so they line up) and the
-            // cell height. Rows are 40px; the header is as high as the Projection
-            // Stack's header (5px padding around one line)
-            let column (width : int) (pointer : bool) (separator : bool) (height : string) =
-                let cursor = if pointer then "cursor: pointer; " else ""
-                let border = if separator then $"border-right: 1px solid {borderColor}; " else ""
-                attribute "style" $"{cursor}width: {width}px; {height}; {border}display: flex; justify-content: center; align-items: center;"
-            let rowHeight = "height: 40px"
-            let headerHeight = "padding: 5px 0"
-            let attributesStack = column 50 true true rowHeight
-            let attributesInstrument = column 90 false true rowHeight
-            let attributesAttr1 = column 120 true true rowHeight
-            let attributesAttr2 = column 120 true false rowHeight
-
-
-            let header =
-                div [
-                    attribute "style" $"display: flex; font-weight: bold; border-bottom: 2px solid black; background: black"
-                ] [
-                    div [ column 50 true true headerHeight ] [text "Stack"]
-                    div [ column 90 false true headerHeight ] [text "Instrument"]
-                    div [ column 120 true true headerHeight ] [
-                        i [clazz "sort icon"; onClick (fun _ -> SortEntriesByDistance);] []
-                        text "Dist. to Planet"
-                    ]
-                    div [ column 120 true false headerHeight ] [
-                        i [clazz "sort icon"; onClick (fun _ -> SortEntriesByDate);] []
-                        text "OBS Date (UTC)"
-                    ]
-                ]
+            let header = imageListHeader m.librarySort SortLibraryBy
+            let cell (width : int) (separator : bool) = listCell width false separator listRowHeight
             let rows =
                 Incremental.div (AttributeMap.ofList [ attribute "class" "table-container" ]) (
                     alist {
                         let domNodes =
                             visibleImages
-                            |> AList.map (fun img ->
-                                // img.id is NonAdaptive, so rows can be keyed by it directly
-                                let id = img.id
+                            |> AList.map (fun image ->
+                                // image.id is NonAdaptive, so rows can be keyed by it directly
+                                let id = image.id
                                 div [
                                     // black row separators, like the Projection Stack's frame
                                     attribute "style" "border-bottom: 1px solid black;"
@@ -1122,43 +1238,52 @@ module ProjectedImageListApp =
                                         (AttributeMap.ofAMap (amap {
                                             let! selected = m.selectedImage |> AVal.map (fun sel -> sel = Some id)
                                             let background = if selected then "rgba(33,133,208,0.6)" else "#333"
-                                            yield style $"cursor: pointer; padding: 0 5px; border-bottom: 1px solid {borderColor}; background: {background}"
+                                            yield style $"cursor: pointer; padding: 0 5px; border-bottom: 1px solid {borderColor}; background: {background}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis"
                                             yield attribute "title" (if selected then "click to deselect" else "click to select")
                                             yield onClick (fun _ -> SelectImage id)
                                         }))
-                                        (AList.single (Incremental.text (img.texture |> AVal.map Path.GetFileName)))
+                                        (AList.single (Incremental.text (image.texture |> AVal.map Path.GetFileName)))
                                     div [attribute "style" "display: flex; font-weight: bold"]
                                         [
-                                            div [attributesStack] [
-                                                Incremental.div AttributeMap.empty (
-                                                    alist {
-                                                        let! inStack = isInStack id
-                                                        if inStack then
-                                                            yield i [clazz "layer group icon"; style "cursor: pointer"; onClick (fun _ -> RemoveFromStack id)] []
-                                                        else
-                                                            yield i [clazz "plus icon"; style "cursor: pointer; opacity: 0.5"; onClick (fun _ -> AddToStack id)] []
-                                                        yield i [clazz "location arrow icon"; style "cursor: pointer; opacity: 0.7; margin-left: 4px"; onClick (fun _ -> FlyToImage id)] []
-                                                    }
-                                                )
+                                            // a thumbnail of the file (LibraryThumbnails, rendered on request)
+                                            Incremental.div (AttributeMap.ofList [cell wPreview true]) (
+                                                alist {
+                                                    let! texture = image.texture
+                                                    yield img [attribute "src" (PRo3D.GIS.LibraryThumbnails.thumbnailPath texture)
+                                                               attribute "style" "width: 40px; height: 40px; object-fit: contain; background: #111"]
+                                                })
+                                            Incremental.div (AttributeMap.ofList [cell wAdd true]) (
+                                                alist {
+                                                    let! inStack = isInStack id
+                                                    if inStack then
+                                                        yield i [clazz "layer group icon"; style "cursor: pointer"; attribute "title" "in the projection stack: click to remove"; onClick (fun _ -> RemoveFromStack id)] []
+                                                    else
+                                                        yield i [clazz "plus icon"; style "cursor: pointer; opacity: 0.5"; attribute "title" "add to the projection stack"; onClick (fun _ -> AddToStack id)] []
+                                                })
+                                            div [cell wFlyTo true] [
+                                                i [clazz "location arrow icon"; style "cursor: pointer; opacity: 0.7"; attribute "title" "fly to the image's camera"; onClick (fun _ -> FlyToImage id)] []
                                             ]
-                                            div [attributesInstrument] [ Incremental.text img.instrument ]
+                                            div [cell wInstrument true] [ Incremental.text (image.instrument |> AVal.map ImageFilter.instrumentKey) ]
                                             // distance = |TRG_POS|; zero means the sidecar does not say where the
                                             // camera was, which only the MbiBased orientation source needs
-                                            Incremental.div (AttributeMap.ofList [ attributesAttr1 ]) (
+                                            Incremental.div (AttributeMap.ofList [ cell wDistance true ]) (
                                                 alist {
-                                                    let! f = img.distance
-                                                    if f > 0.0 then yield text (sprintf "%.2f" f)
+                                                    let! f = image.distance
+                                                    if f > 0.0 then yield text (formatDistanceKm f)
                                                     else
                                                         yield span [ style "color: #e07070"
                                                                      attribute "title" "The metadata's target position (TRG_POS) is zero: no distance, and the MbiBased orientation source cannot place this image. Use Spice or MbiAttitudeSpiceRange." ] [
                                                             text "no TRG_POS" ]
                                                 })
                                             // ISO and UTC, like the Date filter -- not the system's local date format
-                                            div [attributesAttr2] [
-                                                Incremental.text (img.time |> AVal.map (fun t ->
-                                                    if t = DateTime.MinValue then "-"
-                                                    else t.ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss", Globalization.CultureInfo.InvariantCulture)))
-                                            ]
+                                            Incremental.div
+                                                (AttributeMap.ofAMap (amap {
+                                                    yield cell wDate true
+                                                    let! t = image.time
+                                                    yield attribute "title" (formatFullDate t)
+                                                }))
+                                                (AList.single (Incremental.text (image.time |> AVal.map formatListDate)))
+                                            div [cell wResolution false] [ Incremental.text (image.resolution |> AVal.map formatResolution) ]
                                         ]
                                 ]
                             )
@@ -1196,28 +1321,10 @@ module ProjectedImageListApp =
                     div [style "border: 2px solid black; border-bottom: none"] [libraryHeader]
                     div [style "border: 2px solid black; border-top: none"] [libraryRows; emptyLibraryNote]
                 ]
-            let header =
-                tr [] [
-                    th [style subHeaderStyle] [
-                        Incremental.span
-                            (AttributeMap.ofList [style "cursor: pointer"; onClick (fun _ -> ToggleLibraryExpanded)])
-                            (alist {
-                                let! expanded = m.libraryExpanded
-                                yield i [clazz (if expanded then "caret down icon" else "caret right icon")] []
-                                yield text "Images"
-                            })
-                    ]
-                ]
-            div [] [
-                table [clazz "ui celled striped inverted table unstackable"; style "margin: 0"] [
-                    tbody [] [ header ]
-                ]
-                Incremental.div AttributeMap.empty (
-                    alist {
-                        let! expanded = m.libraryExpanded
-                        if expanded then yield list
-                    })
-            ]
+            let count =
+                (visibleImages.Content, m.images.Content)
+                ||> AVal.map2 (fun shown all -> sprintf "showing %d of %d" shown.Count all.Count)
+            countedFold "Images" m.libraryExpanded ToggleLibraryExpanded count list
 
         // label | control, in the inverted table style of Html.row; the label carries
         // an optional tooltip
@@ -1227,6 +1334,36 @@ module ProjectedImageListApp =
                 | Some t -> [clazz "collapsing"; attribute "title" t]
                 | None   -> [clazz "collapsing"]
             tr [] [ td labelAttributes [text label]; td [clazz "right aligned"] control ]
+
+        /// The library's source folder: Import Directory and the folder's path. At the
+        /// top of the Image Library section.
+        let importBox =
+            div [style "padding: 5px;"] [
+                // a subtle box over the panel's width; the button sits on top of its
+                // left end (pulled over the 1px border), so the label reads as the
+                // button's extension and the text keeps its place after the button
+                div [style "display: flex; align-items: center; gap: 8px; border: 1px solid rgba(255,255,255,0.15); border-radius: .28571429rem; background: rgba(255,255,255,0.03);"] [
+                    button [clazz "ui button tiny";
+                            style "flex-shrink: 0; margin: -1px 0 -1px -1px"
+                            Dialogs.onChooseDirectory (Guid.NewGuid()) (fun (guid, chosen) -> LoadImagesDir (chosen) );
+                            clientEvent "onclick" (jsImportDialog) ] [
+                            text "Import Directory"
+                    ]
+                    // long paths are cut off; the tooltip shows the whole one
+                    Incremental.div
+                        (AttributeMap.ofAMap (amap {
+                            yield style "flex: 1; min-width: 0; padding-right: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap"
+                            let! dir = m.imageDirectory
+                            match dir with
+                            | Some d -> yield attribute "title" d
+                            | None -> ()
+                        }))
+                        (alist {
+                            let! dir = m.imageDirectory
+                            yield text (dir |> Option.defaultValue "no directory selected")
+                        })
+                ]
+            ]
 
         let content = 
             // no scroller of its own: the page scrolls. A max-height here left an empty
@@ -1242,33 +1379,6 @@ module ProjectedImageListApp =
                         text "SPICE kernel"
                     ]
                     text " is set for the image projection"
-                ]
-
-                div [style "padding: 5px;"] [
-                    // a subtle box over the panel's width; the button sits on top of its
-                    // left end (pulled over the 1px border), so the label reads as the
-                    // button's extension and the text keeps its place after the button
-                    div [style "display: flex; align-items: center; gap: 8px; border: 1px solid rgba(255,255,255,0.15); border-radius: .28571429rem; background: rgba(255,255,255,0.03);"] [
-                        button [clazz "ui button tiny";
-                                style "flex-shrink: 0; margin: -1px 0 -1px -1px"
-                                Dialogs.onChooseDirectory (Guid.NewGuid()) (fun (guid, chosen) -> LoadImagesDir (chosen) );
-                                clientEvent "onclick" (jsImportDialog) ] [
-                                text "Import Directory"
-                        ]
-                        // long paths are cut off; the tooltip shows the whole one
-                        Incremental.div
-                            (AttributeMap.ofAMap (amap {
-                                yield style "flex: 1; min-width: 0; padding-right: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap"
-                                let! dir = m.imageDirectory
-                                match dir with
-                                | Some d -> yield attribute "title" d
-                                | None -> ()
-                            }))
-                            (alist {
-                                let! dir = m.imageDirectory
-                                yield text (dir |> Option.defaultValue "no directory selected")
-                            })
-                    ]
                 ]
 
                 accordion "Projection Settings" "settings" false (style "margin-top: 6px") [
@@ -1320,13 +1430,22 @@ module ProjectedImageListApp =
                     InstrumentFovApp.view m.instrumentFovs |> UI.map InstrumentFovMessage
                 ]
 
+                // shared by the library and the Image Search (STAC): one set of filters,
+                // applied by the same rules to both (ImageFilter.passes)
+                accordion' filtersTitle "filter" false (style "margin-top: 6px") [
+                    div [style "padding: 4px 5px; font-style: italic; opacity: 0.8"] [
+                        text "Apply to the Image Library and to the Image Search (STAC) results."
+                    ]
+                    filterPanel
+                ]
+
                 accordion "Selected Image" "image" false (style "margin-top: 6px") [
                     selectedImageContent
                 ]
 
                 accordion "Image Library" "images" false (style "margin-top: 6px") [
+                    importBox
                     // flows with the page: nothing pinned, no scroll area of its own
-                    filterPanel
                     imagesPanel
                 ]
 

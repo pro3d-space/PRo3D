@@ -47,12 +47,25 @@ HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos/
 
 ## 2. Import a folder of images
 
-*Projected Images → Import Directory*; the imported folder is shown next to the
-button (*not set* before the first import). Every image of the folder
-(`.tif/.png/.jpg/.exr`, each with its `.mbi.json` sidecar) lands in the
-**library** in the *Image Library* section, with instrument, distance and observation
-date per image, sortable by date or distance. Sorting never changes what is
-projected.
+*Projected Images → Image Library → Import Directory* (at the top of the
+section); the imported folder is shown next to the button (*not set* before the
+first import). Every image of the folder (`.tif/.png/.jpg/.exr`, each with its
+`.mbi.json` sidecar) lands in the **library**, the section's *Images* list. Its
+columns are the same as the Image Search's (docs/StacImageSearch.md):
+
+| column | meaning |
+|---|---|
+| Preview | a thumbnail of the file (the first band, stretched; rendered on first view and cached in `%TEMP%\PRo3D\thumbnails`) |
+| Add | add to / remove from the projection stack |
+| Fly | fly to the image's camera |
+| **Instr.** | instrument, from the metadata |
+| **Distance** | distance to the target's centre (red *no TRG_POS* when the metadata has none) |
+| **Date (UTC)** | observation time, to the minute (the full time in the tooltip) |
+| **Res.** | resolution: ground size of one pixel at the target's centre |
+
+Above each row is the file name; click it to select the image. Instr.,
+Distance, Date and Res. sort the list; a second click sorts the other way
+round. Sorting never changes what is projected.
 
 The chosen folder is **saved with the scene** (key `projectedImagesDirectory`
 in the GIS section) and re-imported when the scene is opened. If the folder no
@@ -102,8 +115,11 @@ sections:
 
   Every image keeps its own settings; they are not saved with the scene. *No image is
   currently selected* when there is none.
-- **Image Library** — the library **Filters** and **Images**, the image list
-  itself; each folds away with a click on its header.
+- **Filters** — shared by the Image Library and the Image Search (see below).
+- **Image Library** — *Import Directory*, then **Images**, the image list
+  itself (*showing x of y* in its header; folds away with a click on it).
+- **Image Search (STAC)** — the catalog search, its results in the same kind
+  of list ([StacImageSearch.md](StacImageSearch.md)).
 - **Projected Images** — the projection stack (see 4.).
 
 *Projection Settings* holds:
@@ -121,29 +137,37 @@ The **Instrument Settings** section below it holds each instrument's field of vi
 the SPICE instrument kernels and editable per scene: see
 [InstrumentFieldOfView.md](InstrumentFieldOfView.md).
 
-### Filtering the library
+### Filters
 
-Between the preview and the library, **Filters** narrows down which library rows
-are shown. The filters only hide rows: the projection stack and the selected
-image are left alone. The header counts the active filters and the rows shown
-(*showing x of y*); click *Filters* to fold the block away, ↶ resets all of them.
+The **Filters** section (its title shows *(n active)*; *reset all* resets them)
+narrows down both the **Image Library** and the
+[Image Search (STAC)](StacImageSearch.md) results, by the same rules: a catalog
+image is checked on its downloaded metadata exactly as it would be in the library.
+The filters only hide rows: the projection stack and the selected image are left
+alone. The library's *Images* header says how many rows are shown
+(*showing x of y*).
+
+The ranges are **fixed**, independent of the loaded images, so they also cover
+catalog images that are not loaded yet. *Distance* and *Resolution* span many
+orders of magnitude (cruise to close proximity): their sliders run on a
+**logarithmic** scale; the bound fields show and take real values.
 
 | filter | kind | effect |
 |---|---|---|
-| **Phase Angle [°]** | range, spanning the library | the angle at the target between the sun and the camera, from the sidecar's sun (`SUN_POS*`) and target (`TRG_POS*`) vectors: low = lit from behind the camera, flat with few shadows; around 90° = side lighting, long shadows; high = backlit. One value per image, at the target's centre — unlike sun elevation/azimuth, which change across the surface of a small body. Images without it (no sidecar) are shown while the filter is off and hidden while it is set |
-| **Instrument** | the library's instruments as toggle buttons | shows only the selected instruments; images without one are listed as *(unknown)* |
-| **Resolution [m/px]** | range, spanning the library | ground resolution at the target: distance × the angle one pixel spans (the instrument's horizontal field of view ÷ the image width). Measured at the target's centre, so on the surface facing the camera pixels are slightly finer. Images without one (no sidecars, or an instrument with no known field of view) are shown while the filter is off and hidden while it is set |
-| **Distance [km]** | range, spanning the library | distance to the target |
-| **Date [UTC]** | range, spanning the library's observation times | observation time from the image's sidecar: the slider, and below it a date/time field per bound (UTC, to the second). Images without a time (no sidecar) are shown while the filter is off and hidden while it is set |
+| **Phase Angle [°]** | range, 0–180° | the angle at the target between the sun and the camera, from the sidecar's sun (`SUN_POS*`) and target (`TRG_POS*`) vectors: low = lit from behind the camera, flat with few shadows; around 90° = side lighting, long shadows; high = backlit. One value per image, at the target's centre — unlike sun elevation/azimuth, which change across the surface of a small body. Images without it (no sidecar) are shown while the filter is off and hidden while it is set |
+| **Instrument** | the HERA instruments (AFC1, AFC2, HSH, TIRI, ASPECT) and any further one in the library, as toggle buttons | shows only the selected instruments; images without one are listed as *(unknown)* |
+| **Resolution [m/px]** | range, 0.001–100 000 m/px, logarithmic | ground resolution at the target: distance × the angle one pixel spans (the instrument's horizontal field of view ÷ the image width). Measured at the target's centre, so on the surface facing the camera pixels are slightly finer. Images without one (no sidecars, or an instrument with no known field of view) are shown while the filter is off and hidden while it is set |
+| **Distance [km]** | range, 0.1–10⁹ km, logarithmic | distance to the target |
+| **Date [UTC]** | range, HERA's launch (2024-10-07) to today — at least to the end of 2027, for the synthetic products dated then | observation time from the image's sidecar: the slider, and below it a date/time field per bound (UTC, to the second). Images without a time (no sidecar) are shown while the filter is off and hidden while it is set |
 
 A range is set by typing its bounds or by dragging the two handles of its
 slider. A filter is **off** — plain label, not counted — while its whole range is
 selected, or, for *Instrument*, while no instrument is selected. An active filter's
 label turns amber with a filter icon, and ↶ next to it resets it. Filters are not
-saved with the scene and are reset when a folder is imported.
+saved with the scene; importing a folder keeps them.
 
 To find images of a spot in a STAC catalog instead of a local folder, see
-[Image Search (STAC)](StacImageSearch.md).
+[Image Search (STAC)](StacImageSearch.md); the same filters apply there.
 
 ## 3. Find images by hovering
 

@@ -10,10 +10,11 @@ import * as path from "path";
  * STAC image search end to end (docs/StacImageSearch.md): a body whose catalog items have
  * no footprint, searched at the cursor, checked by pointing, one hit projected.
  *
- * 1. the panel is prefilled (dates, daylight incidence); with the Image Search tool, a
- *    ctrl+click on the body searches the catalog; the status line reports images found
- *    *by pointing* (the footprint-less fallback) within the time range;
- * 2. clicking the best row downloads the image, adds it to the library and the stack;
+ * 1. the time range is set in the shared Filters section (Date, UTC; the STAC panel has
+ *    no filters of its own); with the Image Search tool, a ctrl+click on the body
+ *    searches the catalog; the status line reports images found *by pointing* (the
+ *    footprint-less fallback) within the time range;
+ * 2. the best row's Add cell downloads the image, adds it to the library and the stack;
  * 3. the render changes where the image is projected.
  *
  * Nothing about the catalog or the scene is in the repo: it needs
@@ -104,18 +105,16 @@ test("STAC search with the Image Search tool finds images by pointing and projec
     await gis.waitForLoadState("networkidle");
     await gis.locator("text=Projected Images").first().click();
     await gis.locator("text=Image Search (STAC)").first().click();
-    await expect(gis.locator("text=Sun incidence:")).toBeVisible({ timeout: 60_000 });
+    await expect(gis.locator("text=Catalog:")).toBeVisible({ timeout: 60_000 });
+    // no filters of its own: the shared Filters section narrows the results
+    await expect(gis.locator("text=Sun incidence:")).toHaveCount(0);
 
-    // prefilled dates and the daylight incidence range
-    const dates = gis.locator('input[type="date"]');
-    await expect(dates).toHaveCount(2);
-    expect(await dates.nth(0).inputValue(), "a prefilled start date").toMatch(/^\d{4}-\d{2}-\d{2}$/);
-    expect(await dates.nth(1).inputValue(), "a prefilled end date").toMatch(/^\d{4}-\d{2}-\d{2}$/);
-    const degrees = gis.locator('input[type="number"][max="180"]');
-    expect([await degrees.nth(0).inputValue(), await degrees.nth(1).inputValue()]).toEqual(["0", "90"]);
-    if (from) await dates.nth(0).fill(from);
-    if (to) await dates.nth(1).fill(to);
-    await dates.nth(1).blur();
+    // the time range: the shared Date filter (UTC date/time fields, whole range = off)
+    await gis.locator("text=Filters").first().click();
+    const dates = gis.locator("input.pro3d-time-input");
+    await expect(dates).toHaveCount(2, { timeout: 30_000 });
+    if (from) { await dates.nth(0).fill(`${from}T00:00:00`); await dates.nth(0).blur(); }
+    if (to) { await dates.nth(1).fill(`${to}T23:59:59`); await dates.nth(1).blur(); }
     await expect.poll(() => status(gis), { timeout: 30_000 }).toMatch(/^use the Image Search tool/);
 
     // --- the Image Search tool, a ctrl+click on the body --------------------------------
@@ -151,7 +150,8 @@ test("STAC search with the Image Search tool finds images by pointing and projec
     await gis.screenshot({ path: path.join(shots, "2-results.png"), fullPage: true });
 
     // --- click the best row: download, library, stack, render ---------------------------
-    const rows = gis.locator('div[title^="click: download and project"]');
+    // the Add cell of the first result row (the image list's columns: Preview | Add | Fly | ...)
+    const rows = gis.locator('div[title="download and add to the projection stack"]');
     await expect(rows.first()).toBeVisible();
     const libraryBefore = await gis.locator(imageRow).count();
     await rows.first().click();

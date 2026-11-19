@@ -90,7 +90,7 @@ let private offline =
         }
 
         test "the search asks for the point, the body and a page size" {
-            let body = StacSearch.Json.searchBody { point = Some (V2d(158.17, -43.43)); target = Some "MARS"; from = None; until = None; limit = 100 }
+            let body = StacSearch.Json.searchBody { point = Some (V2d(158.17, -43.43)); target = Some "MARS"; from = None; until = None; distanceKm = None; limit = 100 }
             use doc = JsonDocument.Parse body
             let root = doc.RootElement
             let coordinates = root.GetProperty("intersects").GetProperty("coordinates")
@@ -104,7 +104,7 @@ let private offline =
 
         test "without point and target, only the time range narrows the search" {
             let from = DateTime(2025, 3, 1, 0, 0, 0, DateTimeKind.Utc)
-            let body = StacSearch.Json.searchBody { point = None; target = None; from = Some from; until = None; limit = 1000 }
+            let body = StacSearch.Json.searchBody { point = None; target = None; from = Some from; until = None; distanceKm = None; limit = 1000 }
             use doc = JsonDocument.Parse body
             let root = doc.RootElement
             Expect.isFalse (fst (root.TryGetProperty "intersects")) "no spatial filter"
@@ -175,16 +175,68 @@ let private offline =
             Expect.isTrue (StacSearch.incidencePasses day None) "no sun position or normal: kept, the filter cannot tell"
         }
 
-        test "the panel's settings make the filter, or say why not" {
+        test "the search filter is the panel's shared Filters section" {
             let s = StacSearchModel.initial
-            match StacSearch.filterOf s with
+            match StacSearch.filterOf s ImageFilter.initial with
             | Ok f ->
-                Expect.equal f.incidence (Range1d(0.0, 90.0)) "daylight by default"
-                Expect.isSome f.from "a prefilled start"
-                Expect.isSome f.until "a prefilled end"
+                Expect.isNone f.from "Date off: no start"
+                Expect.isNone f.until "Date off: no end"
+                Expect.equal f.bounds (ImageFilter.bounds ImageFilter.initial) "the library's bounds"
             | Result.Error e -> failtestf "the defaults must make a filter: %s" e
-            Expect.isError (StacSearch.filterOf { s with incidenceMin = 80.0; incidenceMax = 20.0 }) "incidence range reversed"
-            Expect.isError (StacSearch.filterOf { s with timeFrom = "2027-01-01"; timeTo = "2026-01-01" }) "time range reversed"
+            let t0 = DateTime(2026, 11, 1, 0, 0, 0, DateTimeKind.Utc)
+            let key t = ImageFilter.timeKey t |> Option.defaultValue nan
+            let dated = ImageFilter.update ImageFilter.initial (SetLower (RangeFilterKind.Time, Aardvark.UI.Primitives.Numeric.SetValue (key t0)))
+            match StacSearch.filterOf s dated with
+            | Ok f -> Expect.equal f.from (Some t0) "Date set: its start goes to the server"
+            | Result.Error e -> failtestf "a date range must make a filter: %s" e
+            // SUN INCIDENCE (disabled, see docs/StacImageSearch.md)
+            // Expect.isError (StacSearch.filterOf { s with incidenceMin = 80.0; incidenceMax = 20.0 }) "incidence range reversed"
+        }
+
+        test "a distance range goes to the server in AU, widened, and-ed with the target" {
+            let q : StacSearch.Query =
+                { point = Some (V2d(10.0, 20.0)); target = Some "DIMORPHOS"; from = None; until = None
+                  distanceKm = Some (10.0, 100.0); limit = 10 }
+            use doc = JsonDocument.Parse (StacSearch.Json.searchBody q)
+            let filter = doc.RootElement.GetProperty "filter"
+            Expect.equal (filter.GetProperty("op").GetString()) "and" "the conditions are and-ed"
+            let args = filter.GetProperty "args"
+            Expect.equal (args.GetArrayLength()) 3 "target, lower and upper distance"
+            Expect.equal (args.[0].GetProperty("op").GetString()) "a_contains" "the target first"
+            let bound (i : int) = args.[i].GetProperty("op").GetString(), args.[i].GetProperty("args").[0].GetProperty("property").GetString(), args.[i].GetProperty("args").[1].GetDouble()
+            let op1, prop1, lo = bound 1
+            let op2, prop2, hi = bound 2
+            Expect.equal (op1, prop1) (">=", "hera:target_distance") "lower bound"
+            Expect.equal (op2, prop2) ("<=", "hera:target_distance") "upper bound"
+            Expect.floatClose Accuracy.high lo (10.0 * (1.0 - StacSearch.distanceTolerance) / StacSearch.kmPerAu) "km -> AU, widened down"
+            Expect.floatClose Accuracy.high hi (100.0 * (1.0 + StacSearch.distanceTolerance) / StacSearch.kmPerAu) "km -> AU, widened up"
+            // no target, distance only: a single condition, no "and"
+            use doc2 = JsonDocument.Parse (StacSearch.Json.searchBody { q with target = None })
+            Expect.equal (doc2.RootElement.GetProperty("filter").GetProperty("op").GetString()) "and" "two distance bounds: and"
+            use doc3 = JsonDocument.Parse (StacSearch.Json.searchBody { q with distanceKm = None })
+            Expect.equal (doc3.RootElement.GetProperty("filter").GetProperty("op").GetString()) "a_contains" "target only: as before"
+        }
+
+        test "a catalog image's metadata passes the filters exactly as the same image in the library" {
+            let dataDir = IO.Path.Combine(__SOURCE_DIRECTORY__, "data")
+            let images =
+                IO.Directory.EnumerateFiles(dataDir, "*.tif")
+                |> Seq.map (fun path -> path, ProjectedImageApp.loadFile path)
+                |> List.ofSeq
+            Expect.isNonEmpty images "test images"
+            let narrowed =
+                [ SetUpper (RangeFilterKind.Distance, Aardvark.UI.Primitives.Numeric.SetValue 50.0)
+                  SetLower (RangeFilterKind.PhaseAngle, Aardvark.UI.Primitives.Numeric.SetValue 30.0) ]
+            for f in ImageFilter.initial :: (narrowed |> List.map (ImageFilter.update ImageFilter.initial)) do
+                let b = ImageFilter.bounds f
+                for path, img in images do
+                    let values = ImageFilter.valuesOf (PRo3D.Core.InstrumentMetadata.tryParseMetadataForImagePath path)
+                    Expect.equal values.distance img.distance "same distance"
+                    Expect.equal values.resolution img.resolution "same resolution"
+                    Expect.equal values.phaseAngle img.phaseAngle "same phase angle"
+                    Expect.equal values.time img.time "same time"
+                    Expect.equal (ImageFilter.passesValues b values) (ImageFilter.matches f img)
+                        (sprintf "same decision for %s" (IO.Path.GetFileName path))
         }
 
         // Sidecars with zeros for attitude or target position must show up as a red
@@ -292,7 +344,7 @@ let private aScene (lonDeg : float) : StacSearch.Scene =
     }
 
 let private aFilter : StacSearch.Filter =
-    { serverUrl = "https://example.org/api"; from = None; until = None; incidence = Range1d(0.0, 90.0) }
+    { serverUrl = "https://example.org/api"; from = None; until = None; bounds = ImageFilter.bounds ImageFilter.initial }
 
 /// Waits (polling) until `cond` holds, failing after `ms`.
 let private waitFor (ms : int) (what : string) (cond : unit -> bool) =
@@ -409,7 +461,7 @@ let private local =
             w.SearchNow(aFilter, aScene 10.0)
             waitFor 3000 "the forced search" (fun () -> finished () = 2)
             // a changed filter re-runs the last point
-            w.Rerun { aFilter with incidence = Range1d(0.0, 60.0) }
+            w.Rerun { aFilter with bounds = { aFilter.bounds with phaseAngle = Some (0.0, 60.0) } }
             waitFor 3000 "the rerun" (fun () -> finished () = 3)
 
             // a long search, then jitter on the spot: not abandoned
@@ -441,6 +493,7 @@ let private local =
                         // pixel sizes n .. 1: the finest last in the server's order
                         Resolved { rangeM = 1.0; pixelSizeM = float (n - i); incidenceDeg = None; pointIncidenceDeg = None
                                    pixel = V2d.Zero; centralOnSurface = true }
+                    values = None
                 }
             let red : StacCandidate = { candidate n with itemId = "red"; check = Unresolved "no attitude" }
             let s =
@@ -464,11 +517,46 @@ let private local =
             let stale = ProjectedImageListApp.update m (StacMessage (QueryFinished (6, Ok StacDropped.none)))
             Expect.equal stale.stacSearch.candidates.Count (n + 1) "an older search's answer is dropped"
         }
+
+        test "results sort by the image list's columns, again the other way round; unchecked rows last" {
+            let resolved = Resolved { rangeM = 1.0; pixelSizeM = 1.0; incidenceDeg = None; pointIncidenceDeg = None; pixel = V2d.Zero; centralOnSurface = true }
+            let candidate (id : string) (day : int) (values : Option<StacImageValues>) : StacCandidate =
+                { itemId = id; collection = "c"; title = id; time = DateTime(2026, 11, day, 0, 0, 0, DateTimeKind.Utc); instrument = "afc"
+                  assets = { mbi = "m"; image = "i"; imageMetadata = None; overview = None }
+                  check = resolved; values = values }
+            let v instrument d r = Some { instrument = instrument; distanceKm = d; resolution = r }
+            let rows =
+                IndexList.ofList [
+                    candidate "near" 3 (v "AFC2" 5.0 (Some 0.5))
+                    candidate "far" 1 (v "AFC1" 50.0 (Some 5.0))
+                    candidate "unknown" 2 (v "HSH" 20.0 None)
+                ]
+            let s = { StacSearchModel.initial with candidates = rows }
+            let m = { ProjectedImageListApp.initial with stacSearch = s }
+            let sortBy key (m : ProjectedImageListModel) = ProjectedImageListApp.update m (StacMessage (SortCandidatesBy key))
+            let ids (m : ProjectedImageListModel) = m.stacSearch.candidates |> IndexList.toList |> List.map (fun c -> c.itemId)
+            let byDistance = sortBy SortDistance m
+            Expect.equal (ids byDistance) [ "near"; "unknown"; "far" ] "distance, ascending"
+            Expect.equal byDistance.stacSearch.sort (Some (SortDistance, true)) "remembered"
+            Expect.equal (ids (sortBy SortDistance byDistance)) [ "far"; "unknown"; "near" ] "again: descending"
+            Expect.equal (ids (sortBy SortResolution m)) [ "near"; "far"; "unknown" ] "resolution; none last"
+            Expect.equal (ids (sortBy SortDate m)) [ "far"; "unknown"; "near" ] "date"
+            Expect.equal (ids (sortBy SortInstrument m)) [ "far"; "near"; "unknown" ] "instrument, from the metadata"
+            // a check's values are stored on its row
+            let checking = { (candidate "x" 1 None) with check = StacCheck.Checking }
+            let listed =
+                { ProjectedImageListApp.initial with
+                    stacSearch = { StacSearchModel.initial with query = Some { seq = 1; body = "DIMORPHOS"; lon = 0.0; lat = 0.0 }; candidates = IndexList.single checking } }
+            let checkedM = ProjectedImageListApp.update listed (StacMessage (QueryChecked (1, "x", Some resolved, v "AFC1" 12.0 (Some 0.2))))
+            match checkedM.stacSearch.candidates |> IndexList.tryFirst with
+            | Some c -> Expect.equal c.values (v "AFC1" 12.0 (Some 0.2)) "the metadata values arrive with the check"
+            | None -> failtest "the row is gone"
+        }
     ]
 
 /// The PRO3D_STAC_URL catalog, no time range.
 let private catalog : StacSearch.Filter =
-    { serverUrl = StacSearchModel.defaultServerUrl; from = None; until = None; incidence = Range1d(0.0, 180.0) }
+    { serverUrl = StacSearchModel.defaultServerUrl; from = None; until = None; bounds = ImageFilter.bounds ImageFilter.initial }
 
 /// Skips unless the PRO3D_STAC_URL catalog answers; signs the session in when it asks
 /// for that and PRO3D_STAC_USER / _PASSWORD are set, and says so when they are not --
@@ -498,7 +586,7 @@ let private catalogCoverage =
                 let points = [ for lon in [ -90.0; 0.0; 90.0; 180.0 ] -> lon, 0.0 ]
                 let found =
                     points |> List.sumBy (fun (lon, lat) ->
-                        let q : StacSearch.Query = { point = Some (V2d(lon, lat)); target = Some body; from = None; until = None; limit = 1 }
+                        let q : StacSearch.Query = { point = Some (V2d(lon, lat)); target = Some body; from = None; until = None; distanceKm = None; limit = 1 }
                         snd (searchRaw (StacSearch.Json.searchBody q)))
                 if found = 0 then
                     // why: no item names the body, or none of those has a footprint
@@ -690,7 +778,7 @@ let private withCatalog (accounts : Option<list<FakeStacCatalog.Account>>) (f : 
             for d in IO.Directory.GetDirectories(cache, prefix + "*") do
                 try IO.Directory.Delete(d, true) with _ -> ()
 
-let private allItems : StacSearch.Query = { point = None; target = None; from = None; until = None; limit = 100 }
+let private allItems : StacSearch.Query = { point = None; target = None; from = None; until = None; distanceKm = None; limit = 100 }
 
 /// the worker's messages, with a wait for the next ConnectFinished
 let private connectMessages () =
@@ -750,7 +838,7 @@ let private signIn =
             let row : StacCandidate =
                 { itemId = "a"; collection = "c"; title = "t"; time = DateTime(2000, 1, 1); instrument = "CAM"
                   assets = { mbi = "https://example.org/a.mbi.json"; image = "https://example.org/a.tif"; imageMetadata = None; overview = None }
-                  check = StacCheck.Checking }
+                  check = StacCheck.Checking; values = None }
             let connected =
                 let m = ProjectedImageListModel.initial
                 { m with stacSearch = { m.stacSearch with connection = Connected (Some "tester"); candidates = IndexList.single row } }

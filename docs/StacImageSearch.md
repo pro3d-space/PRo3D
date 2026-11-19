@@ -13,8 +13,8 @@ the GIS tab under *Projected Images → Image Search (STAC)*.
 1. Set the scene up as for [Multi-Image Projection](MultiImageProjection.md):
    an observed body, the surface bound to its SPICE body and frame (e.g.
    `MARS` / `IAU_MARS`), and a SPICE kernel covering the observation epochs.
-2. In the panel, set the filters (see below). They are prefilled: the HERA
-   mission at Didymos, daylight.
+2. Set the filters in the panel's **Filters** section (see below). They are the
+   Image Library's: one set for both.
 3. Select the **Image Search** tool in the toolbar. This connects to the
    catalog, and asks you to sign in if it wants that (see *Signing in*). Then either
    - **click** the surface: that point is searched, or
@@ -28,28 +28,40 @@ the GIS tab under *Projected Images → Image Search (STAC)*.
    hover it for the whole story: the point (planetocentric, east-positive), the
    counts, why images could not be checked. Each image that shows the point
    appears in the list as soon as it is checked; once all are checked, the
-   list is sorted by pixel size (finest first) and cut to the best **100**.
+   list is sorted by pixel size at the point (finest first) and cut to the best
+   **100**. The results are in the section's **Images** fold, whose header says
+   *showing x of y* (rows shown of the items the catalog matched).
    Up to 1000 catalog items are checked per point, newest first (the log says
    when the catalog matched more; narrow the time range then). Moving the cursor
    back and forth on the spot does not restart a running search.
 
+   The list has the Image Library's columns, so both read the same. Above each
+   row: the product name (red when its pointing could not be resolved).
+
    | column | meaning |
    |---|---|
-   | thumbnail | the catalog's overview image |
-   | image | product name, instrument, observation time (UTC) |
-   | **px** | ground size of one pixel at the central pixel |
-   | **range** | spacecraft to the surface point under the central pixel |
-   | **inc.** | sun incidence at the central pixel (0° = sun overhead, > 90° = night) |
+   | Preview | the catalog's overview image |
+   | Add | download the image, add it to the library and put it on top of the projection stack |
+   | Fly | fly to the image's camera (once the row is checked: it needs the downloaded metadata); the scene time moves to the image's |
+   | **Instr.** | instrument, from the image's metadata (the catalog's name before the check) |
+   | **Distance** | distance to the target's centre, from the metadata — as in the library and the Distance filter |
+   | **Date (UTC)** | observation time, to the minute (the full time in the tooltip) |
+   | **Res.** | resolution: ground size of one pixel at the target's centre, from the metadata — as in the library and the Resolution filter |
+
+   Instr., Distance, Date and Res. sort the list; a second click sorts the other
+   way round, and the header shows the direction. What the check measured at
+   the point itself (range to the surface point, pixel size there) is in the
+   row's tooltip.
 
    **Hover a row** to see, in the 3D view, the image's frustum and its footprint outline on the
    surface, the same as for a hovered library image. They come from the
    sidecar the check downloaded, so nothing is fetched; the image itself is
    not projected until the row is clicked. A red row has no frustum.
 
-   A `*` means the image's boresight misses the loaded surface (a limb frame,
-   or an OPC covering only part of the body). Range and incidence are then
+   When the image's boresight misses the loaded surface (a limb frame, or an
+   OPC covering only part of the body), the tooltip's range and pixel size are
    those of the picked point.
-5. **Click a row**: its files are downloaded to a folder of its own under
+5. **Add** (the row's + cell): its files are downloaded to a folder of its own under
    `%TEMP%\PRo3D\stac\`, the image is added to the library and put on top of
    the projection stack. A second click on the same image does not download it
    again.
@@ -115,12 +127,41 @@ PRo3D does with it:
 
 # Filters
 
-Changing a filter searches the last point again.
+The search uses the panel's shared **Filters** section — Phase Angle,
+Instrument, Resolution, Distance, Date — the same filters as the Image Library
+([MultiImageProjection.md](MultiImageProjection.md#filters)). Changing a filter
+searches the last point again.
 
-| filter | meaning | default |
+Every result is checked on its **downloaded metadata** by the library's own rules
+(`ImageFilter.passesValues`), before its pointing is checked: a catalog image
+passes exactly when it would pass in the library. Dropped images are counted in
+the status line (*filtered*). Some filters are also sent to the server, only to
+make the answer smaller:
+
+| filter | sent to the server as | checked by PRo3D |
 |---|---|---|
-| **Time (UTC)** | observation date range, both days included; clear a field for an open end. Narrows the server's answer, so it also makes the search faster | 2026-10-01 to 2027-05-31 |
-| **Sun incidence** | sun incidence at the **picked point**, degrees: the angle between the sun and the surface normal there. 0° = sun overhead, 90° = sun on the horizon, > 90° = night | 0° to 90° (daylight) |
+| **Date** | `datetime` interval (UTC) | yes |
+| **Distance** | `hera:target_distance` (AU), widened by 5 % on each side: the catalog's "observation target" and the metadata's `TRG_POS` need not be the same body (Didymos vs Dimorphos) | yes |
+| **Instrument** | not yet: the catalog's `instruments` spellings still need mapping to the metadata's `INSTRUME` names | yes |
+| **Phase Angle**, **Resolution** | no: the catalog has neither | yes |
+
+Consequences of filtering after download:
+
+- The catalog lists at most 1000 items per point, newest first, *before* PRo3D's
+  own check. Strict phase-angle or resolution filters can leave fewer results
+  than the catalog has; narrowing the Date range brings older ones in.
+- Each listed item's metadata is downloaded once (cached), also when the filters
+  then drop it.
+- An item the catalog has no `hera:target_distance` for is not listed while the
+  Distance filter is set.
+
+## Sun incidence (disabled)
+
+The sun incidence filter (the angle at the picked point between the sun and the
+surface normal) is **disabled** for now: its code is commented out, marked
+`SUN INCIDENCE (disabled, see docs/StacImageSearch.md)`, and the model fields
+`incidenceMin`/`incidenceMax` are kept, so re-enabling it is uncommenting. The
+*inc.* column of the results still shows each image's incidence. What it did:
 
 Why incidence, and not sun elevation and azimuth: incidence is what planetary
 image searches filter on (PDS ODE, for instance, together with emission and
@@ -137,8 +178,8 @@ The incidence is measured against the loaded surface's normal at the point
 (the OPC triangle, in the body-fixed frame), with the sun position from the
 image's sidecar. On rough terrain that is the local facet, not a smooth body.
 An image without a sun position in its sidecar, or a point without a normal,
-passes the filter: it cannot tell. Images dropped by the filter are counted in
-the status line.
+passed the filter: it could not tell. Images dropped by the filter were counted
+in the status line.
 
 # What "shows the point" means
 

@@ -156,33 +156,16 @@ module ProjectedImageApp =
 
         let inputMaxValue = { numericInput with value = defaultMaxValues[selectedChannelIdx]; min = rangeMin; max = rangeMax; step = stepSize }
 
-        let distance =
-            match tiffMbiJson with
-            | Some mbi -> mbi.targetPos.Length
-            | None -> 0.0
-
-        // curated header: instrument, plus the camera system when the
-        // statistics sidecar declares one and it adds information
-        let instrument =
-            match tiffMbiJson, tiffJson with
-            | Some mbi, Some tf when not (String.IsNullOrWhiteSpace tf.camera_system) && tf.camera_system <> mbi.instrument ->
-                sprintf "%s (%s)" mbi.instrument tf.camera_system
-            | Some mbi, _ -> mbi.instrument
-            | None, Some tf -> tf.camera_system
-            | None, None -> ""
-
-        let resolution =
-            match tiffMbiJson, tiffJson with
-            | Some mbi, Some tf -> PRo3D.SPICE.InstrumentProjection.tryResolution mbi.instrument distance tf.image_width
-            | _ -> None
-
-        let phaseAngle =
-            tiffMbiJson |> Option.bind (fun mbi -> ProjectedImageModel.phaseAngleOf mbi.sunPos mbi.targetPos)
-
-        let time =
-            match tiffMbiJson with
-            | Some mbi -> mbi.obs_date
-            | None -> System.DateTime.MinValue // which default time?
+        // what the filters compare: one function for library images and catalog
+        // results (ImageFilter.valuesOf), so both are filtered alike
+        let values = ImageFilter.valuesOf (tiffMbiJson, tiffJson)
+        // the image list's Preview column may serve this file's thumbnail
+        PRo3D.GIS.LibraryThumbnails.register texturePath
+        let distance = values.distance
+        let instrument = values.instrument
+        let resolution = values.resolution
+        let phaseAngle = values.phaseAngle
+        let time = values.time
 
 
 

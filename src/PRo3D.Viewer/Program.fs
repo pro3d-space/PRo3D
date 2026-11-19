@@ -429,6 +429,16 @@ let main argv =
                         | None -> http.notFound "thumbnail not readable"
                     | None -> http.notFound "no such thumbnail")
 
+                // Library thumbnails (LibraryThumbnails.thumbnailPath), rendered on first
+                // request on this request's thread. Only registered library images.
+                http.routef "/library-thumbnail/%s" (fun key ->
+                    match PRo3D.GIS.LibraryThumbnails.thumbnailFile key with
+                    | Some path ->
+                        match (try Some (File.ReadAllBytes path) with _ -> None) with
+                        | Some bytes -> http.mimeType "image/png" >=> http.ok bytes
+                        | None -> http.notFound "thumbnail not readable"
+                    | None -> http.notFound "no such thumbnail")
+
                 http.route "/crash.txt" >=> http.mimeType "text/plain" >=> http.sendFile logFilePath
 
                 http.route "/minilog.txt" >=> http.mimeType "text/plain" >=> http.request (fun r ->

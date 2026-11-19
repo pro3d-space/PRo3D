@@ -15,6 +15,10 @@ release folds them into `PRODUCT_RELEASE_NOTES.md`.
 
 ## Pending
 
+- Projected images: **the Image Library and the Image Search (STAC) lists look and work the same**: Preview (library thumbnails too), Add, Fly, Instrument, Distance, Date and Resolution columns; the last four sort both ways. The search results show the metadata's distance and resolution, like the library and the filters. *Import Directory* sits at the top of the Image Library, each list's *Images* header says *showing x of y*, and the Filters section's title shows how many are active (docs/MultiImageProjection.md, docs/StacImageSearch.md)
+
+- Projected images: **one set of filters for the Image Library and the Image Search (STAC)**, in its own *Filters* section. A catalog result is checked on its downloaded metadata by the library's own rules; the date and distance ranges also narrow the catalog's answer. The ranges are fixed (distance and resolution on a log scale) and stay when a folder is imported. The STAC panel's own time range and the sun incidence filter are gone (docs/MultiImageProjection.md, docs/StacImageSearch.md)
+
 - Projected images (macOS): **the colour legend shows the colour map's real colours.** It read the map with red and blue swapped, so e.g. Magma's orange and cream appeared as blue and cyan in the legend (docs/MultiImageProjection.md)
 
 - Projected images: **an image's *False Colour* switch now applies on the surface too**, not only in its preview: with it off the image is projected in grey values (docs/MultiImageProjection.md)

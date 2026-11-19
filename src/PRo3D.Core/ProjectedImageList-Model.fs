@@ -198,16 +198,38 @@ type StacCheck =
     /// frustum for the instrument, no SPICE coverage); it would not project either
     | Unresolved of string
 
+/// What the image lists show of a catalog result, from its downloaded metadata --
+/// computed like a library image's (ImageFilter.valuesOf), so both lists agree.
+type StacImageValues =
+    {
+        /// INSTRUME (and camera system), as the library shows it
+        instrument : string
+        /// distance to the target's centre, km (|TRG_POS|); 0 when unknown
+        distanceKm : float
+        /// ground resolution at the target's centre, m/px
+        resolution : Option<float>
+    }
+
 type StacCandidate =
     {
         itemId     : string
         collection : string
         title      : string
         time       : DateTime
+        /// the catalog's instrument name; `values` has the metadata's once checked
         instrument : string
         assets     : StacAssets
         check      : StacCheck
+        /// from the downloaded metadata; None until the candidate is checked
+        values     : Option<StacImageValues>
     }
+
+/// The sortable columns of the image lists (library and Image Search).
+type ImageSortKey =
+    | SortInstrument
+    | SortDistance
+    | SortDate
+    | SortResolution
 
 /// One cursor position being searched for. `seq` orders the searches, so a slow
 /// answer to an old position cannot overwrite a newer one.
@@ -239,8 +261,9 @@ type StacDropped =
         count            : int
         /// the first reason, as an example
         reason           : Option<string>
-        /// the point is in the image, but its sun incidence is outside the filter
-        outsideIncidence : int
+        /// outside the panel's shared filters (ImageFilter), checked on the downloaded
+        /// metadata. (Was the sun incidence filter, disabled for now.)
+        outsideFilters   : int
         /// listed in red: the footprint matched, the pointing did not resolve
         unresolvedListed : int
         /// not checkable because the loaded SPICE kernel does not cover the image's
@@ -250,7 +273,7 @@ type StacDropped =
     }
 
 module StacDropped =
-    let none = { count = 0; reason = None; outsideIncidence = 0; unresolvedListed = 0; noSpiceCoverage = 0 }
+    let none = { count = 0; reason = None; outsideFilters = 0; unresolvedListed = 0; noSpiceCoverage = 0 }
 
 type StacSearchStatus =
     | Idle
@@ -260,7 +283,7 @@ type StacSearchStatus =
     | Checking of matched : int * checked : int * StacListing
     /// `matched` is how many items the server found, `kept` how many survive the
     /// local check that the point really projects into the image (and the
-    /// incidence filter); the list shows at most StacSearchModel.maxResults
+    /// shared filters); the list shows at most StacSearchModel.maxResults
     | Found  of matched : int * kept : int * StacListing * StacDropped
     | Failed of string
 
@@ -336,6 +359,11 @@ type StacSearchModel =
         /// the user name the sign-in dialog starts with: the last one that worked.
         /// The password is never kept, here or anywhere else.
         lastUser     : string
+        /// the results' sort: column and ascending; None = best resolution at the
+        /// point first (StacSearch.sortCandidates)
+        sort         : Option<ImageSortKey * bool>
+        /// the results' Images fold is unfolded
+        imagesExpanded : bool
     }
 
 module StacSearchModel =
@@ -415,6 +443,8 @@ module StacSearchModel =
             hovered      = None
             connection   = Disconnected
             lastUser     = snd (remembered ())
+            sort         = None
+            imagesExpanded = true
         }
 
 module ProjectedImages =
@@ -456,9 +486,11 @@ type RangeFilter =
         upper : NumericInput
     }
 
-/// The library filters of the Projected Images panel. They only hide library rows;
-/// the stack and the selected image are left alone. Transient: not saved with the
-/// scene, reset when a folder is imported.
+/// The filters of the Projected Images panel, shared by the Image Library and the
+/// Image Search (STAC): they hide library rows and drop catalog results by the same
+/// rules (ImageFilter.passes). The stack and the selected image are left alone.
+/// Transient: not saved with the scene; an import keeps them. Fixed ranges
+/// (ImageFilter.initial), independent of the loaded images.
 [<ModelType>]
 type ImageFilter =
     {
@@ -472,7 +504,8 @@ type ImageFilter =
         time         : RangeFilter
         /// Instruments shown. Empty: all of them (filter off).
         instruments  : HashSet<string>
-        /// the filter block is unfolded
+        /// the filter block was unfolded; unused since the filters are their own
+        /// section (the accordion folds them), kept to leave the model alone
         expanded     : bool
     }
 
@@ -544,16 +577,6 @@ module ImageFilter =
     let instrumentKey (instrument : string) =
         if String.IsNullOrWhiteSpace instrument then unknownInstrument else instrument
 
-    let initial : ImageFilter =
-        {
-            phaseAngle   = RangeFilter.create 0.0 180.0 0.1 "{0:0.0}"
-            resolution   = RangeFilter.create 0.0 1.0 0.001 "{0:0.000}"
-            distance     = RangeFilter.create 0.0 1.0 0.01 "{0:0.00}"
-            time         = RangeFilter.create 0.0 1.0 1.0 "{0:0}"
-            instruments  = HashSet.empty
-            expanded     = true
-        }
-
     /// The UTC epoch the time filter counts from.
     let private epoch = DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)
 
@@ -568,32 +591,35 @@ module ImageFilter =
     let timeOfKey (seconds : float) : DateTime =
         epoch.AddSeconds seconds
 
-    /// A range over `values`, widened by `widen` when they all share one value (so the
-    /// slider has room); [0, 1] without any.
-    let private rangeOverWith (widen : float) (values : seq<float>) (format : string) =
-        let mutable lo = Double.PositiveInfinity
-        let mutable hi = Double.NegativeInfinity
-        for v in values do
-            lo <- min lo v
-            hi <- max hi v
-        let lo, hi =
-            if Double.IsInfinity lo then 0.0, 1.0
-            elif hi - lo < 1e-9 then lo, lo + widen
-            else lo, hi
-        RangeFilter.create lo hi ((hi - lo) / 1000.0) format
+    /// The Date filter's range: HERA's launch to the end of today -- or to the end of
+    /// 2027 while that is later, so the synthetic pre-arrival products (dated 2027) can
+    /// be selected too.
+    let timeRange () =
+        let launch = DateTime(2024, 10, 7, 0, 0, 0, DateTimeKind.Utc)
+        let endOfToday = DateTime.UtcNow.Date.AddDays(1.0).AddSeconds(-1.0)
+        let end2027 = DateTime(2027, 12, 31, 23, 59, 59, DateTimeKind.Utc)
+        let key (t : DateTime) = (t - epoch).TotalSeconds
+        key launch, key (if endOfToday > end2027 then endOfToday else end2027)
 
-    let private rangeOver (values : seq<float>) (format : string) = rangeOverWith 1.0 values format
+    /// Distance and resolution span orders of magnitude (cruise to proximity): their
+    /// sliders run on a log scale (DualRangeSlider), the bound boxes show real values.
+    let isLogScale (kind : RangeFilterKind) =
+        match kind with
+        | Distance | Resolution -> true
+        | PhaseAngle | Time -> false
 
-    /// Filters reset for a freshly imported library: the distance and resolution
-    /// ranges span its images.
-    let forImages (images : seq<ProjectedImageModel>) (expanded : bool) : ImageFilter =
-        { initial with
-            distance   = rangeOver (images |> Seq.map (fun i -> i.distance)) "{0:0.00}"
-            resolution = rangeOver (images |> Seq.choose (fun i -> i.resolution)) "{0:0.000}"
-            phaseAngle = rangeOver (images |> Seq.choose (fun i -> i.phaseAngle)) "{0:0.0}"
-            // one observation time: an hour around it, whole seconds stay reachable
-            time       = rangeOverWith 3600.0 (images |> Seq.choose (fun i -> timeKey i.time)) "{0:0}"
-            expanded   = expanded }
+    /// Fixed ranges, independent of the loaded images: the same filter applies to the
+    /// library and to catalog results not loaded yet (docs/MultiImageProjection.md).
+    let initial : ImageFilter =
+        let timeMin, timeMax = timeRange ()
+        {
+            phaseAngle   = RangeFilter.create 0.0 180.0 0.1 "{0:0.0}"
+            resolution   = RangeFilter.create 0.001 100000.0 0.001 "{0:0.000}"
+            distance     = RangeFilter.create 0.1 1000000000.0 0.01 "{0:0.00}"
+            time         = RangeFilter.create timeMin timeMax 1.0 "{0:0}"
+            instruments  = HashSet.empty
+            expanded     = true
+        }
 
     let activeCount (f : ImageFilter) =
         [ f.phaseAngle; f.resolution; f.distance; f.time ]
@@ -645,6 +671,48 @@ module ImageFilter =
     /// `passes` for an image.
     let matches (f : ImageFilter) (img : ProjectedImageModel) =
         passes (bounds f) img.instrument img.distance img.resolution img.phaseAngle img.time
+
+    /// What the filters compare, for an image known only by its metadata (a catalog
+    /// result before it is loaded). Computed exactly as a library image's
+    /// (ProjectedImageApp.loadFile uses this too), so a catalog image passes the
+    /// filters exactly when it would pass them in the library.
+    type Values =
+        {
+            instrument : string
+            distance   : float
+            resolution : Option<float>
+            phaseAngle : Option<float>
+            time       : DateTime
+        }
+
+    let valuesOf ((mbi, tif) : PRo3D.Core.InstrumentMetadata.ParsedMetadata) : Values =
+        let distance =
+            match mbi with
+            | Some mbi -> mbi.targetPos.Length
+            | None -> 0.0
+        // curated: instrument, plus the camera system when the statistics sidecar
+        // declares one and it adds information
+        let instrument =
+            match mbi, tif with
+            | Some mbi, Some tf when not (String.IsNullOrWhiteSpace tf.camera_system) && tf.camera_system <> mbi.instrument ->
+                sprintf "%s (%s)" mbi.instrument tf.camera_system
+            | Some mbi, _ -> mbi.instrument
+            | None, Some tf -> tf.camera_system
+            | None, None -> ""
+        {
+            instrument = instrument
+            distance   = distance
+            resolution =
+                match mbi, tif with
+                | Some mbi, Some tf -> PRo3D.SPICE.InstrumentProjection.tryResolution mbi.instrument distance tf.image_width
+                | _ -> None
+            phaseAngle = mbi |> Option.bind (fun mbi -> ProjectedImageModel.phaseAngleOf mbi.sunPos mbi.targetPos)
+            time       = match mbi with Some mbi -> mbi.obs_date | None -> DateTime.MinValue
+        }
+
+    /// `passes` for metadata values.
+    let passesValues (b : Bounds) (v : Values) =
+        passes b v.instrument v.distance v.resolution v.phaseAngle v.time
 
     let private mapRange (kind : RangeFilterKind) (g : RangeFilter -> RangeFilter) (f : ImageFilter) =
         match kind with
@@ -704,6 +772,9 @@ type ProjectedImageListModel =
         propertiesExpanded   : bool
         /// The Images block (the library's column header and rows) is unfolded.
         libraryExpanded      : bool
+        /// The library's last sort: column and ascending (the header's sort icons).
+        /// Sorting rewrites `images`; None after an import.
+        librarySort          : Option<ImageSortKey * bool>
         projectionOpacity    : NumericInput
         boresightAdjustment  : BoresightAdjustment
         cameraState          : OrbitState
@@ -842,6 +913,7 @@ module ProjectedImageListModel =
         previewExpanded = true;
         propertiesExpanded = true;
         libraryExpanded = true;
+        librarySort = None;
         projectionOpacity = { Numeric.init with min = 0.0; max = 1.0; step = 0.01; value = 1.0 }
         boresightAdjustment = BoresightAdjustment.identity
         cameraState = OrbitState.create V3d.Zero 0.0 0.0 (2.0 * (3389.5 * 1000.0))
@@ -887,7 +959,7 @@ type StacSearchMessage =
     | QueryListed   of seq : int * array<StacCandidate> * matched : int * StacListing
     /// One candidate checked. None: the point is not in that image (or hidden
     /// in it), so the candidate goes.
-    | QueryChecked  of seq : int * itemId : string * Option<StacCheck>
+    | QueryChecked  of seq : int * itemId : string * Option<StacCheck> * Option<StacImageValues>
     /// All candidates checked (and those dropped as unresolvable), or the search failed.
     | QueryFinished of seq : int * Result<StacDropped, string>
     /// Download a candidate's files and put it on top of the projection stack.
@@ -912,6 +984,12 @@ type StacSearchMessage =
     | ConnectFinished of user : Option<string> * StacProbe
     /// Delete the downloaded files (%TEMP%\PRo3D\stac). Done by the Viewer.
     | ClearCache
+    /// Fly to a checked result's projector, from its downloaded metadata (the
+    /// Viewer frames it; GisApp moves the scene time to its epoch).
+    | FlyToCandidate of itemId : string
+    /// Sort the results by a column; again on the same column: the other way round.
+    | SortCandidatesBy of ImageSortKey
+    | ToggleImagesExpanded
 
 type ProjectedImageListMessage =
     | StacMessage of StacSearchMessage
@@ -947,6 +1025,8 @@ type ProjectedImageListMessage =
     | FlyToImage of Guid
     | SortEntriesByDistance
     | SortEntriesByDate
+    /// Sort the library by a column; again on the same column: the other way round.
+    | SortLibraryBy of ImageSortKey
     | SetProjectionOpacity of Numeric.Action
     | SetRoll of Numeric.Action
     | SetYaw of Numeric.Action

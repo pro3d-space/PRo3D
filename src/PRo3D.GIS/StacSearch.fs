@@ -38,17 +38,37 @@ module StacSearch =
             /// observation time range, UTC, inclusive; None = open
             from   : Option<DateTime>
             until  : Option<DateTime>
+            /// distance to the target, km, inclusive (the shared Distance filter);
+            /// None = any. Sent as hera:target_distance (AU), widened by
+            /// `distanceTolerance`: a pre-selection only, the exact check is PRo3D's.
+            distanceKm : Option<float * float>
             limit  : int
         }
 
-    /// What the user narrows every search with: the server and the time range.
+    /// The server's hera:target_distance is in astronomical units.
+    [<Literal>]
+    let kmPerAu = 149597870.7
+
+    /// How far the server-side distance range is widened, relative, on each side: the
+    /// catalog's "observation target" and the sidecar's TRG_POS need not be the same
+    /// body (Didymos vs Dimorphos), and the exact check after download decides anyway.
+    [<Literal>]
+    let distanceTolerance = 0.05
+
+    /// What the user narrows every search with: the server and the panel's shared
+    /// filters (ImageFilter, the same as the Image Library's). The time range goes to
+    /// the server; everything is checked again on the downloaded metadata
+    /// (ImageFilter.passesValues), so a catalog image passes exactly when it would
+    /// pass in the library.
     type Filter =
         {
             serverUrl : string
             from      : Option<DateTime>
             until     : Option<DateTime>
-            /// sun incidence at the picked point, degrees, inclusive
-            incidence : Range1d
+            bounds    : ImageFilter.Bounds
+            // SUN INCIDENCE (disabled, see docs/StacImageSearch.md)
+            // /// sun incidence at the picked point, degrees, inclusive
+            // incidence : Range1d
         }
 
     /// Whether an image's sun incidence at the picked point passes the filter. An
@@ -93,14 +113,19 @@ module StacSearch =
         | Ok f, Ok u -> Ok (f, u)
         | Result.Error e, _ | _, Result.Error e -> Result.Error e
 
-    /// The filter the panel's settings describe, or why they don't.
-    let filterOf (s : StacSearchModel) : Result<Filter, string> =
-        parseTimeRange s.timeFrom s.timeTo
-        |> Result.bind (fun (from, until) ->
-            if s.incidenceMin > s.incidenceMax then Result.Error "the incidence range ends before it starts"
-            else
-                Ok { serverUrl = s.serverUrl; from = from; until = until
-                     incidence = Range1d(s.incidenceMin, s.incidenceMax) })
+    /// The filter for a search: the catalog from the STAC panel, the filters from the
+    /// panel's shared Filters section. A Result, so a filter that cannot be used is
+    /// reported on the status line (none at the moment: the shared ranges are always
+    /// valid).
+    let filterOf (s : StacSearchModel) (f : ImageFilter) : Result<Filter, string> =
+        let bounds = ImageFilter.bounds f
+        let from, until =
+            match bounds.time with
+            | Some (lo, hi) -> Some (ImageFilter.timeOfKey lo), Some (ImageFilter.timeOfKey hi)
+            | None -> None, None
+        // SUN INCIDENCE (disabled, see docs/StacImageSearch.md)
+        // if s.incidenceMin > s.incidenceMax then Result.Error "the incidence range ends before it starts"
+        Ok { serverUrl = s.serverUrl; from = from; until = until; bounds = bounds }
 
     /// The items worth checking by pointing alone when no footprint contains the
     /// point: those without a footprint (one with a footprint would have been found
@@ -265,10 +290,10 @@ module StacSearch =
                 | Some interval -> w.WriteString("datetime", interval)
                 | None -> ()
                 w.WriteNumber("limit", q.limit)
-                match q.target with
-                | Some target ->
-                    w.WriteString("filter-lang", "cql2-json")
-                    w.WriteStartObject "filter"
+                // CQL2 conditions, and-ed: the target, and the distance range (in AU,
+                // widened by distanceTolerance -- a pre-selection, see Query)
+                let targetClause (target : string) () =
+                    w.WriteStartObject()
                     w.WriteString("op", "a_contains")
                     w.WriteStartArray "args"
                     w.WriteStartObject()
@@ -279,7 +304,45 @@ module StacSearch =
                     w.WriteEndArray()
                     w.WriteEndArray()
                     w.WriteEndObject()
-                | None -> ()
+                let comparison (op : string) (property : string) (value : float) () =
+                    w.WriteStartObject()
+                    w.WriteString("op", op)
+                    w.WriteStartArray "args"
+                    w.WriteStartObject()
+                    w.WriteString("property", property)
+                    w.WriteEndObject()
+                    w.WriteNumberValue value
+                    w.WriteEndArray()
+                    w.WriteEndObject()
+                let clauses =
+                    [
+                        match q.target with
+                        | Some target -> yield targetClause target
+                        | None -> ()
+                        match q.distanceKm with
+                        | Some (lo, hi) ->
+                            yield comparison ">=" "hera:target_distance" (lo * (1.0 - distanceTolerance) / kmPerAu)
+                            yield comparison "<=" "hera:target_distance" (hi * (1.0 + distanceTolerance) / kmPerAu)
+                        | None -> ()
+                    ]
+                match clauses with
+                | [] -> ()
+                | [ single ] ->
+                    w.WriteString("filter-lang", "cql2-json")
+                    w.WritePropertyName "filter"
+                    single ()
+                | several ->
+                    w.WriteString("filter-lang", "cql2-json")
+                    w.WriteStartObject "filter"
+                    w.WriteString("op", "and")
+                    w.WriteStartArray "args"
+                    for clause in several do clause ()
+                    w.WriteEndArray()
+                    w.WriteEndObject()
+                // TODO instruments: send the Instrument filter as
+                // {"op":"a_overlaps","args":[{"property":"instruments"},[...]]} once the
+                // catalog's instrument spellings are mapped to the sidecars' INSTRUME
+                // names; until then PRo3D applies it after download only
                 w.WriteStartArray "sortby"
                 w.WriteStartObject()
                 w.WriteString("field", "properties.datetime")
@@ -757,6 +820,7 @@ module StacSearch =
             instrument = item.instrument
             assets     = item.assets
             check      = check
+            values     = None
         }
 
     /// Resolved images first, finest pixels first; then unresolved ones and the ones
@@ -769,13 +833,44 @@ module StacSearch =
             | Unresolved _ -> 1, 0.0, -c.time.Ticks
             | StacCheck.Checking -> 2, 0.0, -c.time.Ticks)
 
+    /// Sort by a column, ascending or not; rows without the value (not checked yet,
+    /// no metadata) go last either way. Stable, so equal rows keep their order.
+    let sortByOptional (ascending : bool) (key : 'a -> Option<'k>) (rows : array<'a>) : array<'a> when 'k : comparison =
+        let keyed = rows |> Array.choose (fun r -> key r |> Option.map (fun k -> k, r)) |> Array.sortBy fst |> Array.map snd
+        let without = rows |> Array.filter (fun r -> (key r).IsNone)
+        Array.append (if ascending then keyed else Array.rev keyed) without
+
+    /// The results sorted by a column of the image list (ImageSortKey).
+    let sortCandidatesBy ((key, ascending) : ImageSortKey * bool) (candidates : array<StacCandidate>) =
+        let checkedValues (c : StacCandidate) =
+            match c.check with
+            | StacCheck.Checking -> None
+            | _ -> c.values
+        match key with
+        | SortInstrument ->
+            candidates |> sortByOptional ascending (fun c ->
+                match c.check with
+                | StacCheck.Checking -> None
+                | _ -> Some (c.values |> Option.map (fun v -> v.instrument) |> Option.defaultValue c.instrument))
+        | SortDistance -> candidates |> sortByOptional ascending (checkedValues >> Option.map (fun v -> v.distanceKm))
+        | SortDate -> candidates |> sortByOptional ascending (fun c -> match c.check with StacCheck.Checking -> None | _ -> Some c.time)
+        | SortResolution -> candidates |> sortByOptional ascending (checkedValues >> Option.bind (fun v -> v.resolution))
+
+    /// The next sort for a click on a column's header: ascending, or the other way
+    /// round when that column is the current sort.
+    let nextSort (current : Option<ImageSortKey * bool>) (key : ImageSortKey) =
+        match current with
+        | Some (k, ascending) when k = key -> key, not ascending
+        | _ -> key, true
+
     /// How a search is getting on, reported as it goes.
     type Progress =
         /// the server's answer: every candidate still Checking, the match count, and
         /// whether the footprints found them
         | Listed  of array<StacCandidate> * matched : int * StacListing
-        /// one candidate checked; None when the point is not (visibly) in the image
-        | Checked of itemId : string * Option<StacCheck>
+        /// one candidate checked; None when the point is not (visibly) in the image.
+        /// With the metadata values the image lists show, once the sidecars are there.
+        | Checked of itemId : string * Option<StacCheck> * Option<StacImageValues>
 
     /// The sidecars one check needs: the mbi, and the statistics sidecar for the
     /// image size.
@@ -821,7 +916,8 @@ module StacSearch =
     let listFor (filter : Filter) (limit : int) (scene : Scene) : Task<Result<array<Item> * int * StacListing, string>> =
         task {
             let ll = lonLat scene.point
-            let q = { point = Some ll; target = Some scene.body; from = filter.from; until = filter.until; limit = limit }
+            let q = { point = Some ll; target = Some scene.body; from = filter.from; until = filter.until
+                      distanceKm = filter.bounds.distance; limit = limit }
             let warnMore (matched : int) (listed : int) =
                 if matched > listed then
                     Log.warn "[STAC] the catalog matched %d items, only the newest %d are checked; narrow the time range" matched listed
@@ -883,18 +979,39 @@ module StacSearch =
                                 match downloads.[i] with
                                 | Some t -> t
                                 | None -> sidecars item
+                            // the shared filters, on the downloaded metadata by the library's
+                            // own rules -- before the (costly) pointing check
+                            let values =
+                                match files with
+                                | Ok () ->
+                                    localImagePath item.id item.assets
+                                    |> InstrumentMetadata.tryParseMetadataForImagePath
+                                    |> ImageFilter.valuesOf
+                                    |> Some
+                                | Result.Error _ -> None
+                            let passesFilters =
+                                values |> Option.forall (ImageFilter.passesValues filter.bounds)
+                            // what the image lists show: the same values as a library image's
+                            let shown =
+                                values |> Option.map (fun v ->
+                                    { instrument = v.instrument; distanceKm = v.distance; resolution = v.resolution })
                             let check =
                                 let resolved =
                                     match files with
                                     | Result.Error e -> Result.Error e
+                                    | Ok () when not passesFilters -> Ok None
                                     | Ok () ->
                                         let r = ref (Ok None)
                                         checkScope (fun () -> r.Value <- metrics scene (localImagePath item.id item.assets))
                                         r.Value
                                 match resolved, listing with
-                                | Ok (Some m), _ when not (incidencePasses filter.incidence m.pointIncidenceDeg) ->
-                                    dropped <- { dropped with outsideIncidence = dropped.outsideIncidence + 1 }
+                                | _ when not passesFilters ->
+                                    dropped <- { dropped with outsideFilters = dropped.outsideFilters + 1 }
                                     None
+                                // SUN INCIDENCE (disabled, see docs/StacImageSearch.md)
+                                // | Ok (Some m), _ when not (incidencePasses filter.incidence m.pointIncidenceDeg) ->
+                                //     dropped <- { dropped with outsideIncidence = dropped.outsideIncidence + 1 }
+                                //     None
                                 | Ok (Some m), _ -> Some (Resolved m)
                                 | Ok None, _ -> None
                                 | Result.Error e, ByFootprint -> Some (Unresolved e)
@@ -904,7 +1021,7 @@ module StacSearch =
                                 | Result.Error e, WithoutFootprint ->
                                     dropped <- { dropped with count = dropped.count + 1; reason = dropped.reason |> Option.orElse (Some e) }
                                     None
-                            report (Checked (item.id, check))
+                            report (Checked (item.id, check, shown))
                             i <- i + 1
                     return Ok (if abandoned then None else Some dropped)
         }
@@ -914,10 +1031,10 @@ module StacSearch =
     let runToEnd (filter : Filter) (limit : int) (scene : Scene) : Task<Result<array<StacCandidate> * int * StacListing, string>> =
         task {
             let listed = ref ([||], 0, ByFootprint)
-            let checks = System.Collections.Generic.Dictionary<string, Option<StacCheck>>()
+            let checks = System.Collections.Generic.Dictionary<string, Option<StacCheck> * Option<StacImageValues>>()
             let report = function
                 | Listed (candidates, matched, listing) -> listed.Value <- (candidates, matched, listing)
-                | Checked (id, check) -> checks.[id] <- check
+                | Checked (id, check, values) -> checks.[id] <- (check, values)
             match! run filter limit scene (fun () -> false) report with
             | Result.Error e -> return Result.Error e
             | Ok _ ->
@@ -926,7 +1043,7 @@ module StacSearch =
                     candidates
                     |> Array.choose (fun c ->
                         match checks.TryGetValue c.itemId with
-                        | true, Some check -> Some { c with check = check }
+                        | true, (Some check, values) -> Some { c with check = check; values = values }
                         | _ -> None)
                     |> sortCandidates
                 return Ok (kept, matched, listing)
@@ -1021,7 +1138,7 @@ module StacSearch =
                                 let isStale () = lock gate (fun () -> Option.isSome pending || cancelled)
                                 let report = function
                                     | Listed (candidates, matched, listing) -> post (QueryListed (s, candidates, matched, listing))
-                                    | Checked (id, check) -> post (QueryChecked (s, id, check))
+                                    | Checked (id, check, values) -> post (QueryChecked (s, id, check, values))
                                 match! runSearch filter scene isStale report with
                                 | Ok (Some dropped) ->
                                     finish true

@@ -950,7 +950,9 @@ module ViewerApp =
     /// carried into render space by the surface's current placement, so the
     /// view lines up with where the projection actually sticks to the terrain.
     /// The camera the fly-to should end at, or None with a warning logged.
-    let flyToImageCamera (m : Model) (imageId : System.Guid) : Option<CameraView> =
+    /// The camera framing an image's projector, from the image file's metadata: a
+    /// library image's texture, or a catalog result's downloaded sidecars.
+    let flyToImagePathCamera (m : Model) (imagePath : string) : Option<CameraView> =
         let gis = m.scene.gisApp
         let projectionSurface =
             let bound =
@@ -969,19 +971,18 @@ module ViewerApp =
                 |> Seq.tryPick (fun (sid, _) ->
                     Gis.GisApp.getSpiceReferenceSystem gis sid
                     |> Option.map (fun r -> sid, r.body, r.referenceFrame))
-        let image = PRo3D.ImageMapping.ProjectedImageListModel.tryFind imageId gis.projectedImageList
         let observerSystemOpt = Gis.GisApp.getObserverSystem gis
 
-        match projectionSurface, image, observerSystemOpt with
-        | Some (surfaceId, EntitySpiceName body, frame), Some image, Some observerSystem ->
+        match projectionSurface, observerSystemOpt with
+        | Some (surfaceId, EntitySpiceName body, frame), Some observerSystem ->
             let (EntitySpiceName observerName) = observerSystem.body
-            let metadata = InstrumentMetadata.tryParseMetadataForImagePath image.texture
+            let metadata = InstrumentMetadata.tryParseMetadataForImagePath imagePath
             let resolved =
                 match metadata with
                 | Some mbi, _ ->
                     PRo3D.SPICE.InstrumentProjection.instrument2SpiceName mbi.instrument
                     |> Option.map (fun spiceName ->
-                        { ResolvedImage.path = image.texture
+                        { ResolvedImage.path = imagePath
                           metadata = metadata
                           mbi = mbi
                           spiceName = spiceName
@@ -989,7 +990,7 @@ module ViewerApp =
                 | _ -> None
             match resolved with
             | None ->
-                Log.warn "[Viewer] fly-to: no usable mbi metadata for %s" image.texture
+                Log.warn "[Viewer] fly-to: no usable mbi metadata for %s" imagePath
                 None
             | Some resolved ->
                 let camera =
@@ -1035,7 +1036,7 @@ module ViewerApp =
                         let toBody = t.TransformPos V3d.Zero - pos |> Vec.normalize
                         if Vec.dot fwd toBody < 0.0 then
                             Log.warn "[Viewer] fly-to: %s looks away from the body centre (boresight . direction-to-body = %.3f)"
-                                image.texture (Vec.dot fwd toBody)
+                                imagePath (Vec.dot fwd toBody)
                         CameraView.lookAt pos (pos + fwd) up |> Some
         | _ ->
             // name each missing precondition: from an empty PRo3D all three trip in turn
@@ -1043,10 +1044,16 @@ module ViewerApp =
                 [ if Option.isNone observerSystemOpt then
                       yield "no observed body is set (GIS tab -> Current Observation Settings -> Observed body)"
                   if Option.isNone projectionSurface then
-                      yield "no surface is bound to a SPICE body (set the planet / Observed body, or GIS tab -> Surfaces -> pick an Entity and a Reference Frame)"
-                  if Option.isNone image then
-                      yield "the image is not in the projected-image library" ]
+                      yield "no surface is bound to a SPICE body (set the planet / Observed body, or GIS tab -> Surfaces -> pick an Entity and a Reference Frame)" ]
             Log.warn "[Viewer] fly-to needs: %s" (String.concat "; " missing)
+            None
+
+    /// `flyToImagePathCamera` for a library image.
+    let flyToImageCamera (m : Model) (imageId : System.Guid) : Option<CameraView> =
+        match PRo3D.ImageMapping.ProjectedImageListModel.tryFind imageId m.scene.gisApp.projectedImageList with
+        | Some image -> flyToImagePathCamera m image.texture
+        | None ->
+            Log.warn "[Viewer] fly-to needs: the image is not in the projected-image library"
             None
 
     /// The STAC search worker (docs/StacImageSearch.md), created on first use: its
@@ -1132,7 +1139,7 @@ module ViewerApp =
         // not connected: selecting the tool started connecting, or the user cancelled
         if m.interaction <> Interactions.PickStacPoint || not (PRo3D.ImageMapping.StacSearchModel.isConnected search) then m
         else
-            let filter = PRo3D.GIS.StacSearch.filterOf search
+            let filter = PRo3D.GIS.StacSearch.filterOf search m.scene.gisApp.projectedImageList.filter
             match filter |> Result.bind (fun filter -> stacScene m surfaceName hitPoint normal |> Result.map (fun scene -> filter, scene)) with
             | Result.Ok (filter, scene) ->
                 if now then (stacWorker mailbox).SearchNow(filter, scene)
@@ -3052,6 +3059,15 @@ module ViewerApp =
             // STAC search: the worker runs the downloads and posts back through the
             // mailbox, which only the Viewer has (docs/StacImageSearch.md)
             match msg with
+            // a changed shared filter (Filters section) searches the last point again,
+            // like a changed STAC setting
+            | Gis.GisAppAction.ProjectedImageListMessage (PRo3D.ImageMapping.ProjectedImageListMessage.FilterMessage _)
+                when gisApp.projectedImageList.filter <> m.scene.gisApp.projectedImageList.filter
+                     && PRo3D.ImageMapping.StacSearchModel.isConnected stacAfter
+                     && stacAfter.query.IsSome ->
+                match PRo3D.GIS.StacSearch.filterOf stacAfter gisApp.projectedImageList.filter with
+                | Result.Ok filter -> (stacWorker mailbox).Rerun filter
+                | Result.Error _ -> ()
             | Gis.GisAppAction.ProjectedImageListMessage (PRo3D.ImageMapping.ProjectedImageListMessage.StacMessage stac) ->
                 match stac with
                 | PRo3D.ImageMapping.StacSearchMessage.Fetch itemId when not (HashSet.contains itemId downloadingBefore) && HashSet.contains itemId stacAfter.downloading ->
@@ -3078,7 +3094,7 @@ module ViewerApp =
                 | PRo3D.ImageMapping.StacSearchMessage.SetIncidenceMax _ ->
                     // a changed filter searches the last point again; a filter that
                     // does not parse waits for the next pick, which reports it
-                    match PRo3D.GIS.StacSearch.filterOf stacAfter with
+                    match PRo3D.GIS.StacSearch.filterOf stacAfter gisApp.projectedImageList.filter with
                     | Result.Ok filter when PRo3D.ImageMapping.StacSearchModel.isConnected stacAfter -> (stacWorker mailbox).Rerun filter
                     | _ -> ()
                 // cleared results: the running search must not refill them
@@ -3098,6 +3114,19 @@ module ViewerApp =
             // away from the body. An animated fly-to via the Animator is a TODO.
             let m, gisApp =
                 match msg with
+                | Gis.GisAppAction.ProjectedImageListMessage (PRo3D.ImageMapping.ProjectedImageListMessage.StacMessage (PRo3D.ImageMapping.StacSearchMessage.FlyToCandidate itemId)) ->
+                    // as FlyToImage: GisApp moved the time to the result's epoch; frame
+                    // its projector from the sidecars the check downloaded
+                    let m = Optic.set _gisApp gisApp m
+                    let path =
+                        gisApp.projectedImageList.stacSearch.candidates
+                        |> IndexList.tryFind (fun _ c -> c.itemId = itemId)
+                        |> Option.map (fun c -> PRo3D.GIS.StacSearch.localImagePath c.itemId c.assets)
+                    let m =
+                        match path |> Option.bind (flyToImagePathCamera m) with
+                        | Some view -> Optic.set _view view m
+                        | None -> m
+                    m, gisApp
                 | Gis.GisAppAction.ProjectedImageListMessage (PRo3D.ImageMapping.ProjectedImageListMessage.FlyToImage imageId) ->
                     // GisApp.update has already moved the scene time to the image's
                     // epoch; the camera must be computed from that time, because the

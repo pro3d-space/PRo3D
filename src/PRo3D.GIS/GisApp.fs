@@ -299,6 +299,14 @@ module GisApp =
                 match InstrumentMetadata.tryParseMetadataForImagePath image.texture with
                 | Some mbi, _ -> viewer, setObservationTimeToImage mbi m
                 | None, _ -> viewer, m
+        | GisAppAction.ProjectedImageListMessage (ProjectedImageListMessage.StacMessage (StacSearchMessage.FlyToCandidate itemId)) ->
+            // as FlyToImage, from the result's downloaded metadata (the check fetched it)
+            match m.projectedImageList.stacSearch.candidates |> IndexList.tryFind (fun _ c -> c.itemId = itemId) with
+            | None -> viewer, m
+            | Some c ->
+                match InstrumentMetadata.tryParseMetadataForImagePath (PRo3D.GIS.StacSearch.localImagePath c.itemId c.assets) with
+                | Some mbi, _ -> viewer, setObservationTimeToImage mbi m
+                | None, _ -> viewer, m
         | GisAppAction.ProjectedImageListMessage msg ->
             viewer, {m with projectedImageList = ProjectedImageListApp.update m.projectedImageList msg }
         | GisAppAction.InitializeMissionTimeEntries ->
