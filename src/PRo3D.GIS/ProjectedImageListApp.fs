@@ -1035,14 +1035,14 @@ module ProjectedImageListApp =
                         // * : the boresight missed the loaded surface, so range and pixel
                         // size are the cursor point's instead
                         let where = if v.centralOnSurface then "at the central pixel" else "at the cursor point (the boresight misses the loaded surface)"
-                        sprintf " · measured %s: range %s, pixel %s" where (formatLength v.rangeM) (formatLength v.pixelSizeM)
-                    | Unresolved e -> sprintf " · pointing not resolved: %s" e
+                        sprintf ". Measured %s: range %s, pixel %s" where (formatLength v.rangeM) (formatLength v.pixelSizeM)
+                    | Unresolved e -> sprintf ". Pointing not resolved: %s" (e.TrimEnd([|'.'; ' '|]))
                     | StacCheck.Checking -> ""
                 // one line: aardvark.media sends attribute values to the page as JavaScript
                 // string literals without escaping line breaks, and a newline in one breaks
                 // every later DOM update (the list stayed empty, the fold stuck)
                 let tooltip =
-                    (sprintf "%s · %s · %s%s" c.title c.instrument (formatFullDate c.time) atPoint)
+                    (sprintf "%s. %s. %s%s. Added images (+) also go to the Image Library: select them there to edit them." c.title c.instrument (formatFullDate c.time) atPoint)
                         .Replace('\r', ' ').Replace('\n', ' ')
                 let nameColor = match c.check with Unresolved _ -> "#e88" | _ -> "inherit"
                 let instrument, distance, resolution =
