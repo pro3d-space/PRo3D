@@ -910,7 +910,10 @@ module ProjectedImageListApp =
             ]
 
         /// A fold inside a section, in the sub-header style, with "showing x of y" on
-        /// the right; `content` is built once and re-yielded on unfold.
+        /// the right. `content` stays in the page and is only hidden while folded: it
+        /// is built once and never removed, so folding neither rebuilds the rows nor
+        /// re-inserts a removed element (the Image Search list, updated while a search
+        /// runs, did not come back after that).
         let countedFold (title : string) (expanded : aval<bool>) (toggle : ProjectedImageListMessage) (count : aval<string>) (content : DomNode<ProjectedImageListMessage>) =
             let header =
                 tr [] [
@@ -931,11 +934,12 @@ module ProjectedImageListApp =
                 table [clazz "ui celled striped inverted table unstackable"; style "margin: 0"] [
                     tbody [] [ header ]
                 ]
-                Incremental.div AttributeMap.empty (
-                    alist {
+                Incremental.div
+                    (AttributeMap.ofAMap (amap {
                         let! expanded = expanded
-                        if expanded then yield content
-                    })
+                        if not expanded then yield style "display: none"
+                    }))
+                    (AList.single content)
             ]
 
         /// STAC search: the images containing the point picked with the Image Search
