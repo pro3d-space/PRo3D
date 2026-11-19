@@ -608,15 +608,29 @@ module ImageFilter =
         | Distance | Resolution -> true
         | PhaseAngle | Time -> false
 
+    /// The Date filter at start: HERA at Didymos, arrival to the end of the nominal
+    /// mission (UTC, both days whole). Set by default so a catalog search asks for this
+    /// window rather than the whole mission's newest images; the library is filtered
+    /// alike. Resetting the filter selects the whole range (off).
+    let defaultTimeWindow =
+        DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc), DateTime(2027, 5, 31, 23, 59, 59, DateTimeKind.Utc)
+
     /// Fixed ranges, independent of the loaded images: the same filter applies to the
     /// library and to catalog results not loaded yet (docs/MultiImageProjection.md).
+    /// All off but Date, which starts at defaultTimeWindow.
     let initial : ImageFilter =
         let timeMin, timeMax = timeRange ()
+        let fromKey (t : DateTime) = (t - epoch).TotalSeconds
+        let windowFrom, windowTo = defaultTimeWindow
+        let time =
+            RangeFilter.create timeMin timeMax 1.0 "{0:0}"
+            |> RangeFilter.setLower (fromKey windowFrom)
+            |> RangeFilter.setUpper (fromKey windowTo)
         {
             phaseAngle   = RangeFilter.create 0.0 180.0 0.1 "{0:0.0}"
             resolution   = RangeFilter.create 0.001 100000.0 0.001 "{0:0.000}"
             distance     = RangeFilter.create 0.1 1000000000.0 0.01 "{0:0.00}"
-            time         = RangeFilter.create timeMin timeMax 1.0 "{0:0}"
+            time         = time
             instruments  = HashSet.empty
             expanded     = true
         }

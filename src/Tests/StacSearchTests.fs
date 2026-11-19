@@ -179,13 +179,19 @@ let private offline =
             let s = StacSearchModel.initial
             match StacSearch.filterOf s ImageFilter.initial with
             | Ok f ->
-                Expect.isNone f.from "Date off: no start"
-                Expect.isNone f.until "Date off: no end"
+                let windowFrom, windowTo = ImageFilter.defaultTimeWindow
+                Expect.equal f.from (Some windowFrom) "the default Date window goes to the server: start"
+                Expect.equal f.until (Some windowTo) "and end"
                 Expect.equal f.bounds (ImageFilter.bounds ImageFilter.initial) "the library's bounds"
             | Result.Error e -> failtestf "the defaults must make a filter: %s" e
+            match StacSearch.filterOf s (ImageFilter.update ImageFilter.initial (ResetRange RangeFilterKind.Time)) with
+            | Ok f ->
+                Expect.isNone f.from "Date off: no start"
+                Expect.isNone f.until "Date off: no end"
+            | Result.Error e -> failtestf "an open range must make a filter: %s" e
             let t0 = DateTime(2026, 11, 1, 0, 0, 0, DateTimeKind.Utc)
             let key t = ImageFilter.timeKey t |> Option.defaultValue nan
-            let dated = ImageFilter.update ImageFilter.initial (SetLower (RangeFilterKind.Time, Aardvark.UI.Primitives.Numeric.SetValue (key t0)))
+            let dated = ImageFilter.update (ImageFilter.update ImageFilter.initial (ResetRange RangeFilterKind.Time)) (SetLower (RangeFilterKind.Time, Aardvark.UI.Primitives.Numeric.SetValue (key t0)))
             match StacSearch.filterOf s dated with
             | Ok f -> Expect.equal f.from (Some t0) "Date set: its start goes to the server"
             | Result.Error e -> failtestf "a date range must make a filter: %s" e

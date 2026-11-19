@@ -291,7 +291,8 @@ let tests =
             let passes f instrument d = PRo3D.ImageMapping.ImageFilter.matches f { PRo3D.ImageMapping.ProjectedImageApp.initial with id = Guid.NewGuid(); instrument = instrument; distance = d }
             let img (instrument : string) (d : float) =
                 { PRo3D.ImageMapping.ProjectedImageApp.initial with id = Guid.NewGuid(); instrument = instrument; distance = d }
-            let f = PRo3D.ImageMapping.ImageFilter.initial
+            // all filters off (the Date filter starts at its default window)
+            let f = (PRo3D.ImageMapping.ImageFilter.update PRo3D.ImageMapping.ImageFilter.initial (PRo3D.ImageMapping.ResetRange PRo3D.ImageMapping.RangeFilterKind.Time))
             Expect.equal (f.distance.lower.min, f.distance.upper.max) (0.1, 1e9) "fixed distance range, independent of the library"
             Expect.equal (PRo3D.ImageMapping.ImageFilter.activeCount f) 0 "nothing active at first"
             Expect.isTrue (passes f "AFC1" 10.0 && passes f "" 30.0) "everything passes"
@@ -327,7 +328,8 @@ let tests =
 
             let img (r : Option<float>) =
                 { PRo3D.ImageMapping.ProjectedImageApp.initial with id = Guid.NewGuid(); instrument = "AFC1"; distance = 1.0; resolution = r }
-            let f = PRo3D.ImageMapping.ImageFilter.initial
+            // all filters off (the Date filter starts at its default window)
+            let f = (PRo3D.ImageMapping.ImageFilter.update PRo3D.ImageMapping.ImageFilter.initial (PRo3D.ImageMapping.ResetRange PRo3D.ImageMapping.RangeFilterKind.Time))
             Expect.equal (f.resolution.lower.min, f.resolution.upper.max) (0.001, 1e5) "fixed resolution range"
             let passes f r = PRo3D.ImageMapping.ImageFilter.matches f { PRo3D.ImageMapping.ProjectedImageApp.initial with id = Guid.NewGuid(); instrument = "AFC1"; distance = 1.0; resolution = r }
             Expect.isTrue (passes f None) "filter off: images without a resolution shown"
@@ -353,7 +355,8 @@ let tests =
 
             let img (a : Option<float>) =
                 { PRo3D.ImageMapping.ProjectedImageApp.initial with id = Guid.NewGuid(); phaseAngle = a }
-            let f = PRo3D.ImageMapping.ImageFilter.initial
+            // all filters off (the Date filter starts at its default window)
+            let f = (PRo3D.ImageMapping.ImageFilter.update PRo3D.ImageMapping.ImageFilter.initial (PRo3D.ImageMapping.ResetRange PRo3D.ImageMapping.RangeFilterKind.Time))
             Expect.equal (f.phaseAngle.lower.min, f.phaseAngle.upper.max) (0.0, 180.0) "the whole range of angles"
             Expect.isTrue (PRo3D.ImageMapping.ImageFilter.matches f (img None)) "off: everything shown"
             let f =
@@ -369,9 +372,15 @@ let tests =
             let t0 = DateTime(2026, 12, 1, 10, 0, 0, DateTimeKind.Utc)
             let img (t : DateTime) =
                 { PRo3D.ImageMapping.ProjectedImageApp.initial with id = Guid.NewGuid(); time = t }
-            let f = PRo3D.ImageMapping.ImageFilter.initial
+            // all filters off (the Date filter starts at its default window)
+            let f = (PRo3D.ImageMapping.ImageFilter.update PRo3D.ImageMapping.ImageFilter.initial (PRo3D.ImageMapping.ResetRange PRo3D.ImageMapping.RangeFilterKind.Time))
             let key t = PRo3D.ImageMapping.ImageFilter.timeKey t |> Option.defaultValue nan
             Expect.equal f.time.lower.min (key (DateTime(2024, 10, 7, 0, 0, 0, DateTimeKind.Utc))) "from HERA's launch"
+            let initial = PRo3D.ImageMapping.ImageFilter.initial
+            Expect.equal (initial.time.lower.value, initial.time.upper.value)
+                (key (DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc)), key (DateTime(2027, 5, 31, 23, 59, 59, DateTimeKind.Utc)))
+                "set by default: HERA at Didymos, arrival to the end of the nominal mission"
+            Expect.equal (PRo3D.ImageMapping.ImageFilter.activeCount initial) 1 "the Date filter is the only one on at start"
             Expect.isTrue (f.time.upper.max >= key (DateTime(2027, 12, 31, 23, 59, 59, DateTimeKind.Utc))) "to the end of 2027 at least (synthetic products)"
             Expect.equal (PRo3D.ImageMapping.ImageFilter.timeOfKey (key t0)) t0 "round trip"
             let passes f t = PRo3D.ImageMapping.ImageFilter.matches f { PRo3D.ImageMapping.ProjectedImageApp.initial with id = Guid.NewGuid(); time = t }
@@ -423,8 +432,10 @@ let tests =
         }
 
         test "TC-12.3 shared filters: fixed ranges, log scale for distance and resolution, kept on import" {
-            let f = PRo3D.ImageMapping.ImageFilter.initial
+            // all filters off (the Date filter starts at its default window)
+            let f = (PRo3D.ImageMapping.ImageFilter.update PRo3D.ImageMapping.ImageFilter.initial (PRo3D.ImageMapping.ResetRange PRo3D.ImageMapping.RangeFilterKind.Time))
             Expect.equal (PRo3D.ImageMapping.ImageFilter.activeCount f) 0 "all off: the whole ranges"
+            Expect.equal (PRo3D.ImageMapping.ImageFilter.activeCount PRo3D.ImageMapping.ImageFilter.initial) 1 "at start only the Date filter is on"
             Expect.isTrue (PRo3D.ImageMapping.ImageFilter.isLogScale PRo3D.ImageMapping.RangeFilterKind.Distance) "distance: log"
             Expect.isTrue (PRo3D.ImageMapping.ImageFilter.isLogScale PRo3D.ImageMapping.RangeFilterKind.Resolution) "resolution: log"
             Expect.isFalse (PRo3D.ImageMapping.ImageFilter.isLogScale PRo3D.ImageMapping.RangeFilterKind.PhaseAngle) "phase angle: linear"

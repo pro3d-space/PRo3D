@@ -158,11 +158,12 @@ orders of magnitude (cruise to close proximity): their sliders run on a
 | **Instrument** | the HERA instruments (AFC1, AFC2, HSH, TIRI, ASPECT) and any further one in the library, as toggle buttons | shows only the selected instruments; images without one are listed as *(unknown)* |
 | **Resolution [m/px]** | range, 0.001–100 000 m/px, logarithmic | ground resolution at the target: distance × the angle one pixel spans (the instrument's horizontal field of view ÷ the image width). Measured at the target's centre, so on the surface facing the camera pixels are slightly finer. Images without one (no sidecars, or an instrument with no known field of view) are shown while the filter is off and hidden while it is set |
 | **Distance [km]** | range, 0.1–10⁹ km, logarithmic | distance to the target |
-| **Date [UTC]** | range, HERA's launch (2024-10-07) to today — at least to the end of 2027, for the synthetic products dated then | observation time from the image's sidecar: the slider, and below it a date/time field per bound (UTC, to the second). Images without a time (no sidecar) are shown while the filter is off and hidden while it is set |
+| **Date [UTC]** | range, HERA's launch (2024-10-07) to today — at least to the end of 2027, for the synthetic products dated then. **On at start**: 2026-10-01 to 2027-05-31 (HERA at Didymos), so a catalog search asks for that window rather than the whole mission; ↶ selects the whole range (off) | observation time from the image's sidecar: the slider, and below it a date/time field per bound (UTC, to the second). Images without a time (no sidecar) are shown while the filter is off and hidden while it is set |
 
 A range is set by typing its bounds or by dragging the two handles of its
 slider. A filter is **off** — plain label, not counted — while its whole range is
-selected, or, for *Instrument*, while no instrument is selected. An active filter's
+selected, or, for *Instrument*, while no instrument is selected. All filters start
+off except *Date*, which starts at HERA's time at Didymos (see the table). An active filter's
 label turns amber with a filter icon, and ↶ next to it resets it. Filters are not
 saved with the scene; importing a folder keeps them.
 

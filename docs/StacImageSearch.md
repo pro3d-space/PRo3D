@@ -140,7 +140,7 @@ make the answer smaller:
 
 | filter | sent to the server as | checked by PRo3D |
 |---|---|---|
-| **Date** | `datetime` interval (UTC) | yes |
+| **Date** | `datetime` interval (UTC); on by default (2026-10-01 to 2027-05-31), so the footprint-less fallback checks that window, not the whole mission's newest 1000 | yes |
 | **Distance** | `hera:target_distance` (AU), widened by 5 % on each side: the catalog's "observation target" and the metadata's `TRG_POS` need not be the same body (Didymos vs Dimorphos) | yes |
 | **Instrument** | not yet: the catalog's `instruments` spellings still need mapping to the metadata's `INSTRUME` names | yes |
 | **Phase Angle**, **Resolution** | no: the catalog has neither | yes |
