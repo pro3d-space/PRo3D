@@ -1042,7 +1042,7 @@ module ProjectedImageListApp =
                 // string literals without escaping line breaks, and a newline in one breaks
                 // every later DOM update (the list stayed empty, the fold stuck)
                 let tooltip =
-                    (sprintf "%s. %s. %s%s. Added images (+) also go to the Image Library: select them there to edit them." c.title c.instrument (formatFullDate c.time) atPoint)
+                    (sprintf "%s. %s. %s%s. Added images (+) also go to the Image Library: select them there to edit them. They are not saved with the scene." c.title c.instrument (formatFullDate c.time) atPoint)
                         .Replace('\r', ' ').Replace('\n', ' ')
                 let nameColor = match c.check with Unresolved _ -> "#e88" | _ -> "inherit"
                 let instrument, distance, resolution =

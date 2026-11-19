@@ -75,7 +75,9 @@ again.
 
 The **projection stack is saved too**, as the images' file names in draw order
 (key `projectedImagesStack`), and rebuilt after the re-import. Stack images no
-longer in the folder are left out and listed in a notice. Both keys are
+longer in the folder are left out and listed in a notice. That includes
+images added from the [Image Search](StacImageSearch.md): they live in the
+download cache, not in the imported folder, so they are not restored. Both keys are
 additive: the scene version is unchanged and older releases ignore them.
 Per-image settings (colour map, channel, ranges) are not saved yet.
 

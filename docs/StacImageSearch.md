@@ -64,7 +64,9 @@ the GIS tab under *Projected Images → Image Search (STAC)*.
 5. **Add** (the row's + cell): its files are downloaded to a folder of its own under
    `%TEMP%\PRo3D\stac\`, the image is added to the library and put on top of
    the projection stack. A second click on the same image does not download it
-   again.
+   again. Select it in the Image Library to edit its display settings. Added
+   images are **not saved with the scene**: they are not in the library's
+   imported folder, so reopening the scene leaves them out of the stack.
 
 Rows in red have no usable pointing. The message says why, e.g. the sidecar
 carries no attitude. Such an image would not project either; the status line
@@ -249,8 +251,9 @@ Mars and therefore west-positive with the default kernels.
 
 - The client only calls `<server>/search` and the asset links. Use an https
   URL that answers directly; a redirect to plain http is refused.
-- Nothing of the search is saved with the scene. Downloaded files stay in the
-  temp folder until it is cleaned.
+- Nothing of the search is saved with the scene, including the images added
+  from it to the library and the stack. Downloaded files stay in the temp
+  folder until it is cleaned.
 
 # Testing
 
