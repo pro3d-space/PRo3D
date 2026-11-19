@@ -15,6 +15,8 @@ release folds them into `PRODUCT_RELEASE_NOTES.md`.
 
 ## Pending
 
+- macOS: **copy and paste (Cmd+C/V/X/A) work in PRo3D's text fields**, e.g. pasting a password into the image catalog's sign-in. The window now has a menu bar on macOS, whose Edit items carry these shortcuts (docs/KeyboardShortcuts.md)
+
 - Projected images: **the Image Library and the Image Search (STAC) lists look and work the same**: Preview (library thumbnails too), Add, Fly, Instrument, Distance, Date and Resolution columns; the last four sort both ways. The search results show the metadata's distance and resolution, like the library and the filters. *Import Directory* sits at the top of the Image Library, each list's *Images* header says *showing x of y*, and the Filters section's title shows how many are active (docs/MultiImageProjection.md, docs/StacImageSearch.md)
 
 - Projected images: **one set of filters for the Image Library and the Image Search (STAC)**, in its own *Filters* section. A catalog result is checked on its downloaded metadata by the library's own rules; the date and distance ranges also narrow the catalog's answer. The ranges are fixed (distance and resolution on a log scale) and stay when a folder is imported. The STAC panel's own time range and the sun incidence filter are gone (docs/MultiImageProjection.md, docs/StacImageSearch.md)

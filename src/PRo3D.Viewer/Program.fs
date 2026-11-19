@@ -572,6 +572,11 @@ let main argv =
                 log (fun msg -> Report.Line(2, $"[Aardium] {msg}"))
 #endif
                 title titlestr
+                // macOS: Cmd+C/V/X/A/Z reach a text field only through the application
+                // menu's Edit items; without a menu they do nothing (no pasting into the
+                // sign-in dialog, the catalog field, ...). Windows/Linux handle Ctrl+V in the
+                // page itself and keep their menu-less window.
+                menu (os = OSPlatform.OSX)
             }
 
     finally
