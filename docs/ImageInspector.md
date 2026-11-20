@@ -1,6 +1,6 @@
 # Image Inspector (experimental)
 
-Shows the image selected in *GIS View → projected images* in its own panel, linked to the 3D view,
+Shows the image selected in the *Projected Images* panel in its own panel, linked to the 3D view,
 and hosts the [shadow measurement](ShadowMeasurement.md) tool. Design:
 [dev/shadowEstimation.md](dev/shadowEstimation.md).
 

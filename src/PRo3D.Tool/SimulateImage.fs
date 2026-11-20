@@ -821,7 +821,13 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
                             [| { Sg.ProjectedStackLayer.trafo = Some projector
                                  minMax = V2f(0.0f, 1.0f)
                                  texturePath = imagePath
-                                 channel = 0 } |]
+                                 channel = 0
+                                 brightnessContrast = V2f.OI
+                                 // grey values of a Float 0..1 range: the identity, so the
+                                 // render compares to the source image DN for DN
+                                 falseColor = false
+                                 colorMap = 0
+                                 dataType = 2 } |]
                         | _ -> [||])
                 stackCoverageEnabled = AVal.constant false
                 hoveredProjection = AVal.constant None
@@ -917,9 +923,8 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
                 Sg.texture "ProjectedStackTextures" (stack |> AVal.map (fun s -> s.texture))
                 >> Sg.uniform "ProjectedStackSlices" (stack |> AVal.map (fun s -> s.slices)))
             |> Sg.uniform' "ProjectedImageOpacity2" 1.0f
-            // same neutralisation as the single-image path, so the two are comparable
-            |> Sg.uniform' "UseFalseColor" false
-            |> Sg.uniform' "DataType" 2
+            // the same neutralisation as the single-image path comes from the layer
+            // itself (stackProjections: falseColor off, DataType Float, range 0..1)
 
         let sg =
             (match projected with

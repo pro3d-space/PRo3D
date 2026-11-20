@@ -177,7 +177,8 @@ module CooTransformation =
     let tryLoadKernel (kernelDirectory : string) (name : string) =
         let fullPath = Path.GetFullPath(Path.Combine(kernelDirectory,name))
         if File.Exists fullPath then () else failwith ("spice kernel file does not exist: " + fullPath)
-        let r = CooTransformation.AddSpiceKernel(materializeMetaKernel fullPath)
+        let kernel = materializeMetaKernel fullPath
+        let r = lock PRo3D.SPICE.CooTransformation.l (fun () -> CooTransformation.AddSpiceKernel kernel)
         if r <> 0 then
             Log.warn "could not load spice kernel: %s in %s." name kernelDirectory
             None
@@ -216,6 +217,14 @@ module CooTransformation =
     /// without every caller having to thread `appData` through again.
     let mutable private lastLogDir : Option<string> = None
 
+    /// The kernel the most recent `initCooTrafo` call was asked to load
+    /// (--defaultSpiceKernel) and whether it loaded; None when none was asked for.
+    /// When it did not load, the bundled pck00010.tpc is loaded in its place.
+    let mutable private requestedStartupKernel : Option<string * bool> = None
+
+    /// See `requestedStartupKernel`: what the UI reports as the startup kernel.
+    let startupKernel () = requestedStartupKernel
+
     let initCooTrafo (customSpiceKernelPath : Option<string>) (appData : string) =
 
         let jrDir = Path.combine [appData; "JR";]
@@ -252,23 +261,35 @@ module CooTransformation =
 
       
 
-        let spiceDirectory, spiceFileName = 
-            let defaultKernel = configDir, "pck00010.tpc"
-            match customSpiceKernelPath with
-            | None -> defaultKernel
-            | Some filePath -> 
-                let fullPath = Path.GetFullPath(filePath)
-                if not (File.Exists(fullPath)) then
-                    defaultKernel
-                else
-                    Path.GetDirectoryName(fullPath), Path.GetFileName fullPath
+        let loadDefaultKernel () =
+            Log.line $"[SPICE] kernel location: {configDir}, kernel file name: pck00010.tpc."
+            match tryLoadKernel configDir "pck00010.tpc" with
+            | None -> Log.warn "running without default spice kernel."
+            | Some s -> Log.line "[SPICE] loaded kernel: %s" s.FullPath
 
-        Log.line $"[SPICE] kernel location: {spiceDirectory}, kernel file name: {spiceFileName}."
-        match tryLoadKernel spiceDirectory spiceFileName with
-        | None -> 
-            Log.warn "running without default spice kernel."
-        | Some s -> 
-            Log.line "[SPICE] loaded kernel: %s" s.FullPath
+        // a requested kernel that is missing or fails to load falls back to the bundled
+        // one -- and is remembered as failed, so the UI does not claim it is loaded
+        requestedStartupKernel <-
+            match customSpiceKernelPath with
+            | None ->
+                loadDefaultKernel ()
+                None
+            | Some filePath ->
+                let fullPath = Path.GetFullPath(filePath)
+                if not (File.Exists fullPath) then
+                    Log.warn "[SPICE] --defaultSpiceKernel %s does not exist, loading the default kernel instead." fullPath
+                    loadDefaultKernel ()
+                    Some (fullPath, false)
+                else
+                    Log.line $"[SPICE] kernel location: {Path.GetDirectoryName fullPath}, kernel file name: {Path.GetFileName fullPath}."
+                    match tryLoadKernel (Path.GetDirectoryName fullPath) (Path.GetFileName fullPath) with
+                    | Some s ->
+                        Log.line "[SPICE] loaded kernel: %s" s.FullPath
+                        Some (fullPath, true)
+                    | None ->
+                        Log.warn "[SPICE] --defaultSpiceKernel %s could not be loaded, loading the default kernel instead." fullPath
+                        loadDefaultKernel ()
+                        Some (fullPath, false)
 
         try
             let error = JR.InstrumentPlatforms.Init(configDir,logDir)
@@ -291,8 +312,10 @@ module CooTransformation =
             Log.warn "[CooTransformation] switchKernel called before initCooTrafo -- cannot determine log directory"
             None
         | Some logDir ->
-            CooTransformation.DeInit()
-            let errorCode = CooTransformation.Init(true, Path.Combine(logDir, "CooTransformation.log"), 1, 2)
+            let errorCode =
+                lock PRo3D.SPICE.CooTransformation.l (fun () ->
+                    CooTransformation.DeInit()
+                    CooTransformation.Init(true, Path.Combine(logDir, "CooTransformation.log"), 1, 2))
             if errorCode <> 0 then
                 Log.warn "[CooTransformation] failed to reinit SPICE after DeInit (code %d)" errorCode
                 None
@@ -301,7 +324,7 @@ module CooTransformation =
 
     let deInitCooTrafo () =
         Log.line "[CooTransformation] shutting down..."
-        CooTransformation.DeInit()
+        lock PRo3D.SPICE.CooTransformation.l (fun () -> CooTransformation.DeInit())
         Log.line "[CooTransformation] down."
 
     /// Coordinate convention used per body.
@@ -429,7 +452,10 @@ module CooTransformation =
         let mutable lat = nan
         let mutable lon = nan
         let mutable alt = nan
-        let errorCode = CooTransformation.Xyz2LatLonAlt(planetName, p.X, p.Y, p.Z, &lat, &lon, &alt)
+        // CSPICE is not thread-safe: every native call takes the one SPICE lock
+        // (SpiceInterfacing's), or a call from another thread corrupts its state --
+        // seen as SPICE(BADSUBSCRIPT) in trcpkg and a dead viewer
+        let errorCode = lock PRo3D.SPICE.CooTransformation.l (fun () -> CooTransformation.Xyz2LatLonAlt(planetName, p.X, p.Y, p.Z, &lat, &lon, &alt))
         if errorCode <> 0 then None
         else Some { latitude = lat; longitude = lon; altitude = alt; radian = 0.0 }
 
@@ -438,7 +464,7 @@ module CooTransformation =
         let mutable pY = nan
         let mutable pZ = nan
         let errorCode =
-            CooTransformation.LatLonAlt2Xyz(planetName, sc.latitude, sc.longitude, sc.altitude, &pX, &pY, &pZ)
+            lock PRo3D.SPICE.CooTransformation.l (fun () -> CooTransformation.LatLonAlt2Xyz(planetName, sc.latitude, sc.longitude, sc.altitude, &pX, &pY, &pZ))
         if errorCode <> 0 then None
         else Some (V3d(pX, pY, pZ))
 

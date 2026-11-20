@@ -3,8 +3,10 @@
 ![four views of Dimorphos: the DRACO mosaic alone, the same view with four AFC images projected, a second direction, and a hovered image's projector frustum](images/multiProjection-teaser.png)
 
 Project an **ordered stack of up to 32 same-instrument images** onto a surface
-at once — e.g. a flyby sequence over an asteroid. Lives in the GIS tab under
-*Projected Images*.
+at once — e.g. a flyby sequence over an asteroid. Lives in its own
+**Projected Images** panel (a tab next to the GIS View in the *M2020*, *GIS*,
+*PRo3D Core* and full layouts; bring it back with *Layout → Reopen Panel* if a saved
+layout of yours does not show it — see [WindowLayouts.md](WindowLayouts.md)).
 
 Order and opacity are both set in the GUI:
 
@@ -25,7 +27,8 @@ visible body is unobserved** and renders black. Four AFC frames bring that to
 Pick the body under **Reference System** in the top bar. That sets the
 [scene body](SceneBody.md), and a surface with no GIS assignment of its own
 belongs to it — so for a single-body scene there is nothing else to set. A SPICE
-kernel covering the observation epochs must be loaded.
+kernel covering the observation epochs must be loaded: **Load SPICE kernel** next to
+**Reference System**, or the main menu.
 
 For surfaces of *other* bodies, assign entity and frame explicitly in
 GIS tab → *Surfaces*. Two things to watch:
@@ -44,11 +47,25 @@ HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos/
 
 ## 2. Import a folder of images
 
-*Projected Images → Import Directory*. Every image of the folder
-(`.tif/.png/.jpg/.exr`, each with its `.mbi.json` sidecar) lands in the
-**library** at the bottom of the tab, with instrument, distance and observation
-date per image, sortable by date or distance. Sorting never changes what is
-projected.
+*Projected Images → Image Library → Import Directory* (at the top of the
+section); the imported folder is shown next to the button (*not set* before the
+first import). Every image of the folder (`.tif/.png/.jpg/.exr`, each with its
+`.mbi.json` sidecar) lands in the **library**, the section's *Images* list. Its
+columns are the same as the Image Search's (docs/StacImageSearch.md):
+
+| column | meaning |
+|---|---|
+| Preview | a thumbnail of the file (the first band, stretched; rendered on first view and cached in `%TEMP%\PRo3D\thumbnails`) |
+| Add | add to / remove from the projection stack |
+| Fly | fly to the image's camera |
+| **Instr.** | instrument, from the metadata |
+| **Distance** | distance to the target's centre (red *no TRG_POS* when the metadata has none) |
+| **Date (UTC)** | observation time, to the minute (the full time in the tooltip) |
+| **Res.** | resolution: ground size of one pixel at the target's centre |
+
+Above each row is the file name; click it to select the image. Instr.,
+Distance, Date and Res. sort the list; a second click sorts the other way
+round. Sorting never changes what is projected.
 
 The chosen folder is **saved with the scene** (key `projectedImagesDirectory`
 in the GIS section) and re-imported when the scene is opened. If the folder no
@@ -58,7 +75,9 @@ again.
 
 The **projection stack is saved too**, as the images' file names in draw order
 (key `projectedImagesStack`), and rebuilt after the re-import. Stack images no
-longer in the folder are left out and listed in a notice. Both keys are
+longer in the folder are left out and listed in a notice. That includes
+images added from the [Image Search](StacImageSearch.md): they live in the
+download cache, not in the imported folder, so they are not restored. Both keys are
 additive: the scene version is unchanged and older releases ignore them.
 Per-image settings (colour map, channel, ranges) are not saved yet.
 
@@ -69,23 +88,89 @@ repository:
 HERA/Dimorphos_opc/AFC_2027-03-21/
 ```
 
-![the Projected Images section: import, stack panel, library](images/multiProjection-gisTab.png)
+![the Projected Images panel: import, stack panel, library](images/multiProjection-gisTab.png)
 
-Settings and the selected image's 2D preview fold away into the
-*Projection Settings* / *Selected Image* sections. *Projection Settings* holds:
+An italic hint at the top of the panel reminds you that the SPICE kernel matching
+the images must be set. Below the import button the panel folds into four
+sections:
+
+- **Projection Settings** (closed by default) — see the table below.
+- **Selected Image** — the image selected in the library, in two sub-sections
+  that each fold away with a click on their header: **Preview Image** (its 2D
+  preview) and **Properties**, in three sections:
+  - **Data** — *what* is shown: the *Channel* and the *Range*, the min/max of its
+    values that span the colour map (and that the legend labels), as one two-handle
+    slider with an input box at each end. The header's undo icon resets the range to
+    the image's statistics.
+  - **Tone** — *how* it looks, purely visual: *Brightness* (−1…1, default 0) shifts
+    the values, *Contrast* (0…3, default 1) scales them around mid grey; reset by the
+    header's undo icon. Acts on the values within the *Data* range, before the colour
+    map, in the preview and on the surface — there only with *Apply Image Adjustments* on
+    (off, the surface shows the image untouched, and Properties says so in an amber
+    hint with an *Apply image adjustments* button).
+  - **False Colour** — the header's checkbox switches the colour map on (off: grey
+    values); *Colour Map* and *Legend* (in the main view) are dimmed while it is off,
+    and the legend is not shown in the main view then, whatever its checkbox says.
+    The switch applies per image, in the preview and on the surface alike (with
+    *Apply Image Adjustments* on): an image with it off is projected in grey values.
+    So is the **colour map**: every layer on the surface uses its own image's map.
+
+  Every image keeps its own settings; they are not saved with the scene. *No image is
+  currently selected* when there is none.
+- **Filters** — shared by the Image Library and the Image Search (see below).
+- **Image Library** — *Import Directory*, then **Images**, the image list
+  itself (*showing x of y* in its header; folds away with a click on it).
+- **Image Search (STAC)** — the catalog search, its results in the same kind
+  of list ([StacImageSearch.md](StacImageSearch.md)).
+- **Projected Images** — the projection stack (see 4.).
+
+*Projection Settings* holds:
 
 | setting | what it does |
 |---|---|
 | **Image Opacity** | blends the projected stack over the surface texture (formerly labelled *Visualization*) |
 | **Visibility** | *RelativeCount* shows the coverage view (see 6.) |
-| **Transfer Function** | on (default): samples go through the per-image min/max remap and the colour map, which instrument data needs to be readable. Off: the image's own pixels, untouched — for RGB images, and for checking a projection against its source |
+| **Apply Image Adjustments** | on (default): samples go through each image's *Range*, *Brightness/Contrast* and *False Colour* (Selected Image › Properties), which instrument data needs to be readable. Off: the image's own pixels, untouched — for RGB images, and for checking a projection against its source. While it is off, the selected image's Properties show a hint with a button to turn it on. (Formerly *Transfer Function*.) |
 | **Winding Correction** | off (default). Turn it on only when an image survives **only near the limb** of the body: that is an OPC whose triangles are wound inward, so the projector-facing test rejects exactly the terrain facing the projector. On: PRo3D estimates each OPC hierarchy's winding from its coarsest patch (loaded once, the first time something is projected) and corrects the inward ones. The estimate assumes a roughly convex body seen from orbit; it is not reliable for near-vertical terrain such as rover outcrops. Saved with the scene. |
 | **Orientation Source** | where the projector's position and attitude come from — `MbiAttitudeSpiceRange` (default), `MbiBased` or `Spice`; see [If an image does not land on the terrain](#if-an-image-does-not-land-on-the-terrain) |
 | **Registration** | roll / pitch / yaw in degrees, turning the projector about its own position (a pointing correction); applies to every image of the stack |
 
-The **Instruments** section below it holds each instrument's field of view, prefilled from
+The **Instrument Settings** section below it holds each instrument's field of view, prefilled from
 the SPICE instrument kernels and editable per scene: see
 [InstrumentFieldOfView.md](InstrumentFieldOfView.md).
+
+### Filters
+
+The **Filters** section (its title shows *(n active)*; *reset all* resets them)
+narrows down both the **Image Library** and the
+[Image Search (STAC)](StacImageSearch.md) results, by the same rules: a catalog
+image is checked on its downloaded metadata exactly as it would be in the library.
+The filters only hide rows: the projection stack and the selected image are left
+alone. The library's *Images* header says how many rows are shown
+(*showing x of y*).
+
+The ranges are **fixed**, independent of the loaded images, so they also cover
+catalog images that are not loaded yet. *Distance* and *Resolution* span many
+orders of magnitude (cruise to close proximity): their sliders run on a
+**logarithmic** scale; the bound fields show and take real values.
+
+| filter | kind | effect |
+|---|---|---|
+| **Phase Angle [°]** | range, 0–180° | the angle at the target between the sun and the camera, from the sidecar's sun (`SUN_POS*`) and target (`TRG_POS*`) vectors: low = lit from behind the camera, flat with few shadows; around 90° = side lighting, long shadows; high = backlit. One value per image, at the target's centre — unlike sun elevation/azimuth, which change across the surface of a small body. Images without it (no sidecar) are shown while the filter is off and hidden while it is set |
+| **Instrument** | the HERA instruments (AFC1, AFC2, HSH, TIRI, ASPECT) and any further one in the library, as toggle buttons | shows only the selected instruments; images without one are listed as *(unknown)* |
+| **Resolution [m/px]** | range, 0.001–100 000 m/px, logarithmic | ground resolution at the target: distance × the angle one pixel spans (the instrument's horizontal field of view ÷ the image width). Measured at the target's centre, so on the surface facing the camera pixels are slightly finer. Images without one (no sidecars, or an instrument with no known field of view) are shown while the filter is off and hidden while it is set |
+| **Distance [km]** | range, 0.1–10⁹ km, logarithmic | distance to the target |
+| **Date [UTC]** | range, HERA's launch (2024-10-07) to today — at least to the end of 2027, for the synthetic products dated then. **On at start**: 2026-10-01 to 2027-05-31 (HERA at Didymos), so a catalog search asks for that window rather than the whole mission; ↶ selects the whole range (off) | observation time from the image's sidecar: the slider, and below it a date/time field per bound (UTC, to the second). Images without a time (no sidecar) are shown while the filter is off and hidden while it is set |
+
+A range is set by typing its bounds or by dragging the two handles of its
+slider. A filter is **off** — plain label, not counted — while its whole range is
+selected, or, for *Instrument*, while no instrument is selected. All filters start
+off except *Date*, which starts at HERA's time at Didymos (see the table). An active filter's
+label turns amber with a filter icon, and ↶ next to it resets it. Filters are not
+saved with the scene; importing a folder keeps them.
+
+To find images of a spot in a STAC catalog instead of a local folder, see
+[Image Search (STAC)](StacImageSearch.md); the same filters apply there.
 
 ## 3. Find images by hovering
 
@@ -109,14 +194,15 @@ The outline appears only where a footprint *edge* falls on the terrain. The
 AFC-1 frames here were taken from 6.7–8.4 km; at 5.5° that is a footprint
 644–807 m across, which covers the 154 m body entirely, so none is drawn.
 
-**Selecting** a row (its checkbox) is a different thing: it opens that image's 2D
-preview and makes its min/max and colour map drive the whole stack's legend. On
+**Selecting** a row (a click on its name; a second click deselects it, one image
+at a time) is a different thing: it shows that image's 2D
+preview and display settings under *Selected Image* and makes its min/max and colour map drive the whole stack's legend. On
 its own it projects nothing.
 
 ## 4. Build the stack
 
 The **+** in a row adds the image to the top of the **projection stack**
-(cap: 32). The stack panel lists the projected images top-first with a count
+(cap: 32). The stack panel in the *Projected Images* section lists the projected images top-first with a count
 indicator. **Drag a row onto another** to reorder: the dragged image takes the
 target's position and the images in between shift by one (the drop target is
 outlined in blue; the ☰ handle marks the rows as draggable). ↑ / ↓ move one
@@ -155,7 +241,7 @@ of it differs. That residue is the image's own noise and shading. A projection
 landing in the wrong place moves crater edges, which shows up as a much larger
 difference concentrated along them.
 
-Set two things first, or the comparison is meaningless: **Transfer Function off**
+Set two things first, or the comparison is meaningless: **Apply Image Adjustments off**
 (otherwise you are comparing a false-coloured image against a greyscale texture)
 and **Orientation Source → `MbiBased`** (the sidecar pointing the frame was
 generated with).
@@ -204,9 +290,9 @@ is blended at 20% over the surface colour:
   comes from the sidecar's `TARGET`. See
   [COP-sidecar-issues.md](COP-sidecar-issues.md) for the data defects these
   fallbacks absorb.
-- Per-image display settings (channel, min/max, false-color preview) work
-  through each row's edit panel; colormap and false-color toggle apply to the
-  whole stack (one instrument, one legend).
+- Per-image display settings (channel, min/max, brightness/contrast, false colour
+  and colour map) are edited under *Selected Image* and apply to that image's layer
+  only. The legend shows the selected image's map and range.
 
 ## If an image does not land on the terrain
 
@@ -251,7 +337,7 @@ stands in, and the log says so.
 
 An image that lands **mirrored** (lit limb where the terminator should be, a moon on the
 wrong side) is stored bottom-up: tick **flip** for its instrument under
-*Instruments* ([InstrumentFieldOfView.md](InstrumentFieldOfView.md#flipped-rows)).
+*Instrument Settings* ([InstrumentFieldOfView.md](InstrumentFieldOfView.md#flipped-rows)).
 Registration cannot undo a mirror.
 
 The pointing comes from two sidecar fields, and they have one convention:

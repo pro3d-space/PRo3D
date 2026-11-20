@@ -454,3 +454,102 @@ div.fullwidth.textcontainer > input {
     margin: 5px 0;
     background: rgba(255, 255, 255, 0.18);
 }
+
+/* Two-handle range slider of the Projected Images library filters
+   (DualRangeSlider.fs: the library filters and an image's display range): two range inputs over one track. Only the
+   thumbs take the mouse, so either can be grabbed where they do not overlap. */
+/* the time filter's bounds (Projected Images › Filters): a dark field like the
+   numeric input boxes, white text, the browser's calendar icon kept visible */
+.pro3d-time-input {
+    flex: 1;
+    min-width: 0;
+    padding: 2px 4px;
+    color: white;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: .28571429rem;
+    color-scheme: dark;
+    font-size: 0.9em;
+}
+
+.pro3d-dual-range {
+    position: relative;
+    height: 20px;
+    min-width: 80px;
+}
+
+.pro3d-dual-range-track,
+.pro3d-dual-range-fill {
+    position: absolute;
+    top: 8px;
+    height: 4px;
+    border-radius: 2px;
+}
+
+.pro3d-dual-range-track {
+    left: 0;
+    right: 0;
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.pro3d-dual-range-fill {
+    background: rgba(255, 255, 255, 0.45);
+}
+
+/* a filter that hides rows: the same amber as its label */
+.pro3d-dual-range.active .pro3d-dual-range-fill {
+    background: #e3b341;
+}
+
+.pro3d-dual-range input[type=range] {
+    position: absolute;
+    left: 0;
+    top: 8px;
+    width: 100%;
+    height: 4px;
+    margin: 0;
+    background: transparent;
+    pointer-events: none;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.pro3d-dual-range input[type=range]::-webkit-slider-runnable-track {
+    height: 4px;
+    background: transparent;
+}
+
+.pro3d-dual-range input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    pointer-events: auto;
+    width: 12px;
+    height: 12px;
+    margin-top: -4px;
+    border-radius: 50%;
+    background: #f2f2f2;
+    border: 1px solid #888888;
+    cursor: pointer;
+}
+
+/* the min/max boxes beside a two-handle slider (Selected Image › Properties › Data ›
+   Range): a number input is wider than its 80px box by default and spilled over the
+   slider's left end; fit it to the box */
+.pro3d-range-bound input {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* Info line at the top of the GIS and Projected Images panels ("ensure that the correct
+   SPICE kernel ..."): sticks to the top while the panel scrolls. Opaque, so the content
+   scrolling under it does not show through; a muted blue, an info and not a warning. */
+.pro3d-info-bar {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    padding: 5px 8px;
+    margin-bottom: 4px;
+    font-style: italic;
+    color: white;
+    background: #23384d;
+    border-bottom: 1px solid rgba(120, 170, 220, 0.35);
+}

@@ -39,6 +39,22 @@ let tests =
                 skiptest (sprintf "default SPICE kernel not installed at %s" kernel)
         }
 
+        test "TC-12.1 a kernel that failed loads when the same path is chosen again" {
+            // the failed path stays in the model (the top bar shows it as failed), so
+            // choosing it again (SetSpiceKernel: not forced) must not be skipped as loaded
+            let appData = Path.Combine(Environment.GetFolderPath Environment.SpecialFolder.ApplicationData, "Pro3D")
+            let kernel  = Path.Combine(appData, "JR", "CooTransformationConfig", "pck00010.tpc")
+            if File.Exists kernel then
+                let failed =
+                    { GisApp.initial None with
+                        spiceKernel = Some (CooTransformation.SPICEKernel.ofPath kernel)
+                        spiceKernelLoadSuccess = false }
+                let m = GisApp.loadSpiceKernel false kernel failed
+                Expect.isTrue m.spiceKernelLoadSuccess "the retried kernel should load"
+            else
+                skiptest (sprintf "default SPICE kernel not installed at %s" kernel)
+        }
+
         // TC-12.2 Observation Settings
 
         test "TC-12.2 SetObserver sets the observed body" {
@@ -230,6 +246,221 @@ let tests =
             Expect.equal m'.images.Count 0 "no images"
         }
 
+        test "TC-12.3 a library range filter is off at its whole range, and its bounds stay ordered and in range" {
+            let whole = PRo3D.ImageMapping.RangeFilter.create 0.0 10.0 0.1 "{0:0.0}"
+            Expect.isFalse (PRo3D.ImageMapping.RangeFilter.isActive whole) "whole range: off"
+
+            let narrowed = whole |> PRo3D.ImageMapping.RangeFilter.setLower 2.0
+            Expect.isTrue (PRo3D.ImageMapping.RangeFilter.isActive narrowed) "narrowed: on"
+            Expect.isFalse (PRo3D.ImageMapping.RangeFilter.contains 1.0 narrowed) "below the lower bound"
+            Expect.isTrue (PRo3D.ImageMapping.RangeFilter.contains 2.0 narrowed) "bounds are inclusive"
+
+            let pushed = narrowed |> PRo3D.ImageMapping.RangeFilter.setUpper 5.0 |> PRo3D.ImageMapping.RangeFilter.setLower 7.0
+            Expect.equal (pushed.lower.value, pushed.upper.value) (7.0, 7.0) "a lower bound above the upper pushes it along"
+            let pushedDown = pushed |> PRo3D.ImageMapping.RangeFilter.setUpper 3.0
+            Expect.equal (pushedDown.lower.value, pushedDown.upper.value) (3.0, 3.0) "and the other way round"
+
+            let clamped = whole |> PRo3D.ImageMapping.RangeFilter.setLower -5.0 |> PRo3D.ImageMapping.RangeFilter.setUpper 50.0
+            Expect.equal (clamped.lower.value, clamped.upper.value) (0.0, 10.0) "clamped to the range"
+            Expect.isFalse (PRo3D.ImageMapping.RangeFilter.isActive clamped) "clamped to the whole range: off"
+            Expect.isFalse (PRo3D.ImageMapping.RangeFilter.isActive (PRo3D.ImageMapping.RangeFilter.reset narrowed)) "reset: off"
+        }
+
+        test "TC-12.3 a range filter bound within one step of the range's end snaps to it" {
+            // a step that does not divide the range: the browser's slider stops the upper
+            // thumb one step short of max (min + 999 steps)
+            let lo, hi = 6.7, 8.4
+            let step = (hi - lo) / 1000.0
+            let whole = PRo3D.ImageMapping.RangeFilter.create lo hi step "{0:0.00}"
+            let narrowed = whole |> PRo3D.ImageMapping.RangeFilter.setUpper 8.0
+            Expect.isTrue (PRo3D.ImageMapping.RangeFilter.isActive narrowed) "narrowed: on"
+
+            let back = narrowed |> PRo3D.ImageMapping.RangeFilter.setUpper (lo + 999.0 * step)
+            Expect.equal back.upper.value hi "one step short of max snaps to max"
+            Expect.isFalse (PRo3D.ImageMapping.RangeFilter.isActive back) "dragged back to the end: off"
+
+            let lowBack = whole |> PRo3D.ImageMapping.RangeFilter.setLower (lo + 0.9 * step)
+            Expect.equal lowBack.lower.value lo "within one step of min snaps to min"
+
+            let kept = whole |> PRo3D.ImageMapping.RangeFilter.setUpper (hi - 2.0 * step)
+            Expect.isLessThan kept.upper.value hi "two steps short stays where it is"
+            Expect.isTrue (PRo3D.ImageMapping.RangeFilter.isActive kept) "and the filter is on"
+        }
+
+        test "TC-12.3 library filters: instruments and distance, off when nothing narrows them" {
+            let passes f instrument d = PRo3D.ImageMapping.ImageFilter.matches f { PRo3D.ImageMapping.ProjectedImageApp.initial with id = Guid.NewGuid(); instrument = instrument; distance = d }
+            let img (instrument : string) (d : float) =
+                { PRo3D.ImageMapping.ProjectedImageApp.initial with id = Guid.NewGuid(); instrument = instrument; distance = d }
+            // all filters off (the Date filter starts at its default window)
+            let f = (PRo3D.ImageMapping.ImageFilter.update PRo3D.ImageMapping.ImageFilter.initial (PRo3D.ImageMapping.ResetRange PRo3D.ImageMapping.RangeFilterKind.Time))
+            Expect.equal (f.distance.lower.min, f.distance.upper.max) (0.1, 1e9) "fixed distance range, independent of the library"
+            Expect.equal (PRo3D.ImageMapping.ImageFilter.activeCount f) 0 "nothing active at first"
+            Expect.isTrue (passes f "AFC1" 10.0 && passes f "" 30.0) "everything passes"
+
+            let f = PRo3D.ImageMapping.ImageFilter.update f (PRo3D.ImageMapping.ToggleInstrument "AFC2")
+            Expect.equal (PRo3D.ImageMapping.ImageFilter.activeCount f) 1 "instrument filter on"
+            Expect.isFalse (passes f "AFC1" 10.0) "other instruments hidden"
+            Expect.isTrue (passes f "AFC2" 30.0) "the selected one shown"
+
+            let f = PRo3D.ImageMapping.ImageFilter.update f (PRo3D.ImageMapping.ToggleInstrument PRo3D.ImageMapping.ImageFilter.unknownInstrument)
+            Expect.isTrue (passes f "" 20.0) "unknown instruments are selectable"
+
+            let f =
+                PRo3D.ImageMapping.ImageFilter.update f
+                    (PRo3D.ImageMapping.SetUpper (PRo3D.ImageMapping.RangeFilterKind.Distance, Aardvark.UI.Primitives.Numeric.SetValue 25.0))
+            Expect.equal (PRo3D.ImageMapping.ImageFilter.activeCount f) 2 "distance filter on"
+            Expect.isFalse (passes f "AFC2" 30.0) "beyond the distance range"
+
+            let f = PRo3D.ImageMapping.ImageFilter.update f PRo3D.ImageMapping.ResetAll
+            Expect.equal (PRo3D.ImageMapping.ImageFilter.activeCount f) 0 "reset all"
+            Expect.isTrue f.expanded "reset keeps the block unfolded"
+        }
+
+        test "TC-12.3 resolution: distance × pixel angle, filtered over a fixed range" {
+            // AFC: 5.5° over 1020 px; at 10 km one pixel spans 10000 * 2 tan(2.75°) / 1020
+            let expected = 10000.0 * 2.0 * tan (2.75 * Math.PI / 180.0) / 1020.0
+            match PRo3D.SPICE.InstrumentProjection.tryResolution "AFC1" 10.0 1020 with
+            | Some r -> Expect.floatClose Accuracy.high r expected "AFC1 at 10 km"
+            | None -> failtest "AFC1 has a known field of view"
+            Expect.isNone (PRo3D.SPICE.InstrumentProjection.tryResolution "NOPE" 10.0 1020) "unknown instrument"
+            Expect.isNone (PRo3D.SPICE.InstrumentProjection.tryResolution "AFC1" 0.0 1020) "no distance"
+            Expect.isNone (PRo3D.SPICE.InstrumentProjection.tryResolution "AFC1" 10.0 0) "no width"
+
+            let img (r : Option<float>) =
+                { PRo3D.ImageMapping.ProjectedImageApp.initial with id = Guid.NewGuid(); instrument = "AFC1"; distance = 1.0; resolution = r }
+            // all filters off (the Date filter starts at its default window)
+            let f = (PRo3D.ImageMapping.ImageFilter.update PRo3D.ImageMapping.ImageFilter.initial (PRo3D.ImageMapping.ResetRange PRo3D.ImageMapping.RangeFilterKind.Time))
+            Expect.equal (f.resolution.lower.min, f.resolution.upper.max) (0.001, 1e5) "fixed resolution range"
+            let passes f r = PRo3D.ImageMapping.ImageFilter.matches f { PRo3D.ImageMapping.ProjectedImageApp.initial with id = Guid.NewGuid(); instrument = "AFC1"; distance = 1.0; resolution = r }
+            Expect.isTrue (passes f None) "filter off: images without a resolution shown"
+            let f =
+                PRo3D.ImageMapping.ImageFilter.update f
+                    (PRo3D.ImageMapping.SetUpper (PRo3D.ImageMapping.RangeFilterKind.Resolution, Aardvark.UI.Primitives.Numeric.SetValue 0.3))
+            Expect.equal (PRo3D.ImageMapping.ImageFilter.activeCount f) 1 "resolution filter on"
+            Expect.isTrue (passes f (Some 0.1)) "inside"
+            Expect.isFalse (passes f (Some 0.5)) "coarser than the bound"
+            Expect.isFalse (passes f None) "filter set: images without a resolution hidden"
+        }
+
+        test "TC-12.3 phase angle: sun–target–camera angle from the sidecar, filtered over 0–180°" {
+            let phase sun target =
+                match PRo3D.ImageMapping.ProjectedImageModel.phaseAngleOf sun target with
+                | Some a -> a
+                | None -> failtest "expected a phase angle"
+            // camera on the sun side of the target: the target lies in -x from the camera
+            Expect.floatClose Accuracy.high (phase (Aardvark.Base.V3d(1.5e8, 0.0, 0.0)) (Aardvark.Base.V3d(-10.0, 0.0, 0.0))) 0.0 "sun behind the camera: 0°"
+            Expect.floatClose Accuracy.high (phase (Aardvark.Base.V3d(1.5e8, 0.0, 0.0)) (Aardvark.Base.V3d(0.0, -10.0, 0.0))) 90.0 "side lit: 90°"
+            Expect.floatClose Accuracy.high (phase (Aardvark.Base.V3d(1.5e8, 0.0, 0.0)) (Aardvark.Base.V3d(10.0, 0.0, 0.0))) 180.0 "backlit: 180°"
+            Expect.isNone (PRo3D.ImageMapping.ProjectedImageModel.phaseAngleOf Aardvark.Base.V3d.Zero (Aardvark.Base.V3d(1.0, 0.0, 0.0))) "no sun vector"
+
+            let img (a : Option<float>) =
+                { PRo3D.ImageMapping.ProjectedImageApp.initial with id = Guid.NewGuid(); phaseAngle = a }
+            // all filters off (the Date filter starts at its default window)
+            let f = (PRo3D.ImageMapping.ImageFilter.update PRo3D.ImageMapping.ImageFilter.initial (PRo3D.ImageMapping.ResetRange PRo3D.ImageMapping.RangeFilterKind.Time))
+            Expect.equal (f.phaseAngle.lower.min, f.phaseAngle.upper.max) (0.0, 180.0) "the whole range of angles"
+            Expect.isTrue (PRo3D.ImageMapping.ImageFilter.matches f (img None)) "off: everything shown"
+            let f =
+                PRo3D.ImageMapping.ImageFilter.update f
+                    (PRo3D.ImageMapping.SetLower (PRo3D.ImageMapping.RangeFilterKind.PhaseAngle, Aardvark.UI.Primitives.Numeric.SetValue 50.0))
+            Expect.equal (PRo3D.ImageMapping.ImageFilter.activeCount f) 1 "phase angle filter on"
+            Expect.isFalse (PRo3D.ImageMapping.ImageFilter.matches f (img (Some 20.0))) "below"
+            Expect.isTrue (PRo3D.ImageMapping.ImageFilter.matches f (img (Some 80.0))) "inside"
+            Expect.isFalse (PRo3D.ImageMapping.ImageFilter.matches f (img None)) "no phase angle: hidden while set"
+        }
+
+        test "TC-12.3 date filter: launch to today (at least the end of 2027), UTC, images without a time hidden while set" {
+            let t0 = DateTime(2026, 12, 1, 10, 0, 0, DateTimeKind.Utc)
+            let img (t : DateTime) =
+                { PRo3D.ImageMapping.ProjectedImageApp.initial with id = Guid.NewGuid(); time = t }
+            // all filters off (the Date filter starts at its default window)
+            let f = (PRo3D.ImageMapping.ImageFilter.update PRo3D.ImageMapping.ImageFilter.initial (PRo3D.ImageMapping.ResetRange PRo3D.ImageMapping.RangeFilterKind.Time))
+            let key t = PRo3D.ImageMapping.ImageFilter.timeKey t |> Option.defaultValue nan
+            Expect.equal f.time.lower.min (key (DateTime(2024, 10, 7, 0, 0, 0, DateTimeKind.Utc))) "from HERA's launch"
+            let initial = PRo3D.ImageMapping.ImageFilter.initial
+            Expect.equal (initial.time.lower.value, initial.time.upper.value)
+                (key (DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc)), key (DateTime(2027, 5, 31, 23, 59, 59, DateTimeKind.Utc)))
+                "set by default: HERA at Didymos, arrival to the end of the nominal mission"
+            Expect.equal (PRo3D.ImageMapping.ImageFilter.activeCount initial) 1 "the Date filter is the only one on at start"
+            Expect.isTrue (f.time.upper.max >= key (DateTime(2027, 12, 31, 23, 59, 59, DateTimeKind.Utc))) "to the end of 2027 at least (synthetic products)"
+            Expect.equal (PRo3D.ImageMapping.ImageFilter.timeOfKey (key t0)) t0 "round trip"
+            let passes f t = PRo3D.ImageMapping.ImageFilter.matches f { PRo3D.ImageMapping.ProjectedImageApp.initial with id = Guid.NewGuid(); time = t }
+            Expect.isTrue (passes f DateTime.MinValue) "off: everything shown"
+            let f =
+                PRo3D.ImageMapping.ImageFilter.update f
+                    (PRo3D.ImageMapping.SetUpper (PRo3D.ImageMapping.RangeFilterKind.Time, Aardvark.UI.Primitives.Numeric.SetValue (key (t0.AddDays 1.0))))
+            Expect.equal (PRo3D.ImageMapping.ImageFilter.activeCount f) 1 "date filter on"
+            Expect.isTrue (passes f t0) "inside"
+            Expect.isFalse (passes f (t0.AddDays 2.0)) "after the upper bound"
+            Expect.isFalse (passes f DateTime.MinValue) "no time: hidden while set"
+        }
+
+        test "TC-12.3 the library sorts by the image list's columns, again the other way round" {
+            let img (name : string) (instrument : string) (d : float) (r : Option<float>) =
+                { PRo3D.ImageMapping.ProjectedImageApp.initial with id = Guid.NewGuid(); texture = name; instrument = instrument; distance = d; resolution = r }
+            let m =
+                { (GisApp.initial None).projectedImageList with
+                    images = FSharp.Data.Adaptive.IndexList.ofList [ img "b" "HSH" 20.0 (Some 2.0); img "a" "AFC1" 30.0 None; img "c" "AFC2" 10.0 (Some 1.0) ] }
+            let sortBy key m = PRo3D.ImageMapping.ProjectedImageListApp.update m (PRo3D.ImageMapping.SortLibraryBy key)
+            let names (m : PRo3D.ImageMapping.ProjectedImageListModel) = m.images |> FSharp.Data.Adaptive.IndexList.toList |> List.map (fun i -> i.texture)
+            let byDistance = sortBy PRo3D.ImageMapping.SortDistance m
+            Expect.equal (names byDistance) [ "c"; "b"; "a" ] "distance, ascending"
+            Expect.equal byDistance.librarySort (Some (PRo3D.ImageMapping.SortDistance, true)) "the header shows it"
+            Expect.equal (names (sortBy PRo3D.ImageMapping.SortDistance byDistance)) [ "a"; "b"; "c" ] "again: descending"
+            Expect.equal (names (sortBy PRo3D.ImageMapping.SortInstrument m)) [ "a"; "c"; "b" ] "instrument"
+            Expect.equal (names (sortBy PRo3D.ImageMapping.SortResolution m)) [ "c"; "b"; "a" ] "resolution, unknown last"
+        }
+
+        test "TC-12.3 library thumbnails: a small PNG per registered image, nothing for others" {
+            // the repo's test TIFFs are empty placeholders: a generated image instead
+            let dir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "PRo3D-thumbnail-test-" + string (Guid.NewGuid()))
+            System.IO.Directory.CreateDirectory dir |> ignore
+            try
+                let source = System.IO.Path.Combine(dir, "image.png")
+                let pi = Aardvark.Base.PixImage<byte>(Aardvark.Base.Col.Format.RGBA, Aardvark.Base.V2i(200, 100))
+                pi.Save source
+                let key (path : string) = (PRo3D.GIS.LibraryThumbnails.thumbnailPath path).Substring PRo3D.GIS.LibraryThumbnails.route.Length
+                Expect.isNone (PRo3D.GIS.LibraryThumbnails.thumbnailFile (key source)) "not registered: not served"
+                PRo3D.GIS.LibraryThumbnails.register source
+                match PRo3D.GIS.LibraryThumbnails.thumbnailFile (key source) with
+                | Some png ->
+                    let thumb = Aardvark.Base.PixImage.Load png
+                    Expect.equal (thumb.Size.X, thumb.Size.Y) (PRo3D.GIS.LibraryThumbnails.size, PRo3D.GIS.LibraryThumbnails.size / 2) "64 px wide, the aspect kept"
+                | None -> failtest "a registered image has a thumbnail"
+                Expect.isNone (PRo3D.GIS.LibraryThumbnails.render (System.IO.Path.Combine(dir, "missing.tif"))) "an unreadable file: no thumbnail"
+            finally
+                try System.IO.Directory.Delete(dir, true) with _ -> ()
+        }
+
+        test "TC-12.3 shared filters: fixed ranges, log scale for distance and resolution, kept on import" {
+            // all filters off (the Date filter starts at its default window)
+            let f = (PRo3D.ImageMapping.ImageFilter.update PRo3D.ImageMapping.ImageFilter.initial (PRo3D.ImageMapping.ResetRange PRo3D.ImageMapping.RangeFilterKind.Time))
+            Expect.equal (PRo3D.ImageMapping.ImageFilter.activeCount f) 0 "all off: the whole ranges"
+            Expect.equal (PRo3D.ImageMapping.ImageFilter.activeCount PRo3D.ImageMapping.ImageFilter.initial) 1 "at start only the Date filter is on"
+            Expect.isTrue (PRo3D.ImageMapping.ImageFilter.isLogScale PRo3D.ImageMapping.RangeFilterKind.Distance) "distance: log"
+            Expect.isTrue (PRo3D.ImageMapping.ImageFilter.isLogScale PRo3D.ImageMapping.RangeFilterKind.Resolution) "resolution: log"
+            Expect.isFalse (PRo3D.ImageMapping.ImageFilter.isLogScale PRo3D.ImageMapping.RangeFilterKind.PhaseAngle) "phase angle: linear"
+            Expect.isFalse (PRo3D.ImageMapping.ImageFilter.isLogScale PRo3D.ImageMapping.RangeFilterKind.Time) "date: linear"
+            // a log slider: positions and values round-trip, and the ends snap exactly
+            let lo, hi = f.distance.lower.min, f.distance.upper.max
+            let step = PRo3D.ImageMapping.DualRangeSlider.Scale.step true lo hi f.distance.lower.step
+            for v in [ 0.5; 12.0; 3.4e5 ] do
+                let x = PRo3D.ImageMapping.DualRangeSlider.Scale.toSlider true lo v
+                Expect.floatClose Accuracy.medium (PRo3D.ImageMapping.DualRangeSlider.Scale.valueOf true lo hi step x) v "value -> position -> value"
+            let top = PRo3D.ImageMapping.DualRangeSlider.Scale.toSlider true lo hi
+            Expect.equal (PRo3D.ImageMapping.DualRangeSlider.Scale.valueOf true lo hi step (top - 0.5 * step)) hi "one step short of the end: the end"
+            Expect.equal (PRo3D.ImageMapping.DualRangeSlider.Scale.valueOf true lo hi step (log10 lo + 0.5 * step)) lo "and at the start"
+
+            // an import keeps the filters: they are shared with the catalog search
+            let narrowed =
+                PRo3D.ImageMapping.ImageFilter.update f
+                    (PRo3D.ImageMapping.SetUpper (PRo3D.ImageMapping.RangeFilterKind.Distance, Aardvark.UI.Primitives.Numeric.SetValue 25.0))
+            let m = { (GisApp.initial None).projectedImageList with filter = narrowed }
+            let dataDir = System.IO.Path.Combine(__SOURCE_DIRECTORY__, "..", "data")
+            let imported = PRo3D.ImageMapping.ProjectedImageListApp.update m (PRo3D.ImageMapping.ProjectedImageListMessage.LoadImagesDir dataDir)
+            Expect.isFalse imported.images.IsEmpty "the test images were imported"
+            Expect.equal imported.filter narrowed "the filters stay"
+        }
+
         test "TC-12.3 camera follows camera source survives save/load and defaults to on" {
             let m = GisApp.initial None
             Expect.isTrue m.cameraFollowsSource "a new scene follows"
@@ -272,8 +503,6 @@ let tests =
                 // fly-to moves the time too, but frames the image itself
                 let flyTo = GisAppAction.ProjectedImageListMessage (PRo3D.ImageMapping.ProjectedImageListMessage.FlyToImage (Guid.NewGuid()))
                 Expect.isFalse (GisApp.reaimsCamera on flyTo) "fly-to keeps its own camera"
-                let loadSpiceAndTime = GisAppAction.ProjectedImageListMessage (PRo3D.ImageMapping.ProjectedImageListMessage.LoadSpiceAndTime "x")
-                Expect.isFalse (GisApp.reaimsCamera on loadSpiceAndTime) "Load Spice and Time keeps the camera"
         }
 
         // TC-12.4 Scene body (#758) — the global planet and the GIS observation are one

@@ -22,6 +22,7 @@
        that only restored linux-x64 or osx-* assets. PRo3D.Core, also a library, never had it. -->
   <ItemGroup>
     <Compile Include="ColorMapping.fs" />
+    <Compile Include="BrightnessContrast.fs" />
     <EmbeddedResource Include="resources/plasma.png" />
     <EmbeddedResource Include="resources/piyg.png" />
     <EmbeddedResource Include="resources/twilight_shifted.png" />
@@ -45,9 +46,12 @@
     <Compile Include="Markers.fs" />
     <Compile Include="OpcProjectionSg.fs" />
     <Compile Include="InstrumentObservation.fs" />
+    <Compile Include="StacSearch.fs" />
+    <Compile Include="LibraryThumbnails.fs" />
 
     <Compile Include="TestViewer.fs" />
     <None Include="paket.references" />
+    <Compile Include="DualRangeSlider.fs" />
     <Compile Include="ProjectedImageApp.fs" />
     <Compile Include="InstrumentFovApp.fs" />
     <Compile Include="ProjectedImageListApp.fs" />

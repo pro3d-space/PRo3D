@@ -6,11 +6,11 @@ image lands on the terrain: a FOV 0.5 % too wide paints every image 0.5 % too la
 around its centre.
 
 PRo3D prefills each instrument's FOV from the SPICE instrument kernels (IK). You can
-change it per scene in the GIS tab, under *Projected Images → Instruments*.
+change it per scene in the GIS tab, under *Projected Images → Instrument Settings*.
 
-## The Instruments section
+## The Instrument Settings section
 
-GIS tab → **Projected Images** → **Instruments** lists every instrument PRo3D can
+GIS tab → **Projected Images** → **Instrument Settings** lists every instrument PRo3D can
 project, by SPICE frame name:
 
 | item | meaning |

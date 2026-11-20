@@ -17,6 +17,11 @@ the cursor enters it. The one exception is a focused **text or number field**. T
 typing as usual, and Ctrl+S does nothing (not even the browser's "save page"). Click outside the
 field (or press Tab to leave it) to undo drawing actions again.
 
+Copy, cut, paste and select-all (Ctrl+C / X / V / A, on macOS Cmd+C / X / V / A) work in every
+text field, for instance pasting a password into the image catalog's sign-in. On macOS these
+shortcuts go through the application menu's *Edit* items, so PRo3D's window has a menu bar there
+(`menu` in `Aardium.run`, src/PRo3D.Viewer/Program.fs); Windows and Linux need none.
+
 Ctrl+Shift+Z is redo as on macOS (Cmd+Shift+Z) and in many Windows applications; Ctrl+Shift+S
 saves like Ctrl+S, there is no "save as" shortcut. Holding a key down does not repeat the
 shortcut. Ctrl+Alt+Z and the like are ignored, and so is

@@ -39,6 +39,7 @@ module LayoutPanels =
         { id = "properties";         title = "Properties" }
         { id = "traverse";           title = "Traverses" }
         { id = "gis";                title = "GIS View" }
+        { id = "projectedimages";    title = "Projected Images" }
         { id = "comparison";         title = "Comparison" }
         { id = "provenance";         title = "Provenance" }
         { id = "validation";         title = "Validation" }

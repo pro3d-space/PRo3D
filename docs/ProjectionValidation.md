@@ -61,7 +61,7 @@ width ratio and the two must agree **at zero shift**. That is a stronger claim
 than fitting each body's bounding box: a fit quietly absorbs a real pointing
 error and then reports a meaningless few-pixel residual.
 
-Prerequisites for step 3, all now in: the *Transfer Function* toggle (off = the
+Prerequisites for step 3, all now in: the *Transfer Function* toggle (now *Apply Image Adjustments*; off = the
 image's own RGB, so the render is comparable to the source rather than to a
 colour-mapped version of it), the viewer's missing `NormalFlip` binding, a
 fly-to that lands pointing at the body, and the projector matrix fix below.
@@ -78,7 +78,7 @@ single state, so the page cannot drift out of internal consistency:
 - viewer window 1100×1100, *Focal (mm)* 122.563 = AFC-1's 5.5307°
   (measured before #882: the test set has since been regenerated on shape model v004 at
   5.5°, *Focal (mm)* 123.247, and these numbers have not been re-measured on it)
-- *Orientation Source* MBI, *Transfer Function* off
+- *Orientation Source* MBI, *Apply Image Adjustments* off
 
 | rung | correlation at zero shift | best shift found | mean ΔDN |
 |---|---|---|---|
@@ -238,7 +238,7 @@ Setup: one simulated AFC-1 frame of Dimorphos, projected onto
 `Dimorphos_opc`. *Fly to image* puts the camera on that frame's projector
 axis; *Focal (mm)* = 123.247 makes the viewer's field of view AFC-1's 5.5° (122.563 /
 5.5307° before #882);
-*Orientation Source* = MBI; *Transfer Function* off, so the layer is painted as
+*Orientation Source* = MBI; *Apply Image Adjustments* off, so the layer is painted as
 its own RGB. Window 1100×1100, square, because a 16:9 window would frame the
 body by its shorter vertical fov instead of the instrument's.
 

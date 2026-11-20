@@ -406,6 +406,24 @@ module InstrumentProjection =
     let instrument2SpiceName (fitsName : string) =
         Map.tryFind fitsName instrumentNames
 
+    /// The kernels' horizontal field of view in degrees of an instrument, by its FITS
+    /// INSTRUME name (defaultFovs; a scene's own fields of view are not considered).
+    let tryHorizontalFov (fitsName : string) : Option<float> =
+        instrument2SpiceName fitsName
+        |> Option.bind (fun spiceName -> Map.tryFind spiceName defaultFovs)
+        |> Option.map (fun fov -> fov.horizontal)
+
+    /// Ground resolution in metres per pixel at `distanceKm` from an instrument whose
+    /// image is `widthPx` wide: the distance times the angle one pixel spans. Measured at
+    /// the distance to the target's centre, so on the surface facing the camera pixels
+    /// are slightly finer (by the body's radius over the distance).
+    let tryResolution (fitsName : string) (distanceKm : float) (widthPx : int) : Option<float> =
+        if widthPx <= 0 || not (distanceKm > 0.0) then None
+        else
+            tryHorizontalFov fitsName
+            |> Option.map (fun fov ->
+                distanceKm * 1000.0 * 2.0 * tan (Conversion.RadiansFromDegrees fov / 2.0) / float widthPx)
+
     // maps fits INSTRUME names to the spacecraft that physically carries the instrument.
     // AFC1/AFC2/HSH are mounted on Hera itself; ASPECT flies on the Milani cubesat.
     let instrumentCameraSource =

@@ -83,7 +83,9 @@ module GisApp =
 
     let loadSpiceKernel (force : bool) (path : string) (m : GisApp) =
         match m.spiceKernel, force with
-        | Some s, false when s = CooTransformation.SPICEKernel.ofPath path -> m
+        // skip only a kernel that is already loaded: a failed one (also a failed
+        // --defaultSpiceKernel) must load when the same path is chosen again
+        | Some s, false when s = CooTransformation.SPICEKernel.ofPath path && m.spiceKernelLoadSuccess -> m
         | _ -> 
             if File.Exists path then
                 let directory = Path.GetDirectoryName path
@@ -99,7 +101,8 @@ module GisApp =
                             spiceKernelLoadSuccess = true}
             else
                 Log.line "[GisApp] Could not find path %s" path
-                {m with spiceKernelLoadSuccess = false}
+                {m with spiceKernel = Some (CooTransformation.SPICEKernel.ofPath path)
+                        spiceKernelLoadSuccess = false}
 
     let loadSpiceKernel' (m : GisApp) =
         match m.spiceKernel with
@@ -112,28 +115,6 @@ module GisApp =
         match m.spiceKernel with
         | Some kernel -> loadSpiceKernel true kernel.FullPath m
         | None -> m
-
-    /// Like loadSpiceKernel, but resets SPICE's kernel pool first (see
-    /// CooTransformation.switchKernel) instead of just adding on top of
-    /// whatever is already loaded. Used when switching to a kernel from a
-    /// possibly different mission phase (e.g. via LoadSpiceAndTime), where
-    /// layering would risk silently conflicting kernel data.
-    let loadSpiceKernelSwitching (path : string) (m : GisApp) =
-        if File.Exists path then
-            let directory = Path.GetDirectoryName path
-            let name = Path.GetFileName path
-            match CooTransformation.switchKernel directory name with
-            | None ->
-                Log.line "[GisApp] Could not load spice kernel %s" path
-                {m with spiceKernel = Some (CooTransformation.SPICEKernel.ofPath path)
-                        spiceKernelLoadSuccess = false}
-            | Some spiceKernel ->
-                Log.line "[GisApp] Successfully loaded spice kernel %s" path
-                {m with spiceKernel = Some spiceKernel
-                        spiceKernelLoadSuccess = true}
-        else
-            Log.line "[GisApp] Could not find path %s" path
-            {m with spiceKernelLoadSuccess = false}
 
     let getMissionTimeEntriesData () : list<MissionTimeEntry> = 
         let getNumericInput v = { min = 0.0; max = 1.0; step = 0.001; value = v; format = "{0:0.000}" }
@@ -165,7 +146,7 @@ module GisApp =
     let private setObservationTime (date : DateTime) (m : GisApp) =
         { m with defaultObservationInfo = ObservationInfo.update m.defaultObservationInfo (ObservationInfoAction.SetTime date) }
 
-    /// Scene time := the image's observation time (fly-to, Load Spice and Time).
+    /// Scene time := the image's observation time (fly-to).
     let private setObservationTimeToImage (mbi : InstrumentMetadata.Tiff_Mbi_Json.Mbi) (m : GisApp) =
         let current = Calendar.toUtc m.defaultObservationInfo.time.date
         let epoch = Calendar.toUtc mbi.obs_date
@@ -318,36 +299,14 @@ module GisApp =
                 match InstrumentMetadata.tryParseMetadataForImagePath image.texture with
                 | Some mbi, _ -> viewer, setObservationTimeToImage mbi m
                 | None, _ -> viewer, m
-        | GisAppAction.ProjectedImageListMessage (ProjectedImageListMessage.LoadSpiceAndTime directory) ->
-            if String.IsNullOrEmpty directory then
-                viewer, m // user cancelled the folder dialog
-            else
-                let selectedTexturePath =
-                    m.projectedImageList.selectedImage
-                    |> Option.bind (fun id -> ProjectedImageListModel.tryFind id m.projectedImageList)
-                    |> Option.map (fun img -> img.texture)
-                match selectedTexturePath with
-                | None ->
-                    Log.warn "[GisApp] no image selected -- select an image before loading its spice kernel"
-                    viewer, m
-                | Some texturePath ->
-                    match InstrumentMetadata.tryParseMetadataForImagePath texturePath with
-                    | None, _ ->
-                        Log.warn "[GisApp] selected image has no mbi sidecar metadata"
-                        viewer, m
-                    | Some mbi, _ ->
-                        let m = setObservationTimeToImage mbi m
-                        match mbi.spiceMk with
-                        | None ->
-                            Log.warn "[GisApp] selected image's mbi sidecar does not declare a SPICE_MK kernel name"
-                            viewer, m
-                        | Some mkName ->
-                            match CooTransformation.tryFindSpiceKernelFile directory mkName with
-                            | None ->
-                                Log.warn "[GisApp] could not find kernel \"%s\" (.tm) under %s" mkName directory
-                                viewer, {m with spiceKernelLoadSuccess = false}
-                            | Some kernelPath ->
-                                viewer, loadSpiceKernelSwitching kernelPath m
+        | GisAppAction.ProjectedImageListMessage (ProjectedImageListMessage.StacMessage (StacSearchMessage.FlyToCandidate itemId)) ->
+            // as FlyToImage, from the result's downloaded metadata (the check fetched it)
+            match m.projectedImageList.stacSearch.candidates |> IndexList.tryFind (fun _ c -> c.itemId = itemId) with
+            | None -> viewer, m
+            | Some c ->
+                match InstrumentMetadata.tryParseMetadataForImagePath (PRo3D.GIS.StacSearch.localImagePath c.itemId c.assets) with
+                | Some mbi, _ -> viewer, setObservationTimeToImage mbi m
+                | None, _ -> viewer, m
         | GisAppAction.ProjectedImageListMessage msg ->
             viewer, {m with projectedImageList = ProjectedImageListApp.update m.projectedImageList msg }
         | GisAppAction.InitializeMissionTimeEntries ->
@@ -797,6 +756,16 @@ module GisApp =
                 | _ -> ()
             })
 
+    /// The Projected Images panel (`?page=projectedimages`): import, stack, library and
+    /// projection settings of the image list, plus the surfaces the projection refuses.
+    /// Its own docked tab, split out of the GIS View.
+    let viewProjectedImages (m : AdaptiveGisApp) (surfaces : AdaptiveSurfaceModel) =
+        div [] [
+            viewProjectionRefusals surfaces
+            ProjectedImageListApp.view m.projectedImageList ProjectedImageApp.view ProjectedImageApp.view2DRelative
+            |> UI.map GisAppAction.ProjectedImageListMessage
+        ]
+
     let view (m : AdaptiveGisApp)
              (planet : aval<Planet>)
              (surfaces : AdaptiveSurfaceModel)
@@ -825,6 +794,18 @@ module GisApp =
                     ()
             }
         div [] [ 
+            // the kernel is loaded from the top bar (next to Reference System) or the
+            // main menu; same hint as the Projected Images panel
+            // stays at the top while the panel scrolls (.pro3d-info-bar, semui-overrides.css)
+            div [clazz "pro3d-info-bar"] [
+                // underlined: the term has a tooltip saying where the kernel is set
+                text "ensure that the correct "
+                span [style "text-decoration: underline; text-underline-offset: 2px; cursor: help"
+                      attribute "title" "Load it in the top bar: Load SPICE kernel, next to Reference System"] [
+                    text "SPICE kernel"
+                ]
+                text " is set for the image projection"
+            ]
             div [clazz "ui inverted segment"] [ 
                 h5 [clazz "ui inverted horizontal divider header"
                     style "padding-top: 1rem"] 
@@ -844,37 +825,9 @@ module GisApp =
                 viewFrames m
             ]
 
-            GuiEx.accordion "Projected Images" "Images" false [
-                viewProjectionRefusals surfaces
-                ProjectedImageListApp.view m.projectedImageList ProjectedImageApp.view ProjectedImageApp.view2DRelative |> UI.map GisAppAction.ProjectedImageListMessage
-            ]
-            
-            let kernelPathTextBox = 
-                div [clazz "fullwidth textcontainer"] [
-                    Html.SemUi.textBox 
-                        (m.spiceKernel 
-                            |> AVal.map (function Some p -> p.FullPath | _ -> "PRo3D Default Spice Kernel Path")
-                        )
-                        GisAppAction.SetSpiceKernel 
-                ]
-
-            let kernelStatusIcon =
-                let attributes = 
-                    amap {
-                        let! ok = m.spiceKernelLoadSuccess
-                        if ok then
-                            yield clazz "ui green check icon"
-                        else
-                            yield clazz "ui red exclamation icon"
-                    } |> AttributeMap.ofAMap
-
-                Incremental.i attributes AList.empty
-
             GuiEx.accordion "Settings" "" false [
                 require GuiEx.semui (
                     Html.table [ 
-                        Html.row "Path to Spice Kernel" 
-                                 [kernelPathTextBox;kernelStatusIcon]
                         Html.row "Show Markers" [GuiEx.iconCheckBox m.showMarkers ToggleDrawMarkers]
                         Html.row "Camera follows camera source body"
                                  [GuiEx.iconCheckBox m.cameraFollowsSource ToggleCameraFollowsSource]
@@ -1240,7 +1193,7 @@ module GisApp =
     /// Whether `msg`, applied to give `m`, re-aims the camera from the camera source body
     /// (lookAtObserver). Choosing bodies or frame and "Re-use settings above" always do;
     /// a time change - calendar or mission time table - only while cameraFollowsSource is
-    /// on. Fly-to and Load Spice and Time move the time too but frame the camera themselves.
+    /// on. Fly-to moves the time too but frames the camera itself.
     let reaimsCamera (m : GisApp) (msg : GisAppAction) =
         match msg with
         | GisAppAction.ObservationInfoMessage (ObservationInfoAction.Reset
@@ -1265,7 +1218,8 @@ module GisApp =
         |> Sg.onOff (observer |> AVal.map Option.isSome)
 
 
-    let initial (spiceKernel : option<string>) : GisApp =
+    /// `spiceKernel`: the startup kernel and whether it loaded (CooTransformation.startupKernel).
+    let initial (spiceKernel : Option<string * bool>) : GisApp =
         let entities =
             [
                 Entity.earth.spiceName,     Entity.earth 
@@ -1302,8 +1256,8 @@ module GisApp =
                 newEntity               = None
                 newFrame                = None
                 defaultObservationInfo  = ObservationInfo.initial
-                spiceKernel             = spiceKernel |> Option.map CooTransformation.SPICEKernel.ofPath  
-                spiceKernelLoadSuccess  = true
+                spiceKernel             = spiceKernel |> Option.map (fst >> CooTransformation.SPICEKernel.ofPath)
+                spiceKernelLoadSuccess  = spiceKernel |> Option.forall snd
                 cameraFollowsSource     = true
                 projectedImageList      = ProjectedImageListModel.initial //{ ProjectedImages.initial with images = Directory.EnumerateFiles(@"C:\pro3ddata\HERA\simulated") |> Seq.map (fun a -> { fullName = a }) |> IndexList.ofSeq }
                 showMarkers             = false
@@ -1311,10 +1265,7 @@ module GisApp =
                 missionTimesEntries     = Some (IndexList.ofList missionTimeEntries)
             }
 
-        match spiceKernel with
-        | Some spiceKernel ->
-            loadSpiceKernel false spiceKernel m
-        | None ->
-            m
+        // initCooTrafo has already loaded (or failed to load) the startup kernel
+        m
 
 

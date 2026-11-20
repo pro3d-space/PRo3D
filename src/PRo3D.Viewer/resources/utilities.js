@@ -125,3 +125,146 @@ function pro3dDeleteKey(event) {
 	event.preventDefault();
 	return true;
 }
+
+// --- tooltips ------------------------------------------------------------------------
+//
+// Every `title` attribute in the UI is shown by this script instead of the browser
+// (docs/Tooltips.md). The native tooltip on macOS appears only after ~1-1.5 s, a delay
+// the page cannot change. On hover the element's title moves to data-pro3d-title, so
+// the native one never shows, and this script shows its own after TOOLTIP_DELAY_MS. On
+// leave the title goes back, so the DOM stays what aardvark.media's diff expects. A title
+// the server changes while the element is hovered is picked up through a
+// MutationObserver. `\n` in a title is a line break, as in a native tooltip.
+
+(function () {
+	var TOOLTIP_DELAY_MS = 250;
+	var OFFSET = 14;           // px from the pointer
+
+	var tip = null;            // the tooltip element, made on first use
+	var current = null;        // the hovered element whose title is held
+	var text = '';
+	var timer = null;
+	var shown = false;
+	var mouseX = 0, mouseY = 0;
+	var observer = null;
+
+	function tooltipElement() {
+		if (tip) { return tip; }
+		var css = document.createElement('style');
+		css.id = 'pro3d-tooltip-style';
+		css.textContent =
+			'.pro3d-tooltip { position: fixed; z-index: 30001; pointer-events: none;' +
+			'  max-width: 380px; padding: 6px 9px; border-radius: 4px;' +
+			'  background: #2b2e33; border: 1px solid rgba(255,255,255,0.18);' +
+			'  box-shadow: 0 4px 14px rgba(0,0,0,0.55); color: #f2f2f2;' +
+			'  font-size: 12px; line-height: 1.4; white-space: pre-line; display: none; }';
+		document.head.appendChild(css);
+		tip = document.createElement('div');
+		tip.className = 'pro3d-tooltip';
+		document.body.appendChild(tip);
+		return tip;
+	}
+
+	function place() {
+		var t = tooltipElement();
+		var w = t.offsetWidth, h = t.offsetHeight;
+		var x = mouseX + OFFSET, y = mouseY + OFFSET;
+		// keep it inside the window: flip to the other side of the pointer when needed
+		if (x + w > window.innerWidth - 4) { x = Math.max(4, mouseX - OFFSET - w); }
+		if (y + h > window.innerHeight - 4) { y = Math.max(4, mouseY - OFFSET - h); }
+		t.style.left = x + 'px';
+		t.style.top = y + 'px';
+	}
+
+	function show() {
+		timer = null;
+		if (!current || !document.contains(current) || !text) { release(); return; }
+		var t = tooltipElement();
+		t.textContent = text;
+		t.style.display = 'block';
+		place();
+		shown = true;
+	}
+
+	function hide() {
+		if (timer) { clearTimeout(timer); timer = null; }
+		if (tip) { tip.style.display = 'none'; }
+		shown = false;
+	}
+
+	// hand the title back and forget the element
+	function release() {
+		hide();
+		if (observer) { observer.disconnect(); observer = null; }
+		if (current) {
+			if (current.hasAttribute('data-pro3d-title')) {
+				// the empty placeholder still there: hand the title back. Gone: the
+				// server removed the title while hovered, so it stays removed.
+				if (current.getAttribute('title') === '') { current.setAttribute('title', text); }
+				current.removeAttribute('data-pro3d-title');
+			}
+		}
+		current = null;
+		text = '';
+	}
+
+	// While hovered the title is replaced by an empty one, not removed: title="" shows
+	// no native tooltip, and a removal by the server stays observable (removing an
+	// attribute that is not there reports nothing).
+	function hold(el) {
+		current = el;
+		text = el.getAttribute('title') || '';
+		el.setAttribute('data-pro3d-title', text);
+		el.setAttribute('title', '');
+		// Observer callbacks run later (microtasks): our own changes inside the callback
+		// are discarded with takeRecords(). The change above happens before observe().
+		observer = new MutationObserver(function () {
+			if (current !== el) { return; }
+			var t = el.getAttribute('title');
+			if (t === '') { return; }
+			if (t === null) {
+				// the server removed the title while hovered: drop the held one, or
+				// release() would put back a title the server no longer has
+				text = '';
+				el.removeAttribute('data-pro3d-title');
+				hide();
+				return;
+			}
+			// the server set a new title while hovered: take it, keep the native one off
+			text = t;
+			el.setAttribute('data-pro3d-title', t);
+			el.setAttribute('title', '');
+			observer.takeRecords();
+			if (shown) { tooltipElement().textContent = t; place(); }
+			else if (!timer) { timer = setTimeout(show, TOOLTIP_DELAY_MS); }
+		});
+		observer.observe(el, { attributes: true, attributeFilter: ['title'] });
+		timer = setTimeout(show, TOOLTIP_DELAY_MS);
+	}
+
+	document.addEventListener('mouseover', function (e) {
+		mouseX = e.clientX; mouseY = e.clientY;
+		var el = e.target && e.target.closest ? e.target.closest('[title],[data-pro3d-title]') : null;
+		if (el === current) { return; }
+		release();
+		if (el && el.getAttribute('title')) { hold(el); }
+	}, true);
+
+	document.addEventListener('mousemove', function (e) {
+		mouseX = e.clientX; mouseY = e.clientY;
+		// the hovered element was re-rendered away: nothing fires a mouseout for it
+		if (current && !document.contains(current)) { release(); }
+	}, true);
+
+	document.addEventListener('mouseout', function (e) {
+		if (!current) { return; }
+		var to = e.relatedTarget;
+		if (!to || !current.contains(to)) { release(); }
+	}, true);
+
+	// like a native tooltip: gone on a click, a key or scrolling
+	['mousedown', 'keydown', 'wheel'].forEach(function (name) {
+		document.addEventListener(name, hide, true);
+	});
+	window.addEventListener('blur', release);
+})();

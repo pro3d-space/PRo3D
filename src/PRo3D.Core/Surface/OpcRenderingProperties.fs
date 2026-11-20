@@ -47,6 +47,15 @@ module SgExtensions =
                 texturePath : string
                 /// which band of a multi-band image is uploaded
                 channel : int
+                /// brightness (x) and contrast (y) on the normalised value; (0, 1) = unchanged
+                brightnessContrast : V2f
+                /// through the colour map (the image's False Colour switch); false: grey values
+                falseColor : bool
+                /// the image's colour map: its ColorMap value, the row of the stack's
+                /// colour-map atlas (ColorMapping.stackColormapAtlas)
+                colorMap : int
+                /// the image's DataType value (2 = Float, otherwise 16-bit integer)
+                dataType : int
             }
 
         type ProjectedImages =

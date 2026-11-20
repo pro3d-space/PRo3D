@@ -28,6 +28,8 @@
     <Compile Include="ColorByCategoryColorTest.fs" />
     <Compile Include="SpiceTests.fs" />
     <Compile Include="HeraSpiceTests.fs" />
+    <Compile Include="FakeStacCatalog.fs" />
+    <Compile Include="StacSearchTests.fs" />
     <Compile Include="SbmtImportAlignmentTest.fs" />
     <Compile Include="PolygonCsvImportTests.fs" />
     <None Include="data\AF2_0CO72A_250311T025652_1B.mbi.json" />
@@ -108,6 +110,8 @@
     <Compile Include="InstrumentFovTests.fs" />
     <Compile Include="MapProjectionRenderTest.fs" />
     <Compile Include="FillRenderTest.fs" />
+    <!-- after Features\TestHelpers.fs: renders through its GL context -->
+    <Compile Include="BrightnessContrastTest.fs" />
     <Compile Include="SlowProfileExportTest.fs" />
     <Compile Include="BoulderStatisticsExportTest.fs" />
     <Compile Include="SurfaceComparisonTest.fs" />

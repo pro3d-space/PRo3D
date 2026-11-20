@@ -410,6 +410,35 @@ let main argv =
                 http.route "/activity" >=> http.mimeType "application/json" >=> http.request (fun _ ->
                     http.ok (Activity.toJson ()))
 
+                // Image catalog thumbnails, downloaded with the session's sign-in
+                // (StacSearch.overviewPath). Only listed results' overviews; anything
+                // else is 404. Blocks this request while downloading, not the update thread.
+                http.routef "/stac-overview/%s" (fun key ->
+                    match PRo3D.GIS.StacSearch.overviewFile key with
+                    | Some path ->
+                        let mime =
+                            match (Path.GetExtension path).ToLowerInvariant() with
+                            | ".jpg" | ".jpeg" -> "image/jpeg"
+                            | ".tif" | ".tiff" -> "image/tiff"
+                            | _ -> "image/png"
+                        // the bytes, not http.sendFile: Giraffe's resolves the path against
+                        // the content root, and the cache is in %TEMP% (thumbnails were
+                        // blank). An overview is small.
+                        match (try Some (File.ReadAllBytes path) with _ -> None) with
+                        | Some bytes -> http.mimeType mime >=> http.ok bytes
+                        | None -> http.notFound "thumbnail not readable"
+                    | None -> http.notFound "no such thumbnail")
+
+                // Library thumbnails (LibraryThumbnails.thumbnailPath), rendered on first
+                // request on this request's thread. Only registered library images.
+                http.routef "/library-thumbnail/%s" (fun key ->
+                    match PRo3D.GIS.LibraryThumbnails.thumbnailFile key with
+                    | Some path ->
+                        match (try Some (File.ReadAllBytes path) with _ -> None) with
+                        | Some bytes -> http.mimeType "image/png" >=> http.ok bytes
+                        | None -> http.notFound "thumbnail not readable"
+                    | None -> http.notFound "no such thumbnail")
+
                 http.route "/crash.txt" >=> http.mimeType "text/plain" >=> http.sendFile logFilePath
 
                 http.route "/minilog.txt" >=> http.mimeType "text/plain" >=> http.request (fun r ->
@@ -543,6 +572,11 @@ let main argv =
                 log (fun msg -> Report.Line(2, $"[Aardium] {msg}"))
 #endif
                 title titlestr
+                // macOS: Cmd+C/V/X/A/Z reach a text field only through the application
+                // menu's Edit items; without a menu they do nothing (no pasting into the
+                // sign-in dialog, the catalog field, ...). Windows/Linux handle Ctrl+V in the
+                // page itself and keep their menu-less window.
+                menu (os = OSPlatform.OSX)
             }
 
     finally

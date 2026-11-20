@@ -219,7 +219,7 @@ this page's figures and excerpts.
 > the edge of ASPECT's field. Epochs, positions, sun and roll are planned; the pointing is not,
 > and each sidecar says so (`PRO3DAIM`). Do not use this set to study what the mission will see.
 
-The images also open in the PRo3D viewer (GIS tab → Projected Images → Import Directory, one
+The images also open in the PRo3D viewer (Projected Images panel → Import Directory, one
 folder at a time) and project exactly onto the OPC. Dimorphos is 40–50 pixels across in ASPECT
 and HyperScout: real geometry at these ranges, not a flaw.
 

@@ -7,7 +7,7 @@ open PRo3D.Base
 
 open FSharp.Data.Adaptive
 
-/// The projected-images panel's Instruments section: per instrument, the field of view
+/// The projected-images panel's Instrument Settings section: per instrument, the field of view
 /// image projection uses, prefilled from the kernels. See docs/InstrumentFieldOfView.md.
 module InstrumentFovApp =
 

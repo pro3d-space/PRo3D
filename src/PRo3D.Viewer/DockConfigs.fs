@@ -21,6 +21,7 @@ module DockConfigs =
                         element { id "minerva";       title "Minerva" }
                         element { id "scalebars";     title "ScaleBars" }
                         element { id "gis";           title "GIS View" }
+                        element { id "projectedimages"; title "Projected Images" }
                     }
                     stack {
                         weight 5
@@ -76,6 +77,7 @@ module DockConfigs =
                         element { id "scalebars";      title "ScaleBars" }
                         element { id "instrumentview"; title "Instrument View" }
                         element { id "gis";            title "GIS View" }
+                        element { id "projectedimages"; title "Projected Images" }
                         element { id "mapprojection";  title "Map Projection" }
                     }
                     stack {
@@ -107,6 +109,7 @@ module DockConfigs =
                         element { id "scalebars";      title "ScaleBars" }
                         element { id "instrumentview"; title "Instrument View" }
                         element { id "gis";            title "GIS View" }
+                        element { id "projectedimages"; title "Projected Images" }
                         element { id "mapprojection";  title "Map Projection" }
                         element { id "imageinspector"; title "Image Inspector" }
                     }
@@ -234,6 +237,7 @@ module DockConfigs =
                         element { id "annotations";   title "Annotations" }
                         element { id "scalebars";     title "ScaleBars" }
                         element { id "gis";           title "GIS View" }
+                        element { id "projectedimages"; title "Projected Images" }
                         element { id "mapprojection"; title "Map Projection" }
                     }
                     stack {

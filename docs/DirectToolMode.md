@@ -1,7 +1,7 @@
 # Direct Tool Mode
 
-Direct Tool Mode is a session-only toggle (top toolbar, next to the other
-interaction-mode switches) that changes how the active annotation tool and the
+Direct Tool Mode is a session-only toggle (second row of the top bar, right of the
+coloured chip naming the active tool) that changes how the active annotation tool and the
 camera share the mouse.
 
 | | Classic scheme | Direct Tool Mode |

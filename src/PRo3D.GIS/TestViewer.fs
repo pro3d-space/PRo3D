@@ -281,7 +281,8 @@ module TestViewer =
                     |> Array.choose id
                     |> Array.map (fun t ->
                         let layer : Sg.ProjectedStackLayer =
-                            { trafo = Some t; minMax = V2f(0.0f, 1.0f); texturePath = ""; channel = 0 }
+                            { trafo = Some t; minMax = V2f(0.0f, 1.0f); texturePath = ""; channel = 0; brightnessContrast = V2f.OI; falseColor = true
+                              colorMap = int PRo3D.ImageMapping.ColorMap.Magma; dataType = int PRo3D.ImageMapping.DataType.Float }
                         layer)
                     |> AVal.constant
 
