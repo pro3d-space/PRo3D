@@ -223,7 +223,8 @@ module GisAppJson =
             // import folder are persisted (projectedImagesDirectory, below).
             let! (lightingMode : Option<int>) = Json.tryRead "lightingMode"
             let lightingMode =
-                lightingMode |> Option.map enum<LightingMode> |> Option.defaultValue LightingMode.Off
+                // a scene without the field predates it: it had the camera light (Headlight)
+                lightingMode |> Option.map enum<LightingMode> |> Option.defaultValue LightingMode.Headlight
             let! (windingCorrection : Option<bool>) = Json.tryRead "windingCorrection"
             // additive: only the folder is stored; the images themselves are
             // re-imported from it when the scene is applied (SceneLoader.updateGisApp)

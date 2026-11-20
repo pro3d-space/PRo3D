@@ -34,13 +34,14 @@ body turn with the scene — and therefore whether step 4 shows you anything mov
 
 ## 3. Turn on sun lighting
 
-*Projected Images* panel → *Projection Settings* → **Sun / Lighting Mode**:
+*GIS View* → *Settings* → **Sun / Lighting Mode**:
 
 ![the three lighting modes at the same instant](images/timeSun-modes.png)
 
 | Mode | Effect |
 |---|---|
-| `Off` (default) | no sun shading; the surface renders with its texture only |
+| `Headlight` | no sun; a camera light shows the shape of untextured surfaces, textured ones show their texture, projected images show only their own pixels (no relief) |
+| `Off` (default) | no lighting at all |
 | `SunDirect` | shaded by the real sun direction, Lommel-Seeliger photometry over the per-face terrain normal |
 | `SunShadow` | `SunDirect` plus cast shadows from a sun-aligned shadow map |
 

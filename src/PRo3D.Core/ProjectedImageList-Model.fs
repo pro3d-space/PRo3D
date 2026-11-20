@@ -139,10 +139,25 @@ type InstrumentVisibilityMode =
     | Off = 0
     | RelativeCount = 1
 
+/// How the scene is lit (GIS View -> Settings -> Sun / Lighting Mode). Saved as its
+/// number: 0 is what "Off" meant before Headlight existed (a camera light on untextured
+/// surfaces), so older scenes keep their look.
 type LightingMode =
-    | Off = 0
+    /// A light at the camera on untextured surfaces, so their shape shows; textured
+    /// surfaces show their texture. Never on projected images.
+    | Headlight = 0
+    /// shaded by the real sun direction (Lommel-Seeliger over the terrain normal)
     | SunDirect = 1
+    /// SunDirect plus cast shadows
     | SunShadow = 2
+    /// no lighting at all: textures and projected images as they are, untextured
+    /// surfaces flat. The default of a new scene.
+    | Off = 3
+
+module LightingMode =
+    /// a mode that lights by the sun
+    let isSun (mode : LightingMode) =
+        mode = LightingMode.SunDirect || mode = LightingMode.SunShadow
 
 /// Where a projected image's pose comes from (the *Orientation Source*); maps 1:1 to
 /// PRo3D.SPICE.ProjectorPose, see there.

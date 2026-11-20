@@ -15,4 +15,5 @@ release folds them into `PRODUCT_RELEASE_NOTES.md`.
 
 ## Pending
 
+- GIS: **Sun / Lighting Mode has a `Headlight` mode** (what `Off` did before: a camera light that shows untextured surfaces' shape); `Off`, the default for new scenes, now turns all lighting off. Without the sun a projected image shows only its own pixels, never shaded by the headlight. The setting moved to *GIS View → Settings*; older scenes keep their look (docs/GisView.md, docs/MultiImageProjection.md)
 - Projected images: **the Date filter spans 2026-11-01 to today**, and the Image Search always asks the catalog for the selected dates, also while the filter is off (docs/MultiImageProjection.md, docs/StacImageSearch.md)

@@ -620,10 +620,19 @@ let tests =
             Expect.equal restored.projectedImageList.lightingMode
                 PRo3D.ImageMapping.LightingMode.SunShadow "SunShadow should survive save/load"
 
-            // and the default stays Off, so old scenes without the field load unchanged
-            let off = GisApp.initial None |> Json.serialize |> Json.formatWith JsonFormattingOptions.SingleLine
+            // a new scene starts Off; an old scene's 0 (what "Off" meant before Headlight
+            // existed: the camera light) reads as Headlight, so it keeps its look
+            Expect.equal (GisApp.initial None).projectedImageList.lightingMode PRo3D.ImageMapping.LightingMode.Off "a new scene starts Off"
+            let headlight =
+                { m with projectedImageList = { m.projectedImageList with lightingMode = PRo3D.ImageMapping.LightingMode.Headlight } }
+                |> Json.serialize |> Json.formatWith JsonFormattingOptions.SingleLine
+            Expect.isTrue (System.Text.RegularExpressions.Regex.IsMatch(headlight, "\"lightingMode\"\\s*:\\s*0\\b")) "Headlight is stored as 0, as the old Off"
+
+            // the new Off (no light at all) survives too
+            let off =
+                { m with projectedImageList = { m.projectedImageList with lightingMode = PRo3D.ImageMapping.LightingMode.Off } }
+                |> Json.serialize |> Json.formatWith JsonFormattingOptions.SingleLine
             let restoredOff : GisApp = off |> Json.parse |> Json.deserialize
-            Expect.equal restoredOff.projectedImageList.lightingMode
-                PRo3D.ImageMapping.LightingMode.Off "the default lighting mode is Off"
+            Expect.equal restoredOff.projectedImageList.lightingMode PRo3D.ImageMapping.LightingMode.Off "Off survives save/load"
         }
     ]

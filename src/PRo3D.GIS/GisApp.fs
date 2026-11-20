@@ -831,6 +831,12 @@ module GisApp =
                         Html.row "Show Markers" [GuiEx.iconCheckBox m.showMarkers ToggleDrawMarkers]
                         Html.row "Camera follows camera source body"
                                  [GuiEx.iconCheckBox m.cameraFollowsSource ToggleCameraFollowsSource]
+                        // lights the whole scene, projections included: Off shows a projected
+                        // image as it is (no relief), the sun shades it by the terrain.
+                        // Kept in the projected-image model (scenes, render tools).
+                        Html.row "Sun / Lighting Mode"
+                                 [Html.SemUi.dropDown m.projectedImageList.lightingMode
+                                      (fun mode -> ProjectedImageListMessage (ProjectedImageListMessage.SetLightingMode mode))]
                     ]
                 )
             ]
@@ -1134,7 +1140,7 @@ module GisApp =
         let targetReferenceFrame = m.defaultObservationInfo.referenceFrame
         let lit =
             m.projectedImageList.lightingMode
-            |> AVal.map (fun mode -> mode <> PRo3D.ImageMapping.LightingMode.Off)
+            |> AVal.map PRo3D.ImageMapping.LightingMode.isSun
         let spice =
             (lit, getSpiceReferenceSystemAdaptive m s)
             ||> AVal.map2 (fun lit r -> if lit then r else None)

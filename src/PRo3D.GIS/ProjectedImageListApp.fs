@@ -1399,9 +1399,6 @@ module ProjectedImageListApp =
                         settingRow "Visibility:" None [
                             Html.SemUi.dropDown m.instrumentVisibility SetInstrumentVisbilityMode
                         ]
-                        settingRow "Sun / Lighting Mode:" None [
-                            Html.SemUi.dropDown m.lightingMode SetLightingMode
-                        ]
                         // off = the image's own RGB, untouched (internally: the
                         // transfer function off). Instrument data needs the colour
                         // map to be readable at all, but an ordinary RGB image does not

@@ -147,14 +147,19 @@ Since we have a full surface for mars now, we can switch of the proxy geometry:
 
 ## Sun illumination and cast shadows
 
-The **Sun / Lighting Mode** dropdown (in the *Projected Images* panel, under *Projection Settings*)
-shades OPC surfaces with the real sun position for the current observation time:
+The **Sun / Lighting Mode** dropdown (*GIS View* → *Settings*) shades OPC surfaces with the
+real sun position for the current observation time:
 
 | Mode | Effect |
 |---|---|
-| `Off` (default) | no sun shading, surfaces render as always |
+| `Headlight` | a light at the camera on **untextured** surfaces, so their shape shows; textured surfaces show their texture. A projected image is never lit by it: it shows only its own pixels (in proportion to *Image Opacity*). Also used while a sun mode has no sun direction (no kernel, or a time outside its coverage) |
+| `Off` (default) | no lighting at all: textures and projected images as they are, untextured surfaces flat |
 | `SunDirect` | sun shading: Lommel-Seeliger photometry (physically appropriate for dark regolith; plain Lambert over-darkens the limb) over the per-face terrain normal, so relief is visible under the sun |
 | `SunShadow` | `SunDirect` plus **cast shadows** from a sun-aligned shadow map |
+
+Scenes store the mode as a number; `Headlight` is 0, which is what `Off` meant before
+`Headlight` existed (it switched the camera light on for untextured surfaces), so older
+scenes (and scenes without the field) look as they did. A new scene starts `Off`.
 
 Requirements: a loaded SPICE kernel, an observation time inside its coverage, and a
 surface that resolves to a body and frame — either the scene body it inherits by

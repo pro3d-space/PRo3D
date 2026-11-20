@@ -81,6 +81,8 @@ let tests () =
             let code = OutcropTraceShaderTest.surfaceEffectGlsl.Value
             Expect.stringContains code "ProjectedStackBrightnessContrast[i]" "per-layer brightness/contrast"
             Expect.stringContains code "ProjectedStackFalseColor[i]" "per-layer false colour switch"
+            // sun off: the camera headlight leaves the projected image unshaded
+            Expect.stringContains code "ProjectedCover" "the stack hands its coverage to the headlight"
             Expect.stringContains code "ProjectedStackColorMap[i]" "per-layer colour map"
             Expect.stringContains code "ProjectedStackDataType[i]" "per-layer data type"
             let extensions =

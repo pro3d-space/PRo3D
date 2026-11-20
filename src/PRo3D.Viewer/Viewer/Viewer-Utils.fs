@@ -881,6 +881,9 @@ module ViewerUtils =
             /// Surface.textureEnabled: false replaces the texture by untexturedAlbedo
             member x.SurfaceTextureEnabled : bool = x?SurfaceTextureEnabled
             member x.UntexturedSunLit : bool = x?SunLightEnabled
+            /// Sun / Lighting Mode Headlight -- or a sun mode while no sun direction can be
+            /// computed, as a fallback (wrapGisData)
+            member x.HeadlightEnabled : bool = x?HeadlightEnabled
 
         /// Untextured surfaces (Surface.textureEnabled = false), surface-colour band: the
         /// texture becomes a uniform light grey, so only the lighting below shows the shape.
@@ -892,21 +895,36 @@ module ViewerUtils =
                 return c
             }
 
-        /// Untextured surfaces without sun lighting, lighting band: a fixed light at the
+        type HeadlightVertex =
+            {
+                [<Color>] c : V4f
+                [<Semantic("ViewSpacePos")>] vp : V4f
+                /// how much of the colour is projected image (stableImageProjectionStack)
+                [<Semantic("ProjectedCover")>] cover : float32
+            }
+
+        /// Untextured surfaces with the Headlight lighting mode, lighting band: a fixed light at the
         /// camera (from upper left) over the face normal from screen-space derivatives of
         /// the view-space position -- view space per the precision rules, and no geometry
         /// stage needed. One return on purpose (#719, FShade#39).
-        let untexturedHeadlight (v : Vertex) =
+        ///
+        /// It shows the model's shape, so it leaves a projected image alone: where the
+        /// projection stack covers the fragment (ProjectedCover = the image opacity) the
+        /// light is faded out by that share -- without the sun a projection shows only
+        /// the image's own pixels; the sun's shading (solarShadingLS) still applies.
+        let untexturedHeadlight (v : HeadlightVertex) =
             fragment {
                 let mutable c = v.c
-                if not uniform.SurfaceTextureEnabled && not uniform.UntexturedSunLit then
+                if not uniform.SurfaceTextureEnabled && uniform.HeadlightEnabled then
                     let p = v.vp.XYZ
                     let n0 = Vec.cross (ddx p) (ddy p) |> Vec.normalize
                     let toCam = -p |> Vec.normalize
                     let n = if Vec.dot n0 toCam < 0.0f then -n0 else n0
                     let l = V3f(-0.4f, 0.5f, 0.77f) |> Vec.normalize
                     let ambient = 0.15f
-                    let i = ambient + (1.0f - ambient) * (Vec.dot n l |> max 0.0f)
+                    let lit = ambient + (1.0f - ambient) * (Vec.dot n l |> max 0.0f)
+                    let cover = clamp 0.0f 1.0f v.cover
+                    let i = lit + (1.0f - lit) * cover
                     c <- V4f(v.c.XYZ * i, v.c.W)
                 return c
             }
@@ -1685,6 +1703,19 @@ module ViewerUtils =
                 |> Sg.texture "ProjectedStackTextures" projectedStackTextures
                 |> Sg.uniform "ProjectedStackSlices" projectedStackSlices
                 |> Sg.uniform' "ProjectedImageModelViewProjValid" (PRo3D.GIS.ProjectedImagesListAppHelper.getSelectedImage  m.scene.gisApp.projectedImageList |> AVal.map Option.isSome)
+                // the camera light on untextured surfaces (Shader.untexturedHeadlight):
+                // the Headlight mode, and a sun mode that has no sun direction to use
+                |> Sg.uniform "HeadlightEnabled" (
+                    let sunLit =
+                        match projData with
+                        | Some p -> p.sunLightEnabled
+                        | None -> AVal.constant false
+                    (m.scene.gisApp.projectedImageList.lightingMode, sunLit)
+                    ||> AVal.map2 (fun mode sunLit ->
+                        match mode with
+                        | PRo3D.ImageMapping.LightingMode.Off -> false
+                        | PRo3D.ImageMapping.LightingMode.Headlight -> true
+                        | _ -> not sunLit))
                 |>  PRo3D.InstrumentVisualization.InstrumentImageVisualization.applyProperties {  imageProperties with instrumentImage = projectedTexture }
                 |> Sg.noEvents
 
