@@ -102,20 +102,41 @@ module ProjectedImageApp =
         brightnessContrast = BrightnessContrast.init
     }
 
+    /// Data type and per-band (min, max) of the finite samples, read from the
+    /// TIFF itself -- for images delivered without the `<image>.tif.json`
+    /// statistics sidecar. Without it the range was 0..0, which the shader
+    /// divides by: the projection came out black. One pass over the pixels,
+    /// at import only.
+    let private tryStatisticsFromImage (texturePath : string) : Option<DataType * (float * float)[]> =
+        let range (n : int) (value : int -> float) =
+            let mutable lo = Double.PositiveInfinity
+            let mutable hi = Double.NegativeInfinity
+            for i in 0 .. n - 1 do
+                let v = value i
+                if Double.IsFinite v then
+                    if v < lo then lo <- v
+                    if v > hi then hi <- v
+            if lo < hi then (lo, hi)
+            elif lo = hi then (lo, lo + 1.0)
+            else (0.0, 1.0)
+        try
+            match MultiBandReader.tryReadMultiBandTiff texturePath false with
+            | Result.Error e ->
+                Log.warn "[ProjectedImage] no statistics for %s: %s" texturePath e
+                None
+            | Result.Ok r ->
+                match r.buffers with
+                | Float32Bands b -> Some (DataType.Float,  b |> Array.map (fun a -> range a.Length (fun i -> float a.[i])))
+                | UInt16Bands b  -> Some (DataType.UInt16, b |> Array.map (fun a -> range a.Length (fun i -> float a.[i])))
+                | UInt32Bands b  -> Some (DataType.UInt32, b |> Array.map (fun a -> range a.Length (fun i -> float a.[i])))
+                | Int16Bands b   -> Some (DataType.UInt16, b |> Array.map (fun a -> range a.Length (fun i -> float a.[i])))
+                | Int32Bands b   -> Some (DataType.UInt32, b |> Array.map (fun a -> range a.Length (fun i -> float a.[i])))
+        with e ->
+            Log.warn "[ProjectedImage] no statistics for %s: %s" texturePath e.Message
+            None
+
     let loadFile (texturePath : string) =
-        // this could be a fallback
-        let ifUsefulThisIsHowToExtractInfos = MultiBandReader.tryGetChannels texturePath
-
         let (tiffMbiJson, tiffJson) = InstrumentMetadata.tryParseMetadataForImagePath texturePath
-
-        let channels =
-            match tiffJson with
-            | Some tf -> tf.channels
-            | None -> 1
-
-        let channelOptions = [ 0 .. channels - 1 ] |> List.map (fun channel -> {idx = channel; name = None})
-
-        let selectedChannelIdx = 0
 
         // Plain image formats (synthetic COP renders) come without the
         // statistics sidecar and are sampled as normalized [0,1] -- treat them
@@ -126,25 +147,44 @@ module ProjectedImageApp =
             | ".png" | ".jpg" | ".jpeg" -> true
             | _ -> false
 
-        let defaultMinValues =
+        // a TIFF without the statistics sidecar: take them from the image
+        let imageStatistics =
             match tiffJson with
-            | Some tf -> tf.image_statistics |> Array.toList |> List.map (fun x -> x.minimum)
-            | None -> [0.0]
+            | None when not isPlainImage -> tryStatisticsFromImage texturePath
+            | _ -> None
+
+        let channels =
+            match tiffJson, imageStatistics with
+            | Some tf, _ -> tf.channels
+            | None, Some (_, ranges) when ranges.Length > 0 -> ranges.Length
+            | _ -> 1
+
+        let channelOptions = [ 0 .. channels - 1 ] |> List.map (fun channel -> {idx = channel; name = None})
+
+        let selectedChannelIdx = 0
+
+        let defaultMinValues =
+            match tiffJson, imageStatistics with
+            | Some tf, _ -> tf.image_statistics |> Array.toList |> List.map (fun x -> x.minimum)
+            | None, Some (_, ranges) when ranges.Length > 0 -> ranges |> Array.toList |> List.map fst
+            | _ -> [0.0]
 
         let defaultMaxValues =
-            match tiffJson with
-            | Some tf -> tf.image_statistics |> Array.toList|> List.map (fun x -> x.maximum)
-            | None -> if isPlainImage then [1.0] else [0.0]
+            match tiffJson, imageStatistics with
+            | Some tf, _ -> tf.image_statistics |> Array.toList|> List.map (fun x -> x.maximum)
+            | None, Some (_, ranges) when ranges.Length > 0 -> ranges |> Array.toList |> List.map snd
+            | _ -> if isPlainImage then [1.0] else [0.0]
 
         let dataType =
-            match tiffJson with
-            | Some tf ->
+            match tiffJson, imageStatistics with
+            | Some tf, _ ->
                 match tf.data_type with
                 | "uint16" -> DataType.UInt16
                 | "uint32" -> DataType.UInt32
                 | "float" -> DataType.Float
                 | _ -> DataType.UInt16
-            | None -> if isPlainImage then DataType.Float else DataType.UInt16
+            | None, Some (dt, _) -> dt
+            | None, None -> if isPlainImage then DataType.Float else DataType.UInt16
 
         let rangeOffset = 0.1 * (defaultMaxValues[selectedChannelIdx] - defaultMinValues[selectedChannelIdx])
 
