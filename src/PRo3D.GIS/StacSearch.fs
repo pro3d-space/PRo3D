@@ -692,8 +692,6 @@ module StacSearch =
             /// the picked point and its surface normal, body-fixed, metres
             point            : V3d
             normal           : Option<V3d>
-            /// a body-fixed ray against the loaded surfaces: hit point and normal, body-fixed
-            pick             : Ray3d -> Option<V3d * Option<V3d>>
         }
 
     /// Tolerance on "the point is in the image", in pixels. The AFC field of view is
@@ -767,28 +765,18 @@ module StacSearch =
                     // (2 / width) * tan(fov / 2) with M00 = 1 / tan(fov / 2)
                     let pixelAngle = 2.0 / (cam.proj.Forward.M00 * float size.X)
                     // Inside the frame is not enough: the far side of the body projects
-                    // into a full-disc image too, and terrain can hide the point. Hidden
-                    // when the ray towards it hits the surface first -- by more than a
-                    // few pixels' footprint, below which occlusion is not resolvable.
-                    let hidden () =
-                        let toPoint = scene.point - eye
-                        let distance = toPoint.Length
-                        let tolerance = max 1.0 (3.0 * distance * pixelAngle)
-                        match scene.pick (Ray3d(eye, toPoint / distance)) with
-                        | Some (hit, _) -> Vec.length (hit - eye) < distance - tolerance
-                        | None -> false
+                    // into a full-disc image too. Hidden when the camera is below the
+                    // point's horizon: the radial direction (from the body's centre, the
+                    // frame's origin) against the direction to the camera. Not the
+                    // picked triangle's normal: on rough terrain a facet tilted away from
+                    // an oblique camera would drop an image that shows the point.
+                    // No ray cast: casting per image loaded KdTree patches all over the
+                    // body and thrashed the KdTree budget on large OPCs. Terrain that
+                    // hides a point above the horizon is not detected.
+                    let aboveHorizon = Vec.dot scene.point (eye - scene.point) > 0.0
                     match InstrumentObservation.projectToPixel cam size InstrumentObservation.PixelConvention.Image scene.point with
-                    | Some pixel when inside pixel && not (hidden ()) ->
-                        let boresight =
-                            let far = cam.full.Backward.TransformPosProj(V3d(0.0, 0.0, 1.0))
-                            Ray3d(eye, Vec.normalize (far - eye))
-                        // where the central pixel lands; the picked point when the
-                        // boresight misses what is loaded (a limb frame, a partial OPC)
-                        let spot, normal, onSurface =
-                            match scene.pick boresight with
-                            | Some (hit, normal) -> hit, normal, true
-                            | None -> scene.point, scene.normal, false
-                        let range = Vec.length (spot - eye)
+                    | Some pixel when inside pixel && aboveHorizon ->
+                        let range = Vec.length (scene.point - eye)
                         let pixelSize = range * pixelAngle
                         // the sun direction in the body-fixed frame (sunFromTarget)
                         let toSun =
@@ -808,10 +796,8 @@ module StacSearch =
                         Ok (Some {
                             rangeM            = range
                             pixelSizeM        = pixelSize
-                            incidenceDeg      = incidenceAt spot normal
                             pointIncidenceDeg = incidenceAt scene.point scene.normal
                             pixel             = pixel
-                            centralOnSurface  = onSurface
                         })
                     | _ -> Ok None
 
@@ -902,7 +888,7 @@ module StacSearch =
     [<Literal>]
     let noSpiceKernel = "no SPICE kernel loaded: checking an image's pointing needs one that covers its time. Load it in the top bar: Load SPICE kernel, next to Reference System"
 
-    /// Runs one check (KdTree loads, SPICE): the viewer sets it to its background busy
+    /// Runs one check (SPICE lookups): the viewer sets it to its background busy
     /// indicator, so a long check shows up there (CLAUDE.md, busy indicator).
     let mutable checkScope : (unit -> unit) -> unit = fun f -> f ()
 
@@ -950,10 +936,8 @@ module StacSearch =
     /// footprint says they show the point. Footprint-less items are only listed
     /// when their pointing shows the point; unresolvable ones are just counted.
     ///
-    /// The sidecars download in parallel, but the checks run one at a time, in the
-    /// server's order: a check picks the terrain, and concurrent picks miss the same
-    /// cold KdTree patch together and each load it (seen: one MOLA patch loaded 64
-    /// times, the viewer's own preview pick stalled behind them).
+    /// The sidecars download in parallel, the checks run one at a time, in the
+    /// server's order. A check casts no rays (see `metrics`), so it loads no KdTrees.
     let run (filter : Filter) (limit : int) (scene : Scene)
             (isStale : unit -> bool) (report : Progress -> unit) : Task<Result<Option<StacDropped>, string>> =
         task {

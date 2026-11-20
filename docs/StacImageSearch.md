@@ -58,9 +58,6 @@ the GIS tab under *Projected Images → Image Search (STAC)*.
    sidecar the check downloaded, so nothing is fetched; the image itself is
    not projected until the row is clicked. A red row has no frustum.
 
-   When the image's boresight misses the loaded surface (a limb frame, or an
-   OPC covering only part of the body), the tooltip's range and pixel size are
-   those of the picked point.
 5. **Add** (the row's + cell): its files are downloaded to a folder of its own under
    `%TEMP%\PRo3D\stac\`, the image is added to the library and put on top of
    the projection stack. A second click on the same image does not download it
@@ -163,7 +160,7 @@ The sun incidence filter (the angle at the picked point between the sun and the
 surface normal) is **disabled** for now: its code is commented out, marked
 `SUN INCIDENCE (disabled, see docs/StacImageSearch.md)`, and the model fields
 `incidenceMin`/`incidenceMax` are kept, so re-enabling it is uncommenting. The
-*inc.* column of the results still shows each image's incidence. What it did:
+*inc.* column of the results is commented out with it. What it did:
 
 Why incidence, and not sun elevation and azimuth: incidence is what planetary
 image searches filter on (PDS ODE, for instance, together with emission and
@@ -192,21 +189,22 @@ the image's own pointing, the same projector the projection uses (the
 
 - the point must project into the image (4 pixels of slack for the known AFC
   field-of-view error, #801), and
-- it must not be hidden: the ray from the camera towards it must not hit the
-  surface first. This removes the far side of the body, which otherwise lands
-  inside every full-disc image, and terrain that hides the point.
+- the camera must be above the point's horizon: on the outer side of the plane
+  through the point perpendicular to the direction from the body's centre. This
+  removes the far side of the body, which otherwise lands inside every
+  full-disc image. The picked triangle's normal is not used for this: on rough
+  terrain a facet tilted away from an oblique camera would drop an image that
+  does show the point.
 
-The checks run one after another, never in parallel. Each check casts rays
-against the terrain, which loads KdTree patches on first touch. Parallel checks
-missed the same cold patch together and each loaded it: one global-MOLA patch
-was loaded 64 times, and the viewer's own cursor pick stalled behind them. The
-sidecar downloads still run in parallel. A running check shows as *image
-search* in the busy indicator.
+No rays are cast: range, pixel size and incidence are measured from the
+camera to the picked point. Terrain that hides a point above the horizon (a crater
+rim, a boulder at a grazing view) is not detected. Earlier versions cast an
+occlusion ray and a boresight ray per image; on a large OPC those rays loaded
+KdTree patches all over the body, more than the KdTree memory budget holds, so
+the search spent its time dropping and reloading patches.
 
-The checks run on a worker thread, with picks against a snapshot of the scene
-taken at the pick. Those picks update the viewer's shared KdTree cache without
-a lock: a race there can only lose a cache entry (the patch is loaded again),
-not corrupt one.
+The checks run one after another on a worker thread; the sidecar downloads run
+in parallel. A running check shows as *image search* in the busy indicator.
 
 # Images without footprint
 

@@ -346,7 +346,7 @@ let private aScene (lonDeg : float) : StacSearch.Scene =
     {
         instruments = Map.empty; frame = "IAU_MARS"; body = "MARS"
         projectionMethod = ProjectionMethod.Spice
-        point = V3d(cos lon, sin lon, 0.0) * 1000.0; normal = None; pick = fun _ -> None
+        point = V3d(cos lon, sin lon, 0.0) * 1000.0; normal = None
     }
 
 let private aFilter : StacSearch.Filter =
@@ -497,8 +497,8 @@ let private local =
                     assets = { mbi = "m"; image = "i"; imageMetadata = None; overview = None }
                     check =
                         // pixel sizes n .. 1: the finest last in the server's order
-                        Resolved { rangeM = 1.0; pixelSizeM = float (n - i); incidenceDeg = None; pointIncidenceDeg = None
-                                   pixel = V2d.Zero; centralOnSurface = true }
+                        Resolved { rangeM = 1.0; pixelSizeM = float (n - i); pointIncidenceDeg = None
+                                   pixel = V2d.Zero }
                     values = None
                 }
             let red : StacCandidate = { candidate n with itemId = "red"; check = Unresolved "no attitude" }
@@ -525,7 +525,7 @@ let private local =
         }
 
         test "results sort by the image list's columns, again the other way round; unchecked rows last" {
-            let resolved = Resolved { rangeM = 1.0; pixelSizeM = 1.0; incidenceDeg = None; pointIncidenceDeg = None; pixel = V2d.Zero; centralOnSurface = true }
+            let resolved = Resolved { rangeM = 1.0; pixelSizeM = 1.0; pointIncidenceDeg = None; pixel = V2d.Zero }
             let candidate (id : string) (day : int) (values : Option<StacImageValues>) : StacCandidate =
                 { itemId = id; collection = "c"; title = id; time = DateTime(2026, 11, day, 0, 0, 0, DateTimeKind.Utc); instrument = "afc"
                   assets = { mbi = "m"; image = "i"; imageMetadata = None; overview = None }
@@ -634,7 +634,7 @@ let private catalogCoverage =
                 {
                     instruments = Map.empty; frame = "IAU_DIDYMOS"; body = "DIDYMOS"
                     projectionMethod = ProjectionMethod.Spice
-                    point = V3d(390.0, 0.0, 0.0); normal = Some V3d.IOO; pick = fun _ -> None
+                    point = V3d(390.0, 0.0, 0.0); normal = Some V3d.IOO
                 }
             let list (filter : StacSearch.Filter) =
                 match (StacSearch.listFor filter 100 scene).Result with
@@ -674,23 +674,11 @@ let private online =
             let onSphere (lonDeg : float) (latDeg : float) =
                 let lon, lat = Conversion.RadiansFromDegrees lonDeg, Conversion.RadiansFromDegrees latDeg
                 V3d(cos lat * cos lon, cos lat * sin lon, sin lat) * radius
-            let sphere (ray : Ray3d) =
-                // nearest intersection in front of the origin
-                let b = Vec.dot ray.Origin ray.Direction
-                let c = Vec.dot ray.Origin ray.Origin - radius * radius
-                let d = b * b - c
-                if d < 0.0 then None
-                else
-                    let t = -b - sqrt d
-                    if t <= 0.0 then None
-                    else
-                        let p = ray.Origin + ray.Direction * t
-                        Some (p, Some (Vec.normalize p))
             let scene (p : V3d) : StacSearch.Scene =
                 {
                     instruments = Map.empty; frame = "IAU_MARS"; body = "MARS"
                     projectionMethod = ProjectionMethod.MbiBased
-                    point = p; normal = Some (Vec.normalize p); pick = sphere
+                    point = p; normal = Some (Vec.normalize p)
                 }
 
             // a Mars point to search at
@@ -708,14 +696,14 @@ let private online =
                     "most footprints must really contain the point by the images' own pointing"
                 resolved |> Array.iteri (fun i (_, m) ->
                     Expect.isGreaterThan m.pixelSizeM 0.0 (sprintf "pixel size of resolved image #%d" i)
-                    Expect.isTrue (m.incidenceDeg |> Option.forall (fun a -> a >= 0.0 && a <= 180.0)) (sprintf "incidence of resolved image #%d" i))
+                    Expect.isTrue (m.pointIncidenceDeg |> Option.forall (fun a -> a >= 0.0 && a <= 180.0)) (sprintf "incidence of resolved image #%d" i))
 
                 let sees (p : V3d) (c : StacCandidate) =
                     match StacSearch.metrics (scene p) (StacSearch.localImagePath c.itemId c.assets) with
                     | Result.Ok (Some _) -> true
                     | _ -> false
 
-                // The antipode projects into every full-disc frame: only the occlusion
+                // The antipode projects into every full-disc frame: only the horizon
                 // test keeps it out.
                 let antipode = onSphere (lon - 180.0) (-lat)
                 let seeingAntipode = resolved |> Array.filter (fun (c, _) -> sees antipode c)
