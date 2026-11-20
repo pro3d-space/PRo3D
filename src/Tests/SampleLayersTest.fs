@@ -111,6 +111,18 @@ let private bandTests =
                 Expect.equal (cop |> List.map (fun (p, _, _) -> Path.GetFileName p)) [ "COP.png" ] "naming-convention fallback"
             | other -> failtestf "unexpected observations %A" (other |> List.map fst)
         }
+
+        test "a declared .tif delivered as .tiff resolves to the delivered file" {
+            // 2026-11 AFC delivery: the sidecar declares "<obs>_AFC1.tif", the file is "<obs>_AFC1.tiff"
+            let dir = Fixtures.scratch ()
+            Fixtures.writeJson (Path.Combine(dir, "OBS__1_.mbi.json"))
+                """{ "mbi_bands": [ { "file_path": "OBS__1__AFC1.tif" } ] }"""
+            File.WriteAllBytes(Path.Combine(dir, "OBS__1__AFC1.tiff"), [||])
+            match discoverObservations dir with
+            | [ o ] ->
+                Expect.equal (o.bands |> List.map (fun (p, _, _) -> Path.GetFileName p)) [ "OBS__1__AFC1.tiff" ] "the file on disk"
+            | other -> failtestf "expected one observation, got %d" other.Length
+        }
     ]
 
 let private surfaceTests =
