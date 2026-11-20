@@ -289,8 +289,14 @@ is blended at 20% over the surface colour:
 - All simultaneously projected images come from the **same instrument** (they
   share dimensions and intrinsics; the FOV comes from
   `PRo3D.Base.InstrumentProjection`, currently AFC-1/AFC-2/HSH/ASPECT).
-- Sidecars are matched by the band file names they declare, with an
-  `<image>.mbi.json` naming fallback. The observation time comes from
+- Sidecars are matched by the band file names they declare, case-insensitively
+  and with `.tif`/`.tiff` and `.jpg`/`.jpeg` treated as the same file, then by
+  the name without its extension. When no sidecar declares the image, the
+  sidecar is found by file name: `<image>.mbi.json`, then the image name with
+  up to two trailing `_SEGMENT`s removed (`<obs>_AFC1.tiff` →
+  `<obs>.mbi.json`). A sidecar found that way is not used if a band file it
+  declares exists on disk, because then it belongs to that file. The log names
+  every image associated by file name. The observation time comes from
   `DATE-OBS`, falling back to the file-name timestamp (`_yyyyMMdd_HHmmss_`)
   and then `DATE`. Positions declared as km that are actually metres are
   auto-corrected (detected via the sun distance). The projection target body

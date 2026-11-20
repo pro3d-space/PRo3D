@@ -252,6 +252,65 @@ let tests () =
             }
         ]
 
+        // 2026-11 AFC delivery: "<obs>.mbi.json" next to "<obs>_AFC1.tiff",
+        // with the sidecar declaring "<obs>_AFC1.tif". Rebuilt here from the
+        // public AF2 fixture (declares "AF2_0CO72A_250311T025652_1B_AFC2.tif")
+        // in a scratch folder.
+        testList "sidecar fallbacks" [
+            let scratch () =
+                let dir = Path.Combine(Path.GetTempPath(), "pro3d-mbi-fallback", Guid.NewGuid().ToString("N"))
+                Directory.CreateDirectory dir |> ignore
+                dir
+            let copyFixtureAs (dir : string) (name : string) =
+                if not (File.Exists oldFixture) then skiptest (sprintf "missing fixture: %s" oldFixture)
+                File.Copy(oldFixture, Path.Combine(dir, name))
+            let touch (dir : string) (name : string) =
+                let p = Path.Combine(dir, name)
+                File.WriteAllBytes(p, [||])
+                p
+
+            test "a declared .tif is found for the delivered .tiff, by lookup and by folder discovery" {
+                let dir = scratch ()
+                copyFixtureAs dir "AF2_0CO72A_250311T025652_1B.mbi.json"
+                let image = touch dir "AF2_0CO72A_250311T025652_1B_AFC2.tiff"
+                let (mbi, _) = InstrumentMetadata.tryParseMetadataForImagePath image
+                Expect.equal (mbi |> Option.map (fun m -> m.obs_date.Year)) (Some 2025) "lookup"
+                let discovered = InstrumentMetadata.discoverInstrumentFolder dir |> Seq.toList
+                match discovered with
+                | [ (p, (Some m, _)) ] ->
+                    Expect.equal (Path.GetFileName p) "AF2_0CO72A_250311T025652_1B_AFC2.tiff" "the .tiff is discovered"
+                    Expect.equal m.obs_date.Year 2025 "with its sidecar"
+                | other -> failtestf "unexpected discovery %A" (other |> List.map fst)
+            }
+
+            test "an instrument suffix on the image name falls back to the sidecar without it" {
+                // declared band file does not exist -> content index misses
+                let dir = scratch ()
+                copyFixtureAs dir "OBS__1_.mbi.json"
+                let image = touch dir "OBS__1__AFC2.tiff"
+                let (mbi, _) = InstrumentMetadata.tryParseMetadataForImagePath image
+                Expect.equal (mbi |> Option.map (fun m -> m.instrument)) (Some "AFC2") "stripped-suffix sidecar"
+            }
+
+            test "a stripped-suffix sidecar that declares another existing image is not taken" {
+                let dir = scratch ()
+                copyFixtureAs dir "OBS.mbi.json"
+                touch dir "AF2_0CO72A_250311T025652_1B_AFC2.tif" |> ignore   // what OBS.mbi.json declares
+                let image = touch dir "OBS_OTHER.tif"
+                let (mbi, _) = InstrumentMetadata.tryParseMetadataForImagePath image
+                Expect.isNone mbi "OBS.mbi.json belongs to the image it declares"
+            }
+
+            test "...also when that other image was delivered as .tiff" {
+                let dir = scratch ()
+                copyFixtureAs dir "OBS.mbi.json"
+                touch dir "AF2_0CO72A_250311T025652_1B_AFC2.tiff" |> ignore   // declared as .tif
+                let image = touch dir "OBS_OTHER.tif"
+                let (mbi, _) = InstrumentMetadata.tryParseMetadataForImagePath image
+                Expect.isNone mbi "OBS.mbi.json belongs to the .tiff it declares as .tif"
+            }
+        ]
+
         // End-to-end folder discovery: a directory holding one real multi-band
         // ASPECT sidecar and one real single-band HSH sidecar (each alongside
         // one of its declared images) should resolve real, non-zero obs_dates
