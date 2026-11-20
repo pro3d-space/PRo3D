@@ -389,6 +389,8 @@ module Gui =
         let selection  = (0xe3, 0xb3, 0x41)   // amber
         let placement  = (0xb0, 0x83, 0xf0)   // violet
         let reference  = (0x4f, 0xd1, 0xc5)   // teal
+        /// the light flyout (Sun / Lighting Mode)
+        let lighting   = (0xf5, 0xd7, 0x6e)   // warm yellow
         /// interactions that are hidden from the UI and so belong to no group
         let neutral    = (0xcc, 0xcc, 0xcc)
 
@@ -1306,7 +1308,8 @@ module Gui =
 
         /// One strip button. `isEnabled` is only ever false for MapView without a reference
         /// body; a disabled button dispatches nothing so the model cannot enter that state.
-        let private button
+        let private buttonAt
+            (tooltipPosition : DataPosition)
             (color     : string)
             (icon      : string)
             (isActive  : aval<bool>)
@@ -1331,11 +1334,46 @@ module Gui =
                 } |> AttributeMap.ofAMap
 
             Incremental.div attribs (AList.ofList [ i [clazz (icon + " icon")] [] ])
-            |> UI.wrapToolTip DataPosition.Left tooltip
+            |> UI.wrapToolTip tooltipPosition tooltip
+
+        let private button color icon isActive isEnabled tooltip action =
+            buttonAt DataPosition.Left color icon isActive isEnabled tooltip action
+
+        /// A strip button that shows the current choice (icon, tooltip; `filled` draws it
+        /// as the active chip), with a small triangle saying it opens: a click lays the
+        /// choices out to its left, in a row; picking one, or a click anywhere else,
+        /// closes them. Open/closed is page state only (a class), nothing of the model.
+        let private flyout (color : string) (current : aval<string * string * bool>) (choices : list<DomNode<'msg>>) =
+            let mainAttribs =
+                amap {
+                    let! (_, tooltip, filled) = current
+                    yield clazz (if filled then "pro3d-tool pro3d-flyout-main active" else "pro3d-tool pro3d-flyout-main")
+                    yield style (sprintf "--tool-color:%s" color)
+                    yield attribute "title" tooltip
+                } |> AttributeMap.ofAMap
+            let main =
+                Incremental.div mainAttribs (
+                    alist {
+                        let! (icon, _, _) = current
+                        yield i [clazz (icon + " icon")] []
+                        yield i [clazz "caret left icon pro3d-flyout-caret"] []
+                    })
+            let boot =
+                "var el = document.getElementById('__ID__');" +
+                "el.addEventListener('click', function (e) {" +
+                "  if (e.target.closest('.pro3d-flyout-main')) { el.classList.toggle('open'); }" +
+                "  else if (e.target.closest('.pro3d-flyout-choice')) { el.classList.remove('open'); }" +
+                "});" +
+                "document.addEventListener('mousedown', function (e) { if (!el.contains(e.target)) { el.classList.remove('open'); } }, true);"
+            onBoot boot (
+                div [clazz "pro3d-flyout"] [
+                    main
+                    div [clazz "pro3d-flyout-choices"] (choices |> List.map (fun c -> div [clazz "pro3d-flyout-choice"] [c]))
+                ])
 
         let private navButton (icon : string) (tooltip : string) (mode : NavigationMode)
                               (current : aval<NavigationMode>) (isEnabled : aval<bool>) =
-            button (ToolColors.hex ToolColors.navigation) icon
+            buttonAt DataPosition.Top (ToolColors.hex ToolColors.navigation) icon
                    (current |> AVal.map (fun x -> x = mode))
                    isEnabled
                    tooltip
@@ -1358,9 +1396,29 @@ module Gui =
 
         let private divider = div [clazz "pro3d-tool-divider"] []
 
+        /// The camera modes' icon and tooltip, for the flyout and its choices.
+        let private cameraIcon (mode : NavigationMode) =
+            match mode with
+            | NavigationMode.FreeFly -> "rocket", "Camera: Free fly - move the camera freely"
+            // trailing ◎ echoes the bullseye "Pick ArcBall orbit centre" tool
+            | NavigationMode.ArcBall -> "dot circle outline", "Camera: ArcBall - orbit the camera around a pivot point  ◎"
+            | NavigationMode.MapView -> "map", "Camera: Map view - top down, up is north, speed scales with altitude (needs a planet)"
+            | _ -> "video", "Camera"
+
+        /// The lighting modes' icon and tooltip: the Sun / Lighting Mode of GIS View ->
+        /// Settings, the same model value.
+        let private lightingIcon (mode : PRo3D.ImageMapping.LightingMode) =
+            match mode with
+            | PRo3D.ImageMapping.LightingMode.Off -> "lightbulb outline", "Light: Off - no lighting at all"
+            | PRo3D.ImageMapping.LightingMode.Headlight -> "lightbulb", "Light: Headlight - a camera light shows untextured surfaces' shape"
+            | PRo3D.ImageMapping.LightingMode.SunDirect -> "sun", "Light: Sun - shaded by the real sun direction"
+            | PRo3D.ImageMapping.LightingMode.SunShadow -> "cloud sun", "Light: Sun with shadows - sun shading plus cast shadows"
+            | _ -> "lightbulb outline", "Light"
+
         let view (m : AdaptiveModel) : DomNode<ViewerAction> =
             let navMode     = m.navigation.navigationMode
             let interaction = m.interaction
+            let lightingMode = m.scene.gisApp.projectedImageList.lightingMode
 
             // MapView orients to the planet centre with up = north, so it needs a reference
             // body. Same rule the old dropdown applied via `dropDownDisabled`.
@@ -1376,19 +1434,39 @@ module Gui =
             // panels share the button width and padding, so the icon columns line up.
             onBoot "$('#__ID__').on('mousedown mouseup click dblclick contextmenu wheel', function(e) { e.stopPropagation(); });" (
                 div [clazz "pro3d-toolstrip"] [
-                  // --- navigation panel --------------------------------------------------
-                  div [clazz "pro3d-toolstrip-group"] [
-                    navButton "rocket" "Free fly - move the camera freely"
-                              NavigationMode.FreeFly navMode (AVal.constant true)
-                    // trailing ◎ echoes the bullseye "Pick ArcBall orbit centre" tool
-                    navButton "dot circle outline" "ArcBall - orbit the camera around a pivot point  ◎"
-                              NavigationMode.ArcBall navMode (AVal.constant true)
-                    navButton "map" "Map view - top down, up is north, speed scales with altitude (needs a planet)"
-                              NavigationMode.MapView navMode mapViewEnabled
+                  // --- light and camera: one button each, showing the current mode; a click
+                  // opens the choices to the left. Outside the scrolling tool panel, so the
+                  // choices are not cut off by it.
+                  div [clazz "pro3d-toolstrip-group pro3d-toolstrip-nav"] [
+                    let lightColor = ToolColors.hex ToolColors.lighting
+                    let lightButton (mode : PRo3D.ImageMapping.LightingMode) =
+                        let icon, tooltip = lightingIcon mode
+                        buttonAt DataPosition.Top lightColor icon
+                                 (lightingMode |> AVal.map (fun x -> x = mode)) (AVal.constant true) tooltip
+                                 (ViewerAction.GisAppMessage (GisAppAction.ProjectedImageListMessage (PRo3D.ImageMapping.ProjectedImageListMessage.SetLightingMode mode)))
+                    flyout lightColor
+                        (lightingMode |> AVal.map (fun mode ->
+                            let icon, tooltip = lightingIcon mode
+                            icon, tooltip + " (click to change)", mode <> PRo3D.ImageMapping.LightingMode.Off))
+                        [ lightButton PRo3D.ImageMapping.LightingMode.Off
+                          lightButton PRo3D.ImageMapping.LightingMode.Headlight
+                          lightButton PRo3D.ImageMapping.LightingMode.SunDirect
+                          lightButton PRo3D.ImageMapping.LightingMode.SunShadow ]
+
+                    flyout (ToolColors.hex ToolColors.navigation)
+                        (navMode |> AVal.map (fun mode ->
+                            let icon, tooltip = cameraIcon mode
+                            icon, tooltip + " (click to change)", true))
+                        [ navButton (fst (cameraIcon NavigationMode.FreeFly)) (snd (cameraIcon NavigationMode.FreeFly))
+                                    NavigationMode.FreeFly navMode (AVal.constant true)
+                          navButton (fst (cameraIcon NavigationMode.ArcBall)) (snd (cameraIcon NavigationMode.ArcBall))
+                                    NavigationMode.ArcBall navMode (AVal.constant true)
+                          navButton (fst (cameraIcon NavigationMode.MapView)) (snd (cameraIcon NavigationMode.MapView))
+                                    NavigationMode.MapView navMode mapViewEnabled ]
                   ]
 
-                  // --- tool panel ------------------------------------------------------
-                  div [clazz "pro3d-toolstrip-group"] [
+                  // --- tool panel (scrolls when the view is short) -----------------------
+                  div [clazz "pro3d-toolstrip-group pro3d-toolstrip-tools"] [
                     // --- annotations ------------------------------------------------------
                     tool "pencil"        "Draw annotation" Interactions.DrawAnnotation
                     tool "mouse pointer" "Select annotation" Interactions.PickAnnotation

@@ -20,16 +20,31 @@ tool's name** ("Draw Annotation", "Place Rover", …; `interactionName` in `View
 white on a full-height chip in the group colour of whichever tool is currently lit in
 the strip.
 
+## Light and camera
+
+The top panel holds two buttons, **light** above **camera**. Each shows the current
+mode's icon, with a small triangle in its lower left corner: a click opens the other
+modes to its **left**, in a row; picking one, or clicking anywhere else, closes them
+(`ToolStrip.flyout` in `ViewerGUI.fs`; open/closed is page state only).
+
+| Button | Colour | Modes |
+|---|---|---|
+| **Light** | warm yellow | Off (bulb outline), Headlight (bulb), Sun (sun), Sun with shadows (cloud and sun) — the same setting as *GIS View → Settings → Sun / Lighting Mode*. Drawn as a filled chip unless Off |
+| **Camera** | blue | Free fly (rocket), ArcBall (◎), Map view (map) — always a filled chip, as one camera is always active |
+
+This panel does not scroll; the tool panel below does when the view is short, so the
+choices opening to the left are never cut off.
+
 ## Groups
 
-The **Navigation** group sits in its own panel, separated from the tool panel by a
+The **Navigation** (camera) buttons sit in their own panel, separated from the tool panel by a
 small gap (`.pro3d-toolstrip-group` in [semui-overrides.css](../src/PRo3D.Viewer/resources/semui-overrides.css)).
 Within the tool panel, groups are separated by a horizontal divider. Every group
 shares an accent colour.
 
 | Group | Colour | Icons |
 |---|---|---|
-| **Navigation** | blue | Free fly, ArcBall, Map view |
+| **Navigation** | blue | the camera button: Free fly, ArcBall, Map view |
 | **Annotation** | green | Draw annotation, Select annotation, Cut annotation, Union selected annotations, Edit annotation |
 | **Selection** | amber | Select surface, Select area |
 | **Placement** | violet | Place rover, Place distance point, Place scene object, Place scale bar, Pick pivot point |

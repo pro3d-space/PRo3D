@@ -147,8 +147,9 @@ Since we have a full surface for mars now, we can switch of the proxy geometry:
 
 ## Sun illumination and cast shadows
 
-The **Sun / Lighting Mode** dropdown (*GIS View* → *Settings*) shades OPC surfaces with the
-real sun position for the current observation time:
+The **Sun / Lighting Mode** dropdown (*GIS View* → *Settings*, or the light button at the top
+of the [tool strip](ToolStrip.md)) shades OPC surfaces with the real sun position for the
+current observation time:
 
 | Mode | Effect |
 |---|---|
