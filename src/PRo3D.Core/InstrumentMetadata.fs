@@ -1,4 +1,4 @@
-﻿#if INTERACTIVE
+#if INTERACTIVE
 #r "nuget: FSharp.Data"
 #r "nuget: Aardvark.Base"
 #else
@@ -207,7 +207,7 @@ module Tiff_Mbi_Json =
     /// generator left the value blank) treated as absent.
     let private tryGetNonEmptyString (headerName : string) (mbi : JsonValue) : Option<string> =
         tryGetFitsHeader headerName mbi (function
-            | JsonValue.String s when not (String.IsNullOrWhiteSpace s) -> Some s
+            | JsonValue.String s when not (System.String.IsNullOrWhiteSpace s) -> Some s
             | _ -> None)
 
     /// The SPICE meta-kernel name (e.g. "hera_plan_v180_20250616_001") the mbi
@@ -336,23 +336,70 @@ type ParsedMetadata = Option<Tiff_Mbi_Json.Mbi> * Option<Tiff_Json.ImageMetadata
 /// covers -- a single ASPECT export shares one .mbi.json across dozens of
 /// per-band images (Vis_0, NIR1_3, ...) -- so content, not file naming, is
 /// the only reliable way to associate an image with its mbi metadata.
-let private buildMbiIndex (dir : string) : Map<string, Tiff_Mbi_Json.Mbi> =
-    if not (Directory.Exists dir) then Map.empty else
-    Directory.EnumerateFiles(dir, "*.mbi.json")
-    |> Seq.collect (fun path ->
+///
+/// The declared name and the delivered file do not always agree verbatim: a
+/// 2026-11 AFC delivery declares "..._AFC1.tif" while shipping "..._AFC1.tiff".
+/// So the index is keyed by a normalized name (case-insensitive, .tiff->.tif,
+/// .jpeg->.jpg) and additionally by the bare stem, which is only consulted when
+/// the normalized name finds nothing.
+type private MbiIndex =
+    {
+        byName : Map<string, Tiff_Mbi_Json.Mbi>
+        byStem : Map<string, Tiff_Mbi_Json.Mbi>
+    }
+
+let private emptyMbiIndex = { byName = Map.empty; byStem = Map.empty }
+
+let private normalizedImageName (fileName : string) : string =
+    let ext =
+        match Path.GetExtension(fileName).ToLowerInvariant() with
+        | ".tiff" -> ".tif"
+        | ".jpeg" -> ".jpg"
+        | e -> e
+    (Path.GetFileNameWithoutExtension(fileName) + ext).ToLowerInvariant()
+
+let private imageStemKey (fileName : string) : string =
+    Path.GetFileNameWithoutExtension(fileName).ToLowerInvariant()
+
+let private imageExtensions = [ ".tif"; ".tiff"; ".png"; ".jpg"; ".jpeg"; ".exr" ]
+
+/// The file a sidecar's declared band file name refers to in `folder`: the
+/// declared name if it exists, else the same stem with another image extension
+/// (a 2026-11 AFC delivery declares ".tif" but ships ".tiff").
+let tryResolveBandFile (folder : string) (declaredFileName : string) : Option<string> =
+    let declared = Path.Combine(folder, Path.GetFileName declaredFileName)
+    if File.Exists declared then Some declared
+    else
+        let stem = Path.GetFileNameWithoutExtension declaredFileName
+        imageExtensions
+        |> List.tryPick (fun ext ->
+            let p = Path.Combine(folder, stem + ext)
+            if File.Exists p then Some p else None)
+
+let private tryFindInMbiIndex (index : MbiIndex) (imagePath : string) : Option<Tiff_Mbi_Json.Mbi> =
+    let name = Path.GetFileName imagePath
+    match Map.tryFind (normalizedImageName name) index.byName with
+    | Some mbi -> Some mbi
+    | None -> Map.tryFind (imageStemKey name) index.byStem
+
+let private buildMbiIndex (dir : string) : MbiIndex =
+    if not (Directory.Exists dir) then emptyMbiIndex else
+    let mutable byName = Map.empty
+    let mutable byStem = Map.empty
+    for path in Directory.EnumerateFiles(dir, "*.mbi.json") do
         try
             let content = File.ReadAllText path
             match Tiff_Mbi_Json.tryParseJsonForFile (Some (Path.GetFileName path)) content with
             | Result.Ok mbi ->
-                Tiff_Mbi_Json.tryParseBandFileNames content
-                |> List.map (fun bandFile -> bandFile, mbi)
+                for bandFile in Tiff_Mbi_Json.tryParseBandFileNames content do
+                    if not (System.String.IsNullOrWhiteSpace bandFile) then
+                        byName <- Map.add (normalizedImageName bandFile) mbi byName
+                        byStem <- Map.add (imageStemKey bandFile) mbi byStem
             | Result.Error e ->
                 printfn $"could not parse mbi json metadata {path}: {e}"
-                []
         with e ->
             printfn $"could not read mbi json metadata {path}: {e}"
-            [])
-    |> Map.ofSeq
+    { byName = byName; byStem = byStem }
 
 /// Importing a folder looks metadata up once per image, but the index costs a
 /// full parse of every sidecar in the directory -- per image that is O(n^2)
@@ -362,9 +409,9 @@ let private buildMbiIndex (dir : string) : Map<string, Tiff_Mbi_Json.Mbi> =
 /// invalidate. The cache only ever holds a handful of directories per session,
 /// so no eviction.
 let private mbiIndexCache =
-    System.Collections.Concurrent.ConcurrentDictionary<string, struct (int * int64) * Map<string, Tiff_Mbi_Json.Mbi>>()
+    System.Collections.Concurrent.ConcurrentDictionary<string, struct (int * int64) * MbiIndex>()
 
-let private buildMbiIndexCached (dir : string) : Map<string, Tiff_Mbi_Json.Mbi> =
+let private buildMbiIndexCached (dir : string) : MbiIndex =
     let stamp =
         if not (Directory.Exists dir) then struct (0, 0L)
         else
@@ -421,44 +468,87 @@ let private tryParseTifJson (imagePath : string) : Option<Tiff_Json.ImageMetadat
         printfn $"could not find json metadata {json} for {imagePath}"
         None
 
-/// Fallback association for sidecars that declare no usable band file paths:
-/// some synthetic exports (HERA COP simulation, 2026-08) leave every
-/// bands[].file_path empty, so the content-based index can never match them.
-/// For those, fall back to the naming convention "<image base>.mbi.json"
-/// (HERA_AFC_..._COP.png <-> HERA_AFC_..._COP.mbi.json) and parse that one
-/// sidecar directly. See docs/COP-sidecar-issues (data-generator report).
+/// Fallback association when the content-based index finds nothing:
+/// - some synthetic exports (HERA COP simulation, 2026-08) leave every
+///   bands[].file_path empty, so the index can never match them; their sidecar
+///   is "<image base>.mbi.json" (HERA_AFC_..._COP.png <-> ..._COP.mbi.json).
+///   See docs/COP-sidecar-issues (data-generator report).
+/// - newer AFC deliveries (2026-11) append the instrument to the image name
+///   but not to the sidecar: "<obs>_AFC1.tiff" <-> "<obs>.mbi.json".
+/// So try "<image base>.mbi.json" first, then the base with up to two trailing
+/// "_segment"s removed (with and without the separator left over). A sidecar
+/// found by stripping is only accepted when none of the band files it
+/// declares exists on disk: if one does, the sidecar belongs to that file, and
+/// claiming it here would give this image another observation's geometry.
+let private maxStrippedNameSegments = 2
+
 let private tryParseMbiByNamingConvention (imagePath : string) : Option<Tiff_Mbi_Json.Mbi> =
-    let sidecar = Path.ChangeExtension(imagePath, ".mbi.json")
-    if File.Exists sidecar then
-        try
-            match Tiff_Mbi_Json.tryParseJsonForFile (Some (Path.GetFileName imagePath)) (File.ReadAllText sidecar) with
-            | Result.Ok mbi ->
-                Log.warn "[InstrumentMetadata] %s declares no band file paths; associated it with %s by naming convention"
-                    (Path.GetFileName sidecar) (Path.GetFileName imagePath)
-                Some mbi
-            | Result.Error e ->
-                printfn $"could not parse mbi json metadata {sidecar}: {e}"
+    let dir = Path.GetDirectoryName imagePath
+    let imageName = Path.GetFileName imagePath
+    let imageStem = Path.GetFileNameWithoutExtension imagePath
+
+    // (sidecar base name, found by stripping a suffix?) in order of preference
+    let candidates =
+        let rec strip (stem : string) (n : int) (acc : List<string * bool>) =
+            let i = stem.LastIndexOf '_'
+            if n = 0 || i <= 0 then List.rev acc
+            else
+                let shorter = stem.Substring(0, i)
+                let trimmed = shorter.TrimEnd '_'
+                let acc = (shorter, true) :: acc
+                let acc = if trimmed.Length > 0 && trimmed <> shorter then (trimmed, true) :: acc else acc
+                strip shorter (n - 1) acc
+        (imageStem, false) :: strip imageStem maxStrippedNameSegments []
+
+    let declaresAnotherExistingFile (content : string) =
+        Tiff_Mbi_Json.tryParseBandFileNames content
+        |> List.exists (fun band ->
+            not (System.String.IsNullOrWhiteSpace band)
+            && imageStemKey band <> imageStemKey imageName
+            && (tryResolveBandFile dir band).IsSome)
+
+    let tryCandidate (baseName : string, stripped : bool) : Option<Tiff_Mbi_Json.Mbi> =
+        let sidecar = Path.Combine(dir, baseName + ".mbi.json")
+        if not (File.Exists sidecar) then None
+        else
+            try
+                let content = File.ReadAllText sidecar
+                if stripped && declaresAnotherExistingFile content then None
+                else
+                    match Tiff_Mbi_Json.tryParseJsonForFile (Some imageName) content with
+                    | Result.Ok mbi ->
+                        Log.warn "[InstrumentMetadata] no sidecar declares %s; associated it with %s by file name"
+                            imageName (Path.GetFileName sidecar)
+                        Some mbi
+                    | Result.Error e ->
+                        printfn $"could not parse mbi json metadata {sidecar}: {e}"
+                        None
+            with e ->
+                printfn $"could not read mbi json metadata {sidecar}: {e}"
                 None
-        with e ->
-            printfn $"could not read mbi json metadata {sidecar}: {e}"
-            None
-    else
-        None
+
+    List.tryPick tryCandidate candidates
 
 let tryParseMetadataForImagePath (imagePath : string) : ParsedMetadata =
     let mbi =
-        match buildMbiIndexCached (Path.GetDirectoryName(imagePath)) |> Map.tryFind (Path.GetFileName imagePath) with
+        match tryFindInMbiIndex (buildMbiIndexCached (Path.GetDirectoryName(imagePath))) imagePath with
         | Some mbi -> Some mbi
         | None -> tryParseMbiByNamingConvention imagePath
     let tif = tryParseTifJson imagePath
     mbi, tif
 
+/// Every .tif/.tiff in a folder with its metadata. The extension is checked
+/// explicitly: whether the "*.tif" search pattern also matches ".tiff" depends
+/// on the runtime and file system.
 let discoverInstrumentFolder (dir : string) : seq<string * ParsedMetadata> =
     let mbiIndex = buildMbiIndex dir
-    Directory.EnumerateFiles(dir, "*.tif", SearchOption.TopDirectoryOnly)
+    Directory.EnumerateFiles(dir, "*", SearchOption.TopDirectoryOnly)
+    |> Seq.filter (fun f ->
+        let ext = Path.GetExtension(f).ToLowerInvariant()
+        ext = ".tif" || ext = ".tiff")
     |> Seq.map (fun tifFilename ->
         let mbi =
-            match mbiIndex |> Map.tryFind (Path.GetFileName tifFilename) with
+            match tryFindInMbiIndex mbiIndex tifFilename with
             | Some mbi -> Some mbi
             | None -> tryParseMbiByNamingConvention tifFilename
         let tif = tryParseTifJson tifFilename

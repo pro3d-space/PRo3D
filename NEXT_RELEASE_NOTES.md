@@ -14,3 +14,5 @@ release folds them into `PRODUCT_RELEASE_NOTES.md`.
   and an empty list (docs/Build-Deploy-System.md).
 
 ## Pending
+
+- Projected images: **sidecars are found for images delivered as `.tiff` while the sidecar declares `.tif`, and for image names carrying an instrument suffix the sidecar lacks** (`<obs>_AFC1.tiff` ↔ `<obs>.mbi.json`), in the viewer, folder discovery and `pro3d-tool sample-layers` (docs/MultiImageProjection.md)
