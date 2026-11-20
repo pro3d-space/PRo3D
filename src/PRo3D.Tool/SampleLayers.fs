@@ -277,7 +277,11 @@ let discoverObservations (folder : string) : list<ObservationFiles> =
                         Some [ for b in arr.EnumerateArray() do
                                  match tryString b "file_path" with
                                  | Some f when not (String.IsNullOrWhiteSpace f) ->
-                                     yield Path.Combine(folder, Path.GetFileName f), tryString b "label", tryNumber b "wavelength"
+                                     // the declared name, or the same stem with the extension actually delivered
+                                     let file =
+                                         InstrumentMetadata.tryResolveBandFile folder f
+                                         |> Option.defaultValue (Path.Combine(folder, Path.GetFileName f))
+                                     yield file, tryString b "label", tryNumber b "wavelength"
                                  | _ -> () ]
                     | _ -> None)
                 |> Option.defaultValue []

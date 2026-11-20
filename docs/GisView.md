@@ -51,7 +51,7 @@ At the top of the GIS tab there is a section entitled "Current Observation Setti
 
 * Observed body: the **scene body** — the body at the origin of the scene. It is the same setting as the planet in the top bar: choosing one sets the other (see [SceneBody.md](SceneBody.md)).
 * Camera source Body: the entity the camera looks from. When set, the camera is placed at its position and looks at the observed body.
-* Time: The point of time at which we want to observe. The loaded spice kernel needs to have data for the bodies involved at the selected point in time!
+* Time: The point of time at which we want to observe, in **UTC** (date and time to the second, like the Projected Images Date filter). Click the field for the date/time picker, click it again to close it. The loaded spice kernel needs to have data for the bodies involved at the selected point in time!
 * Reference Frame: the frame the scene is expressed in. For a body PRo3D knows (Mars, Earth, Moon, Phobos, Deimos, Didymos, Dimorphos) this is the body's fixed frame (e.g. `DIMORPHOS_FIXED`) and is set automatically — that is what lets map view and the planet-based measurements work. A scene saved in another frame (e.g. `J2000`) keeps it and shows a note with a button to switch.
 * Re-use settings above: puts the camera back at the camera source body, looking at the observed body — e.g. after you navigated away.
 
@@ -147,14 +147,22 @@ Since we have a full surface for mars now, we can switch of the proxy geometry:
 
 ## Sun illumination and cast shadows
 
-The **Sun / Lighting Mode** dropdown (in the *Projected Images* panel, under *Projection Settings*)
-shades OPC surfaces with the real sun position for the current observation time:
+The **Sun / Lighting Mode** dropdown (*GIS View* → *Settings*, or the light button at the top
+of the [tool strip](ToolStrip.md)) shades OPC surfaces with the real sun position for the
+current observation time:
 
 | Mode | Effect |
 |---|---|
-| `Off` (default) | no sun shading, surfaces render as always |
+| `Headlight` | a light at the camera on **every** surface, textured or not, so the shape shows. A projected image is never lit by it: it shows only its own pixels (in proportion to *Image Opacity*). Also used while a sun mode has no sun direction (no kernel, or a time outside its coverage) |
+| `Off` (default) | no lighting at all: textures and projected images as they are, untextured surfaces flat |
 | `SunDirect` | sun shading: Lommel-Seeliger photometry (physically appropriate for dark regolith; plain Lambert over-darkens the limb) over the per-face terrain normal, so relief is visible under the sun |
 | `SunShadow` | `SunDirect` plus **cast shadows** from a sun-aligned shadow map |
+
+Scenes store the mode as a number; `Headlight` is 0, which is what `Off` meant before
+`Headlight` existed (it switched the camera light on for untextured surfaces only). Older
+scenes (and scenes without the field) therefore open with `Headlight`: untextured surfaces
+look as they did, textured ones are now shaded by the headlight too (switch to `Off` for
+the plain texture). A new scene starts `Off`.
 
 Requirements: a loaded SPICE kernel, an observation time inside its coverage, and a
 surface that resolves to a body and frame — either the scene body it inherits by

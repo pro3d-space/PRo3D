@@ -303,6 +303,6 @@ module ProjectedImagesListAppHelper =
                     |> AVal.map (fun m -> m = PRo3D.ImageMapping.InstrumentVisibilityMode.RelativeCount)
                 sunDirection = sunDirection
                 sunLightEnabled =
-                    (g.projectedImageList.lightingMode, sunDirection) ||> AVal.map2 (fun l hasDir -> l <> PRo3D.ImageMapping.LightingMode.Off && Option.isSome hasDir)
+                    (g.projectedImageList.lightingMode, sunDirection) ||> AVal.map2 (fun l hasDir -> PRo3D.ImageMapping.LightingMode.isSun l && Option.isSome hasDir)
                 lightViewProj = lightViewProj
             }

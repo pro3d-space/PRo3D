@@ -167,7 +167,7 @@ type OpcRenderer(runtime : IRuntime, signature : IFramebufferSignature, opcs : l
         let frustum = ViewCamera.frustum camera size (ViewCamera.nearFar camera.location bounds)
         let mode =
             match sun with
-            | None -> PRo3D.ImageMapping.LightingMode.Off
+            | None -> PRo3D.ImageMapping.LightingMode.Headlight
             | Some s when s.shadows -> PRo3D.ImageMapping.LightingMode.SunShadow
             | Some _ -> PRo3D.ImageMapping.LightingMode.SunDirect
         let sunDirection = sun |> Option.bind (SunInput.direction bounds)

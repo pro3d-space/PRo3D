@@ -119,10 +119,11 @@ module StacSearch =
     /// valid).
     let filterOf (s : StacSearchModel) (f : ImageFilter) : Result<Filter, string> =
         let bounds = ImageFilter.bounds f
+        // always the selected dates, also while the Date filter is off (its whole range):
+        // the range is what the slider shows, and an open search would check the
+        // catalog's newest images of any time instead
         let from, until =
-            match bounds.time with
-            | Some (lo, hi) -> Some (ImageFilter.timeOfKey lo), Some (ImageFilter.timeOfKey hi)
-            | None -> None, None
+            Some (ImageFilter.timeOfKey f.time.lower.value), Some (ImageFilter.timeOfKey f.time.upper.value)
         // SUN INCIDENCE (disabled, see docs/StacImageSearch.md)
         // if s.incidenceMin > s.incidenceMax then Result.Error "the incidence range ends before it starts"
         Ok { serverUrl = s.serverUrl; from = from; until = until; bounds = bounds }

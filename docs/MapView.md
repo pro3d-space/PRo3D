@@ -5,8 +5,8 @@ viewer into a top-down map of the body: **the camera always looks straight at
 the frame origin, with north pointing up the screen**, and every navigation step
 is scaled by how high the camera is above the ground.
 
-Pick it from the [tool strip](ToolStrip.md) on the right edge of the main view (the blue map
-icon, third in the navigation group).
+Pick it from the [tool strip](ToolStrip.md) on the right edge of the main view: click the
+blue camera button, then the map icon among the modes that open to its left.
 
 For the frame and camera state MapView shares with the other two modes, see
 [Camera & Navigation](Navigation.md).

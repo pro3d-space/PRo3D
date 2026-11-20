@@ -368,20 +368,17 @@ let tests =
             Expect.isFalse (PRo3D.ImageMapping.ImageFilter.matches f (img None)) "no phase angle: hidden while set"
         }
 
-        test "TC-12.3 date filter: launch to today (at least the end of 2027), UTC, images without a time hidden while set" {
-            let t0 = DateTime(2026, 12, 1, 10, 0, 0, DateTimeKind.Utc)
+        test "TC-12.3 date filter: 2026-11-01 to today, UTC, images without a time hidden while set" {
+            // inside the range: it ends today
+            let t0 = DateTime(2026, 11, 2, 10, 0, 0, DateTimeKind.Utc)
             let img (t : DateTime) =
                 { PRo3D.ImageMapping.ProjectedImageApp.initial with id = Guid.NewGuid(); time = t }
             // all filters off (the Date filter starts at its default window)
             let f = (PRo3D.ImageMapping.ImageFilter.update PRo3D.ImageMapping.ImageFilter.initial (PRo3D.ImageMapping.ResetRange PRo3D.ImageMapping.RangeFilterKind.Time))
             let key t = PRo3D.ImageMapping.ImageFilter.timeKey t |> Option.defaultValue nan
-            Expect.equal f.time.lower.min (key (DateTime(2024, 10, 7, 0, 0, 0, DateTimeKind.Utc))) "from HERA's launch"
-            let initial = PRo3D.ImageMapping.ImageFilter.initial
-            Expect.equal (initial.time.lower.value, initial.time.upper.value)
-                (key (DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc)), key (DateTime(2027, 5, 31, 23, 59, 59, DateTimeKind.Utc)))
-                "set by default: HERA at Didymos, arrival to the end of the nominal mission"
-            Expect.equal (PRo3D.ImageMapping.ImageFilter.activeCount initial) 1 "the Date filter is the only one on at start"
-            Expect.isTrue (f.time.upper.max >= key (DateTime(2027, 12, 31, 23, 59, 59, DateTimeKind.Utc))) "to the end of 2027 at least (synthetic products)"
+            Expect.equal f.time.lower.min (key (DateTime(2026, 11, 1, 0, 0, 0, DateTimeKind.Utc))) "from 2026-11-01"
+            Expect.equal f.time.upper.max (key (DateTime.UtcNow.Date.AddDays(1.0).AddSeconds(-1.0))) "to the end of today"
+            Expect.equal (PRo3D.ImageMapping.ImageFilter.activeCount PRo3D.ImageMapping.ImageFilter.initial) 0 "off at start: the whole range"
             Expect.equal (PRo3D.ImageMapping.ImageFilter.timeOfKey (key t0)) t0 "round trip"
             let passes f t = PRo3D.ImageMapping.ImageFilter.matches f { PRo3D.ImageMapping.ProjectedImageApp.initial with id = Guid.NewGuid(); time = t }
             Expect.isTrue (passes f DateTime.MinValue) "off: everything shown"
@@ -435,7 +432,7 @@ let tests =
             // all filters off (the Date filter starts at its default window)
             let f = (PRo3D.ImageMapping.ImageFilter.update PRo3D.ImageMapping.ImageFilter.initial (PRo3D.ImageMapping.ResetRange PRo3D.ImageMapping.RangeFilterKind.Time))
             Expect.equal (PRo3D.ImageMapping.ImageFilter.activeCount f) 0 "all off: the whole ranges"
-            Expect.equal (PRo3D.ImageMapping.ImageFilter.activeCount PRo3D.ImageMapping.ImageFilter.initial) 1 "at start only the Date filter is on"
+            Expect.equal (PRo3D.ImageMapping.ImageFilter.activeCount PRo3D.ImageMapping.ImageFilter.initial) 0 "all off at start"
             Expect.isTrue (PRo3D.ImageMapping.ImageFilter.isLogScale PRo3D.ImageMapping.RangeFilterKind.Distance) "distance: log"
             Expect.isTrue (PRo3D.ImageMapping.ImageFilter.isLogScale PRo3D.ImageMapping.RangeFilterKind.Resolution) "resolution: log"
             Expect.isFalse (PRo3D.ImageMapping.ImageFilter.isLogScale PRo3D.ImageMapping.RangeFilterKind.PhaseAngle) "phase angle: linear"
@@ -623,10 +620,19 @@ let tests =
             Expect.equal restored.projectedImageList.lightingMode
                 PRo3D.ImageMapping.LightingMode.SunShadow "SunShadow should survive save/load"
 
-            // and the default stays Off, so old scenes without the field load unchanged
-            let off = GisApp.initial None |> Json.serialize |> Json.formatWith JsonFormattingOptions.SingleLine
+            // a new scene starts Off; an old scene's 0 (what "Off" meant before Headlight
+            // existed: the camera light) reads as Headlight, so it keeps its look
+            Expect.equal (GisApp.initial None).projectedImageList.lightingMode PRo3D.ImageMapping.LightingMode.Off "a new scene starts Off"
+            let headlight =
+                { m with projectedImageList = { m.projectedImageList with lightingMode = PRo3D.ImageMapping.LightingMode.Headlight } }
+                |> Json.serialize |> Json.formatWith JsonFormattingOptions.SingleLine
+            Expect.isTrue (System.Text.RegularExpressions.Regex.IsMatch(headlight, "\"lightingMode\"\\s*:\\s*0\\b")) "Headlight is stored as 0, as the old Off"
+
+            // the new Off (no light at all) survives too
+            let off =
+                { m with projectedImageList = { m.projectedImageList with lightingMode = PRo3D.ImageMapping.LightingMode.Off } }
+                |> Json.serialize |> Json.formatWith JsonFormattingOptions.SingleLine
             let restoredOff : GisApp = off |> Json.parse |> Json.deserialize
-            Expect.equal restoredOff.projectedImageList.lightingMode
-                PRo3D.ImageMapping.LightingMode.Off "the default lighting mode is Off"
+            Expect.equal restoredOff.projectedImageList.lightingMode PRo3D.ImageMapping.LightingMode.Off "Off survives save/load"
         }
     ]

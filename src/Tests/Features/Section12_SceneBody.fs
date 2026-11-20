@@ -64,6 +64,32 @@ let private dimorphos = Some "Dimorphos", Some "DIMORPHOS_FIXED"
 let tests =
     testList "Section 12 — GIS View: scene body (viewer)" [
 
+        test "TC-12.3 the image lists' clock sets the GIS time to the image's observation time, the camera stays" {
+            let model, update = Head.make ()
+            let t = DateTime(2026, 11, 4, 10, 31, 55, DateTimeKind.Utc)
+            let image = { PRo3D.ImageMapping.ProjectedImageApp.initial with id = Guid.NewGuid(); time = t }
+            let candidate : PRo3D.ImageMapping.StacCandidate =
+                { itemId = "c"; collection = "x"; title = "c"; time = t.AddHours 2.0; instrument = "afc"
+                  assets = { mbi = "m"; image = "i"; imageMetadata = None; overview = None }
+                  check = PRo3D.ImageMapping.StacCheck.Checking; values = None }
+            let m =
+                { model with
+                    scene =
+                        { model.scene with
+                            gisApp =
+                                { model.scene.gisApp with
+                                    projectedImageList =
+                                        { model.scene.gisApp.projectedImageList with
+                                            images = FSharp.Data.Adaptive.IndexList.single image
+                                            stacSearch = { model.scene.gisApp.projectedImageList.stacSearch with candidates = FSharp.Data.Adaptive.IndexList.single candidate } } } } }
+            let time (m : Model) = PRo3D.Base.Calendar.toUtc m.scene.gisApp.defaultObservationInfo.time.date
+            let library = update m (ViewerAction.GisAppMessage (GisAppAction.ProjectedImageListMessage (PRo3D.ImageMapping.SetTimeToImage image.id)))
+            Expect.equal (time library) t "library image: its observation time"
+            Expect.equal library.navigation.camera.view m.navigation.camera.view "the camera stays"
+            let search = update m (ViewerAction.GisAppMessage (GisAppAction.ProjectedImageListMessage (PRo3D.ImageMapping.StacMessage (PRo3D.ImageMapping.SetTimeToCandidate "c"))))
+            Expect.equal (time search) (t.AddHours 2.0) "search result: the catalog's observation time"
+        }
+
         test "TC-12.5 picking the planet points the GIS at its body in its fixed frame" {
             let m, update = Head.make ()
             let m = update m (Head.setPlanet Planet.Dimorphos)

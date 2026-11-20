@@ -57,7 +57,7 @@ columns are the same as the Image Search's (docs/StacImageSearch.md):
 |---|---|
 | Preview | a thumbnail of the file (the first band, stretched; rendered on first view and cached in `%TEMP%\PRo3D\thumbnails`) |
 | Add | add to / remove from the projection stack |
-| Fly | fly to the image's camera |
+| Go to | the arrow flies to the image's camera (and sets the time); the clock only sets the GIS time to the image's observation time, the camera stays |
 | **Instr.** | instrument, from the metadata |
 | **Distance** | distance to the target's centre (red *no TRG_POS* when the metadata has none) |
 | **Date (UTC)** | observation time, to the minute (the full time in the tooltip) |
@@ -101,7 +101,8 @@ sections:
   - **Data** — *what* is shown: the *Channel* and the *Range*, the min/max of its
     values that span the colour map (and that the legend labels), as one two-handle
     slider with an input box at each end. The header's undo icon resets the range to
-    the image's statistics.
+    the image's statistics: those of its `<image>.tif.json` sidecar, or, for a TIFF
+    delivered without one, the min/max of its finite pixel values, read at import.
   - **Tone** — *how* it looks, purely visual: *Brightness* (−1…1, default 0) shifts
     the values, *Contrast* (0…3, default 1) scales them around mid grey; reset by the
     header's undo icon. Acts on the values within the *Data* range, before the colour
@@ -130,6 +131,13 @@ sections:
 |---|---|
 | **Image Opacity** | blends the projected stack over the surface texture (formerly labelled *Visualization*) |
 | **Visibility** | *RelativeCount* shows the coverage view (see 6.) |
+
+Lighting is set in *GIS View* → *Settings* → **Sun / Lighting Mode**
+([GisView.md](GisView.md#sun-illumination-and-cast-shadows)). Without the sun
+(`Off`, the default, or `Headlight`) a projected image shows only its own pixels: the
+headlight that shows the surfaces' shape leaves the image unshaded (in
+proportion to *Image Opacity*). With the sun on, the image is shaded by the terrain like
+the surface.
 | **Apply Image Adjustments** | on (default): samples go through each image's *Range*, *Brightness/Contrast* and *False Colour* (Selected Image › Properties), which instrument data needs to be readable. Off: the image's own pixels, untouched — for RGB images, and for checking a projection against its source. While it is off, the selected image's Properties show a hint with a button to turn it on. (Formerly *Transfer Function*.) |
 | **Winding Correction** | off (default). Turn it on only when an image survives **only near the limb** of the body: that is an OPC whose triangles are wound inward, so the projector-facing test rejects exactly the terrain facing the projector. On: PRo3D estimates each OPC hierarchy's winding from its coarsest patch (loaded once, the first time something is projected) and corrects the inward ones. The estimate assumes a roughly convex body seen from orbit; it is not reliable for near-vertical terrain such as rover outcrops. Saved with the scene. |
 | **Orientation Source** | where the projector's position and attitude come from — `MbiAttitudeSpiceRange` (default), `MbiBased` or `Spice`; see [If an image does not land on the terrain](#if-an-image-does-not-land-on-the-terrain) |
@@ -160,12 +168,12 @@ orders of magnitude (cruise to close proximity): their sliders run on a
 | **Instrument** | the HERA instruments (AFC1, AFC2, HSH, TIRI, ASPECT) and any further one in the library, as toggle buttons | shows only the selected instruments; images without one are listed as *(unknown)* |
 | **Resolution [m/px]** | range, 0.001–100 000 m/px, logarithmic | ground resolution at the target: distance × the angle one pixel spans (the instrument's horizontal field of view ÷ the image width). Measured at the target's centre, so on the surface facing the camera pixels are slightly finer. Images without one (no sidecars, or an instrument with no known field of view) are shown while the filter is off and hidden while it is set |
 | **Distance [km]** | range, 0.1–10⁹ km, logarithmic | distance to the target |
-| **Date [UTC]** | range, HERA's launch (2024-10-07) to today — at least to the end of 2027, for the synthetic products dated then. **On at start**: 2026-10-01 to 2027-05-31 (HERA at Didymos), so a catalog search asks for that window rather than the whole mission; ↶ selects the whole range (off) | observation time from the image's sidecar: the slider, and below it a date/time field per bound (UTC, to the second). Images without a time (no sidecar) are shown while the filter is off and hidden while it is set |
+| **Date [UTC]** | range, 2026-11-01 to the end of today (today as of PRo3D's start). Off at start, like the others: the library then shows images of any time, including ones outside the range. The Image Search always sends the selected dates to the catalog, also while the filter is off | observation time from the image's sidecar: the slider, and below it a date/time field per bound (UTC, to the second). Images without a time (no sidecar) are shown while the filter is off and hidden while it is set |
 
 A range is set by typing its bounds or by dragging the two handles of its
 slider. A filter is **off** — plain label, not counted — while its whole range is
 selected, or, for *Instrument*, while no instrument is selected. All filters start
-off except *Date*, which starts at HERA's time at Didymos (see the table). An active filter's
+off. An active filter's
 label turns amber with a filter icon, and ↶ next to it resets it. Filters are not
 saved with the scene; importing a folder keeps them.
 
@@ -282,8 +290,14 @@ is blended at 20% over the surface colour:
 - All simultaneously projected images come from the **same instrument** (they
   share dimensions and intrinsics; the FOV comes from
   `PRo3D.Base.InstrumentProjection`, currently AFC-1/AFC-2/HSH/ASPECT).
-- Sidecars are matched by the band file names they declare, with an
-  `<image>.mbi.json` naming fallback. The observation time comes from
+- Sidecars are matched by the band file names they declare, case-insensitively
+  and with `.tif`/`.tiff` and `.jpg`/`.jpeg` treated as the same file, then by
+  the name without its extension. When no sidecar declares the image, the
+  sidecar is found by file name: `<image>.mbi.json`, then the image name with
+  up to two trailing `_SEGMENT`s removed (`<obs>_AFC1.tiff` →
+  `<obs>.mbi.json`). A sidecar found that way is not used if a band file it
+  declares exists on disk, because then it belongs to that file. The log names
+  every image associated by file name. The observation time comes from
   `DATE-OBS`, falling back to the file-name timestamp (`_yyyyMMdd_HHmmss_`)
   and then `DATE`. Positions declared as km that are actually metres are
   auto-corrected (detected via the sun distance). The projection target body

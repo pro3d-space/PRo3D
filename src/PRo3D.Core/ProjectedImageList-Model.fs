@@ -139,10 +139,25 @@ type InstrumentVisibilityMode =
     | Off = 0
     | RelativeCount = 1
 
+/// How the scene is lit (GIS View -> Settings -> Sun / Lighting Mode). Saved as its
+/// number: 0 is what "Off" meant before Headlight existed (a camera light on untextured
+/// surfaces), so older scenes keep their look.
 type LightingMode =
-    | Off = 0
+    /// A light at the camera on every surface (textured or not), so the shape shows.
+    /// Never on projected images.
+    | Headlight = 0
+    /// shaded by the real sun direction (Lommel-Seeliger over the terrain normal)
     | SunDirect = 1
+    /// SunDirect plus cast shadows
     | SunShadow = 2
+    /// no lighting at all: textures and projected images as they are, untextured
+    /// surfaces flat. The default of a new scene.
+    | Off = 3
+
+module LightingMode =
+    /// a mode that lights by the sun
+    let isSun (mode : LightingMode) =
+        mode = LightingMode.SunDirect || mode = LightingMode.SunShadow
 
 /// Where a projected image's pose comes from (the *Orientation Source*); maps 1:1 to
 /// PRo3D.SPICE.ProjectorPose, see there.
@@ -583,15 +598,15 @@ module ImageFilter =
     let timeOfKey (seconds : float) : DateTime =
         epoch.AddSeconds seconds
 
-    /// The Date filter's range: HERA's launch to the end of today -- or to the end of
-    /// 2027 while that is later, so the synthetic pre-arrival products (dated 2027) can
-    /// be selected too.
+    /// The Date filter's range start: HERA at Didymos.
+    let timeRangeStart = DateTime(2026, 11, 1, 0, 0, 0, DateTimeKind.Utc)
+
+    /// The Date filter's range: 2026-11-01 to the end of today (UTC), today taken when
+    /// the filter is created (at start, and by a new scene).
     let timeRange () =
-        let launch = DateTime(2024, 10, 7, 0, 0, 0, DateTimeKind.Utc)
         let endOfToday = DateTime.UtcNow.Date.AddDays(1.0).AddSeconds(-1.0)
-        let end2027 = DateTime(2027, 12, 31, 23, 59, 59, DateTimeKind.Utc)
         let key (t : DateTime) = (t - epoch).TotalSeconds
-        key launch, key (if endOfToday > end2027 then endOfToday else end2027)
+        key timeRangeStart, key endOfToday
 
     /// Distance and resolution span orders of magnitude (cruise to proximity): their
     /// sliders run on a log scale (DualRangeSlider), the bound boxes show real values.
@@ -600,24 +615,12 @@ module ImageFilter =
         | Distance | Resolution -> true
         | PhaseAngle | Time -> false
 
-    /// The Date filter at start: HERA at Didymos, arrival to the end of the nominal
-    /// mission (UTC, both days whole). Set by default so a catalog search asks for this
-    /// window rather than the whole mission's newest images; the library is filtered
-    /// alike. Resetting the filter selects the whole range (off).
-    let defaultTimeWindow =
-        DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc), DateTime(2027, 5, 31, 23, 59, 59, DateTimeKind.Utc)
-
     /// Fixed ranges, independent of the loaded images: the same filter applies to the
     /// library and to catalog results not loaded yet (docs/MultiImageProjection.md).
-    /// All off but Date, which starts at defaultTimeWindow.
+    /// All off: the whole ranges selected.
     let initial : ImageFilter =
         let timeMin, timeMax = timeRange ()
-        let fromKey (t : DateTime) = (t - epoch).TotalSeconds
-        let windowFrom, windowTo = defaultTimeWindow
-        let time =
-            RangeFilter.create timeMin timeMax 1.0 "{0:0}"
-            |> RangeFilter.setLower (fromKey windowFrom)
-            |> RangeFilter.setUpper (fromKey windowTo)
+        let time = RangeFilter.create timeMin timeMax 1.0 "{0:0}"
         {
             phaseAngle   = RangeFilter.create 0.0 180.0 0.1 "{0:0.0}"
             resolution   = RangeFilter.create 0.001 100000.0 0.001 "{0:0.000}"
@@ -993,6 +996,8 @@ type StacSearchMessage =
     /// Fly to a checked result's projector, from its downloaded metadata (the
     /// Viewer frames it; GisApp moves the scene time to its epoch).
     | FlyToCandidate of itemId : string
+    /// Set the GIS time to a result's observation time (the catalog's); handled by GisApp.
+    | SetTimeToCandidate of itemId : string
     /// Sort the results by a column; again on the same column: the other way round.
     | SortCandidatesBy of ImageSortKey
     | ToggleImagesExpanded
@@ -1029,6 +1034,9 @@ type ProjectedImageListMessage =
     /// Frame this image's footprint. Handled by the Viewer (it owns the camera
     /// animation), not by ProjectedImageListApp.update.
     | FlyToImage of Guid
+    /// Set the GIS time to this image's observation time (the camera stays). Handled by
+    /// GisApp, which owns the time.
+    | SetTimeToImage of Guid
     | SortEntriesByDistance
     | SortEntriesByDate
     /// Sort the library by a column; again on the same column: the other way round.

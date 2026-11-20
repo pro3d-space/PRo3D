@@ -334,11 +334,66 @@ div.fullwidth.textcontainer > input {
     /* the render body sets pointer-events off for its other overlays */
     pointer-events: auto;
     user-select: none;
-    /* 17 buttons + 3 dividers + the panel gap is ~590px tall; scroll rather than
-       overflow the view when the render dock is short (small window, tall dock). */
+    /* 17 buttons + 3 dividers + the panel gap is ~590px tall: the tool panel scrolls
+       rather than overflow the view when the render dock is short (small window, tall
+       dock). The rail itself does not clip: the light and camera choices open to the
+       left of it (.pro3d-flyout-choices). */
     max-height: calc(100% - 20px);
+}
+
+/* light and camera: never scrolled away */
+.pro3d-toolstrip-nav {
+    flex-shrink: 0;
+}
+
+/* the interaction tools: shrink and scroll inside the rail's max-height */
+.pro3d-toolstrip-tools {
+    min-height: 0;
+    flex: 0 1 auto;
     overflow-y: auto;
     overflow-x: hidden;
+}
+
+/* A strip button that shows the current choice and opens the others to its left
+   (ViewerGUI ToolStrip.flyout). The small triangle in its lower left corner says it
+   opens. */
+.pro3d-flyout {
+    position: relative;
+}
+
+.pro3d-toolstrip .pro3d-flyout-main {
+    position: relative;
+}
+
+.pro3d-toolstrip .pro3d-tool i.icon.pro3d-flyout-caret {
+    position: absolute;
+    left: 1px;
+    bottom: 1px;
+    font-size: 8px;
+    opacity: 0.85;
+}
+
+.pro3d-flyout-choices {
+    display: none;
+    position: absolute;
+    right: calc(100% + 10px);
+    top: 50%;
+    transform: translateY(-50%);
+    flex-direction: row;
+    gap: 2px;
+    padding: 5px 6px;
+    border-radius: 8px;
+    background: rgba(24, 25, 27, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    z-index: 1001;
+}
+
+.pro3d-flyout.open .pro3d-flyout-choices {
+    display: flex;
+}
+
+.pro3d-toolstrip .pro3d-flyout-choices .pro3d-tool {
+    margin: 0 1px;
 }
 
 /* One panel. Both panels share button width and padding, so the icon columns of

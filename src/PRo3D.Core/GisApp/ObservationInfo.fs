@@ -109,8 +109,8 @@ module ObservationInfo =
                 Html.row "Camera source Body"   [targetDropdown]
                 Html.row "Time:"     
                     [
-                        Calendar.view m.time false false 
-                                      Calendar.CalendarType.DateTime
+                        // UTC, like every observation time (the Fomantic calendar showed local time)
+                        Calendar.viewUtc m.time
                     ] |> UI.map CalendarMessage
                 if sceneRows then
                     Html.row "Reference Frame:" [frameCell]

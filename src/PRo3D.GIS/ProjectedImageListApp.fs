@@ -156,6 +156,7 @@ module ProjectedImageListApp =
                 { m with stacSearch = { s with imagesExpanded = not s.imagesExpanded } }
             // the time and the camera are GisApp's and the Viewer's (FlyToImage alike)
             | FlyToCandidate _ -> m
+            | SetTimeToCandidate _ -> m
         | SetLightingMode mode ->
             { m with lightingMode = mode }
         | SetInstrumentVisbilityMode mode ->
@@ -258,6 +259,8 @@ module ProjectedImageListApp =
         | FlyToImage _ ->
             // handled by the Viewer, which owns the camera animation
             m
+        // the time is GisApp's
+        | SetTimeToImage _ -> m
         // Sorting permutes the library only. selectedImage/stack are
         // keyed by Guid, so none of them needs remapping any more -- this used
         // to be ~30 lines of index bookkeeping per sort, via a partial Seq.head.
@@ -854,7 +857,7 @@ module ProjectedImageListApp =
             attribute "style" $"{cursor}width: {width}px; flex-shrink: 0; {height}; {border}display: flex; justify-content: center; align-items: center; overflow: hidden; white-space: nowrap;"
         let listRowHeight = "height: 44px"
         let listHeaderHeight = "padding: 5px 0"
-        let wPreview, wAdd, wFlyTo, wInstrument, wDistance, wDate, wResolution = 44, 32, 32, 70, 84, 110, 84
+        let wPreview, wAdd, wFlyTo, wInstrument, wDistance, wDate, wResolution = 44, 32, 56, 70, 84, 110, 84
 
         /// A length for the lists: cm, m or km.
         let formatLength (metres : float) =
@@ -902,7 +905,7 @@ module ProjectedImageListApp =
             div [attribute "style" "display: flex; font-weight: bold; border-bottom: 2px solid black; background: black"] [
                 plain wPreview "" "preview"
                 plain wAdd "Add" "add to the projection stack"
-                plain wFlyTo "Fly" "fly to the image's camera"
+                plain wFlyTo "Go to" "the arrow flies to the image's camera; the clock sets the GIS time to the image's observation time"
                 sortable wInstrument true "Instr." "Instrument" SortInstrument
                 sortable wDistance true "Distance" distanceTip SortDistance
                 sortable wDate true "Date (UTC)" "Observation time, UTC" SortDate
@@ -1075,6 +1078,10 @@ module ProjectedImageListApp =
                             match c.values with
                             | Some _ -> i [clazz "location arrow icon"; style "cursor: pointer; opacity: 0.7"; attribute "title" "fly to the image's camera"; onClick (fun _ -> StacMessage (FlyToCandidate id))] []
                             | None -> i [clazz "location arrow icon"; style "opacity: 0.2"] []
+                            // the catalog's observation time: no download needed
+                            i [clazz "clock outline icon"; style "cursor: pointer; opacity: 0.7; margin-left: 4px"
+                               attribute "title" (sprintf "set the GIS time to the image's observation time (%s)" (formatFullDate c.time))
+                               onClick (fun _ -> StacMessage (SetTimeToCandidate id))] []
                         ]
                         div [cell wInstrument true] [text instrument]
                         div [cell wDistance true] [text distance]
@@ -1266,9 +1273,16 @@ module ProjectedImageListApp =
                                                     else
                                                         yield i [clazz "plus icon"; style "cursor: pointer; opacity: 0.5"; attribute "title" "add to the projection stack"; onClick (fun _ -> AddToStack id)] []
                                                 })
-                                            div [cell wFlyTo true] [
-                                                i [clazz "location arrow icon"; style "cursor: pointer; opacity: 0.7"; attribute "title" "fly to the image's camera"; onClick (fun _ -> FlyToImage id)] []
-                                            ]
+                                            Incremental.div (AttributeMap.ofList [cell wFlyTo true]) (
+                                                alist {
+                                                    yield i [clazz "location arrow icon"; style "cursor: pointer; opacity: 0.7"; attribute "title" "fly to the image's camera"; onClick (fun _ -> FlyToImage id)] []
+                                                    // only with an observation time (from the image's metadata)
+                                                    let! t = image.time
+                                                    if t <> DateTime.MinValue then
+                                                        yield i [clazz "clock outline icon"; style "cursor: pointer; opacity: 0.7; margin-left: 4px"
+                                                                 attribute "title" (sprintf "set the GIS time to the image's observation time (%s)" (formatFullDate t))
+                                                                 onClick (fun _ -> SetTimeToImage id)] []
+                                                })
                                             div [cell wInstrument true] [ Incremental.text (image.instrument |> AVal.map ImageFilter.instrumentKey) ]
                                             // distance = |TRG_POS|; zero means the sidecar does not say where the
                                             // camera was, which only the MbiBased orientation source needs
@@ -1395,9 +1409,6 @@ module ProjectedImageListApp =
                         ]
                         settingRow "Visibility:" None [
                             Html.SemUi.dropDown m.instrumentVisibility SetInstrumentVisbilityMode
-                        ]
-                        settingRow "Sun / Lighting Mode:" None [
-                            Html.SemUi.dropDown m.lightingMode SetLightingMode
                         ]
                         // off = the image's own RGB, untouched (internally: the
                         // transfer function off). Instrument data needs the colour

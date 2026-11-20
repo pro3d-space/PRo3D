@@ -42,7 +42,7 @@ the GIS tab under *Projected Images → Image Search (STAC)*.
    |---|---|
    | Preview | the catalog's overview image |
    | Add | download the image, add it to the library and put it on top of the projection stack |
-   | Fly | fly to the image's camera (once the row is checked: it needs the downloaded metadata); the scene time moves to the image's |
+   | Go to | the arrow flies to the image's camera (once the row is checked: it needs the downloaded metadata) and moves the scene time to the image's; the clock only sets the GIS time to the image's observation time (the catalog's, no download needed), the camera stays |
    | **Instr.** | instrument, from the image's metadata (the catalog's name before the check) |
    | **Distance** | distance to the target's centre, from the metadata — as in the library and the Distance filter |
    | **Date (UTC)** | observation time, to the minute (the full time in the tooltip) |
@@ -139,7 +139,7 @@ make the answer smaller:
 
 | filter | sent to the server as | checked by PRo3D |
 |---|---|---|
-| **Date** | `datetime` interval (UTC); on by default (2026-10-01 to 2027-05-31), so the footprint-less fallback checks that window, not the whole mission's newest 1000 | yes |
+| **Date** | `datetime` interval (UTC), always: the selected dates, by default the whole range 2026-11-01 to today, so the footprint-less fallback checks that window and not the catalog's newest 1000 of any time | yes, while the filter is set |
 | **Distance** | `hera:target_distance` (AU), widened by 5 % on each side: the catalog's "observation target" and the metadata's `TRG_POS` need not be the same body (Didymos vs Dimorphos) | yes |
 | **Instrument** | not yet: the catalog's `instruments` spellings still need mapping to the metadata's `INSTRUME` names | yes |
 | **Phase Angle**, **Resolution** | no: the catalog has neither | yes |

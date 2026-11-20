@@ -157,6 +157,16 @@ module ImageProjection =
         /// false-colour switch and colour map. Subsumes the old single-image projection: a
         /// stack of one behaves identically, minus the green border (the
         /// hovered layer gets an outline in a later phase instead).
+        /// What the stack shader hands on: the colour, and how much of it is projected
+        /// image (`ProjectedCover`: the image opacity where a layer covers the fragment,
+        /// 0 elsewhere). The surface's camera headlight (sun off) reads it to leave the
+        /// projected image unshaded: without the sun, a projection shows only the image.
+        type StackOutput =
+            {
+                [<Color>] c : V4f
+                [<Semantic("ProjectedCover")>] cover : float32
+            }
+
         let stableImageProjectionStack (v : Vertex) =
             fragment {
                 let mutable color = v.c
@@ -215,6 +225,7 @@ module ImageProjection =
                             if i = focus then
                                 focusCovered <- true
                                 focusColor <- mapped
+                let mutable cover = 0.0f
                 if topIndex >= 0 then
                     let layered =
                         if focus < 0 || topIndex = focus then topColor
@@ -224,7 +235,8 @@ module ImageProjection =
                             topColor * f + below * (1.0f - f)
                     let a = clamp 0.0f 1.0f uniform.ProjectedImageOpacity
                     color <- V4f(layered * a + (1.0f - a) * v.c.XYZ, 1.0f)
-                return { v with c = color }
+                    cover <- a
+                return { c = color; cover = cover }
             }
 
         /// Hover footprint outline (D5): a green border where the HOVERED
