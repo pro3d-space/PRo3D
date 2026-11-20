@@ -179,17 +179,13 @@ let private offline =
             let s = StacSearchModel.initial
             match StacSearch.filterOf s ImageFilter.initial with
             | Ok f ->
-                let windowFrom, windowTo = ImageFilter.defaultTimeWindow
-                Expect.equal f.from (Some windowFrom) "the default Date window goes to the server: start"
-                Expect.equal f.until (Some windowTo) "and end"
+                // the Date filter is off (whole range), and its range still goes to the server
+                Expect.equal f.from (Some (DateTime(2026, 11, 1, 0, 0, 0, DateTimeKind.Utc))) "from 2026-11-01"
+                Expect.equal f.until (Some (DateTime.UtcNow.Date.AddDays(1.0).AddSeconds(-1.0))) "to the end of today"
+                Expect.isNone f.bounds.time "but PRo3D's own check lets every time pass"
                 Expect.equal f.bounds (ImageFilter.bounds ImageFilter.initial) "the library's bounds"
             | Result.Error e -> failtestf "the defaults must make a filter: %s" e
-            match StacSearch.filterOf s (ImageFilter.update ImageFilter.initial (ResetRange RangeFilterKind.Time)) with
-            | Ok f ->
-                Expect.isNone f.from "Date off: no start"
-                Expect.isNone f.until "Date off: no end"
-            | Result.Error e -> failtestf "an open range must make a filter: %s" e
-            let t0 = DateTime(2026, 11, 1, 0, 0, 0, DateTimeKind.Utc)
+            let t0 = DateTime(2026, 11, 3, 0, 0, 0, DateTimeKind.Utc)
             let key t = ImageFilter.timeKey t |> Option.defaultValue nan
             let dated = ImageFilter.update (ImageFilter.update ImageFilter.initial (ResetRange RangeFilterKind.Time)) (SetLower (RangeFilterKind.Time, Aardvark.UI.Primitives.Numeric.SetValue (key t0)))
             match StacSearch.filterOf s dated with

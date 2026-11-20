@@ -591,15 +591,15 @@ module ImageFilter =
     let timeOfKey (seconds : float) : DateTime =
         epoch.AddSeconds seconds
 
-    /// The Date filter's range: HERA's launch to the end of today -- or to the end of
-    /// 2027 while that is later, so the synthetic pre-arrival products (dated 2027) can
-    /// be selected too.
+    /// The Date filter's range start: HERA at Didymos.
+    let timeRangeStart = DateTime(2026, 11, 1, 0, 0, 0, DateTimeKind.Utc)
+
+    /// The Date filter's range: 2026-11-01 to the end of today (UTC), today taken when
+    /// the filter is created (at start, and by a new scene).
     let timeRange () =
-        let launch = DateTime(2024, 10, 7, 0, 0, 0, DateTimeKind.Utc)
         let endOfToday = DateTime.UtcNow.Date.AddDays(1.0).AddSeconds(-1.0)
-        let end2027 = DateTime(2027, 12, 31, 23, 59, 59, DateTimeKind.Utc)
         let key (t : DateTime) = (t - epoch).TotalSeconds
-        key launch, key (if endOfToday > end2027 then endOfToday else end2027)
+        key timeRangeStart, key endOfToday
 
     /// Distance and resolution span orders of magnitude (cruise to proximity): their
     /// sliders run on a log scale (DualRangeSlider), the bound boxes show real values.
@@ -608,24 +608,12 @@ module ImageFilter =
         | Distance | Resolution -> true
         | PhaseAngle | Time -> false
 
-    /// The Date filter at start: HERA at Didymos, arrival to the end of the nominal
-    /// mission (UTC, both days whole). Set by default so a catalog search asks for this
-    /// window rather than the whole mission's newest images; the library is filtered
-    /// alike. Resetting the filter selects the whole range (off).
-    let defaultTimeWindow =
-        DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc), DateTime(2027, 5, 31, 23, 59, 59, DateTimeKind.Utc)
-
     /// Fixed ranges, independent of the loaded images: the same filter applies to the
     /// library and to catalog results not loaded yet (docs/MultiImageProjection.md).
-    /// All off but Date, which starts at defaultTimeWindow.
+    /// All off: the whole ranges selected.
     let initial : ImageFilter =
         let timeMin, timeMax = timeRange ()
-        let fromKey (t : DateTime) = (t - epoch).TotalSeconds
-        let windowFrom, windowTo = defaultTimeWindow
-        let time =
-            RangeFilter.create timeMin timeMax 1.0 "{0:0}"
-            |> RangeFilter.setLower (fromKey windowFrom)
-            |> RangeFilter.setUpper (fromKey windowTo)
+        let time = RangeFilter.create timeMin timeMax 1.0 "{0:0}"
         {
             phaseAngle   = RangeFilter.create 0.0 180.0 0.1 "{0:0.0}"
             resolution   = RangeFilter.create 0.001 100000.0 0.001 "{0:0.000}"

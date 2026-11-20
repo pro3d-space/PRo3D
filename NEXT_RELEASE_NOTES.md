@@ -14,3 +14,5 @@ release folds them into `PRODUCT_RELEASE_NOTES.md`.
   and an empty list (docs/Build-Deploy-System.md).
 
 ## Pending
+
+- Projected images: **the Date filter spans 2026-11-01 to today**, and the Image Search always asks the catalog for the selected dates, also while the filter is off (docs/MultiImageProjection.md, docs/StacImageSearch.md)
