@@ -14,3 +14,5 @@ release folds them into `PRODUCT_RELEASE_NOTES.md`.
   and an empty list (docs/Build-Deploy-System.md).
 
 ## Pending
+
+- Image Search: **no longer crawls on large OPCs.** The per-image check now projects the picked point and tests that the camera is above the point's horizon, instead of casting rays that reloaded KdTree patches all over the body. Range, pixel size and incidence are measured at the picked point; terrain hiding a point above the horizon is no longer detected. (docs/StacImageSearch.md)

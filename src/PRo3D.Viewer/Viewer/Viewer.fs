@@ -1070,15 +1070,15 @@ module ViewerApp =
                 |> ViewerAction.GisAppMessage
                 |> MailboxAction.ViewerAction
                 |> mailbox.Post
-            // a check loads KdTree patches and calls SPICE: the background busy pill
+            // a check calls SPICE: the background busy pill
             PRo3D.GIS.StacSearch.checkScope <- fun f -> Busy.scopeBackground "image search" f
             let w = PRo3D.GIS.StacSearch.Worker(post)
             stacWorkerInstance <- Some w
             w
 
     /// A preview pick as the STAC search sees it: the point and normal in the picked
-    /// surface's body-fixed frame -- the frame the images' projectors live in -- and a
-    /// ray caster in that frame. The inverse of flyToImageCamera's placement.
+    /// surface's body-fixed frame -- the frame the images' projectors live in. The
+    /// inverse of flyToImageCamera's placement.
     let stacScene (m : Model) (surfaceName : string) (hitPoint : V3d) (normal : Option<V3d>) : Result<PRo3D.GIS.StacSearch.Scene, string> =
         let gis = m.scene.gisApp
         // runs on every preview pick while the tool is active: one pass, no Seq
@@ -1110,15 +1110,6 @@ module ViewerApp =
                 // `localRay`). Transforming it again would rotate it by the surface's
                 // transformation. Only normalised here.
                 let localNormal (n : V3d) = Vec.normalize n
-                let pick (ray : Ray3d) =
-                    let origin = t.Forward.TransformPos ray.Origin
-                    let direction = t.Forward.TransformDir ray.Direction |> Vec.normalize
-                    match Picking.pickRay m (FastRay3d(Ray3d(origin, direction))) (Some surfaceName) with
-                    | Some (hit, position) ->
-                        let info = hit.GetIntersectionRayHitInfo()
-                        let n = if info.HasValidNormal then Some (localNormal info.Normal) else None
-                        Some (t.Backward.TransformPos position, n)
-                    | None -> None
                 Result.Ok {
                     instruments      = PRo3D.ImageMapping.InstrumentFov.toInstruments gis.projectedImageList.instrumentFovs
                     frame            = r.referenceFrame.Value
@@ -1127,7 +1118,6 @@ module ViewerApp =
                     point            = t.Backward.TransformPos hitPoint
                     // the pick's KdTree normal: in this frame already (see localNormal)
                     normal           = normal |> Option.map localNormal
-                    pick             = pick
                 }
 
     /// Hand a point to the STAC search, when the Image Search tool is active: every

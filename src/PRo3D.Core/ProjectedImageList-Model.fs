@@ -183,24 +183,16 @@ type StacAssets =
 /// Observation geometry of one STAC hit, see StacSearch.metrics.
 type StacMetrics =
     {
-        /// spacecraft to the central pixel's surface point, metres; to the queried
-        /// point when the boresight misses the loaded surface
+        /// spacecraft to the picked point, metres
         rangeM           : float
         /// ground size of one pixel at rangeM, metres
         pixelSizeM       : float
-        /// sun incidence at the central pixel (at the queried point when the
-        /// boresight misses), degrees. None when the image carries no sun position.
-        incidenceDeg     : Option<float>
         /// sun incidence at the picked point itself, degrees (0 = sun overhead,
         /// > 90 = night): what the incidence filter compares. None when the image
         /// carries no sun position or the point has no normal.
         pointIncidenceDeg : Option<float>
         /// the queried point in the image, pixels, 0-based, origin top-left
         pixel            : V2d
-        /// true: range and incidence are measured at the central pixel's surface
-        /// point; false: the boresight missed the loaded surface, they are the
-        /// queried point's
-        centralOnSurface : bool
     }
 
 /// Where the local check of one catalog hit stands.

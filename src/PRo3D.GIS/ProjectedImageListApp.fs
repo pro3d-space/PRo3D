@@ -946,7 +946,7 @@ module ProjectedImageListApp =
             ]
 
         /// STAC search: the images containing the point picked with the Image Search
-        /// tool, with their pixel size, range and sun incidence at the central pixel.
+        /// tool, with their pixel size, range and sun incidence at the picked point.
         /// Clicking one downloads it and puts it on top of the stack.
         let stacPanel =
             let s = m.stacSearch
@@ -1035,10 +1035,7 @@ module ProjectedImageListApp =
                 let atPoint =
                     match c.check with
                     | Resolved v ->
-                        // * : the boresight missed the loaded surface, so range and pixel
-                        // size are the cursor point's instead
-                        let where = if v.centralOnSurface then "at the central pixel" else "at the cursor point (the boresight misses the loaded surface)"
-                        sprintf ". Measured %s: range %s, pixel %s" where (formatLength v.rangeM) (formatLength v.pixelSizeM)
+                        sprintf ". Measured at the picked point: range %s, pixel %s" (formatLength v.rangeM) (formatLength v.pixelSizeM)
                     | Unresolved e -> sprintf ". Pointing not resolved: %s" (e.TrimEnd([|'.'; ' '|]))
                     | StacCheck.Checking -> ""
                 // one line: aardvark.media sends attribute values to the page as JavaScript
@@ -1091,7 +1088,7 @@ module ProjectedImageListApp =
                         div [cell wDate true; attribute "title" (formatFullDate c.time)] [text (formatListDate c.time)]
                         div [cell wResolution false] [text resolution]
                         // SUN INCIDENCE (disabled, see docs/StacImageSearch.md): the inc. column
-                        // div [cell 40 false] [text ((v.incidenceDeg |> Option.map (sprintf "%.0f°") |> Option.defaultValue "-") + mark)]
+                        // div [cell 40 false] [text ((v.pointIncidenceDeg |> Option.map (sprintf "%.0f°") |> Option.defaultValue "-") + mark)]
                     ]
                 ]
             div [] [
