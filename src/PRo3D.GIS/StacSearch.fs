@@ -536,10 +536,15 @@ module StacSearch =
     /// The id made a valid name, plus a short hash of the id itself: ids that differ
     /// only in case (one folder on Windows) or only in invalid characters, and ids
     /// like "." or "..", still get folders of their own inside the cache.
+    /// The characters replaced are Windows' on every platform, not
+    /// Path.GetInvalidFileNameChars: on Linux and macOS that is only '/' and NUL,
+    /// so ':' or '*' would stay in the name there, and the same item would get a
+    /// different folder name per platform.
     let itemDirectory (itemId : string) =
-        let invalid = Path.GetInvalidFileNameChars()
+        let invalid (c : char) =
+            c < ' ' || c = '<' || c = '>' || c = ':' || c = '"' || c = '/' || c = '\\' || c = '|' || c = '?' || c = '*'
         let safe =
-            String(itemId.ToCharArray() |> Array.map (fun c -> if Array.contains c invalid then '_' else c))
+            String(itemId.ToCharArray() |> Array.map (fun c -> if invalid c then '_' else c))
                 .Trim('.', ' ')
         let hash =
             use sha = Security.Cryptography.SHA256.Create()
