@@ -1,3 +1,8 @@
+## 6.4.7
+Image Search no longer crawls on large OPCs; everything of 6.4.6 (lighting modes and light button, image time clock, UTC time field, TIFF sidecar fixes).
+
+- Image Search: **no longer crawls on large OPCs.** The per-image check now projects the picked point and tests that the camera is above the point's horizon, instead of casting rays that reloaded KdTree patches all over the body. Range, pixel size and incidence are measured at the picked point; terrain hiding a point above the horizon is no longer detected. (docs/StacImageSearch.md)
+
 ## 6.4.6
 Lighting modes (Off, Headlight, Sun, Sun with shadows) on a new light button in the tool strip and in GIS View, projected images unshaded without the sun, a clock to set the GIS time from an image, a UTC time field, and fixes for TIFF deliveries without a statistics sidecar or with renamed files.
 
