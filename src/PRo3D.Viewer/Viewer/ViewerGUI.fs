@@ -1410,7 +1410,7 @@ module Gui =
         let private lightingIcon (mode : PRo3D.ImageMapping.LightingMode) =
             match mode with
             | PRo3D.ImageMapping.LightingMode.Off -> "lightbulb outline", "Light: Off - no lighting at all"
-            | PRo3D.ImageMapping.LightingMode.Headlight -> "lightbulb", "Light: Headlight - a camera light shows untextured surfaces' shape"
+            | PRo3D.ImageMapping.LightingMode.Headlight -> "lightbulb", "Light: Headlight - a light at the camera shows the surfaces' shape"
             | PRo3D.ImageMapping.LightingMode.SunDirect -> "sun", "Light: Sun - shaded by the real sun direction"
             | PRo3D.ImageMapping.LightingMode.SunShadow -> "cloud sun", "Light: Sun with shadows - sun shading plus cast shadows"
             | _ -> "lightbulb outline", "Light"

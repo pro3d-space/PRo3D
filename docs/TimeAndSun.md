@@ -40,7 +40,7 @@ body turn with the scene — and therefore whether step 4 shows you anything mov
 
 | Mode | Effect |
 |---|---|
-| `Headlight` | no sun; a camera light shows the shape of untextured surfaces, textured ones show their texture, projected images show only their own pixels (no relief) |
+| `Headlight` | no sun; a light at the camera shades every surface, textured or not, so the shape shows; projected images show only their own pixels (no relief) |
 | `Off` (default) | no lighting at all |
 | `SunDirect` | shaded by the real sun direction, Lommel-Seeliger photometry over the per-face terrain normal |
 | `SunShadow` | `SunDirect` plus cast shadows from a sun-aligned shadow map |

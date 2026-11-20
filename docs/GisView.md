@@ -153,14 +153,16 @@ current observation time:
 
 | Mode | Effect |
 |---|---|
-| `Headlight` | a light at the camera on **untextured** surfaces, so their shape shows; textured surfaces show their texture. A projected image is never lit by it: it shows only its own pixels (in proportion to *Image Opacity*). Also used while a sun mode has no sun direction (no kernel, or a time outside its coverage) |
+| `Headlight` | a light at the camera on **every** surface, textured or not, so the shape shows. A projected image is never lit by it: it shows only its own pixels (in proportion to *Image Opacity*). Also used while a sun mode has no sun direction (no kernel, or a time outside its coverage) |
 | `Off` (default) | no lighting at all: textures and projected images as they are, untextured surfaces flat |
 | `SunDirect` | sun shading: Lommel-Seeliger photometry (physically appropriate for dark regolith; plain Lambert over-darkens the limb) over the per-face terrain normal, so relief is visible under the sun |
 | `SunShadow` | `SunDirect` plus **cast shadows** from a sun-aligned shadow map |
 
 Scenes store the mode as a number; `Headlight` is 0, which is what `Off` meant before
-`Headlight` existed (it switched the camera light on for untextured surfaces), so older
-scenes (and scenes without the field) look as they did. A new scene starts `Off`.
+`Headlight` existed (it switched the camera light on for untextured surfaces only). Older
+scenes (and scenes without the field) therefore open with `Headlight`: untextured surfaces
+look as they did, textured ones are now shaded by the headlight too (switch to `Off` for
+the plain texture). A new scene starts `Off`.
 
 Requirements: a loaded SPICE kernel, an observation time inside its coverage, and a
 surface that resolves to a body and frame — either the scene body it inherits by

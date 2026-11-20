@@ -143,8 +143,8 @@ type InstrumentVisibilityMode =
 /// number: 0 is what "Off" meant before Headlight existed (a camera light on untextured
 /// surfaces), so older scenes keep their look.
 type LightingMode =
-    /// A light at the camera on untextured surfaces, so their shape shows; textured
-    /// surfaces show their texture. Never on projected images.
+    /// A light at the camera on every surface (textured or not), so the shape shows.
+    /// Never on projected images.
     | Headlight = 0
     /// shaded by the real sun direction (Lommel-Seeliger over the terrain normal)
     | SunDirect = 1

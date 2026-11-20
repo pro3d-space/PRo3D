@@ -903,7 +903,7 @@ module ViewerUtils =
                 [<Semantic("ProjectedCover")>] cover : float32
             }
 
-        /// Untextured surfaces with the Headlight lighting mode, lighting band: a fixed light at the
+        /// The Headlight lighting mode, lighting band (textured and untextured surfaces): a fixed light at the
         /// camera (from upper left) over the face normal from screen-space derivatives of
         /// the view-space position -- view space per the precision rules, and no geometry
         /// stage needed. One return on purpose (#719, FShade#39).
@@ -915,7 +915,9 @@ module ViewerUtils =
         let untexturedHeadlight (v : HeadlightVertex) =
             fragment {
                 let mutable c = v.c
-                if not uniform.SurfaceTextureEnabled && uniform.HeadlightEnabled then
+                // every surface, textured or not: the Headlight mode is a choice now, not
+                // the untextured surfaces' fallback it once was
+                if uniform.HeadlightEnabled then
                     let p = v.vp.XYZ
                     let n0 = Vec.cross (ddx p) (ddy p) |> Vec.normalize
                     let toCam = -p |> Vec.normalize

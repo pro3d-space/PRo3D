@@ -135,7 +135,7 @@ sections:
 Lighting is set in *GIS View* → *Settings* → **Sun / Lighting Mode**
 ([GisView.md](GisView.md#sun-illumination-and-cast-shadows)). Without the sun
 (`Off`, the default, or `Headlight`) a projected image shows only its own pixels: the
-camera light that shows an untextured surface's shape leaves the image unshaded (in
+headlight that shows the surfaces' shape leaves the image unshaded (in
 proportion to *Image Opacity*). With the sun on, the image is shaded by the terrain like
 the surface.
 | **Apply Image Adjustments** | on (default): samples go through each image's *Range*, *Brightness/Contrast* and *False Colour* (Selected Image › Properties), which instrument data needs to be readable. Off: the image's own pixels, untouched — for RGB images, and for checking a projection against its source. While it is off, the selected image's Properties show a hint with a button to turn it on. (Formerly *Transfer Function*.) |
