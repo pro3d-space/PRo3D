@@ -57,7 +57,7 @@ columns are the same as the Image Search's (docs/StacImageSearch.md):
 |---|---|
 | Preview | a thumbnail of the file (the first band, stretched; rendered on first view and cached in `%TEMP%\PRo3D\thumbnails`) |
 | Add | add to / remove from the projection stack |
-| Fly | fly to the image's camera |
+| Go to | the arrow flies to the image's camera (and sets the time); the clock only sets the GIS time to the image's observation time, the camera stays |
 | **Instr.** | instrument, from the metadata |
 | **Distance** | distance to the target's centre (red *no TRG_POS* when the metadata has none) |
 | **Date (UTC)** | observation time, to the minute (the full time in the tooltip) |

@@ -1004,6 +1004,8 @@ type StacSearchMessage =
     /// Fly to a checked result's projector, from its downloaded metadata (the
     /// Viewer frames it; GisApp moves the scene time to its epoch).
     | FlyToCandidate of itemId : string
+    /// Set the GIS time to a result's observation time (the catalog's); handled by GisApp.
+    | SetTimeToCandidate of itemId : string
     /// Sort the results by a column; again on the same column: the other way round.
     | SortCandidatesBy of ImageSortKey
     | ToggleImagesExpanded
@@ -1040,6 +1042,9 @@ type ProjectedImageListMessage =
     /// Frame this image's footprint. Handled by the Viewer (it owns the camera
     /// animation), not by ProjectedImageListApp.update.
     | FlyToImage of Guid
+    /// Set the GIS time to this image's observation time (the camera stays). Handled by
+    /// GisApp, which owns the time.
+    | SetTimeToImage of Guid
     | SortEntriesByDistance
     | SortEntriesByDate
     /// Sort the library by a column; again on the same column: the other way round.

@@ -42,7 +42,7 @@ the GIS tab under *Projected Images → Image Search (STAC)*.
    |---|---|
    | Preview | the catalog's overview image |
    | Add | download the image, add it to the library and put it on top of the projection stack |
-   | Fly | fly to the image's camera (once the row is checked: it needs the downloaded metadata); the scene time moves to the image's |
+   | Go to | the arrow flies to the image's camera (once the row is checked: it needs the downloaded metadata) and moves the scene time to the image's; the clock only sets the GIS time to the image's observation time (the catalog's, no download needed), the camera stays |
    | **Instr.** | instrument, from the image's metadata (the catalog's name before the check) |
    | **Distance** | distance to the target's centre, from the metadata — as in the library and the Distance filter |
    | **Date (UTC)** | observation time, to the minute (the full time in the tooltip) |

@@ -51,7 +51,7 @@ At the top of the GIS tab there is a section entitled "Current Observation Setti
 
 * Observed body: the **scene body** — the body at the origin of the scene. It is the same setting as the planet in the top bar: choosing one sets the other (see [SceneBody.md](SceneBody.md)).
 * Camera source Body: the entity the camera looks from. When set, the camera is placed at its position and looks at the observed body.
-* Time: The point of time at which we want to observe. The loaded spice kernel needs to have data for the bodies involved at the selected point in time!
+* Time: The point of time at which we want to observe, in **UTC** (date and time to the second, like the Projected Images Date filter). Click the field for the date/time picker, click it again to close it. The loaded spice kernel needs to have data for the bodies involved at the selected point in time!
 * Reference Frame: the frame the scene is expressed in. For a body PRo3D knows (Mars, Earth, Moon, Phobos, Deimos, Didymos, Dimorphos) this is the body's fixed frame (e.g. `DIMORPHOS_FIXED`) and is set automatically — that is what lets map view and the planet-based measurements work. A scene saved in another frame (e.g. `J2000`) keeps it and shows a note with a button to switch.
 * Re-use settings above: puts the camera back at the camera source body, looking at the observed body — e.g. after you navigated away.
 

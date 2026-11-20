@@ -268,3 +268,33 @@ function pro3dDeleteKey(event) {
 	});
 	window.addEventListener('blur', release);
 })();
+
+// --- date/time fields ----------------------------------------------------------------
+//
+// The UTC date/time fields (input.pro3d-time-input: GIS View's Time, the Projected Images
+// Date filter): a click on the field opens the browser's picker, a second click closes
+// it again. The picker cannot be closed by script except by taking the focus away, so the
+// second click blurs the field. Picking a value, leaving the field or Escape resets it.
+
+(function () {
+	function isTimeInput(t) {
+		return !!t && t.tagName === 'INPUT' && t.classList && t.classList.contains('pro3d-time-input');
+	}
+	function reset(e) {
+		if (isTimeInput(e.target)) { e.target.dataset.pro3dPickerOpen = '0'; }
+	}
+	document.addEventListener('click', function (e) {
+		var t = e.target;
+		if (!isTimeInput(t)) { return; }
+		if (t.dataset.pro3dPickerOpen === '1') {
+			t.dataset.pro3dPickerOpen = '0';
+			t.blur();
+		} else {
+			t.dataset.pro3dPickerOpen = '1';
+			try { t.showPicker(); } catch (err) { }
+		}
+	}, true);
+	document.addEventListener('change', reset, true);
+	document.addEventListener('focusout', reset, true);
+	document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { reset(e); } }, true);
+})();

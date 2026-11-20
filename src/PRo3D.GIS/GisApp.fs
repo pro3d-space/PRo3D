@@ -299,6 +299,16 @@ module GisApp =
                 match InstrumentMetadata.tryParseMetadataForImagePath image.texture with
                 | Some mbi, _ -> viewer, setObservationTimeToImage mbi m
                 | None, _ -> viewer, m
+        // the clock in the image lists: the GIS time to the image's observation time,
+        // the camera stays where it is
+        | GisAppAction.ProjectedImageListMessage (ProjectedImageListMessage.SetTimeToImage imageId) ->
+            match ProjectedImageListModel.tryFind imageId m.projectedImageList with
+            | Some image when image.time <> DateTime.MinValue -> viewer, setObservationTime (image.time.ToUniversalTime()) m
+            | _ -> viewer, m
+        | GisAppAction.ProjectedImageListMessage (ProjectedImageListMessage.StacMessage (StacSearchMessage.SetTimeToCandidate itemId)) ->
+            match m.projectedImageList.stacSearch.candidates |> IndexList.tryFind (fun _ c -> c.itemId = itemId) with
+            | Some c -> viewer, setObservationTime (c.time.ToUniversalTime()) m
+            | None -> viewer, m
         | GisAppAction.ProjectedImageListMessage (ProjectedImageListMessage.StacMessage (StacSearchMessage.FlyToCandidate itemId)) ->
             // as FlyToImage, from the result's downloaded metadata (the check fetched it)
             match m.projectedImageList.stacSearch.candidates |> IndexList.tryFind (fun _ c -> c.itemId = itemId) with

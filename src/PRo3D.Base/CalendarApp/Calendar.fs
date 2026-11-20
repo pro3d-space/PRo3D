@@ -140,6 +140,30 @@ module Calendar =
            ] 
         )
         
+    /// The date and time as a UTC field: the browser's date/time input, like the
+    /// Projected Images Date filter (class pro3d-time-input, semui-overrides.css). The
+    /// Fomantic calendar (`view`) shows local time, so a 03:16 UTC observation read as
+    /// 04:16 in UTC+1; this one shows and takes UTC, to the second. A click on the field
+    /// opens the picker, a second click closes it (utilities.js).
+    let viewUtc (m : AdaptiveCalendar) : DomNode<CalendarAction> =
+        let format (d : DateTime) = (toUtc d).ToString("yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture)
+        let attributes =
+            amap {
+                yield attribute "type" "datetime-local"
+                yield attribute "step" "1"
+                yield clazz "pro3d-time-input"
+                let! date = m.date
+                yield attribute "value" (format date)
+                yield onChange (fun s ->
+                    match tryParseUtc (s.Trim '"') with
+                    | Some date -> SetDate date
+                    | None -> SetDateString (s.Trim '"'))
+            } |> AttributeMap.ofAMap
+        div [style "display: flex; align-items: center; gap: 6px"] [
+            Incremental.input attributes
+            span [style "opacity: 0.7"] [text "UTC"]
+        ]
+
     let init =
         {
             date = DateTime.UtcNow
