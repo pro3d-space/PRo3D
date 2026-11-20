@@ -315,6 +315,16 @@ module SurfaceIntersection =
         else
             surf.preTransform * fullTrafo
 
+    /// Ray parameter where the ray enters the box (slab test); negative when the origin is
+    /// inside or the box lies behind. Only orders boxes the ray is known to hit.
+    let private rayEntryT (ray : Ray3d) (b : Box3d) : float =
+        let slab (o : float) (d : float) (lo : float) (hi : float) =
+            if d = 0.0 then (if o >= lo && o <= hi then -infinity else infinity)
+            else min ((lo - o) / d) ((hi - o) / d)
+        let o = ray.Origin
+        let d = ray.Direction
+        max (slab o.X d.X b.Min.X b.Max.X) (max (slab o.Y d.Y b.Min.Y b.Max.Y) (slab o.Z d.Z b.Min.Z b.Max.Z))
+
     /// The nearest hit of the ray on each surface `filterSurface` accepts (at most one per
     /// surface), and the updated KdTree cache. Shared by `doKdTreeIntersection` (picking: the
     /// highest priority wins) and `doKdTreeIntersectionNearest` (occlusion: the nearest wins).
@@ -377,30 +387,40 @@ module SurfaceIntersection =
                                 surf.preTransform.Backward * fullTrafo.Backward
                         let localRay = r.Ray.Transformed(backward) |> FastRay3d
 
-                        //get bbs that are hit
+                        // the boxes the ray hits, front to back by where it enters them
                         let hitBoxes =
                             kd
-                            |> HashMap.toList |> List.map fst
-                            |> List.filter(fun x ->
+                            |> HashMap.toArray
+                            |> Array.choose (fun (key, _) ->
+                                let worldBox = key.Transformed(trafo)
                                 let mutable t = 0.0
-                                x.Transformed(trafo).Intersects(r.Ray, &t)
-                            )
-                        //intersect corresponding kdtrees
-                        let closestHit =
-                            hitBoxes
-                            |> List.choose(fun key ->
-                                if verboseLogging then Log.startTimed "intersection: %s; pr: %f" surf.name surf.priority.value
-                                let ray = localRay
-                                let hit, c =
-                                    kd |> DebugKdTreesX.intersectKdTrees key surf loadedKdTrees ray
-                                if verboseLogging then Log.stop()
-                                loadedKdTrees <- c
-                                hit |> Option.map (fun (h, s) ->
-                                    { hit = h; surface = s; hitBBox = key; sgSurface = sgSurf }
-                                )
-                            )
-                            |> List.sortBy(fun info -> info.hit.RayHit.T)
-                            |> List.tryHead
+                                if worldBox.Intersects(r.Ray, &t) then Some (rayEntryT r.Ray worldBox, key)
+                                else None)
+                            |> Array.sortBy fst
+                        // Intersect front to back and stop once the nearest hit lies before the
+                        // next box's entry: no later box can hold a nearer hit, so its KdTree
+                        // need not be loaded. Same result as testing every box, but a ray
+                        // through a body no longer loads the patches on its far side, which
+                        // thrashed the KdTree budget during Image Search (each lazy load is
+                        // a whole patch from disk). Localray and ray share the parameter t.
+                        let mutable closestHit : Option<KdTreeHitInfo> = None
+                        let mutable i = 0
+                        while i < hitBoxes.Length
+                              && (match closestHit with
+                                  | Some best -> best.hit.RayHit.T >= fst hitBoxes.[i]
+                                  | None -> true) do
+                            let key = snd hitBoxes.[i]
+                            if verboseLogging then Log.startTimed "intersection: %s; pr: %f" surf.name surf.priority.value
+                            let hit, c =
+                                kd |> DebugKdTreesX.intersectKdTrees key surf loadedKdTrees localRay
+                            if verboseLogging then Log.stop()
+                            loadedKdTrees <- c
+                            match hit, closestHit with
+                            | Some (h, _), Some best when best.hit.RayHit.T <= h.RayHit.T -> ()
+                            | Some (h, s), _ ->
+                                closestHit <- Some { hit = h; surface = s; hitBBox = key; sgSurface = sgSurf }
+                            | None, _ -> ()
+                            i <- i + 1
 
                         closestHit
                 | Picking.PickMesh pm -> Log.error "no kdtree loaded for %s" surf.name; None
