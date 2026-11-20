@@ -101,7 +101,8 @@ sections:
   - **Data** — *what* is shown: the *Channel* and the *Range*, the min/max of its
     values that span the colour map (and that the legend labels), as one two-handle
     slider with an input box at each end. The header's undo icon resets the range to
-    the image's statistics.
+    the image's statistics: those of its `<image>.tif.json` sidecar, or, for a TIFF
+    delivered without one, the min/max of its finite pixel values, read at import.
   - **Tone** — *how* it looks, purely visual: *Brightness* (−1…1, default 0) shifts
     the values, *Contrast* (0…3, default 1) scales them around mid grey; reset by the
     header's undo icon. Acts on the values within the *Data* range, before the colour
