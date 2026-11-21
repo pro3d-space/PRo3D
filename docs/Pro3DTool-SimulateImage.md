@@ -51,7 +51,7 @@ chain rather than only to picture it.
   the body lands at DN 245; the applied gain is logged. Pass `--gain` to fix the exposure
   across a series.
 
-Output is one 8-bit greyscale PNG at the instrument's native size.
+Output is one 8-bit greyscale PNG at the instrument's native size. Rows are written in the **instrument's row order** from its instrument-kernel pixel layout: for the AFC cameras line 0 (the bottom of the frame) first, so the PNG looks upside down in an image viewer and projects correctly with the viewer's default *flip* ([InstrumentFieldOfView.md](./InstrumentFieldOfView.md#where-the-default-comes-from-the-instrument-kernels-pixel-layout)); `--project` reads frames the same way.
 
 ## Options
 

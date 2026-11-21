@@ -526,9 +526,20 @@ let cameraAt (observer : string) (frame : string) (body : string) (instrument : 
             // so the instrument's real boresight offset (0.145 deg for AFC-1) is included
             // rather than idealised away; for ASPECT the two coincide, its channel frames
             // being a zero-offset TKFRAME of MILANI_SPACECRAFT.
+            // With an instrument-kernel layout (InstrumentProjection.imageLayouts) the
+            // image axes come from it directly; otherwise from the specialTrafos entry.
+            let mounting =
+                match Map.tryFind instrument InstrumentProjection.imageLayouts with
+                | Some layout ->
+                    // viewTrafoOfBasis -x -y z has camera axes (-X, -Y, -Z) of the
+                    // instrument, i.e. maps instrument p to -p; the layout camera C needs
+                    // C^T p, so the mounting is -C^T (det -1 like every specialTrafos entry)
+                    let c = fst (InstrumentProjection.layoutCamera layout)
+                    let toCamera = M33d.FromRows(-c.C0, -c.C1, -c.C2)
+                    Some (Trafo3d(M44d toCamera, M44d toCamera.Transposed))
+                | None -> Map.tryFind instrument InstrumentProjection.specialTrafos
             let view =
-                match CooTransformation.getRotationTrafo instrument frame time,
-                      Map.tryFind instrument InstrumentProjection.specialTrafos with
+                match CooTransformation.getRotationTrafo instrument frame time, mounting with
                 | Some instrumentToBody, Some mounting ->
                     let m = instrumentToBody.Forward.UpperLeftM33()
                     // Every mounting keeps the camera's Z, so the boresight is the
@@ -563,9 +574,11 @@ let cameraAt (observer : string) (frame : string) (body : string) (instrument : 
                     let boresight = (lookAt - pos).Normalized
                     let up = if abs (Vec.dot boresight V3d.OOI) > 0.98 then V3d.OIO else V3d.OOI
                     Some (CameraView.lookAt pos lookAt up |> CameraView.viewTrafo)
+            // the instrument's row order, as every projector of it has (ProjectorRequest.flipRows)
+            let flip = if InstrumentProjection.defaultFlipRows instrument then InstrumentProjection.rowFlip else Trafo3d.Identity
             Ok {
                 view = view |> Option.defaultValue Trafo3d.Identity
-                proj = Frustum.projTrafo frustum
+                proj = flip * Frustum.projTrafo frustum
                 distance = distance
                 aspect = (frustum.right - frustum.left) / (frustum.top - frustum.bottom)
             }
@@ -679,7 +692,7 @@ let private poseCamera (pose : ProjectorPose) (frame : string) (body : string) (
         boresight   = None
         nearFar     = None
         fov         = None
-        flipRows    = false
+        flipRows    = InstrumentProjection.defaultFlipRows img.spiceName
     }
     |> Result.mapError (fun e -> sprintf "%s at %s (frame %s): %s" img.spiceName (img.mbi.obs_date.ToString "o") frame e)
     |> Result.map (fun p ->

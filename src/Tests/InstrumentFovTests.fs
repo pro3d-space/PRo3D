@@ -120,21 +120,33 @@ let tests =
             Expect.equal (InstrumentFov.toMap restored.projectedImageList.instrumentFovs) (InstrumentFov.toMap changed) "read back"
         }
 
-        test "a flipped instrument is saved with its kernel field of view and read back flipped" {
-            let flipped = InstrumentFovApp.update InstrumentFov.defaults (ToggleFlipRows "HERA_AFC-1")
-            match HashMap.tryFind "HERA_AFC-1" flipped with
+        test "AFC is flipped by default; an unflip is saved and read back, reset restores the default" {
+            let flipOf name (fovs : HashMap<string, InstrumentFov>) = HashMap.tryFind name fovs |> Option.map (fun f -> f.flipRows)
+            Expect.equal (flipOf "HERA_AFC-1" InstrumentFov.defaults) (Some true) "AFC-1 flipped by default"
+            Expect.equal (flipOf "HERA_AFC-2" InstrumentFov.defaults) (Some true) "AFC-2 flipped by default"
+            Expect.equal (flipOf "HERA_HSH" InstrumentFov.defaults) (Some false) "HSH not"
+            let unflipped = InstrumentFovApp.update InstrumentFov.defaults (ToggleFlipRows "HERA_AFC-1")
+            match HashMap.tryFind "HERA_AFC-1" unflipped with
             | Some f ->
-                Expect.isTrue f.flipRows "toggled"
-                Expect.isTrue (InstrumentFov.isOverride f) "a flip alone is a scene change"
+                Expect.isFalse f.flipRows "toggled off"
+                Expect.isTrue (InstrumentFov.isOverride f) "differing from the default flip alone is a scene change"
             | None -> failtest "AFC-1 gone"
-            let s, restored = roundtrip (withFovs flipped (GisApp.initial None))
+            let s, restored = roundtrip (withFovs unflipped (GisApp.initial None))
             Expect.stringContains s "flipRows" "written"
             let back = InstrumentFov.toInstruments restored.projectedImageList.instrumentFovs
-            Expect.equal (Map.tryFind "HERA_AFC-1" back |> Option.map (fun s -> s.flipRows)) (Some true) "read back flipped"
+            Expect.equal (Map.tryFind "HERA_AFC-1" back |> Option.map (fun s -> s.flipRows)) (Some false) "read back unflipped"
+            Expect.equal (Map.tryFind "HERA_AFC-2" back |> Option.map (fun s -> s.flipRows)) (Some true) "AFC-2 keeps its default"
             Expect.equal (InstrumentFov.toMap restored.projectedImageList.instrumentFovs) InstrumentProjection.defaultFovs
                 "the field of view stays the kernel's"
-            let reset = InstrumentFovApp.update flipped (Reset "HERA_AFC-1")
-            Expect.equal reset InstrumentFov.defaults "reset clears the flip"
+            let reset = InstrumentFovApp.update unflipped (Reset "HERA_AFC-1")
+            Expect.equal reset InstrumentFov.defaults "reset restores the default flip"
+        }
+
+        test "a non-default instrument flipped on is saved and read back flipped" {
+            let flipped = InstrumentFovApp.update InstrumentFov.defaults (ToggleFlipRows "HERA_HSH")
+            let _, restored = roundtrip (withFovs flipped (GisApp.initial None))
+            let back = InstrumentFov.toInstruments restored.projectedImageList.instrumentFovs
+            Expect.equal (Map.tryFind "HERA_HSH" back |> Option.map (fun s -> s.flipRows)) (Some true) "read back flipped"
         }
 
         test "unusable saved angles fall back to the kernel" {

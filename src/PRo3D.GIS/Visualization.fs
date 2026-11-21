@@ -297,7 +297,7 @@ module Visualization =
                     boresight   = boresight
                     nearFar     = nearFar
                     fov         = setup |> Option.map (fun s -> s.fov.horizontal, s.fov.vertical)
-                    flipRows    = setup |> Option.exists (fun s -> s.flipRows)
+                    flipRows    = setup |> Option.map (fun s -> s.flipRows) |> Option.defaultValue (InstrumentProjection.defaultFlipRows spiceName)
                 }
         | _ ->
             Result.Error "no mbi sidecar"

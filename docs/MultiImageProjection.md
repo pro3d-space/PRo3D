@@ -140,7 +140,7 @@ photograph that already shows the sun's light and shadows; shading it by the ter
 again would count them twice. The surface around the image is lit as usual.
 | **Apply Image Adjustments** | on (default): samples go through each image's *Range*, *Brightness/Contrast* and *False Colour* (Selected Image › Properties), which instrument data needs to be readable. Off: the image's own pixels, untouched — for RGB images, and for checking a projection against its source. While it is off, the selected image's Properties show a hint with a button to turn it on. (Formerly *Transfer Function*.) |
 | **Winding Correction** | off (default). Turn it on only when an image survives **only near the limb** of the body: that is an OPC whose triangles are wound inward, so the projector-facing test rejects exactly the terrain facing the projector. On: PRo3D estimates each OPC hierarchy's winding from its coarsest patch (loaded once, the first time something is projected) and corrects the inward ones. The estimate assumes a roughly convex body seen from orbit; it is not reliable for near-vertical terrain such as rover outcrops. Saved with the scene. |
-| **Orientation Source** | where the projector's position and attitude come from — *MBI attitude, SPICE range* (`MbiAttitudeSpiceRange`, default), *MBI* (`MbiBased`), *SPICE (instrument frame)* (`Spice`) or *SPICE, aimed at target* (`SpiceAimed`); see [If an image does not land on the terrain](#if-an-image-does-not-land-on-the-terrain) |
+| **Orientation Source** | where the projector's position and attitude come from — *SPICE (instrument frame)* (`Spice`, default), *MBI attitude, SPICE range* (`MbiAttitudeSpiceRange`), *MBI* (`MbiBased`) or *SPICE, aimed at target* (`SpiceAimed`); see [If an image does not land on the terrain](#if-an-image-does-not-land-on-the-terrain) |
 | **Registration** | roll / pitch / yaw in degrees, turning the projector about its own position (a pointing correction); applies to every image of the stack |
 
 The **Instrument Settings** section below it holds each instrument's field of view, prefilled from
@@ -315,9 +315,9 @@ the projector's position and attitude come from:
 
 | mode | position | attitude (incl. roll) | target in the image |
 |---|---|---|---|
-| `MbiAttitudeSpiceRange` (default; *MBI attitude, SPICE range*) | on the boresight, at the SPICE range to `TARGET` | the sidecar's `SC_QUAT` | always dead centre |
+| `MbiAttitudeSpiceRange` (*MBI attitude, SPICE range*) | on the boresight, at the SPICE range to `TARGET` | the sidecar's `SC_QUAT` | always dead centre |
 | `MbiBased` (*MBI*) | the sidecar's `TRG_POS`, measured from its `TARGET` | the sidecar's `SC_QUAT` | wherever the sidecar's pointing puts it |
-| `Spice` (*SPICE (instrument frame)*) | SPICE (spacecraft SPK) | SPICE: the instrument's own frame, spacecraft CK × frames kernel; not aimed | wherever SPICE's pointing puts it |
+| `Spice` (default; *SPICE (instrument frame)*) | SPICE (spacecraft SPK) | SPICE: the instrument's own frame, spacecraft CK × frames kernel; not aimed | wherever SPICE's pointing puts it |
 | `SpiceAimed` (*SPICE, aimed at target*) | SPICE (spacecraft SPK) | SPICE (spacecraft CK, no frames kernel), then turned onto the target | always dead centre |
 
 The dropdown shows the labels in italics; the enum names are what logs use, and the
@@ -403,14 +403,17 @@ CK frame, or the sidecar's `SC_QUAT` — plus PRo3D's fixed 90° axis swap
 for the instrument (`InstrumentProjection.specialTrafos`), and so never sees the
 FK. `Spice` asks for `pxform(<instrument>, J2000)`, i.e. CK × FK.
 
-The image axes keep PRo3D's established orientation: `Spice` computes the old
-spacecraft-based camera, takes the signed axis permutation nearest to the
-rotation between it and the instrument frame, and uses the instrument frame
-relabelled by that permutation. Frames kernels that label the instrument axes
-differently therefore render alike. If the instrument frame is more than 5° from every relabelling of the
-spacecraft-based camera (or the relabelling would mirror), the projector fails
-with an error naming the instrument — usually the wrong frame name or a missing
-frames kernel.
+The image axes come from the instrument kernel's pixel layout
+(`InstrumentProjection.imageLayouts`, see
+[InstrumentFieldOfView.md](InstrumentFieldOfView.md#where-the-default-comes-from-the-instrument-kernels-pixel-layout)):
+the camera is the instrument frame with right/up taken from the detector's samples and
+lines, so no axis convention is guessed. `Spice` checks it against the spacecraft-based
+camera of the other orientation sources: more than 5° apart means the frames kernel
+names the instrument axes differently from the instrument kernel (a frames and
+instrument kernel that do not belong together, or the wrong frame name), and the
+projector fails with an error saying so rather than projecting a rotated image. An
+instrument without a layout entry falls back to the signed axis permutation nearest to
+the spacecraft-based camera.
 
 Whether a sidecar's `SC_QUAT` is the spacecraft or the instrument attitude is a
 property of the delivery; comparing `MbiBased` with `Spice` on the same frame

@@ -1,7 +1,7 @@
 import { test, expect, Page, Browser } from "@playwright/test";
 import { spawnSync } from "child_process";
 import { launchPro3d, Pro3d, fixture, surfaceShadersReady } from "../src/pro3d";
-import { bodyCoverage, diffPng, litFraction, registration, streamLive } from "../src/image";
+import { bodyCoverage, diffPng, flipRowsPng, litFraction, registration, streamLive } from "../src/image";
 import { overlayPlanet } from "../src/viewer";
 import * as fs from "fs";
 import * as path from "path";
@@ -269,7 +269,9 @@ async function projectBack(
             const projected = await settled(render, "projected.png", out);
 
             // --- 3. does it reproduce the frame? -----------------------------------
-            const reg = registration(fs.readFileSync(path.join(out, frame)), projected);
+            // simulate-image writes AFC frames in the instrument's row order (line 0 = bottom,
+            // InstrumentProjection.imageLayouts); the screen shows them top-down
+            const reg = registration(flipRowsPng(fs.readFileSync(path.join(out, frame))), projected);
             const flips = reg.symmetries.slice(1);
             const margin = reg.symmetries[0] - Math.max(...flips);
             console.log(

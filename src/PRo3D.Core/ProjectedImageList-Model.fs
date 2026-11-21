@@ -178,8 +178,8 @@ type ProjectionMethod =
 /// The *Orientation Source* dropdown: order and labels (the enum names are not for users).
 module OrientationSource =
     let all =
-        [ ProjectionMethod.MbiAttitudeSpiceRange; ProjectionMethod.MbiBased
-          ProjectionMethod.Spice; ProjectionMethod.SpiceAimed ]
+        [ ProjectionMethod.Spice; ProjectionMethod.SpiceAimed
+          ProjectionMethod.MbiAttitudeSpiceRange; ProjectionMethod.MbiBased ]
     let label (m : ProjectionMethod) =
         match m with
         | ProjectionMethod.MbiAttitudeSpiceRange -> "MBI attitude, SPICE range"
@@ -946,12 +946,12 @@ module ProjectedImageListModel =
         cameraState = OrbitState.create V3d.Zero 0.0 0.0 (2.0 * (3389.5 * 1000.0))
         instrumentVisibility = InstrumentVisibilityMode.Off
         lightingMode = LightingMode.Off
-        // MbiAttitudeSpiceRange: the image's own attitude and roll (SC_QUAT) with the
-        // range from SPICE. Works for sidecars without TRG_POS
-        // and puts the target on the boresight, which Registration then refines. MbiBased
-        // is exact only where TRG_POS is; Spice/SpiceAimed ignore the image's own pointing. Not persisted
-        // in a scene, so every session starts here.
-        projectionMethod = ProjectionMethod.MbiAttitudeSpiceRange
+        // Spice: SPK position and the instrument's own frame (CK x frames kernel), not
+        // aimed -- the pointing SPICE predicts, independent of the sidecar's SC_QUAT and
+        // TRG_POS. Needs CK and frames-kernel coverage of the epoch; MbiAttitudeSpiceRange
+        // / SpiceAimed for images without it. Not persisted in a scene, so every session
+        // starts here.
+        projectionMethod = ProjectionMethod.Spice
         useTransferFunction = true
         windingCorrection = false
         filter = ImageFilter.initial

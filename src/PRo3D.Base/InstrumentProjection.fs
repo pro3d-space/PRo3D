@@ -56,17 +56,17 @@ type ProjectorPose =
     /// that keeps a pointing error visible for sidecars without `TRG_POS` -- the other two
     /// SPICE-assisted poses put the target on the boresight by construction. Used by
     /// `pro3d-tool simulate-image --method mbi-spice-position` for comparing renders with
-    /// real frames (docs/ImageComparison.md); not an orientation source of the viewer.
+    /// real frames (docs/Pro3DTool-SimulateImage.md); not an orientation source of the viewer.
     | SidecarAttitudeSpicePosition of scQuat : QuaternionD
     /// SPICE only, and the instrument's own frame: position from the SPK, orientation
     /// from `pxform(<instrument>, J2000)` -- CK x FK, so the frames kernel's mounting,
     /// misalignment and twist are all in -- and NOT aimed. Every other pose builds the
     /// instrument from the SPACECRAFT attitude plus the fixed axis swap of
     /// `specialTrafos` and never reads the instrument frame; `SpiceAimed` then turns
-    /// onto the target, hiding any misalignment. The image axes keep PRo3D's
-    /// established orientation: the relabelling between instrument frame and camera is
-    /// taken as the 90-degree rotation nearest to the spacecraft-based camera, so FK
-    /// versions that label the instrument axes differently render alike.
+    /// onto the target, hiding any misalignment. The image axes come from the
+    /// instrument's `imageLayouts` entry (the instrument kernel's pixel layout); an
+    /// instrument without one keeps PRo3D's established orientation, the 90-degree
+    /// relabelling of the instrument frame nearest to the spacecraft-based camera.
     | SpiceInstrument
 
 /// Everything needed to place one instrument image as a projector.
@@ -134,6 +134,50 @@ module InstrumentProjection =
     /// ProjectorRequest.fov.
     /// Near/far are NOT part of an instrument's intrinsics -- they depend on how far
     /// away the target is -- hence `instruments` takes them as parameters.
+    /// Where a stored image's pixel grid lies in the instrument frame: the directions of
+    /// increasing column and increasing row (row 0 = the first row stored), with the
+    /// boresight along the instrument's +Z. Taken from the instrument kernel's FOV
+    /// layout, which defines the frame axes against the detector's samples and lines.
+    type ImageLayout =
+        {
+            columns : V3d
+            rows    : V3d
+        }
+
+    /// The instrument kernels' pixel layout, per SPICE frame name. HERA's IKs: pixel
+    /// (0,0) in the lower left corner, samples along +X, lines along -Y, boresight +Z --
+    /// so a file storing line 0 first stores its rows bottom-up. Only instruments whose
+    /// layout is confirmed against PRo3D's camera are listed (docs/InstrumentFieldOfView.md);
+    /// the others keep `specialTrafos` and project unflipped by default.
+    let imageLayouts : Map<string, ImageLayout> =
+        let hera = { columns = V3d.IOO; rows = -V3d.OIO }
+        Map.ofList [
+            "HERA_AFC-1", hera
+            "HERA_AFC-2", hera
+        ]
+
+    /// The camera of a layout in instrument coordinates (columns: image right, image up,
+    /// towards the viewer = -boresight), always a proper rotation, and whether the image
+    /// rows have to be flipped for it. A layout whose right/up/back is a mirror (rows
+    /// stored bottom-up) takes the nearest proper camera and flips the rows.
+    let layoutCamera (l : ImageLayout) : M33d * bool =
+        let back = -V3d.OOI
+        let up = -l.rows
+        let m = M33d.FromCols(l.columns, up, back)
+        if m.Determinant > 0.0 then m, false
+        else M33d.FromCols(l.columns, -up, back), true
+
+    /// Whether an instrument's images project with flipped rows by default: what its
+    /// `imageLayouts` entry says; unflipped without one. A scene can override it
+    /// (InstrumentSetup.flipRows); the tools use this default.
+    let defaultFlipRows (instrument : string) =
+        match Map.tryFind instrument imageLayouts with
+        | Some l -> snd (layoutCamera l)
+        | None -> false
+
+    /// The projector-space row flip (ProjectorRequest.flipRows): between view and projection.
+    let rowFlip : Trafo3d = Trafo3d.Scale(1.0, -1.0, 1.0)
+
     let defaultFovs : Map<string, Fov> =
         Map.ofList [
             // Full angles = twice the instrument kernel's FOV_REF_ANGLE / FOV_CROSS_ANGLE
@@ -375,18 +419,28 @@ module InstrumentProjection =
                             let camToJ2000 = nominal.Backward.UpperLeftM33()          // columns: camera axes in J2000
                             let instToJ2000 = inst.Forward.UpperLeftM33().Transposed  // columns: instrument axes in J2000
                             let d = instToJ2000.Transposed * camToJ2000               // camera axes in instrument coords
-                            // nearest signed permutation: PRo3D's image axes in instrument terms
-                            let mutable p = M33d.Zero
-                            for c in 0 .. 2 do
-                                let mutable best = 0
-                                for r in 1 .. 2 do
-                                    if abs d.[r, c] > abs d.[best, c] then best <- r
-                                p.[best, c] <- float (sign d.[best, c])
+                            // The image axes in instrument terms: the instrument kernel's
+                            // layout where known, else the signed permutation nearest to
+                            // PRo3D's spacecraft-based camera.
+                            let p, source =
+                                match Map.tryFind req.instrument imageLayouts with
+                                | Some l -> fst (layoutCamera l), "the instrument kernel's pixel layout"
+                                | None ->
+                                    let mutable p = M33d.Zero
+                                    for c in 0 .. 2 do
+                                        let mutable best = 0
+                                        for r in 1 .. 2 do
+                                            if abs d.[r, c] > abs d.[best, c] then best <- r
+                                        p.[best, c] <- float (sign d.[best, c])
+                                    p, "any axis relabelling"
                             let tr = p.Transposed * d
                             let deviation = Constant.DegreesPerRadian * acos (clamp -1.0 1.0 ((tr.M00 + tr.M11 + tr.M22 - 1.0) / 2.0))
+                            // A layout camera far from the spacecraft-based one means the
+                            // frames kernel names the instrument axes differently from the
+                            // instrument kernel: a kernel set that does not belong together.
                             if abs (p.Determinant - 1.0) > 1e-9 || deviation > 5.0 then
-                                Result.Error (sprintf "%s's frame is %.1f deg from any axis relabelling of PRo3D's %s camera at %s -- wrong instrument frame?"
-                                                  req.instrument deviation req.spacecraft when')
+                                Result.Error (sprintf "%s's frame at %s is %.1f deg from %s applied to PRo3D's %s camera -- frames and instrument kernels do not match, or wrong instrument frame"
+                                                  req.instrument when' deviation source req.spacecraft)
                             else
                                 let cam = instToJ2000 * p
                                 let camToWorld = Trafo3d.FromBasis(cam.C0, cam.C1, cam.C2, location)
@@ -418,7 +472,7 @@ module InstrumentProjection =
                 let distance = (targetPos - location).Length
                 let near, far = req.nearFar |> Option.defaultValue (nearFarForDistance distance)
                 // the row flip mirrors projector space, so the image is sampled bottom-up
-                let flip = if req.flipRows then Trafo3d.Scale(1.0, -1.0, 1.0) else Trafo3d.Identity
+                let flip = if req.flipRows then rowFlip else Trafo3d.Identity
                 let proj = flip * (frustumOf fov near far |> Frustum.projTrafo)
                 let boresight = req.boresight |> Option.defaultValue Trafo3d.Identity
                 let viewInOrigin = originToJ2000 * view * boresight
