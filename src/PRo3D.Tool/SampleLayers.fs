@@ -565,12 +565,13 @@ let run (o : SampleLayersOptions) : int =
     let projectionMethod =
         match (if isNull o.method then "mbi" else o.method).ToLowerInvariant() with
         | "spice" -> Some ProjectionMethod.Spice
+        | "spice-aimed" -> Some ProjectionMethod.SpiceAimed
         | "mbi" -> Some ProjectionMethod.MbiBased
         | "mbi-spice-range" -> Some ProjectionMethod.MbiAttitudeSpiceRange
         | _ -> None
 
     match projectionMethod with
-    | None -> Log.error "unknown --method '%s' (expected spice, mbi or mbi-spice-range)" o.method; 1
+    | None -> Log.error "unknown --method '%s' (expected spice, spice-aimed, mbi or mbi-spice-range)" o.method; 1
     | Some projectionMethod ->
 
     if String.IsNullOrWhiteSpace o.opc || not (Directory.Exists o.opc) then Log.error "OPC directory not found: %s" o.opc; 1
@@ -734,7 +735,7 @@ let run (o : SampleLayersOptions) : int =
     manifest.["body"] <- JsonValue.Create body
     manifest.["frame"] <- JsonValue.Create frame
     manifest.["kernel"] <- JsonValue.Create kernel
-    manifest.["method"] <- JsonValue.Create (match projectionMethod with ProjectionMethod.Spice -> "spice" | ProjectionMethod.MbiAttitudeSpiceRange -> "mbi-spice-range" | _ -> "mbi")
+    manifest.["method"] <- JsonValue.Create (match projectionMethod with ProjectionMethod.Spice -> "spice" | ProjectionMethod.SpiceAimed -> "spice-aimed" | ProjectionMethod.MbiAttitudeSpiceRange -> "mbi-spice-range" | _ -> "mbi")
     manifest.["occlusionToleranceMetres"] <- JsonValue.Create o.occlusionTolerance
     manifest.["vertices"] <- JsonValue.Create vertices.positions.Length
     let attrs = JsonArray()

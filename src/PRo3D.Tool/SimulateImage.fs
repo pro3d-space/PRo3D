@@ -649,9 +649,48 @@ let private imageForMbiArgument (path : string) : Result<string * string, string
     elif File.Exists full then Ok (dir, name)
     else Result.Error (sprintf "not found: %s" full)
 
+/// How `--mbi` turns a sidecar into a camera (`--method`).
+type MbiCameraMethod =
+    /// a viewer orientation source
+    | Viewer of ProjectionMethod
+    /// SC_QUAT at the SPICE spacecraft position, unaimed (ProjectorPose.SidecarAttitudeSpicePosition)
+    | SpicePosition
+
+let parseMbiCameraMethod (s : string) : Result<MbiCameraMethod, string> =
+    match (if isNull s then "" else s.Trim().ToLowerInvariant()) with
+    | "" | "mbi" -> Ok (Viewer ProjectionMethod.MbiBased)
+    | "mbi-spice-range" -> Ok (Viewer ProjectionMethod.MbiAttitudeSpiceRange)
+    // "spice" is the viewer's Spice source: SPK + CK x FK, not aimed (= spice-instrument)
+    | "spice" | "spice-instrument" -> Ok (Viewer ProjectionMethod.Spice)
+    | "spice-aimed" -> Ok (Viewer ProjectionMethod.SpiceAimed)
+    | "mbi-spice-position" -> Ok SpicePosition
+    | other -> Result.Error (sprintf "unknown --method '%s' (expected mbi, mbi-spice-position, mbi-spice-range, spice, spice-instrument or spice-aimed)" other)
+
+/// A camera from an explicit ProjectorPose, through the same resolver the viewer uses.
+let private poseCamera (pose : ProjectorPose) (frame : string) (body : string) (img : ResolvedImage) =
+    InstrumentProjection.resolve {
+        instrument  = img.spiceName
+        spacecraft  = InstrumentProjection.instrument2CameraSource img.mbi.instrument
+        target      = img.mbi.target |> Option.defaultValue body
+        origin      = body
+        originFrame = frame
+        time        = img.mbi.obs_date
+        pose        = pose
+        boresight   = None
+        nearFar     = None
+        fov         = None
+        flipRows    = false
+    }
+    |> Result.mapError (fun e -> sprintf "%s at %s (frame %s): %s" img.spiceName (img.mbi.obs_date.ToString "o") frame e)
+    |> Result.map (fun p ->
+        for w in p.warnings do Log.warn "[projection] %s" w
+        ({ view = p.view; proj = p.proj; full = p.full; distance = p.distance; near = p.near; far = p.far }
+            : ProjectorCamera))
+
 /// The camera an existing observation was taken with, straight out of the viewer's own
-/// projection path (`InstrumentObservation.projectorCamera` -> `Visualization.projectDirect`).
-let cameraFromMbi (frame : string) (body : string)
+/// projection path (`InstrumentObservation.projectorCamera` -> `Visualization.projectDirect`),
+/// or -- for `--method mbi-spice-position` -- an explicit pose through the same resolver.
+let cameraFromMbi (frame : string) (body : string) (method : MbiCameraMethod)
                   (mbiPath : string) : Result<MbiObservation, string> =
     match imageForMbiArgument mbiPath with
     | Result.Error e -> Result.Error e
@@ -659,7 +698,11 @@ let cameraFromMbi (frame : string) (body : string)
         match InstrumentObservation.resolveImage folder (Some imageFile) with
         | Result.Error e -> Result.Error e
         | Ok img ->
-            match InstrumentObservation.projectorCamera None frame body ProjectionMethod.MbiBased img with
+            let camera =
+                match method with
+                | Viewer m -> InstrumentObservation.projectorCamera None frame body m img
+                | SpicePosition -> poseCamera (ProjectorPose.SidecarAttitudeSpicePosition img.mbi.sc_quat) frame body img
+            match camera with
             | Result.Error e -> Result.Error e
             | Ok cam ->
                 match Map.tryFind img.spiceName (InstrumentProjection.instruments cam.near cam.far) with
@@ -700,7 +743,7 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
     // the instrument then comes from that sidecar too (see MbiObservation).
     let observation =
         if String.IsNullOrWhiteSpace cameraSource then Ok None
-        else cameraFromMbi frame body cameraSource |> Result.map Some
+        else parseMbiCameraMethod o.method |> Result.bind (fun m -> cameraFromMbi frame body m cameraSource) |> Result.map Some
 
     // the image to project, and its own projector
     let projected =
@@ -708,7 +751,7 @@ let processImage (runtime : IRuntime) (o : SimulateImageOptions)
         else
             imageForMbiArgument o.project
             |> Result.bind (fun (dir, file) ->
-                cameraFromMbi frame body o.project
+                cameraFromMbi frame body (Viewer ProjectionMethod.MbiBased) o.project
                 |> Result.map (fun obs -> Some (Path.Combine(dir, file), obs.camera.view * obs.camera.proj)))
 
     let useStackShader =

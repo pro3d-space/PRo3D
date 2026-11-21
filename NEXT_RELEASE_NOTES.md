@@ -14,5 +14,5 @@ release folds them into `PRODUCT_RELEASE_NOTES.md`.
   and an empty list (docs/Build-Deploy-System.md).
 
 ## Pending
-
 - Projected images: **no longer shaded twice under the sun**: `SunDirect` and `SunShadow` leave a projected image unshaded, like the headlight, since the photograph already shows the sun's light and shadows; the surface around it is lit as before (docs/GisView.md, docs/MultiImageProjection.md)
+- Image projection: **Orientation Source *SPICE* now uses the instrument's own frame (spacecraft CK × frames kernel) and is no longer aimed at the target**, so the frames kernel's mounting, misalignment and twist are applied and pointing errors stay visible; the old behaviour (spacecraft CK only, turned onto the target centre) is kept as *SPICE, aimed at target* (`SpiceAimed`). The dropdown now shows readable labels. pro3d-tool: `--method spice` follows the viewer, `spice-aimed` gives the old one; `simulate-image` gains `--method` (`mbi`, `mbi-spice-position`, `mbi-spice-range`, `spice`/`spice-instrument`, `spice-aimed`) ([MultiImageProjection.md](docs/MultiImageProjection.md#the-frames-kernel-instrument-mounting), [Pro3DTool-SimulateImage.md](docs/Pro3DTool-SimulateImage.md))

@@ -15,10 +15,12 @@ three — see [the proof](#the-proof) below.
 
 Things that still make images look wrong independently of the projection itself:
 
-1. **Orientation Source** set to *SPICE* reads no pointing from the image at all
+1. **Orientation Source** set to *SPICE, aimed at target* (`SpiceAimed`; this was
+   *SPICE* before the frames-kernel change) reads no pointing from the image at all
    — it aims the camera at the body centre (with SPICE's roll since the
    orientation sources were unified; an arbitrary one before), so real frames land
-   on the body with their features out of place. It used to be the default, which
+   on the body with their features out of place. *SPICE* (`Spice`) is now the
+   instrument frame from CK × frames kernel, not aimed. It used to be the default, which
    made a correct projection look broken out of the box; the default is now
    **MbiAttitudeSpiceRange** (the image's own attitude, SPICE range).
 2. A sidecar can state the pointing wrongly, and the projector will follow it
@@ -342,17 +344,18 @@ ships.
 
 | mode | where the pointing comes from |
 |---|---|
-| **SPICE** | Nowhere in the image. Position and attitude are SPICE's (SPK and spacecraft CK), and the camera is then turned onto the **body centre**. Every image is painted as if shot dead-centre. (Measured below before the roll came from the CK: then it had an arbitrary roll as well.) |
+| **SPICE (instrument frame)** (`Spice`) | Nowhere in the image. Position from the SPK, attitude is SPICE's **instrument frame** (spacecraft CK × frames kernel, mounting and misalignment included), **not aimed**: the image lands where SPICE predicts the instrument pointed, so pointing and ephemeris errors stay visible. See [MultiImageProjection.md](MultiImageProjection.md#the-frames-kernel-instrument-mounting). |
+| **SPICE, aimed at target** (`SpiceAimed`; *SPICE* before) | Nowhere in the image. Position and attitude are SPICE's (SPK and spacecraft CK, no frames kernel), and the camera is then turned onto the **body centre**. Every image is painted as if shot dead-centre. (Measured below — as *SPICE* — before the roll came from the CK: then it had an arbitrary roll as well.) |
 | **MBI** | The image's measured attitude (`SC_QUAT`) and range (`TRG_POS`). Correct when the sidecar is, and faithfully wrong when it is not. |
 | **MbiAttitudeSpiceRange** (default) | The image's attitude (`SC_QUAT`), target on the boresight at the SPICE range. Dead-centre like SPICE, but with the image's own roll; for sidecars without `TRG_POS`. |
 
-All three accept the *Registration* pitch/yaw/roll, which turn the projector
+All of them accept the *Registration* pitch/yaw/roll, which turn the projector
 about its own position — the way to move a dead-centre image onto a body that
 sits off-centre in the frame. See
 [MultiImageProjection.md](MultiImageProjection.md#if-an-image-does-not-land-on-the-terrain).
 
 So the symptom tells you where to look: *"lands on the body but the features do
-not line up"* is the first mode; *"does not land at all"* is the second plus a
+not line up"* is an aimed mode; *"does not land at all"* is the second plus a
 sidecar problem.
 
 Measured in the viewer, one image in the stack, same scene and camera
@@ -363,7 +366,7 @@ throughout:
 | COP frame, as delivered | ![COP with SPICE](images/projectionValidation/viewer-cop-spice.png)<br>87.9% of the body repainted — but offset | ![COP with MBI](images/projectionValidation/viewer-cop-mbi.png)<br>**0.0% — misses entirely** |
 
 `pro3d-tool unproject` says the same without a GPU: that frame's centre pixel
-finds no surface with `--method mbi`, and hits at 8557 m with `--method spice`.
+finds no surface with `--method mbi`, and hits at 8557 m with `--method spice-aimed` (`spice` at the time of measuring).
 
 ## The HERA COP delivery
 

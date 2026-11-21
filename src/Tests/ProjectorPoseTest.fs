@@ -234,6 +234,38 @@ let private consistency =
                 Expect.isLessThan (Vec.length (p.location - spice.location)) 1e-6 "same projector position"
                 Expect.floatClose Accuracy.high p.distance spice.distance "same distance")
         }
+
+        // SpiceInstrument: SPK position, the instrument's own frame (CK x FK), not aimed.
+        // Its camera axes must be the instrument frame's axes up to a signed permutation,
+        // and that permutation must be the one nearest PRo3D's spacecraft-based camera --
+        // the FK mounting is a fraction of a degree off the nominal 90-degree swap.
+        test "SpiceInstrument: SPICE position, camera axes are the instrument frame's, near the CK camera" {
+            withOpsKernel (fun () ->
+                match CooTransformation.getRotationTrafo "J2000" afc epoch with
+                | None -> skiptest (sprintf "the loaded kernels cannot orient %s (no frames kernel?)" afc)
+                | Some inst ->
+                let p = resolveOk (spiceRequest ProjectorPose.SpiceInstrument)
+                let aimed = resolveOk (spiceRequest ProjectorPose.SpiceAimed)
+                Expect.isLessThan (Vec.length (cameraPosition p - cameraPosition aimed)) 1e-6 "the SPICE position"
+                // camera axes (projector space, as J2000 directions; origin frame is J2000 here)
+                let camToJ2000 = p.view.Backward.UpperLeftM33()
+                let j2000ToInst = inst.Forward.UpperLeftM33()
+                let inInst = j2000ToInst * camToJ2000
+                for c in 0 .. 2 do
+                    let largest = [ 0; 1; 2 ] |> List.map (fun r -> abs inInst.[r, c]) |> List.max
+                    Expect.floatClose Accuracy.high largest 1.0 (sprintf "camera axis %d is an instrument axis" c)
+                Expect.floatClose Accuracy.high camToJ2000.Determinant 1.0 "a proper rotation"
+                // the CK attitude unaimed at the same position: differs only by the FK mounting
+                let ckCamera = resolveOk (spiceRequest (ProjectorPose.SidecarAttitudeSpicePosition (ckQuaternion ())))
+                Expect.isLessThan (Vec.length (cameraPosition ckCamera - cameraPosition p)) 1e-6
+                    "SidecarAttitudeSpicePosition sits at the SPICE position too"
+                let fkAngle = rotationAngleDeg (rotationOf p) (rotationOf ckCamera)
+                printfn "[projectorPose] %s frame is %.4f deg from the spacecraft-attitude camera" afc fkAngle
+                Expect.isLessThan fkAngle 1.0 "the FK mounting is close to the nominal axis swap"
+                // not aimed: the boresight is CK x FK's, not the direction to the target
+                printfn "[projectorPose] SpiceInstrument boresight is %.4f deg off the target centre"
+                    (angleDeg (boresightOf p) (-(cameraPosition p))))
+        }
     ]
 
 let tests () =

@@ -225,12 +225,13 @@ let run (o : UnprojectOptions) : int =
     let projectionMethod =
         match (if isNull o.method then "mbi" else o.method).ToLowerInvariant() with
         | "spice" -> Some ProjectionMethod.Spice
+        | "spice-aimed" -> Some ProjectionMethod.SpiceAimed
         | "mbi" -> Some ProjectionMethod.MbiBased
         | "mbi-spice-range" -> Some ProjectionMethod.MbiAttitudeSpiceRange
         | _ -> None
 
     match projectionMethod, parseConvention o.pixelConvention with
-    | None, _ -> Log.error "unknown --method '%s' (expected spice, mbi or mbi-spice-range)" o.method; 1
+    | None, _ -> Log.error "unknown --method '%s' (expected spice, spice-aimed, mbi or mbi-spice-range)" o.method; 1
     | _, None -> Log.error "unknown --pixel-convention '%s' (expected image or fits)" o.pixelConvention; 1
     | Some projectionMethod, Some convention ->
 

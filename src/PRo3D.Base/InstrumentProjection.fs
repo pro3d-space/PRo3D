@@ -51,6 +51,23 @@ type ProjectorPose =
     /// without a usable `TRG_POS`, and for kernels whose spacecraft-to-target direction
     /// is less accurate than the measured attitude.
     | SidecarAttitudeSpiceRange of scQuat : QuaternionD
+    /// The sidecar's attitude (`SC_QUAT`, including roll) at the spacecraft position SPICE
+    /// gives, NOT aimed: the target lands wherever that attitude puts it. The only pose
+    /// that keeps a pointing error visible for sidecars without `TRG_POS` -- the other two
+    /// SPICE-assisted poses put the target on the boresight by construction. Used by
+    /// `pro3d-tool simulate-image --method mbi-spice-position` for comparing renders with
+    /// real frames (docs/ImageComparison.md); not an orientation source of the viewer.
+    | SidecarAttitudeSpicePosition of scQuat : QuaternionD
+    /// SPICE only, and the instrument's own frame: position from the SPK, orientation
+    /// from `pxform(<instrument>, J2000)` -- CK x FK, so the frames kernel's mounting,
+    /// misalignment and twist are all in -- and NOT aimed. Every other pose builds the
+    /// instrument from the SPACECRAFT attitude plus the fixed axis swap of
+    /// `specialTrafos` and never reads the instrument frame; `SpiceAimed` then turns
+    /// onto the target, hiding any misalignment. The image axes keep PRo3D's
+    /// established orientation: the relabelling between instrument frame and camera is
+    /// taken as the 90-degree rotation nearest to the spacecraft-based camera, so FK
+    /// versions that label the instrument axes differently render alike.
+    | SpiceInstrument
 
 /// Everything needed to place one instrument image as a projector.
 type ProjectorRequest =
@@ -318,7 +335,7 @@ module InstrumentProjection =
 
             let pose : Result<Trafo3d * V3d * list<string>, string> =
                 match req.pose with
-                | Sidecar (q, _) | SidecarAttitudeSpiceRange q when zeroQuat q ->
+                | Sidecar (q, _) | SidecarAttitudeSpiceRange q | SidecarAttitudeSpicePosition q when zeroQuat q ->
                     Result.Error noAttitude
                 | Sidecar (q, trgKm) ->
                     if not (isFinite trgKm) || trgKm.Length = 0.0 then
@@ -336,6 +353,46 @@ module InstrumentProjection =
                             let boresight = attitudeView req.instrument attitude V3d.Zero |> boresightOf
                             let location = targetPos - boresight * range
                             Ok (attitudeView req.instrument attitude location, location, []))
+                | SidecarAttitudeSpicePosition q ->
+                    spacecraftPos () |> Result.bind (fun location ->
+                        if not ((targetPos - location).Length > 0.0) then
+                            Result.Error (sprintf "%s and %s coincide at %s" req.spacecraft target when')
+                        else Ok (attitudeView req.instrument (j2000ToScOfQuat q) location, location, []))
+                | SpiceInstrument ->
+                    spacecraftPos () |> Result.bind (fun location ->
+                        if not ((targetPos - location).Length > 0.0) then
+                            Result.Error (sprintf "%s and %s coincide at %s" req.spacecraft target when')
+                        else
+                        let scAttitude =
+                            Map.tryFind req.spacecraft spacecraftFrames
+                            |> Option.bind (fun scFrame -> CooTransformation.getRotationTrafo "J2000" scFrame req.time)
+                        match scAttitude, CooTransformation.getRotationTrafo "J2000" req.instrument req.time with
+                        | None, _ -> Result.Error (sprintf "SPICE has no attitude (CK) of %s at %s" req.spacecraft when')
+                        | _, None -> Result.Error (sprintf "SPICE cannot orient the instrument frame %s at %s (frames kernel loaded?)" req.instrument when')
+                        | Some sc, Some inst ->
+                            // the camera PRo3D has always built (spacecraft attitude + axis swap)
+                            let nominal = attitudeView req.instrument (sc.Forward.UpperLeftM33()) location
+                            let camToJ2000 = nominal.Backward.UpperLeftM33()          // columns: camera axes in J2000
+                            let instToJ2000 = inst.Forward.UpperLeftM33().Transposed  // columns: instrument axes in J2000
+                            let d = instToJ2000.Transposed * camToJ2000               // camera axes in instrument coords
+                            // nearest signed permutation: PRo3D's image axes in instrument terms
+                            let mutable p = M33d.Zero
+                            for c in 0 .. 2 do
+                                let mutable best = 0
+                                for r in 1 .. 2 do
+                                    if abs d.[r, c] > abs d.[best, c] then best <- r
+                                p.[best, c] <- float (sign d.[best, c])
+                            let tr = p.Transposed * d
+                            let deviation = Constant.DegreesPerRadian * acos (clamp -1.0 1.0 ((tr.M00 + tr.M11 + tr.M22 - 1.0) / 2.0))
+                            if abs (p.Determinant - 1.0) > 1e-9 || deviation > 5.0 then
+                                Result.Error (sprintf "%s's frame is %.1f deg from any axis relabelling of PRo3D's %s camera at %s -- wrong instrument frame?"
+                                                  req.instrument deviation req.spacecraft when')
+                            else
+                                let cam = instToJ2000 * p
+                                let camToWorld = Trafo3d.FromBasis(cam.C0, cam.C1, cam.C2, location)
+                                Ok (camToWorld.Inverse, location,
+                                    [ sprintf "camera from SPICE's %s frame (CK x FK), not aimed: %.4f deg from the spacecraft-attitude camera"
+                                          req.instrument deviation ]))
                 | SpiceAimed ->
                     spacecraftPos () |> Result.bind (fun location ->
                         let toTarget = targetPos - location

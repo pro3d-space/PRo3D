@@ -237,7 +237,7 @@ async function projectBack(
                 .toBe(true);
 
             // the sidecar is what is under test, so the projector must read it
-            await selectBeside(gis, "Orientation Source:", "MbiBased");
+            await selectBeside(gis, "Orientation Source:", "MBI (SC_QUAT + TRG_POS)");
             // untransformed pixels, so the render is comparable with the source
             const tf = await gis.evaluate(() => {
                 const el = Array.from(document.querySelectorAll("*")).find(

@@ -713,12 +713,12 @@ module StacSearch =
         let noTarget = targetPosKm.Length < 1e-9
         match projectionMethod with
         | ProjectionMethod.MbiBased when noAttitude ->
-            Some "the sidecar carries no attitude (SC_QUAT is zero); try Projection Method = Spice"
+            Some "the sidecar carries no attitude (SC_QUAT is zero); try Orientation Source = SPICE (instrument frame)"
         | ProjectionMethod.MbiBased when noTarget ->
-            Some "the sidecar carries no target position (TRG_POS is zero); try Projection Method = MbiAttitudeSpiceRange"
+            Some "the sidecar carries no target position (TRG_POS is zero); try Orientation Source = MBI attitude, SPICE range"
         // attitude from the sidecar, range from SPICE: TRG_POS not needed
         | ProjectionMethod.MbiAttitudeSpiceRange when noAttitude ->
-            Some "the sidecar carries no attitude (SC_QUAT is zero); try Projection Method = Spice"
+            Some "the sidecar carries no attitude (SC_QUAT is zero); try Orientation Source = SPICE (instrument frame)"
         | _ -> None
 
     /// Target -> sun, J2000, from the sidecar's SUN_POS and TRG_POS (both measured

@@ -1425,8 +1425,9 @@ module ProjectedImageListApp =
                                    (Some "Estimate each OPC hierarchy's triangle winding and correct inward-wound ones. Only needed when a projection survives only near the limb. Off costs nothing.") [
                             GuiEx.iconCheckBox m.windingCorrection ToggleWindingCorrection
                         ]
-                        settingRow "Orientation Source:" None [
-                            Html.SemUi.dropDown m.projectionMethod SetProjectionMethod
+                        settingRow "Orientation Source:"
+                                   (Some "Where each projector's position and attitude come from. MBI: the image's own SC_QUAT and TRG_POS. MBI attitude, SPICE range: SC_QUAT with the target on the boresight at the SPICE range (sidecars without TRG_POS). SPICE: SPK position and the instrument's own frame (spacecraft CK x frames kernel), not aimed -- the pointing SPICE predicts. SPICE, aimed: spacecraft CK without the frames kernel, turned onto the target centre -- always lands on the body and so hides pointing errors.") [
+                            Html.SemUi.dropDown' (AList.ofList OrientationSource.all) m.projectionMethod SetProjectionMethod OrientationSource.label
                         ]
                     ]
 
