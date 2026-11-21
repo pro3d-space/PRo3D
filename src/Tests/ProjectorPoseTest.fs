@@ -237,8 +237,8 @@ let private consistency =
 
         // SpiceInstrument: SPK position, the instrument's own frame (CK x FK), not aimed.
         // Its camera axes must be the instrument frame's axes up to a signed permutation,
-        // and that permutation must be the one nearest PRo3D's spacecraft-based camera --
-        // the FK mounting is a fraction of a degree off the nominal 90-degree swap.
+        // and that permutation must be the one nearest PRo3D's spacecraft-based camera
+        // (the FK mounting is close to the nominal axis swap).
         test "SpiceInstrument: SPICE position, camera axes are the instrument frame's, near the CK camera" {
             withOpsKernel (fun () ->
                 match CooTransformation.getRotationTrafo "J2000" afc epoch with
@@ -252,7 +252,7 @@ let private consistency =
                 let j2000ToInst = inst.Forward.UpperLeftM33()
                 let inInst = j2000ToInst * camToJ2000
                 for c in 0 .. 2 do
-                    let largest = [ 0; 1; 2 ] |> List.map (fun r -> abs inInst.[r, c]) |> List.max
+                    let largest = max (abs inInst.[0, c]) (max (abs inInst.[1, c]) (abs inInst.[2, c]))
                     Expect.floatClose Accuracy.high largest 1.0 (sprintf "camera axis %d is an instrument axis" c)
                 Expect.floatClose Accuracy.high camToJ2000.Determinant 1.0 "a proper rotation"
                 // the CK attitude unaimed at the same position: differs only by the FK mounting

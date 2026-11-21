@@ -252,9 +252,9 @@ async function settled(page: Page, name: string): Promise<Buffer> {
     );
     await gis.locator("text=Import Directory").first().click();
 
-    // "Orientation Source", by dropdown label or option value: e.g. "SPICE, aimed at
-    // target" (boresight forced onto the body centre) vs "MBI (SC_QUAT + TRG_POS)" (the
-    // image's measured attitude)
+    // "Orientation Source", by dropdown label (OrientationSource.label; the option
+    // values are indices, not enum names): e.g. "SPICE, aimed at target" (boresight
+    // forced onto the body centre) vs "MBI (SC_QUAT + TRG_POS)" (the measured attitude)
     const method = process.env.PRO3D_PROBE_METHOD;
     if (method) {
         const r = await gis.evaluate((m) => {

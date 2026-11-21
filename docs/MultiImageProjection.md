@@ -407,15 +407,15 @@ The image axes keep PRo3D's established orientation: `Spice` computes the old
 spacecraft-based camera, takes the signed axis permutation nearest to the
 rotation between it and the instrument frame, and uses the instrument frame
 relabelled by that permutation. Frames kernels that label the instrument axes
-differently (e.g. a version that twists them by 90°) therefore render alike. If the instrument frame is more than 5° from every relabelling of the
+differently therefore render alike. If the instrument frame is more than 5° from every relabelling of the
 spacecraft-based camera (or the relabelling would mirror), the projector fails
 with an error naming the instrument — usually the wrong frame name or a missing
-frames kernel. The log line of a successful resolve gives the angle between the
-two cameras: the FK misalignment.
+frames kernel.
 
 Whether a sidecar's `SC_QUAT` is the spacecraft or the instrument attitude is a
 property of the delivery; comparing `MbiBased` with `Spice` on the same frame
-tells. To check a frames kernel against real frames, render with
+tells. An instrument whose spacecraft-based axis swap in PRo3D is not validated
+(e.g. TIRI) may fail this check with `Spice`; use `SpiceAimed` for it. To check a frames kernel against real frames, render with
 `pro3d-tool simulate-image --mbi <frame> --method spice` (CK × FK, not aimed) or
 `--method mbi-spice-position` (the sidecar's attitude at SPICE's position, not
 aimed) and compare with the frame ([Pro3DTool-SimulateImage.md](Pro3DTool-SimulateImage.md)).

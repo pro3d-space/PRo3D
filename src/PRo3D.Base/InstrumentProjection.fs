@@ -34,8 +34,8 @@ module InstrumentImages =
             match x with
             | Intrinsics.Plain frustum -> Frustum.projTrafo frustum
 
-/// Where a projector's pose (camera position and attitude) comes from. The three
-/// *Orientation Sources* of the GIS tab; every one ends in the same composition
+/// Where a projector's pose (camera position and attitude) comes from: the
+/// *Orientation Sources* of the GIS tab plus tool-only poses; every one ends in the same composition
 /// (InstrumentProjection.resolve), so they differ only in these inputs.
 type ProjectorPose =
     /// SPICE only. Spacecraft position from the SPK, attitude (including roll) from
@@ -331,7 +331,7 @@ module InstrumentProjection =
                 || q.W * q.W + q.X * q.X + q.Y * q.Y + q.Z * q.Z < 1e-12
             let noAttitude =
                 "the sidecar's SC_QUAT is zero, so it does not say how the camera was pointed. \
-                 Use the Spice orientation source for this image"
+                 Use a SPICE orientation source for this image (SPICE, aimed at target, needs no frames kernel)"
 
             let pose : Result<Trafo3d * V3d * list<string>, string> =
                 match req.pose with
@@ -390,9 +390,8 @@ module InstrumentProjection =
                             else
                                 let cam = instToJ2000 * p
                                 let camToWorld = Trafo3d.FromBasis(cam.C0, cam.C1, cam.C2, location)
-                                Ok (camToWorld.Inverse, location,
-                                    [ sprintf "camera from SPICE's %s frame (CK x FK), not aimed: %.4f deg from the spacecraft-attitude camera"
-                                          req.instrument deviation ]))
+                                // no warning on success: callers log warnings per image at warn level
+                                Ok (camToWorld.Inverse, location, []))
                 | SpiceAimed ->
                     spacecraftPos () |> Result.bind (fun location ->
                         let toTarget = targetPos - location
