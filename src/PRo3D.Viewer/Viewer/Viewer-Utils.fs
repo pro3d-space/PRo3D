@@ -899,8 +899,6 @@ module ViewerUtils =
             {
                 [<Color>] c : V4f
                 [<Semantic("ViewSpacePos")>] vp : V4f
-                /// how much of the colour is projected image (stableImageProjectionStack)
-                [<Semantic("ProjectedCover")>] cover : float32
             }
 
         /// The Headlight lighting mode, lighting band (textured and untextured surfaces): a fixed light at the
@@ -908,10 +906,8 @@ module ViewerUtils =
         /// the view-space position -- view space per the precision rules, and no geometry
         /// stage needed. One return on purpose (#719, FShade#39).
         ///
-        /// It shows the model's shape, so it leaves a projected image alone: where the
-        /// projection stack covers the fragment (ProjectedCover = the image opacity) the
-        /// light is faded out by that share -- without the sun a projection shows only
-        /// the image's own pixels; the sun's shading (solarShadingLS) still applies.
+        /// It shows the model's shape; a projected image is left alone by
+        /// projectedImageUnlit, which takes back this light like the sun's.
         let untexturedHeadlight (v : HeadlightVertex) =
             fragment {
                 let mutable c = v.c
@@ -925,10 +921,29 @@ module ViewerUtils =
                     let l = V3f(-0.4f, 0.5f, 0.77f) |> Vec.normalize
                     let ambient = 0.15f
                     let lit = ambient + (1.0f - ambient) * (Vec.dot n l |> max 0.0f)
-                    let cover = clamp 0.0f 1.0f v.cover
-                    let i = lit + (1.0f - lit) * cover
-                    c <- V4f(v.c.XYZ * i, v.c.W)
+                    c <- V4f(v.c.XYZ * lit, v.c.W)
                 return c
+            }
+
+        type ProjectedUnlitVertex =
+            {
+                [<Color>] c : V4f
+                /// the colour before lighting (PRo3D.Base.Shader.surfaceColor)
+                [<Semantic("SurfaceColor")>] sc : V4f
+                /// how much of the colour is projected image (stableImageProjectionStack)
+                [<Semantic("ProjectedCover")>] cover : float32
+            }
+
+        /// After the lighting band: a projected image is a photograph, so it already
+        /// shows the sun's shading and its shadows. Lighting it again by the terrain
+        /// (solarShadingLS, terrainSunShadow) would count the light twice, and the
+        /// headlight would print the model's shape over it. Where the projection stack
+        /// covers the fragment, the unlit colour is taken back in proportion to the
+        /// cover (the image opacity) -- the one place that handles it for every mode.
+        let projectedImageUnlit (v : ProjectedUnlitVertex) =
+            fragment {
+                let cover = clamp 0.0f 1.0f v.cover
+                return V4f(v.c.XYZ * (1.0f - cover) + v.sc.XYZ * cover, v.c.W)
             }
 
         let textureOrLightingIfPossible (v : Vertex) =
@@ -1396,6 +1411,9 @@ module ViewerUtils =
             PRo3D.SPICE.Shaders.terrainSunShadow |> toEffect
             // untextured surfaces without the sun: a camera light instead
             Shader.untexturedHeadlight |> toEffect
+            // a projected image carries its own lighting: take back the sun shading, cast
+            // shadows and headlight where it covers the surface
+            Shader.projectedImageUnlit |> toEffect
 
             // -- 3. overlays: drawn on the terrain, not part of it. After lighting so they stay
             // readable in shadow and on the night side; bottom -> top, each paints over the

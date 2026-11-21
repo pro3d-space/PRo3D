@@ -159,8 +159,9 @@ module ImageProjection =
         /// hovered layer gets an outline in a later phase instead).
         /// What the stack shader hands on: the colour, and how much of it is projected
         /// image (`ProjectedCover`: the image opacity where a layer covers the fragment,
-        /// 0 elsewhere). The surface's camera headlight (sun off) reads it to leave the
-        /// projected image unshaded: without the sun, a projection shows only the image.
+        /// 0 elsewhere). The viewer's projectedImageUnlit reads it after the lighting
+        /// (headlight and sun) to leave the projected image unshaded: a projection shows
+        /// only the image, which already carries its own lighting.
         type StackOutput =
             {
                 [<Color>] c : V4f

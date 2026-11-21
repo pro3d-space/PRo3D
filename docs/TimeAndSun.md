@@ -42,8 +42,8 @@ body turn with the scene — and therefore whether step 4 shows you anything mov
 |---|---|
 | `Headlight` | no sun; a light at the camera shades every surface, textured or not, so the shape shows; projected images show only their own pixels (no relief) |
 | `Off` (default) | no lighting at all |
-| `SunDirect` | shaded by the real sun direction, Lommel-Seeliger photometry over the per-face terrain normal |
-| `SunShadow` | `SunDirect` plus cast shadows from a sun-aligned shadow map |
+| `SunDirect` | shaded by the real sun direction, Lommel-Seeliger photometry over the per-face terrain normal; projected images are not shaded (they already show the sun's light) |
+| `SunShadow` | `SunDirect` plus cast shadows from a sun-aligned shadow map (not on projected images, which show their own shadows) |
 
 `Off` is not "lit from everywhere" — it simply skips shading, so the whole visible body
 reads bright (92% of it, measured). `SunDirect` is what creates a day and a night side:

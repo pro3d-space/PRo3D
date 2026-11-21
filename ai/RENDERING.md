@@ -77,7 +77,7 @@ That one link costs ~6 s, and the layout is exactly what GL keys its on-disk pro
 The fragment stages of `surfaceEffectVariant` are ordered in three bands, so a stage's position follows from what it is:
 
 1. **Surface colour** — what the terrain *is*: texture, LoD/radiometry, secondary texture, contour lines, the projection stack and its coverage view. Lighting applies to it.
-2. **Lighting** — `surfaceColor` keeps the unlit colour in the `SurfaceColor` semantic, then `solarShadingLS`, `terrainSunShadow`.
+2. **Lighting** — `surfaceColor` keeps the unlit colour in the `SurfaceColor` semantic, then `solarShadingLS`, `terrainSunShadow`, `untexturedHeadlight`; last `projectedImageUnlit` takes the unlit colour back by `ProjectedCover`, so a projected image (a photograph with its own lighting) is never lit again.
 3. **Overlays** — drawn *on* the terrain: unlit, so they stay readable in shadow. Bottom → top: `depthCalculation2` (tints `SurfaceColor`, not the lit colour), `latLonLines`, `outcropTrace`, `footPrintF`, `hoveredProjectionOutline`, `donutFragment` (the cursor is always on top).
 
 `crossSectionClip` comes **after all three**: after a `discard`, derivatives in its pixel quad are undefined, and the grid, the outcrop trace and every implicit-LOD texture sample take them. Its tile-GPU cost comes from being composed at all, not from its position.

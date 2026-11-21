@@ -133,11 +133,11 @@ sections:
 | **Visibility** | *RelativeCount* shows the coverage view (see 6.) |
 
 Lighting is set in *GIS View* → *Settings* → **Sun / Lighting Mode**
-([GisView.md](GisView.md#sun-illumination-and-cast-shadows)). Without the sun
-(`Off`, the default, or `Headlight`) a projected image shows only its own pixels: the
-headlight that shows the surfaces' shape leaves the image unshaded (in
-proportion to *Image Opacity*). With the sun on, the image is shaded by the terrain like
-the surface.
+([GisView.md](GisView.md#sun-illumination-and-cast-shadows)). In every mode a
+projected image shows only its own pixels (in proportion to *Image Opacity*): neither the
+headlight nor the sun's shading and cast shadows are applied to it. The image is a
+photograph that already shows the sun's light and shadows; shading it by the terrain
+again would count them twice. The surface around the image is lit as usual.
 | **Apply Image Adjustments** | on (default): samples go through each image's *Range*, *Brightness/Contrast* and *False Colour* (Selected Image › Properties), which instrument data needs to be readable. Off: the image's own pixels, untouched — for RGB images, and for checking a projection against its source. While it is off, the selected image's Properties show a hint with a button to turn it on. (Formerly *Transfer Function*.) |
 | **Winding Correction** | off (default). Turn it on only when an image survives **only near the limb** of the body: that is an OPC whose triangles are wound inward, so the projector-facing test rejects exactly the terrain facing the projector. On: PRo3D estimates each OPC hierarchy's winding from its coarsest patch (loaded once, the first time something is projected) and corrects the inward ones. The estimate assumes a roughly convex body seen from orbit; it is not reliable for near-vertical terrain such as rover outcrops. Saved with the scene. |
 | **Orientation Source** | where the projector's position and attitude come from — `MbiAttitudeSpiceRange` (default), `MbiBased` or `Spice`; see [If an image does not land on the terrain](#if-an-image-does-not-land-on-the-terrain) |
