@@ -155,8 +155,8 @@ current observation time:
 |---|---|
 | `Headlight` | a light at the camera on **every** surface, textured or not, so the shape shows. A projected image is never lit by it: it shows only its own pixels (in proportion to *Image Opacity*). Also used while a sun mode has no sun direction (no kernel, or a time outside its coverage) |
 | `Off` (default) | no lighting at all: textures and projected images as they are, untextured surfaces flat |
-| `SunDirect` | sun shading: Lommel-Seeliger photometry (physically appropriate for dark regolith; plain Lambert over-darkens the limb) over the per-face terrain normal, so relief is visible under the sun |
-| `SunShadow` | `SunDirect` plus **cast shadows** from a sun-aligned shadow map |
+| `SunDirect` | sun shading: Lommel-Seeliger photometry (physically appropriate for dark regolith; plain Lambert over-darkens the limb) over the per-face terrain normal, so relief is visible under the sun. A projected image is not shaded: it already shows the sun's light |
+| `SunShadow` | `SunDirect` plus **cast shadows** from a sun-aligned shadow map (not on a projected image, which shows its own shadows) |
 
 Scenes store the mode as a number; `Headlight` is 0, which is what `Off` meant before
 `Headlight` existed (it switched the camera light on for untextured surfaces only). Older
