@@ -69,7 +69,7 @@ type SunAnglesOptions =
         [<Option("kernel-root", HelpText = "SPICE kernel tree: a clone of https://spiftp.esac.esa.int/git/hera.git or its 'kernels' dir. Defaults to $PRO3D_SPICE_KERNELS.")>]
         kernelRoot : string
 
-        [<Option("method", HelpText = "Projection method: spice or mbi (default mbi)")>]
+        [<Option("method", HelpText = "Projection method (orientation source): spice (SPICE only: SPK position and the instrument's own frame from CK x frames kernel, not aimed), spice-aimed (SPICE position and spacecraft attitude, turned onto the target: the old 'spice'), mbi (the sidecar's SC_QUAT and TRG_POS) or mbi-spice-range (SC_QUAT, target on the boresight at the SPICE range; for sidecars without TRG_POS). Default mbi")>]
         method : string
 
         [<Option("false-color", HelpText = "Also write one false-colour PNG per angle (blue=low to red=high), using the same colour ramp as the projection testbed")>]
@@ -101,13 +101,19 @@ type SimulateImageOptions =
         [<Option("write-mbi", HelpText = "Also write <out>.mbi.json and <out>.json describing the camera used, so the render can be imported into the PRo3D viewer and projected back onto the same body")>]
         writeMbi : bool
 
-        [<Option("out", HelpText = "Output PNG path (default: ./simulated.png)")>]
+        [<Option("aim", HelpText = "Turn the instrument onto the centre of this SPICE body (e.g. DIMORPHOS, DIDYMOS) instead of the planned pointing, keeping the planned roll. THE FRAME IS THEN NOT THE PLANNED OBSERVATION: the sidecar records it as PRO3DAIM. See the docs before using it")>]
+        aim : string
+
+        [<Option("product", HelpText = "Write the instrument's delivered product layout instead of a PNG, with its .mbi.json: for HERA_HSH one <out>_Stacked.tif of 25 float bands (HyperScout 1B), for MILANI_ASPECT_NIR1 37 float <out>_<band>.tif (ASPECT 2B). The band values are the render's I/F times a made-up spectrum. No effect for AFC")>]
+        product : bool
+
+        [<Option("out", HelpText = "Output PNG path (default: ./simulated.png); with --product, the extension is dropped and the rest is the file stem")>]
         out : string
 
         [<Option("instrument", HelpText = "SPICE instrument frame whose frustum to render with (default HERA_AFC-1)")>]
         instrument : string
 
-        [<Option("observer", HelpText = "Spacecraft carrying the instrument (default HERA)")>]
+        [<Option("observer", HelpText = "Spacecraft carrying the instrument (default: the one --instrument flies on -- MILANI for ASPECT, HERA otherwise)")>]
         observer : string
 
         [<Option("body", HelpText = "SPICE body name of the OPC (default DIMORPHOS)")>]
@@ -172,6 +178,9 @@ type SimulateImageOptions =
 
         [<Option("shadow-bias", Default = 0.002, HelpText = "Shadow-map depth bias in normalized depth (default 0.002); raise against acne, lower against peter-panning")>]
         shadowBias : float
+
+        [<Option("method", HelpText = "With --mbi: where the camera comes from. mbi (default; the sidecar's SC_QUAT and TRG_POS), mbi-spice-position (SC_QUAT at the spacecraft position SPICE gives, NOT aimed -- for sidecars without TRG_POS when the pointing itself is under test), mbi-spice-range (SC_QUAT, target put on the boresight at the SPICE range), spice or spice-instrument (SPICE only: SPK position and the instrument's own frame from CK x FK, NOT aimed -- the pointing SPICE predicts, frames-kernel misalignment included) or spice-aimed (SPICE position and spacecraft attitude without the frames kernel, turned onto the target: the old 'spice'). mbi-spice-range and spice-aimed hide pointing errors by construction")>]
+        method : string
     }
 
 /// Options for the `unproject` verb.
@@ -211,9 +220,111 @@ type UnprojectOptions =
         [<Option("kernel-root", HelpText = "SPICE kernel tree. Defaults to $PRO3D_SPICE_KERNELS.")>]
         kernelRoot : string
 
-        [<Option("method", HelpText = "Projection method: spice or mbi (default mbi)")>]
+        [<Option("method", HelpText = "Projection method (orientation source): spice (SPICE only: SPK position and the instrument's own frame from CK x frames kernel, not aimed), spice-aimed (SPICE position and spacecraft attitude, turned onto the target: the old 'spice'), mbi (the sidecar's SC_QUAT and TRG_POS) or mbi-spice-range (SC_QUAT, target on the boresight at the SPICE range; for sidecars without TRG_POS). Default mbi")>]
         method : string
 
         [<Option("pixel-convention", HelpText = "How the input addresses pixels: 'image' (default, 0-based, top-left, y down) or 'fits' (1-based, bottom-left, y up)")>]
         pixelConvention : string
+    }
+
+/// Options for the `sample-layers` verb.
+///
+/// Same convention as `unproject`: string defaults are applied in code, because an
+/// unsupplied string field arrives as null.
+[<Verb("sample-layers", HelpText = "Assemble instrument observations (AFC, ASPECT, HyperScout, ...) onto a body: for every OPC vertex, which image sees it, where, under which sun geometry, and every band's value at the nearest pixel. Writes vertices.csv, one CSV per image and one per OPC attribute layer, keyed by vertex id.")>]
+type SampleLayersOptions =
+    {
+        [<Option("opc", HelpText = "OPC directory of the body", Required = true)>]
+        opc : string
+
+        [<Option("images", HelpText = "One or more folders of observations: every .mbi.json with the band files it declares", Required = true, Min = 1)>]
+        images : seq<string>
+
+        [<Option("out", HelpText = "Output directory (default: ./sample-layers)")>]
+        out : string
+
+        [<Option("attributes", Separator = ',', HelpText = "Per-vertex OPC layers to write as attributes/<name>.csv, comma separated (default Slope; 'none' for none)")>]
+        attributes : seq<string>
+
+        [<Option("body", HelpText = "SPICE body name of the OPC (default: the images' TARGET)")>]
+        body : string
+
+        [<Option("frame", HelpText = "Body-fixed frame the coordinates are in (default <body>_FIXED)")>]
+        frame : string
+
+        [<Option("observer", HelpText = "Observing spacecraft; default is derived per image from the instrument")>]
+        observer : string
+
+        [<Option("kernel", HelpText = "Explicit SPICE metakernel; overrides the sidecar")>]
+        kernel : string
+
+        [<Option("kernel-root", HelpText = "SPICE kernel tree. Defaults to $PRO3D_SPICE_KERNELS.")>]
+        kernelRoot : string
+
+        [<Option("method", HelpText = "Projection method (orientation source): spice (SPICE only: SPK position and the instrument's own frame from CK x frames kernel, not aimed), spice-aimed (SPICE position and spacecraft attitude, turned onto the target: the old 'spice'), mbi (the sidecar's SC_QUAT and TRG_POS) or mbi-spice-range (SC_QUAT, target on the boresight at the SPICE range; for sidecars without TRG_POS). Default mbi")>]
+        method : string
+
+        [<Option("occlusion-tolerance", Default = 0.05, HelpText = "A vertex counts as hidden only if something lies on its line of sight more than this many metres in front of it (default 0.05)")>]
+        occlusionTolerance : float
+    }
+
+/// Options for the `render-bookmarks` verb.
+///
+/// Every option can also come from the --job file; given on the command line it wins
+/// over the file's top level (see docs/Pro3DTool-RenderBookmarks.md).
+[<Verb("render-bookmarks", HelpText = "Open a .pro3d scene headlessly and render the camera bookmarks prepared in it, one PNG per bookmark, as the viewer shows them. Optionally fixes the OPC level of detail.")>]
+type RenderBookmarksOptions =
+    {
+        [<Option("scene", HelpText = "The .pro3d scene to open. Required unless the --job file names it.")>]
+        scene : string
+
+        [<Option("bookmarks", HelpText = "Bookmarks to render: names (with * and ? wildcards; quote them in a shell) or GUIDs, space separated. Default: every bookmark (\"*\").")>]
+        bookmarks : seq<string>
+
+        [<Option("out", HelpText = "Output directory (default: <scene name>-renders beside the scene). Gets one PNG per bookmark and renders.json listing them.")>]
+        out : string
+
+        [<Option("width", HelpText = "Image width in pixels (default 1920)")>]
+        width : Option<int>
+
+        [<Option("height", HelpText = "Image height in pixels (default 1080). The scene's field of view is kept; the aspect follows width/height.")>]
+        height : Option<int>
+
+        [<Option("lod-level", HelpText = "Fix the OPC level of detail: refine every hierarchy to exactly this level (0 = root patch) instead of the viewer's distance-based choice. For testing; deep levels load the whole surface at that resolution.")>]
+        lodLevel : Option<int>
+
+        [<Option("job", HelpText = "JSON job file with the same settings, and optionally several 'passes' (e.g. one per LoD level). Command line options override its top level.")>]
+        job : string
+
+        [<Option("list", HelpText = "Only list the scene's bookmarks (name and GUID) and exit")>]
+        list : bool
+    }
+
+/// Options for the `render-view` verb.
+///
+/// The cameras, OPCs and sun come from the --job file; these options override its top
+/// level (a view's own values win), see docs/Pro3DTool-RenderView.md.
+[<Verb("render-view", HelpText = "Render OPCs without a scene file from explicitly given cameras (location, forward, up, horizontal FOV), each OPC placed by a transformation, optionally lit by a given sun. Input is a JSON job file, e.g. written by scripts/render-view-job.py from SPICE.")>]
+type RenderViewOptions =
+    {
+        [<Option("job", Required = true, HelpText = "JSON job file: opcs, views (cameras, sun), size. See docs/Pro3DTool-RenderView.md.")>]
+        job : string
+
+        [<Option("views", HelpText = "Render only these views: names with * and ? wildcards (quote them in a shell), space separated. Default: every view.")>]
+        views : seq<string>
+
+        [<Option("out", HelpText = "Output directory (default: the job's 'out', else <job name>-renders beside the job file)")>]
+        out : string
+
+        [<Option("width", HelpText = "Image width in pixels, over the job's top level (default 1920)")>]
+        width : Option<int>
+
+        [<Option("height", HelpText = "Image height in pixels, over the job's top level (default 1080)")>]
+        height : Option<int>
+
+        [<Option("lod-level", HelpText = "Fix the OPC level of detail (0 = root patch), over the job's top level. See render-bookmarks.")>]
+        lodLevel : Option<int>
+
+        [<Option("no-sun", HelpText = "Ignore every view's sun: render without sun lighting")>]
+        noSun : bool
     }

@@ -45,12 +45,6 @@ in the lab, export, commit the file.
 
 ## Model types
 
-`Model.fs` carries the `[<ModelType>]` record; `Model.g.fs` is generated. Regenerate with
-
-```
-dotnet fsi ./src/PRo3D.GeometryLab/RunAdaptify.fsx
-```
-
-or `adapt.cmd` / `adapt.sh` at the repository root, which cover all projects. Note that adaptify
-must be able to typecheck the project — run it after a successful restore/build, otherwise it
-reports "no models" and generates nothing.
+`Model.fs` carries the `[<ModelType>]` record; `Model.g.fs` is generated locally and not checked
+in. Regenerate it with `adapt.cmd` / `adapt.sh` at the repository root, which cover all projects —
+see [ModelTypes.md](ModelTypes.md).

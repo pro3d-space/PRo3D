@@ -29,6 +29,21 @@ To transform a surface, it must first be selected. Then the user has to select i
     **NOTE:** It is not recommended to select this option!! It ist only used for scenes with older versions.
 
 
+### Axis directions per planet
+
+Which directions the translation and rotation axes follow depends on the scene's planet (*Reference System → Planet*):
+
+| Planet | x (Roll) | y (Pitch) | z (Yaw) |
+|---|---|---|---|
+| Earth, Mars, Moon, Phobos, Deimos, Didymos, Dimorphos | local north | local east | local up (surface normal at the reference system) |
+| ENU | y axis | x axis | z axis |
+| JPL | −x axis | y axis | −z axis |
+| None | x axis | y axis | z axis |
+
+So on a planet, **Yaw turns the surface around the local vertical** through the pivot, like changing its heading.
+
+**Changed in 6.3.1 (#791):** Earth used to take the scene's x/y/z axes. Earth scenes are geocentric, so the z axis was Earth's spin axis, and yaw swung the surface around a tilted axis (53° off the vertical at 37° latitude). Earth now uses local north/east/up like the other planets. Earth scenes saved with a non-zero transformation load with the surface in a different place and need to be adjusted once. A scene whose data is not in Earth-centred coordinates (for example a lab scan near the origin) should use the planet **None**.
+
 ## Transformation UI
 
 ![](./images/TrafoGui.png)
@@ -36,6 +51,7 @@ To transform a surface, it must first be selected. Then the user has to select i
 - **ReferenceSystem:** Described above.
 - **Translation(m):** The translation occurs along the axes of the selected reference system (as described above). The translation can be entered in the input fields of the respective axes.
 - **Scale:** The scaling center ist the pivot position.
+  The factor ranges from 0.001 to 10^15, effectively unlimited. Scenes saved with the old upper limit of 50 get the new range when loaded; their stored factor is kept.
 - **Yaw(Z,deg):** Rotation around yaw or z-axis. The rotation center is the pivot position. Rotation unit is degrees.
 - **Pitch(Y,deg):** Rotation around pitch or y-axis. The rotation center is the pivot position. Rotation unit is degrees.
 - **Roll(X,deg):** Rotation around roll or x-axis. The rotation center is the pivot position. Rotation unit is degrees.

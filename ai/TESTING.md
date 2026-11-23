@@ -29,6 +29,28 @@ dotnet bin/Release/net9.0/Tests.dll --filter-test-list <substring>
   (`{ SomeApp.initial with … }`), call `update`, assert on the record — see
   `ProjectedImageStackTest.fs`.
 
+## A testing ladder for rendering features
+
+For a rendering feature, climb from cheap to expensive, each rung green before the next.
+`docs/MapProjectionView.md` (#772) is a worked example:
+
+1. **CPU math** (Expecto): the double-precision model the shader mirrors. It becomes the
+   source of truth for the rungs above.
+2. **Shader codegen, no GPU** (Expecto, `OutcropTraceShaderTest.compile`): FShade decompiles
+   at runtime, so an effect that type-checks can still fail to generate. Assert the stages
+   you expect and the vertex inputs the geometry really has.
+3. **Headless GPU render** (Expecto, `Render.context` + `OpcSg.build` into a
+   `PRo3D.Tool.SunAnglesVerb.FloatTarget`): real data, pixels checked against rung 1.
+   - Write a quantity the shader did **not** derive the position from. Writing the same
+     lon/lat the position came from agrees by construction and proves nothing.
+   - Add a control that must fail, e.g. flipped rows.
+   - Measure the readback row order instead of assuming it.
+4. **Benchmark** (`Tests.dll --bench-...`, reusing `SurfaceEffectBenchmark.Bench`): a tool,
+   not a test.
+5. **Playwright**: the panel in the real app. A feature that can run standalone
+   (`PRo3D.MapProjection.Standalone.exe --server`) gets a spec against the standalone app, plus one
+   check that PRo3D's page shows the same thing.
+
 ## Playwright (`tests-ui/`) — drive the real app
 
 End-to-end tests that launch the real viewer (`--server` mode), operate its
@@ -105,6 +127,26 @@ is the shape to copy.
   hand-dispatched `change` event; **`UI.dropDown''` does not** — it reported
   "set Slope" while the render did not move a pixel. Use Playwright's
   `selectOption` for those.
+- **Test at real scene sizes, with generated data.** Per-object work that is instant on a
+  five-annotation fixture can take seconds or minutes at thousands. Generate the scene
+  instead of importing it: write `<scene>.pro3d.ann` next to the scene (PRo3D loads it
+  with the scene) with geometry whose expected result is known by construction —
+  `sceneWithAnnotations` in `tests/box-selection.spec.ts` places 5,000 polylines inside,
+  in front of and behind Dimorphos. Copy the annotation file's other members
+  (`colorByCategory`, `dnsColorLegend`, `version`) from `fixtures/*.pro3d.ann`; a missing
+  one fails the whole load.
+- **Long operations: poll `/busy`, and require the label.** It answers while the update
+  thread holds the app lock, so it is how a spec observes a stall *and* how it proves the
+  user was told (`watchBusy` in `box-selection.spec.ts`). Every slow operation must be
+  labelled ([CONVENTIONS.md](CONVENTIONS.md#long-running-operations-always-tell-the-user-busy-indicator)).
+- **A quiet log is not an idle app.** `awaitIdle` waits for the log to stop growing, but a
+  first ray into a patch loads its KdTree for seconds without logging. Poll for the
+  expected *result* instead.
+- **Collapsed accordions: `textContent`, not `innerText`.** Their content is in the DOM
+  but `innerText` skips it (the Bulk Edit header, for one).
+- **The Playwright filter is a regex over the full path.** In a worktree named after the
+  feature (`…/box-selection-854/`) `npx playwright test box-selection` matches *every*
+  spec. Pass `tests/<name>.spec.ts`.
 - **Wait for `attached`, not `visible`.** Config rows live inside collapsed
   accordions and arrive over the incremental DOM channel *after* `networkidle`.
   They are settable while never being visible.
@@ -119,6 +161,56 @@ is the shape to copy.
   also owns an inner one's titles and the inner panel never opens. Only
   initialise the outermost; overriding the selectors with child combinators does
   not work.
+- **Never `locator.click()` on the 3D view — it hangs forever.** The render
+  control's parent (`div.mainrendercontrol.aardvark`) intercepts pointer events,
+  so Playwright's actionability check never settles, and `click()` has *no*
+  default timeout: it retries until the spec times out, its call log saying
+  "element is visible, enabled and stable" each time. Use raw `page.mouse`
+  (`drawing.ts:pick`).
+- **Ctrl+click needs a beat after the mouse move.** PRo3D reads the modifier from
+  *key* events on the focused element, not `MouseEvent.ctrlKey`, and the render
+  control focuses itself on `mouseenter`. Pressing Control in the same tick as the
+  move sends the keydown to whatever had focus before (typically the other page),
+  so the click is taken as navigation: no pick, no annotation, no error anywhere.
+- **Neither `litFraction` nor `streamLive` rejects the loading splash.**
+  `litFraction` measures the centre of the frame, which is where the bright
+  AARDVARK banner sits; `streamLive` expects the splash to be black in the corners,
+  but the render div's own background is `#222222`, above its threshold, so it
+  reports "live" as soon as the DOM exists. An unloaded view scores as lit and
+  stable. Gate on the splash colour too (`drawing.ts:settled`, `splashFraction`).
+- **Don't pace picking with fixed sleeps.** The first pick on a patch loads its
+  KdTree from disk (~4.5 s each), later ones hit the cache in milliseconds. PRo3D
+  ignores input while it intersects, so a click sent too early is silently
+  dropped and the annotation never completes. Wait on `GET /activity`
+  (`src/activity.ts`, docs/Activity.md): `untilIdle(app)` before a click, and
+  after Ctrl goes down `untilArmed(app, true)` - a click sent before the keydown
+  has armed the tool is taken as navigation. `drawing.ts:awaitIdle` (log quiet
+  for 4 s) is the older, slower stand-in.
+- **Address tool-strip buttons by `title`, not by icon.** `wrapToolTip` puts the
+  tooltip on the button div itself, and icons repeat (`mouse pointer` is both
+  *Select annotation* and *Select surface*). This needs tooltips on: a viewer
+  started with `-notooltips` has no `title` at all (`drawing.ts:clickTool`).
+- **Playwright's text engine cannot see `<option>` text.** `filter({ has:
+  'option:text-is("Sky")' })` matches nothing. Find the select's index in an
+  `evaluate`, then drive it with `selectOption`, which sends the real events
+  (`drawing.ts:selectByOption`).
+- **The shared test scene carries the HERA AFC *instrument* camera.**
+  `fixture.sceneTemplate` is `AFC_2027-03-21/ProjectionTest.pro3d`, and `sceneFor`
+  only re-points its paths, so every spec inherits `focal = 123.247`, i.e. an
+  hfov of 5.5° instead of PRo3D's 60°. The template and the frames belong to the V4
+  OPC (`fixture.framesOpc`, `TestUtils.Roots.dimorphosV4Opc`; shape model v004), not to
+  the general-purpose `fixture.opc` (v003): the template names its hierarchy. Only `focal` counts: `Scene.applyScene`
+  recomputes the frustum from it, ignoring the stored frustum. Unless you test
+  projection, set `focal = 10.25` and move the camera in (`drawing.ts:drawingScene`).
+  It matters beyond framing: a selected annotation's outline spheres are scaled
+  without the field of view (`Utilities.drawSpheresFast`, issue #770), so at 5.5°
+  they are drawn ~10x too large. The template's **near plane is 10 m** as well, against
+  PRo3D's default 0.1 m; annotation depth offset scales with `distance / near`, so draped
+  lines and ellipse outlines z-fight with the terrain. `drawingScene` resets it to 0.1.
+- **When a measurement disagrees with what the app does in front of you, instrument
+  the app instead of theorising.** That ~10x outline cost hours from the outside,
+  and every conclusion was wrong, including "it is the harness". Three `Log.line`
+  calls on the actual scale computation settled it in two runs.
 
 ### Do not let the metric reward the bug
 
@@ -144,3 +236,85 @@ before believing any content-level correlation.
 
 Tests are machine-local (GPU + local datasets, `PRO3D_*` env vars); they are
 not run in CI, which makes running them locally the only line of defense.
+
+### Screenshot probes: four rules, each learned the hard way
+
+The documentation probes share `tests-ui/src/probe-lib.ts`. Everything below is
+enforced there rather than restated per probe, because every one of these bugs
+lived in a hand-tuned copy of a helper that had drifted from its siblings.
+
+**1. The clear colour is a constant, never inferred.** `#222222` (34). "Body"
+means *not the clear colour*, never *bright*: terrain a mosaic never observed
+renders **pure black (0)**, and that is a body pixel. Sampling the background
+from a corner breaks the moment the black region reaches that corner; taking the
+most common value breaks when most of the body is unobserved, because black then
+*is* the mode. Both then report the body as absent. That is how a correctly
+rendering scene once read as "`bodyPixels=9501`, essentially an empty frame" and
+sent a session hunting a rendering bug that never existed — the real fault was a
+camera 136 m from a body that needs ~199 m to fit the field of view.
+`assertBackground` fails loudly when a frame is not against the assumed colour.
+
+**2. A readiness gate must not be brightness-based.** `litFraction` can never be
+satisfied by a body that is mostly unobserved, so the probe waits out its whole
+timeout on a frame that was correct all along. Ask instead whether anything
+differs from the clear colour (`drawingSurface`). `streamLive` samples corners
+and has the same blind spot.
+
+**3. `settled()` throws on timeout.** It used to fall through to
+`page.screenshot()`, so a probe that never saw the body published a loading
+splash into `docs/images/` under a confident caption. A figure that cannot be
+produced is an error, not a default.
+
+**4. Two scene fields silently decide whether you can aim the camera at all.**
+
+- **`gisApp.defaultObservationInfo.target`** — the GIS *Camera source Body*.
+  While it is set, the camera is **placed at that entity** and aimed at the
+  observed body, and the scene's own `cameraView` is ignored entirely.
+  `PRo3D.Resources.TestData`'s `ProjectionTest.pro3d` ships with it set to HERA,
+  ~8 km out, which leaves the body a few hundred pixels across and makes every
+  attempt to place the camera look like it was ignored — because it was. This is
+  the likeliest reason an earlier session concluded the camera could not be set
+  and fell back to scraping coordinates out of the HUD. Clear it with
+  `withFreeCamera`.
+- **`gisApp.defaultObservationInfo.referenceFrame`** — in an inertial frame such
+  as `J2000` the body does not turn with the scene, so nothing that depends on
+  its rotation is visible. Measured: the lit area creeps from 32.5% to 33.6%
+  across a four-day mission-time row, i.e. visually nothing. Use
+  `withBodyFixedFrame`, which is what picking the body under *Reference System*
+  does in the GUI.
+
+Framing is arithmetic, so check it before blaming the harness: a body of radius
+*r* seen from *d* subtends `2·asin(r/d)`, against the fov the scene's `focal`
+implies (`focal 10.25` → 60°). `probe-bookmarks.ts` prints distance, subtended
+angle and coverage for every bookmark of a scene in one run.
+
+Reproduce a viewpoint from a saved `[Sky, Location, Forward, Up, Right]` written
+verbatim into `cameraView`; never rebuild one as "position, looking at the
+origin", which discards the orientation and reframes the shot. Scaling `Location`
+to dolly in or out is safe only for a radial view, so `pullBack` asserts that
+rather than assuming it.
+
+### Story videos: screen recordings with pointer and captions
+
+A story spec can record the full UI as a captioned MP4 (`PRO3D_VIDEO=1`, `tests-ui/src/video.ts`,
+how-to in [../docs/dev/StoryVideo.md](../docs/dev/StoryVideo.md); first one:
+`geological-map-story.spec.ts`). Rules, from making that one:
+
+- **One spec, two modes.** Write the steps once against a small `Ui` (render, panels, toolbar,
+  input page); pictures use separate pages, the video one page with the panels docked as iframes
+  (layout via `PRO3D_LAYOUT_DIR`/`current.json`). Points as fractions of the view the story was
+  laid out in, scaled by view *width* (the field of view is horizontal).
+- **Machine time is cut, viewer time is explicit.** Every wait on PRo3D (pick, KdTree load,
+  panel update, settling) goes through `until(...)`: the video keeps 0.35 s of it, and nothing of
+  a wait directly following another. Only captions (`say`, hold = reading time before the action;
+  the caption stays up during it) and results (`shot`, 1.5 s) hold the picture. Mechanics (pointer
+  glides, pauses before Ctrl+click, typing, key badges) are paced to be followed, not realistic.
+  An unwrapped wait is dead time in the video - the first take was ~3:45 mostly from that.
+- **Frames from the CDP screencast, not `recordVideo`** (fixed low bitrate, blurry at 1080p); each
+  frame carries its time, so cuts are applied while writing ffmpeg's concat list.
+- **The pointer is drawn into the page**: headless Chromium draws none, and mouse events in
+  iframes never reach the top document - every move goes through `Video.move`.
+- **Captions** sit 200 px above the bottom of the render view, clear of PRo3D's "picking"
+  indicator.
+- **Check a take with contact sheets** (`ffmpeg -vf "fps=1/8,scale=960:-1,tile=3x4"`) before
+  watching it end to end.

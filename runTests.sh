@@ -4,4 +4,6 @@
 # deterministically, even on a machine that happens to have those kernels.
 # Extra args are passed through to the Expecto runner.
 set -e
-dotnet run --project src/Tests/Tests.fsproj -c Release -- --skip-hera "$@"
+bash "$(dirname "$0")/adapt.sh"
+# adapt.sh ran the global paket restore, so skip the one msbuild forces per project (#891).
+dotnet run --project src/Tests/Tests.fsproj -c Release -p:PaketDisableGlobalRestore=true -- --skip-hera "$@"

@@ -372,7 +372,46 @@ module SceneLoader =
         
     let updateGisApp (m : Model) =
         let gisApp = PRo3D.Core.Gis.GisApp.loadSpiceKernelForced m.scene.gisApp
-        { m with scene = { m.scene with gisApp = gisApp }}
+        // re-import the projected-image library from the folder saved with the scene;
+        // a folder that is gone (scene from another machine) is reported, not dropped
+        match gisApp.projectedImageList.imageDirectory with
+        | Some dir when not (Directory.Exists dir) ->
+            Log.warn "[SceneLoader] projected images not loaded, folder not found: %s" dir
+            let message =
+                sprintf "The projected images of this scene could not be loaded: the image folder %s does not exist. Import the folder again in the Projected Images panel; the scene keeps the old path until you do." dir
+            { m with
+                scene  = { m.scene with gisApp = gisApp }
+                layout = LayoutApp.notify "Projected Images" message m.layout }
+        | Some dir ->
+            let pending = gisApp.projectedImageList.pendingStack
+            let restored =
+                // one unreadable file or sidecar must not fail the whole scene load
+                try
+                    let images =
+                        PRo3D.ImageMapping.ProjectedImageListApp.update
+                            gisApp.projectedImageList (PRo3D.ImageMapping.ProjectedImageListMessage.LoadImagesDir dir)
+                    Ok (PRo3D.ImageMapping.ProjectedImageListModel.restoreStack pending images)
+                with e -> Result.Error e
+            match restored with
+            | Result.Error e ->
+                Log.error "[SceneLoader] projected images not loaded from %s: %A" dir e
+                let message =
+                    sprintf "The projected images of this scene could not be loaded from %s (%s). Import the folder again in the Projected Images panel." dir e.Message
+                { m with
+                    scene  = { m.scene with gisApp = gisApp }
+                    layout = LayoutApp.notify "Projected Images" message m.layout }
+            | Ok (images, missing) ->
+                let m = { m with scene = { m.scene with gisApp = { gisApp with projectedImageList = images } } }
+                match missing with
+                | [] -> m
+                | _ ->
+                    Log.warn "[SceneLoader] projected-image stack entries not found in %s: %A" dir missing
+                    let message =
+                        sprintf "%d image(s) of this scene's projection stack are no longer in %s and were left out: %s"
+                            missing.Length dir (String.concat ", " missing)
+                    { m with layout = LayoutApp.notify "Projected Images" message m.layout }
+        | None ->
+            { m with scene = { m.scene with gisApp = gisApp }}
 
     /// A scene load replaces the annotations wholesale, so a continuous GeoJSON
     /// export armed for the previous scene would silently overwrite its file
@@ -381,12 +420,28 @@ module SceneLoader =
     let disarmContinuousExport (m : Model) =
         { m with drawing = PRo3D.Core.Drawing.DrawingApp.disarmAutomaticGeoJsonExport m.drawing }
 
+    /// SPICE kernels are process-wide: loading a scene does not unload them. A scene
+    /// that names no kernel of its own keeps showing the loaded one (as New Scene does),
+    /// instead of the top bar claiming the built-in default while a mission kernel is in
+    /// use. A scene that names one has just loaded it (updateGisApp) and shows that.
+    let private keepLoadedKernel (previous : PRo3D.Core.Gis.GisApp) (m : Model) =
+        match m.scene.gisApp.spiceKernel with
+        | Some _ -> m
+        | None ->
+            let gisApp =
+                { m.scene.gisApp with
+                    spiceKernel            = previous.spiceKernel
+                    spiceKernelLoadSuccess = previous.spiceKernelLoadSuccess }
+            { m with scene = { m.scene with gisApp = gisApp } }
+
     let private applyScene (scene : Scene) (m : Model) (runtime : IRuntime) (signature : IFramebufferSignature)=
+        let previousGis = m.scene.gisApp
         let m =
             m
             |> Model.withScene scene
             |> disarmContinuousExport
             |> updateGisApp
+            |> keepLoadedKernel previousGis
             |> resetControllerState
             |> updateNavigation
 

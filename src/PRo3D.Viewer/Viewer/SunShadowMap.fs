@@ -46,6 +46,8 @@ module SunShadowMap =
             /// Base shadow bias in normalized shadow-map depth (a world-space distance
             /// divided by the light frustum's depth range); slope-scaled in the shader.
             bias          : aval<float>
+            /// Frees the shadow map (when it was ever created) and the dummy texture.
+            release       : unit -> unit
         }
 
     let private shadowMapSize = V2i(4096, 4096)
@@ -66,7 +68,7 @@ module SunShadowMap =
     /// Direction towards the sun in scene space (v1: one sun for the whole scene), from
     /// the first surface that has a body: explicitly bound, or inheriting the scene body
     /// (#758). A half-bound surface (entity without frame) has none and is skipped.
-    let private sunDirection (m : AdaptiveModel) : aval<Option<V3d>> =
+    let private spiceSunDirection (m : AdaptiveModel) : aval<Option<V3d>> =
         // bindings and scene body only - not the observation time
         (Gis.GisApp.sceneBodyAdaptive m.scene.gisApp,
          m.scene.gisApp.gisSurfaces.Content,
@@ -81,11 +83,19 @@ module SunShadowMap =
             | Some surfaceId -> Gis.GisApp.getSunDirection m.scene.gisApp surfaceId
             | None -> AVal.constant None)
 
+    /// The shadow pass's sun: a sun given directly (Gis.SunOverride) as is -- no surface
+    /// needs a body -- otherwise SPICE's.
+    let private sunDirection (m : AdaptiveModel) : aval<Option<V3d>> =
+        Gis.SunOverride.direction
+        |> AVal.bind (function
+            | Some d -> AVal.constant (Some (Vec.normalize d))
+            | None -> spiceSunDirection m)
+
     /// The same placement the main render applies to a surface (viewSingleSurfaceSg):
     /// fullTrafo * preTransform, with the flipZ / sketchFab variants. Replicated here
     /// because the caster geometry must land exactly where the lit geometry is, or
-    /// shadows arrive offset.
-    let private surfacePlacement (m : AdaptiveModel) (surfaceId : Guid) (surf : AdaptiveSurface) : aval<Trafo3d> =
+    /// shadows arrive offset. Also places the surfaces of the map projection view (#772).
+    let surfacePlacement (m : AdaptiveModel) (surfaceId : Guid) (surf : AdaptiveSurface) : aval<Trafo3d> =
         let refsys = m.scene.referenceSystem
         let observerSystem = Gis.GisApp.getObserverSystemAdaptive m.scene.gisApp
         let observationSystem = Gis.GisApp.getSpiceReferenceSystemAdaptive m.scene.gisApp surfaceId
@@ -101,21 +111,6 @@ module SunShadowMap =
             else
                 return fullTrafo * preTransform
         }
-
-    /// The Ag attributes the OPC shaders / captureContext expect on every OPC scene
-    /// graph, whether used or not -- without them CompileRender throws "could not get
-    /// inh attribute X". Mirrors pro3d-tool's withOpcScaffolding.
-    let private withOpcScaffolding (sg : ISg) =
-        sg
-        |> Sg.texture "ProjectedTexture" DefaultTextures.blackTex
-        |> Sg.uniform' "ProjectedImageModelViewProjValid" true
-        |> Sg.uniform' "LodVisEnabled" false
-        |> PRo3D.Core.Surface.Sg.applyFootprint (AVal.constant M44d.Identity)
-        |> PRo3D.Core.SgExtensions.Sg.applyCrossSection (AVal.constant None)
-        |> PRo3D.Core.SgExtensions.Sg.applyLatLonGrid (AVal.constant None)
-        |> Aardvark.GeoSpatial.Opc.SecondaryTexture.Sg.applySecondaryTextureId
-            (AVal.constant (Some { texture = TextureReference.LegacyId 0
-                                   channel = ChannelReference.NoChannelSelection }))
 
     /// All OPC surfaces as shadow casters: fresh PatchNodes against the shadow
     /// signature, each placed with the same trafo as in the main render, visibility
@@ -161,7 +156,7 @@ module SunShadowMap =
                 // OBJ and other non-OPC surfaces do not cast in v1
                 Sg.empty)
         |> Sg.set
-        |> withOpcScaffolding
+        |> OpcSg.withOpcScaffolding
 
     /// Combined world-space bounds of all (visible) surfaces -- the volume the sun-ortho
     /// camera must cover.
@@ -175,8 +170,11 @@ module SunShadowMap =
                 | Some (AdaptiveSurfaces surf) ->
                     let visible = surf.isVisible.GetValue t
                     if visible then
+                        // globalBB already carries preTransform (SurfaceSg.createSgSurfaces);
+                        // undo it before the placement, which applies it again
+                        let pre = surf.preTransform.GetValue t
                         let trafo = (surfacePlacement m surfaceId surf).GetValue t
-                        box <- box.ExtendedBy(bb.Transformed trafo)
+                        box <- box.ExtendedBy(bb.Transformed(pre.Inverse * trafo))
                 | _ -> ()
             box)
 
@@ -184,9 +182,10 @@ module SunShadowMap =
     /// box Z verbatim as near/far, but the camera sits outside the box looking down -Z,
     /// so near/far are the negated maximum/minimum -- same construction (and same trap)
     /// as pro3d-tool's renderSunShadowMap.
-    /// (view, proj, depth range in metres) -- the range is what turns a world-space
-    /// shadow bias into normalized shadow-map depth.
-    let private lightCamera (sunDir : aval<Option<V3d>>) (bounds : aval<Box3d>) : aval<Option<Trafo3d * Trafo3d * float>> =
+    /// (view, proj, depth range in metres, texel size in metres) -- the range turns a
+    /// world-space shadow bias into normalized shadow-map depth, the texel size is what
+    /// that bias has to cover.
+    let private lightCamera (sunDir : aval<Option<V3d>>) (bounds : aval<Box3d>) : aval<Option<Trafo3d * Trafo3d * float * float>> =
         (sunDir, bounds) ||> AVal.map2 (fun dir bb ->
             match dir with
             | Some dir when bb.IsValid && bb.Size.Length > 0.0 ->
@@ -200,7 +199,8 @@ module SunShadowMap =
                 let proj =
                     { Frustum.ortho vbox with near = -vbox.Max.Z; far = -vbox.Min.Z }
                     |> Frustum.projTrafo
-                Some (view, proj, vbox.Size.Z)
+                let texel = max (vbox.Size.X / float shadowMapSize.X) (vbox.Size.Y / float shadowMapSize.Y)
+                Some (view, proj, vbox.Size.Z, texel)
             | _ -> None)
 
     /// Everything the active shadow pass needs, created ON FIRST ACTIVATION only --
@@ -222,8 +222,8 @@ module SunShadowMap =
                 do! PRo3D.SPICE.Shaders.stableTrafo
                 do! DefaultSurfaces.constantColor C4f.White
             }
-            |> Sg.viewTrafo (camera |> AVal.map (function Some (v, _, _) -> v | None -> Trafo3d.Identity))
-            |> Sg.projTrafo (camera |> AVal.map (function Some (_, p, _) -> p | None -> Trafo3d.Identity))
+            |> Sg.viewTrafo (camera |> AVal.map (function Some (v, _, _, _) -> v | None -> Trafo3d.Identity))
+            |> Sg.projTrafo (camera |> AVal.map (function Some (_, p, _, _) -> p | None -> Trafo3d.Identity))
 
         let clearValues =
             clear {
@@ -255,7 +255,7 @@ module SunShadowMap =
                 | false -> AVal.constant None
                 | true ->
                     let (camera, _) = pass.Value
-                    camera |> AVal.map (Option.map (fun (view, proj, _) -> view * proj)))
+                    camera |> AVal.map (Option.map (fun (view, proj, _, _) -> view * proj)))
 
         let texture =
             active |> AVal.bind (function
@@ -266,33 +266,63 @@ module SunShadowMap =
                         | Some _ -> depth |> AVal.map (fun t -> t :> ITexture)
                         | None -> AVal.constant dummy))
 
-        // 3 cm of world-space base bias, normalized by the light frustum's actual depth
-        // range; the shader slope-scales it per fragment (terrainSunShadow)
+        // Base bias in shadow-map texels, normalized by the light frustum's actual depth
+        // range; the shader slope-scales it per fragment (terrainSunShadow). A fixed
+        // world-space bias cannot fit every scene: the map spans the scene's bounds, so a
+        // texel is 6.6 cm over Dimorphos alone and 40 cm with Didymos. The lookup samples
+        // one texel to each side (PCF), so the bias must exceed about a texel; 3 cm left
+        // 21 % of Dimorphos' sunlit side speckled with acne.
         let bias =
             active |> AVal.bind (function
                 | false -> AVal.constant 0.0
                 | true ->
                     let (camera, _) = pass.Value
-                    camera |> AVal.map (function
-                        | Some (_, _, range) when range > 0.0 -> 0.03 / range
+                    // in texels from the viewer config (ViewConfigModel.shadowBias, default
+                    // 1.5: no acne on Dimorphos at 71-79 deg phase, cast shadows kept,
+                    // measured against a DSK ray-cast; 1 texel left 0.3-0.5 %, 3 cm 19-27 %)
+                    (camera, m.scene.config.shadowBias.value) ||> AVal.map2 (fun camera biasTexels ->
+                        match camera with
+                        | Some (_, _, range, texel) when range > 0.0 -> biasTexels * texel / range
                         | _ -> 0.0))
 
-        { texture = texture; lightViewProj = lightViewProj; bias = bias }
+        let release () =
+            if pass.IsValueCreated then
+                let (_, depth) = pass.Value
+                depth.Release()
+            match dummy with
+            | :? IBackendTexture as t -> t.Dispose()
+            | _ -> ()
 
-    /// One handle per process: the runtime is a singleton in both the viewer and
-    /// PRo3D.Snapshots, and createGroupedSgs may be re-executed on layout changes --
-    /// re-creating render tasks there would leak them.
-    let private cache = System.Collections.Concurrent.ConcurrentDictionary<IRuntime, Handle>()
+        { texture = texture; lightViewProj = lightViewProj; bias = bias; release = release }
+
+    /// One handle per viewer model: createGroupedSgs may be re-executed on layout changes,
+    /// and re-creating render tasks there would leak them. Keyed by the model, not the
+    /// runtime: a pass reads one model's surfaces and sun, so a second model on the same
+    /// runtime (the headless renderers of PRo3D.SceneRender, several per test process)
+    /// must not get the first one's shadows. The viewer and PRo3D.Snapshots have a
+    /// single model, so for them this is one handle per process as before.
+    let private cache = System.Runtime.CompilerServices.ConditionalWeakTable<AdaptiveModel, Handle>()
 
     /// Fail-soft: a broken shadow pass must never take the whole render view down with
     /// it. On any error the feature degrades to "no shadows" (dummy map, no light
     /// matrix) and says so loudly.
     let get (runtime : IRuntime) (m : AdaptiveModel) : Handle =
-        cache.GetOrAdd(runtime, fun runtime ->
+        cache.GetValue(m, fun m ->
             try
                 createHandle runtime m
             with e ->
                 Log.error "[SunShadowMap] shadow pass disabled, creation failed: %A" e
                 { texture = AVal.constant (createDummyTexture runtime)
                   lightViewProj = AVal.constant None
-                  bias = AVal.constant 0.0 })
+                  bias = AVal.constant 0.0
+                  release = ignore })
+
+    /// Frees `m`'s shadow pass, for hosts that retire a viewer model before the process
+    /// ends (PRo3D.SceneRender's renderers on Dispose). Only after the render tasks that
+    /// sample it are disposed.
+    let release (m : AdaptiveModel) =
+        match cache.TryGetValue m with
+        | true, handle ->
+            cache.Remove m |> ignore
+            handle.release ()
+        | _ -> ()

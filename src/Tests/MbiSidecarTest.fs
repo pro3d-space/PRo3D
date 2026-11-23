@@ -98,7 +98,6 @@ let private roundTripTest =
         let frame = "ECLIPJ2000"
         let body = "DIDYMOS"
         let instrument = "MILANI_ASPECT_NIR1"
-        let observer = "DIDYMOS"
         let time = (parseMbi aspect).obs_date
 
         let view = syntheticCamera (V3d(0.3, -0.8, 0.52)) 12000.0 (V3d(0.17, 0.41, 0.9))
@@ -123,6 +122,7 @@ let private roundTripTest =
                     time = time
                     kernel = HeraSpiceTests.spiceFileName
                     size = V2i(1020, 1020)
+                    aimedAt = None
                 }
 
             match MbiSidecar.write ctx imagePath view with
@@ -130,7 +130,7 @@ let private roundTripTest =
             | Ok sidecar ->
                 Expect.isTrue (File.Exists sidecar) "sidecar written"
 
-                match MbiSidecar.verify ctx imagePath (view * proj) observer with
+                match MbiSidecar.verify ctx imagePath (view * proj) with
                 | Result.Error e -> failtestf "could not verify the sidecar: %s" e
                 | Ok r ->
                     printfn "[mbiSidecar] round trip: boresight %.6f deg, worst corner %.4f px, max element %.3e"
@@ -149,7 +149,7 @@ let private roundTripTest =
                 let tilted = view * Trafo3d.RotationXInDegrees tiltDeg
                 let fovYDeg = 2.0 * atan (1.0 / proj.Forward.M11) * Constant.DegreesPerRadian
                 let expected = tiltDeg * float ctx.size.Y / fovYDeg
-                match MbiSidecar.verify ctx imagePath (tilted * proj) observer with
+                match MbiSidecar.verify ctx imagePath (tilted * proj) with
                 | Result.Error e -> failtestf "could not verify against the tilted camera: %s" e
                 | Ok r ->
                     printfn "[mbiSidecar] tilted %.2f deg: worst corner %.3f px (expected ~%.3f)"

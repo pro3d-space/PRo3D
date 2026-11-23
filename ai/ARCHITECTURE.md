@@ -55,7 +55,7 @@ Two layers matter:
        scaleBars         : ScaleBarsModel
        traverses         : TraverseModel
        viewPlans         : ViewPlanModel
-       dockConfig        : DockConfig
+       legacyDockConfig  : Option<string>   // 6.2 pickle, written back verbatim; layouts are not scene state
        // ...
        sceneObjectsModel     : SceneObjectsModel
        geologicSurfacesModel : GeologicSurfacesModel
@@ -127,8 +127,8 @@ The dispatch chain in `src/PRo3D.Viewer/Viewer/Viewer.fs`:
 2. Embed the model in `Scene` (if persisted) or `Model` (if transient).
 3. Add a wrapper case to `ViewerAction`.
 4. Handle that case in `updateViewer`, delegating to the sub-app and writing back.
-5. Mount the sub-app's `view` in the dock layout (see below) and surface it in a `DockConfig`.
-6. Run `adapt.cmd` to regenerate `*.g.fs`, and extend `Scene` versioning if persisted.
+5. Route a `?page=` id to the sub-app's `view` (`Gui.Pages.pageRouting`), register the panel in `LayoutPanels.all` and add it to the built-in layouts that should show it (see below).
+6. Run `adapt.cmd` / `adapt.sh` to regenerate `*.g.fs` (a new model file also needs its `X.g.fs` `<Compile>` entry in the `.fsproj`; the generated files are not checked in), and extend `Scene` versioning if persisted.
 
 ---
 
@@ -157,13 +157,13 @@ Process startup, backend selection, and SPICE init happen in `src/PRo3D.Viewer/P
 - Parse command line (`CommandLine.parseArguments`, see [AUTOMATION.md](AUTOMATION.md)).
 - Host via Giraffe `MutableApp.toWebPart' runtime false mainApp` (`Program.fs:373`, `open Aardvark.UI.Giraffe`), optionally mounting the remote API and remote-control app. UI is shown through **Aardium** (the Aardvark Electron-style shell), or headless in server mode.
 
-### Dockable UI
+### Window layouts (Golden Layout)
 
-The window layout is data-driven via `Aardvark.UI.Primitives` docking:
-- `src/PRo3D.Viewer/DockConfigs.fs` defines named layouts (e.g. `full`, `gis`, `comparison`, `core`, `renderOnly`, `provenance`, view-planner / M2020 modes) as nested horizontal/vertical splits with stacked, named panels (`"render"`, `"surfaces"`, `"annotations"`, `"config"`, `"bookmarks"`, …).
-- `src/PRo3D.Viewer/DashboardModes.fs` bundles a `DockConfig` with a name into selectable dashboard presets. The current one is stored as `Model.dashboardMode` / `Scene.dockConfig`.
-
-The root `view` renders the 3D `RenderControl` plus the panel for each dock element, dispatching each panel's messages back through the corresponding `ViewerAction` wrapper.
+The window is a Golden Layout (aardvark.media `Aardvark.UI.Primitives.Golden`); every panel is its own page (`?page=<id>`) shown in an iframe. See [docs/WindowLayouts.md](../docs/WindowLayouts.md).
+- `src/PRo3D.Viewer/DockConfigs.fs` / `DashboardModes.fs` — built-in layouts (M2020 = default, PRo3D Core, Surface Comparison, Render Only, Provenance, GIS).
+- `src/PRo3D.Viewer/Layouts/` — `LayoutPanels` (panel registry), `LayoutOps.sanitize` (every layout from the browser, a file or a sidecar goes through it), `LayoutFile` / `LayoutLibrary` / `SceneLayoutSidecar` (total, atomic file IO), `LayoutApp` (update, menu, dialogs).
+- The layout is **per user, not scene state**: `Model.layout`, restored from `%APPDATA%/Pro3D/layouts/current.json`. Scenes keep `dockConfig` only so PRo3D <= 6.2 can open them. Saving a scene also writes `<scene>.pro3d.layout`, which must never fail the save.
+- Golden Layout replays its last `SetLayout` to clients that connect later. Never replace the `GoldenLayout` record at runtime (it resets the channel version and swallows the next push); see `LayoutApp.update`, case `Changed`.
 
 ---
 
@@ -173,6 +173,7 @@ PRo3D uses aardvark.media's `ThreadPool<'msg>`/`proclist` for background work th
 
 - **`messagingMailbox` / `MessagingMailbox`** — an async mailbox the viewer uses to inject messages from outside the normal update loop (e.g. remote API, async load completions). Carried on the root `Model`.
 - **`snapshotThreads` / `backgroundPicking`** — dedicated `ThreadPool<ViewerAction>` fields for batch snapshot rendering and background surface picking, kept separate so they can be started/stopped independently.
+- **Busy indicator** — the update thread, the DOM-diff thread and the render service share one `app.lock`, so a slow `update` freezes every page and the 3D stream. `Busy.fs` keeps a lock-free cell that `ViewerApp.busyLabel` sets per message and the `/busy` route reads; the page shows it as a pill. **Every operation that can block must be labelled** — see [CONVENTIONS.md](CONVENTIONS.md#long-running-operations-always-tell-the-user-busy-indicator) and [docs/BusyIndicator.md](../docs/BusyIndicator.md).
 - **Async picking** — surface picking results arrive via async values (`pickPreviewRequested : ConsumableAsyncValue<...>`); picking work is only spawned when an interaction actually requires it (see [RENDERING.md](RENDERING.md#picking)).
 
 ---

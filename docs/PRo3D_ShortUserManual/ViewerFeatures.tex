@@ -99,6 +99,13 @@ Attribute maps on the other hand present an additional value for each position o
 If a surface has an .opcx file attached its layers are listed and can be selected in the \textit{Scalars} and the \textit{Textures} combo boxes as part of the surface's property control (Figure~\ref{fig:featureMenu}). 
 In the Scalars ColorLegend panel, the color legend can be adjusted (Figure~\ref{fig:surfaceColorLegend}).
 
+\furtherreading{\onlinedoc{VertexAttributes.md}{VertexAttributes.md} --- attribute layers
+that newer OPC exports additionally store per vertex, and what that changes for scalars and
+measurements; \onlinedoc{Transformations.md}{Transformations.md} --- translating, rotating
+and scaling a surface; \onlinedoc{SurfaceDistanceFilter.md}{SurfaceDistanceFilter.md} ---
+hiding geometry beyond a given radius; \onlinedoc{KdTrees.md}{KdTrees.md} --- the kd-trees
+behind picking, and what the \textit{Cloud} button rebuilds.}
+
 %----------------------------------------------------------------------------------------
 %	SubSection: Annotations
 %----------------------------------------------------------------------------------------
@@ -154,6 +161,18 @@ The measurements tab (Figure~\ref{fig:annoProps} C) contains some information:
 	\item \textit{Horizontal Distance}: The horizontal distance between the annotation's start and end point in relation to the north- and right vector of the coordinate system.
 \end{itemize}
 
+Beyond these numbers, annotations can be written out point by point via
+\textit{Annotations $\rightarrow$ Export}. Such an export turns a line or polyline into a
+\textbf{profile}: one row per point, carrying the distance along the line and the height at
+that point. If the surface ships attribute layers, the values of those layers underneath
+each point can be exported alongside, which yields a \textbf{multi-attribute profile} ---
+the whole cross section of the terrain in a single table, ready to plot.
+
+\furtherreading{\onlinedoc{MultiAttributeProfile.md}{MultiAttributeProfile.md} --- a
+walkthrough of a multi-attribute profile on the HERA Dimorphos dataset, from drawing the
+line to the exported table; \onlinedoc{AnnotationExport.md}{AnnotationExport.md} --- the
+reference description of every control in the export window.}
+
 \begin{figure}[h]
     	\centering
     		\includegraphics[width=1\textwidth]{pics/DnsAI.png}
@@ -165,6 +184,16 @@ Measurements for the dip and strike annotations are shown in the Dip\&Strike tab
 
 The color coding of the DnS annotation's discs and arrows is specified by the dipping angle. The color legend's parameters can be adjusted in the
 Dip\&Strike ColorLegend tab shown in Figure~\ref{fig:dnSColorLegend} E.
+
+\furtherreading{\onlinedoc{ColorByCategory.md}{ColorByCategory.md} --- coloring annotations
+by one of their attributes instead of by their own color;
+\onlinedoc{AnnotationBooleanOps.md}{AnnotationBooleanOps.md} --- union and cutting of closed
+annotations; \onlinedoc{CrossSections.md}{CrossSections.md} --- cutting surfaces along a
+polyline annotation and mapping images onto the cutting plane;
+\onlinedoc{OutcropTraces.md}{OutcropTraces.md} --- deriving from a dip-and-strike annotation
+where a bedding sequence crops out on the terrain;
+\onlinedoc{SbmtImport.md}{SbmtImport.md} --- importing annotation catalogs exported from the
+Small Body Mapping Tool.}
 
 %----------------------------------------------------------------------------------------Import AnnotationGroups
 %\subsubsection{Import Annotations from old viewer versions} 
@@ -323,7 +352,7 @@ If the checkbox \emph{use easing} is selected, the camera animation speeds up in
 	\centering
 	\includegraphics[width=0.8\textwidth]{pics/SequencedBookmarks_tabSnapshots.png}
 	\caption[Viewer Features Bookmarks]{Creating images from sequenced bookmarks. Record camera animations as JSON snapshot files (red record button) and start generating images (camera button).}
-	\label{fig:SequencedBookmarks_tabSnapshots.PNG}
+	\label{fig:SequencedBookmarks_tabSnapshots}
 \end{figure}
 
 In the \emph{snapshots} section (Figure \ref{fig:SequencedBookmarks_tabSnapshots}) you can record camera animations. The red button changes to a \emph{stop} button when you start recording. If you now use the animation controls (D) to animate the camera, the camera movement is recorded. Once you click on the red stop button, a JSON file with the recorded camera animation is saved into the output folder specified in the \emph{Snapshots} section (E). To start rendering images with the saved file, click on the button with the camera icon next to the red record button. PRo3D will start rendering the images in the background.
@@ -508,6 +537,13 @@ This feature allows to interpret celestial bodies and surfaces
 from within PRo3D and serves as a basis for GIS functionality in PRo3D.
 Within the GIS UI tab the user can assign coordinate frames and
 celestial body information to surfaces and to GIS entities. Fly-by scenarios can be modeled by setting the observation time and choosing an observer body.
+
+\furtherreading{\onlinedoc{GisView.md}{GisView.md} --- the continuously updated version of
+this section, including sun illumination and cast shadows;
+\onlinedoc{SceneBody.md}{SceneBody.md} --- the celestial body a scene is expressed in, and
+how it relates to the reference frames chosen here;
+\onlinedoc{spice.md}{spice.md} --- how SPICE is integrated into PRo3D and which kernels it
+ships with.}
 
 \hypertarget{spice}{%
 	\subsubsection{SPICE}\label{spice}}
@@ -803,7 +839,20 @@ Currently, the GIS settings are not stored in the scene files.
 \subsubsection{Mission Phases}
 \label{sec:missionTimes}
 
-The mission time settings, shown in Figure \ref{label:mission_phases} allow the user to choose a mission time frame and navigate through the simulation using the slider. The mission phases include the Deimos Flyby, the Mars Flyby and the Didymos Orbital Insertion. 
+The mission time settings, shown in Figure \ref{label:mission_phases} allow the user to choose a mission time frame and navigate through the simulation using the slider. The mission phases include the Deimos Flyby, the Mars Flyby and the Didymos Orbital Insertion.
+
+Everything that depends on the observation time follows this slider, which includes the
+illumination of the scene: with the \textit{Sun / Lighting Mode} set to \textit{SunDirect}
+or \textit{SunShadow}, surfaces are shaded with the real sun position for the current
+observation time, so scrubbing through time moves the terminator and the cast shadows
+across the terrain. This requires a loaded SPICE kernel that covers the selected point in
+time and a surface registered with a reference frame and a body in the GIS Surfaces tab.
+
+\furtherreading{\onlinedoc{TimeAndSun.md}{TimeAndSun.md} --- a walkthrough of moving the
+scene through time with the sun lighting turned on: the prerequisites, the three lighting
+modes and what to check when the sun does not seem to move;
+\onlinedoc{Pro3DTool-SunAngles.md}{Pro3DTool-SunAngles.md} --- computing incidence, emission
+and phase angles for images from the command line.}
 
 \begin{figure}[h!]
 	\centering
@@ -877,7 +926,15 @@ Figure \ref{fig:image_settings} shows the parameters the user can adjust after l
     \label{fig:image_settings}
 \end{figure}
 
-Figure \ref{fig:image_projection} shows the settings the user can adjust to control the image projection onto a body. The \textit{visualization} slider controls the opacity of the image projection and the registration properties \textit{roll}, \textit{pitch} and \textit{yaw} register the orientation of the projected image. The visibility can be set to \textit{RelativeCount}. The sun / lighting mode provides the options \textit{Off, SunDirect} and \textit{SunShadow}.
+Figure \ref{fig:image_projection} shows the settings the user can adjust to control the image projection onto a body. The \textit{visualization} slider controls the opacity of the image projection and the registration properties \textit{roll}, \textit{pitch} and \textit{yaw} register the orientation of the projected image. The visibility can be set to \textit{RelativeCount}. The sun / lighting mode provides the options \textit{Off, SunDirect} and \textit{SunShadow}, which shade the surfaces with the sun position of the current observation time (Section~\ref{sec:missionTimes}).
+
+\furtherreading{\onlinedoc{MultiImageProjection.md}{MultiImageProjection.md} --- projecting
+several instrument images at once and blending between them;
+\onlinedoc{ProjectionValidation.md}{ProjectionValidation.md} --- checking whether a
+projected image lands exactly on the terrain;
+\onlinedoc{Pro3DTool-SimulateImage.md}{Pro3DTool-SimulateImage.md} and
+\onlinedoc{Pro3DTool-Unproject.md}{Pro3DTool-Unproject.md} --- rendering and unprojecting
+instrument images from the command line.}
 
 \begin{figure}[h!]
 	\centering
@@ -905,6 +962,7 @@ Figure \ref{fig:hera-projectedImages} and Figure \ref{fig:hera-projectedImages2}
 \end{figure}
 
 \subsubsection{Ellipse annotations}
+\label{sec:ellipseAnnotations}
 
 Ellipse annotation (using the AxisEllipse) geometry type is inspired by SBMT elliptic annotations.
 
@@ -918,17 +976,22 @@ It is based on three points that the user sets:
 
 \end{itemize}
 
+The outline is fitted in the plane through these three points and then draped onto the
+terrain along the scene's up vector. This is why ellipses always use the \textit{Sky}
+projection and why they need a reference body: with no body set for the scene there is no
+up vector to drape along, and the entry in the annotation dropdown stays greyed out with
+the note ``needs a reference body''.
+
 \begin{figure}[h!]
-    \subfigure{
-        \includegraphics[width=0.499\textwidth]{./pics/AnnotationEllipse1.PNG}
-    }
-    \hfill
-    \subfigure{ 
-        \includegraphics[width=0.499\textwidth]{./pics/AnnotationEllipse2.PNG}
-	}
-    \caption{AxisEllipse Annotation}
+	\centering
+	\includegraphics[width=0.6\textwidth]{./pics/AnnotationEllipse.PNG}
+    \caption[AxisEllipse Annotation]{An AxisEllipse drawn on Dimorphos: the outline is fitted in the plane through the three picked points and then draped onto the terrain.}
     \label{fig:annotation_ellipse}
 \end{figure}
+
+\furtherreading{\onlinedoc{EllipseAnnotations.md}{EllipseAnnotations.md} --- both ellipse
+tools and their parameters; \onlinedoc{SbmtImport.md}{SbmtImport.md} --- importing ellipses
+and circles from SBMT annotation catalogs.}
 
 %----------------------------------------------------------------------------------------
 %	SubSection: 
@@ -964,6 +1027,9 @@ Next, in the contour section, enable it and set distance of the lines, as well a
 	\includegraphics[width=1.0\textwidth]{pics/contour0.png}
 	\caption{The whole setup looks like this.}
 \end{figure}
+
+\furtherreading{\onlinedoc{Contour-Lines.md}{Contour-Lines.md} --- the contour line feature
+and its parameters.}
 
 %----------------------------------------------------------------------------------------
 %	SubSection: 
@@ -1005,3 +1071,8 @@ Currently we only read opcx files as opposed to opcx.json files which also provi
 
 \paragraph{Data Example}
 An example of currently available data can be found in the Appendix \ref{multitexturingAppendix}.
+
+\furtherreading{\onlinedoc{Feature-Multitexture.md}{Feature-Multitexture.md} --- the
+multitexturing feature in detail; \onlinedoc{Feature-Queries.md}{Feature-Queries.md} ---
+the query parameters and transfer functions used to filter attributes;
+\onlinedoc{VertexAttributes.md}{VertexAttributes.md} --- per-vertex attribute layers.}

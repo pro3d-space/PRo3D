@@ -14,6 +14,7 @@
 			t                       &  toggle visibility between two surfaces selected in the Comparison window    \\
 			page up/down	    	&  raise/lower navigation sensitivity\\
 			ctrl s					&  save existing scene (use the menu to save a new scene) \\
+			ctrl z / ctrl y			&  undo / redo annotation changes \\
 			ctrl c					&  print current camera parameters in snapshot format on the command line \\
 			space					&  save waypoint \\
 			F1  					&  Interaction: Pick Explore Center \\
@@ -28,3 +29,11 @@
 		\label{table:keyboardShortscuts} 
 	\end{table}
 \end{center}
+
+\paragraph{The modifier key: Ctrl, or Cmd on macOS.}
+Wherever this manual says CTRL (CTRL+LMB to pick, ctrl s, ctrl z, \ldots), use \textbf{Cmd}
+on macOS: there CTRL+click is a right-click. Both Cmd keys work. \textbf{Alt} (\textbf{Option} on
+macOS) is \emph{not} a substitute for CTRL: until this version it acted as one, so Alt+click
+picked and Alt+S saved; now Alt only does what a tool says it does (for example the toggle of a
+box selection, CTRL+Alt+drag). If PRo3D loses focus while CTRL is held (Cmd+Tab, Alt+Tab), it
+treats CTRL as released. See \onlinedoc{DirectToolMode.md}{DirectToolMode.md}.

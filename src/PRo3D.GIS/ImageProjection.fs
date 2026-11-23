@@ -33,6 +33,13 @@ module ImageProjection =
             member x.ProjectedStackTrafos : Arr<N<32>, M44f> = uniform?ProjectedStackTrafos
             member x.ProjectedStackMinMax : Arr<N<32>, V2f> = uniform?ProjectedStackMinMax
             member x.ProjectedStackCount : int = uniform?ProjectedStackCount
+            /// layer i samples slot ProjectedStackSlices.[i] of the stack texture
+            /// array: images keep their slot, so reordering changes only this
+            member x.ProjectedStackSlices : Arr<N<32>, int> = uniform?ProjectedStackSlices
+            /// layer in focus (hovered / dragged), -1: none; every other layer's
+            /// opacity is scaled by ProjectedStackFade
+            member x.ProjectedStackFocus : int = uniform?ProjectedStackFocus
+            member x.ProjectedStackFade : float32 = uniform?ProjectedStackFade
             /// InstrumentVisibilityMode.RelativeCount: tint fragments by how
             /// many stack layers cover them (projectedStackCoverage)
             member x.ProjectedStackCoverageEnabled : bool = uniform?ProjectedStackCoverageEnabled
@@ -102,43 +109,85 @@ module ImageProjection =
                 borderColor C4f.White
             }
 
-        // same texture + state as ColorMapping's colormapTextureSampler; local
-        // because the stack shader inlines its remap (see the NOTE there)
+        // every colour map side by side (ColorMapping.stackColormapAtlas), so each
+        // layer uses its own. No mip maps: the texture has none, and a mip level
+        // would blend neighbouring maps.
         let private stackColormapSampler =
             sampler2d {
-                texture uniform?ColormapTexture
-                filter Filter.MinMagMipLinear
+                texture uniform?ProjectedStackColormaps
+                filter Filter.MinMagLinear
                 addressU WrapMode.Clamp
                 addressV WrapMode.Clamp
             }
 
+        /// `t` (0..1) through colour map `map`: within the map's own segment of the
+        /// atlas, between its first and last texel centres, so the linear filter
+        /// never reaches into the neighbouring map.
+        [<ReflectedDefinition>]
+        let stackColormapCoordinate (map : int) (t : float32) =
+            let w = float32 PRo3D.InstrumentVisualization.ColormapAtlas.segmentWidth
+            let n = float32 PRo3D.InstrumentVisualization.ColormapAtlas.count
+            let m = clamp 0.0f (n - 1.0f) (float32 map)
+            let inSegment = 0.5f + clamp 0.0f 1.0f t * (w - 1.0f)
+            (m * w + inSegment) / (w * n)
+
         type UniformScope with
-            member x.StackUseFalseColor : bool = uniform?UseFalseColor
-            member x.StackDataType : int = uniform?DataType
+            /// per layer: its ColorMap value (the row of the colour-map atlas)
+            member x.ProjectedStackColorMap : Arr<N<32>, int> = uniform?ProjectedStackColorMap
+            /// per layer: its DataType value (2 = Float, otherwise 16-bit integer)
+            member x.ProjectedStackDataType : Arr<N<32>, int> = uniform?ProjectedStackDataType
             /// false = paint the layer's own RGB untouched, skipping both the
             /// per-layer min/max remap and the colour map. Instrument data needs
             /// the transfer function to be readable; an ordinary RGB image does
             /// not, and a projection can only be CHECKED against its source
             /// image when nothing has been applied to it.
             member x.ProjectedUseTransferFunction : bool = uniform?ProjectedUseTransferFunction
+            /// per layer: brightness (x) and contrast (y), (0, 1) = unchanged
+            member x.ProjectedStackBrightnessContrast : Arr<N<32>, V2f> = uniform?ProjectedStackBrightnessContrast
+            /// per layer: 1 = through the colour map (the image's False Colour switch),
+            /// 0 = grey values -- as the image's preview shows it
+            member x.ProjectedStackFalseColor : Arr<N<32>, int> = uniform?ProjectedStackFalseColor
 
         /// The projection stack: layers bottom -> top, painter's order -- the
         /// TOPMOST layer that covers a fragment with a projector-facing normal
         /// wins (walked top-down with an early-out, so the common single-cover
         /// case samples once). Opaque stacking; the global opacity only blends
         /// the stack's result with the underlying terrain color. Each layer
-        /// remaps its sample with its own min/max (colormap/false-color/data
-        /// type are global, D2). Subsumes the old single-image projection: a
+        /// remaps its sample with its own min/max, data type, brightness/contrast,
+        /// false-colour switch and colour map. Subsumes the old single-image projection: a
         /// stack of one behaves identically, minus the green border (the
         /// hovered layer gets an outline in a later phase instead).
+        /// What the stack shader hands on: the colour, and how much of it is projected
+        /// image (`ProjectedCover`: the image opacity where a layer covers the fragment,
+        /// 0 elsewhere). The viewer's projectedImageUnlit reads it after the lighting
+        /// (headlight and sun) to leave the projected image unshaded: a projection shows
+        /// only the image, which already carries its own lighting.
+        type StackOutput =
+            {
+                [<Color>] c : V4f
+                [<Semantic("ProjectedCover")>] cover : float32
+            }
+
         let stableImageProjectionStack (v : Vertex) =
             fragment {
                 let mutable color = v.c
-                let mutable covered = false
+                // the topmost layer covering the fragment ...
+                let mutable topIndex = -1
+                let mutable topColor = V3f.Zero
+                // ... and, while one layer is in focus (hovered / dragged), that
+                // layer if it covers the fragment further down: the layers above
+                // it are drawn semi-transparent (ProjectedStackFade) over it, so
+                // the focused image shows through them
+                let focus = uniform.ProjectedStackFocus
+                let mutable focusCovered = false
+                let mutable focusColor = V3f.Zero
                 let count = uniform.ProjectedStackCount
                 for j in 0 .. count - 1 do
                     let i = count - 1 - j
-                    if not covered then
+                    // no focus: the first cover ends the walk (one sample, as before);
+                    // below the top only the focused layer itself is of interest
+                    let wanted = topIndex < 0 || (i = focus && not focusCovered)
+                    if wanted then
                         let ndc = uniform.ProjectedStackTrafos.[i] * v.localPos
                         let p = ndc.XYZ / ndc.W
                         let tc = V3f(0.5f, 0.5f, 0.5f) + V3f(0.5f, 0.5f, 0.5f) * p
@@ -147,7 +196,7 @@ module ImageProjection =
                         let inRange = Vec.allGreaterOrEqual tc V3f.OOO && Vec.allSmallerOrEqual tc V3f.III
                         let normal = uniform.ProjectedStackTrafos.[i].TransformDir(v.localNormalNumericallyUnstable) |> Vec.normalize
                         if inRange && normal.Z < 0.0f then
-                            let sample = projectedStackTexture.Sample(V2f(tc.X, tc.Y), i)
+                            let sample = projectedStackTexture.Sample(V2f(tc.X, tc.Y), uniform.ProjectedStackSlices.[i])
                             let value = sample.X
                             let minMax = uniform.ProjectedStackMinMax.[i]
                             // per-layer remap, inlined rather than shared with
@@ -159,19 +208,36 @@ module ImageProjection =
                                 min minMax.Y ((max minMax.X (value * 65000.0f)) - minMax.X) / (minMax.Y - minMax.X)
                             let normalizedFloat =
                                 (value - minMax.X) / (minMax.Y - minMax.X)
+                            let bc = uniform.ProjectedStackBrightnessContrast.[i]
                             let normalized =
-                                if uniform.StackDataType = 2 then normalizedFloat else normalizedInt16
+                                PRo3D.ImageMapping.BrightnessContrastShader.apply
+                                    (if uniform.ProjectedStackDataType.[i] = 2 then normalizedFloat else normalizedInt16) bc.X bc.Y
                             let mapped =
                                 if not uniform.ProjectedUseTransferFunction then
-                                    V4f(sample.XYZ, 1.0f)
-                                elif uniform.StackUseFalseColor then
-                                    stackColormapSampler.Sample(V2f(normalized, 0.0f))
+                                    sample.XYZ
+                                elif uniform.ProjectedStackFalseColor.[i] <> 0 then
+                                    let x = stackColormapCoordinate uniform.ProjectedStackColorMap.[i] normalized
+                                    stackColormapSampler.Sample(V2f(x, 0.5f)).XYZ
                                 else
-                                    V4f(normalized, normalized, normalized, 1.0f)
-                            let a = clamp 0.0f 1.0f uniform.ProjectedImageOpacity
-                            color <- V4f(mapped.XYZ * a + (1.0f - a) * v.c.XYZ, 1.0f)
-                            covered <- true
-                return { v with c = color }
+                                    V3f(normalized, normalized, normalized)
+                            if topIndex < 0 then
+                                topIndex <- i
+                                topColor <- mapped
+                            if i = focus then
+                                focusCovered <- true
+                                focusColor <- mapped
+                let mutable cover = 0.0f
+                if topIndex >= 0 then
+                    let layered =
+                        if focus < 0 || topIndex = focus then topColor
+                        else
+                            let below = if focusCovered then focusColor else v.c.XYZ
+                            let f = clamp 0.0f 1.0f uniform.ProjectedStackFade
+                            topColor * f + below * (1.0f - f)
+                    let a = clamp 0.0f 1.0f uniform.ProjectedImageOpacity
+                    color <- V4f(layered * a + (1.0f - a) * v.c.XYZ, 1.0f)
+                    cover <- a
+                return { c = color; cover = cover }
             }
 
         /// Hover footprint outline (D5): a green border where the HOVERED

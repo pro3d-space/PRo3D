@@ -74,23 +74,8 @@ module ReferenceSystemApp =
     let upVector (point:V3d) (planet) = 
         CooTransformation.getUpVector point planet |> Vec.Normalized //point.Normalized
     
-    /// Local north at a point, from the local up there: `east = pole x up`,
-    /// `north = up x east`, with the body's polar axis taken as body-fixed +Z.
-    /// Both results are *tangent* to the surface - north points along the ground
-    /// toward the pole, it does not point at it.
-    ///
-    /// `pole x up` collapses to the zero vector when up runs parallel to the polar
-    /// axis: standing on a pole, and - because `getUpVector` falls back to +Z there -
-    /// at the body centre, which is where `InferCoordSystem` puts the origin for an
-    /// OPC that wraps a whole body. North is genuinely undefined in that case, so
-    /// pick a stable arbitrary tangent rather than normalise a zero vector.
-    /// `MapViewController.mapFrame` guards the same singularity the same way.
-    let northVector (up:V3d) =
-        let east = V3d.OOI.Cross(up)
-        let east =
-            if east.LengthSquared > 1e-12 then east.Normalized
-            else V3d.IOO.Cross(up).Normalized   // up ∥ pole, so up ∦ X
-        up.Cross(east).Normalized
+    /// Local north at a point, from the local up there; see `CooTransformation.getNorthVector`.
+    let northVector (up:V3d) = CooTransformation.getNorthVector up
     
     /// Recomputes up/north/northO for the position p. `placeOrigin` decides whether the
     /// reference system is also *moved* there: placing the coordinate system does, refreshing
@@ -182,6 +167,18 @@ module ReferenceSystemApp =
                     | Some sc -> (project sc).ToString("0.00")
                     | None    -> "conversion failed (set planet)")
 
+            // tryGetHeight, not the lat/lon/alt above: without a body it is the
+            // coordinate along up, which lat/lon/alt cannot give
+            let heightText =
+                adaptive {
+                    let! pos = model.origin
+                    let! planet = model.planet
+                    let! up = model.up.value
+                    match CooTransformation.tryGetHeight pos up planet with
+                    | Some h -> return h.ToString("0.00")
+                    | None   -> return "conversion failed (set planet)"
+                }
+
             let conventionLabel =
                 model.planet |> AVal.map (fun p ->
                     match CooTransformation.getConvention p with
@@ -199,8 +196,14 @@ module ReferenceSystemApp =
                     Html.row "N-Offset:"    [Numeric.view' [InputBox] model.noffset |> UI.map SetNOffset ]
                     Html.row "Longitude:"   [Incremental.text (formatCoo (fun x -> x.longitude))]
                     Html.row "Latitude:"    [Incremental.text (formatCoo (fun x -> x.latitude))]
-                    Html.row "Altitude:"    [Incremental.text (formatCoo (fun x -> x.altitude))]
-                    Html.row "Convention:"  [Incremental.text conventionLabel]
+                    UI.rowWithTipA
+                        (model.planet |> AVal.map (fun p -> CooTransformation.HeightReference.label p + ":"))
+                        (model.planet |> AVal.map CooTransformation.HeightReference.description)
+                        [Incremental.text heightText]
+                    UI.rowWithTipA
+                        (AVal.constant "Convention:")
+                        (model.planet |> AVal.map CooTransformation.HeightReference.description)
+                        [Incremental.text conventionLabel]
                     Html.row "Visible:"     [GuiEx.iconCheckBox model.isVisible ToggleVisible ]
                     Html.row "Textsize:"    [Numeric.view' [NumericInputType.InputBox] model.textsize |> UI.map SetTextsize ]  
                     Html.row "Textcolor:"   [ColorPicker.view model.textcolor |> UI.map SetTextColor ]

@@ -9,6 +9,7 @@ if "%PRO3D_TEST_DATA%"=="" if not defined PRO3D_SCENE (
     echo PRO3D_TEST_DATA is not set: point it at a PRo3D.Resources.TestData checkout ^(see tests-ui\README.md^) 1>&2
     exit /b 1
 )
+call "%~dp0adapt.cmd" || exit /b 1
 dotnet build src\PRo3D.Viewer\PRo3D.Viewer.fsproj -c Release || exit /b 1
 dotnet build src\PRo3D.Tool\PRo3D.Tool.fsproj -c Release || exit /b 1
 pushd "%~dp0tests-ui"

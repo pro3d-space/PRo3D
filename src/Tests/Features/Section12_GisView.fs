@@ -39,6 +39,22 @@ let tests =
                 skiptest (sprintf "default SPICE kernel not installed at %s" kernel)
         }
 
+        test "TC-12.1 a kernel that failed loads when the same path is chosen again" {
+            // the failed path stays in the model (the top bar shows it as failed), so
+            // choosing it again (SetSpiceKernel: not forced) must not be skipped as loaded
+            let appData = Path.Combine(Environment.GetFolderPath Environment.SpecialFolder.ApplicationData, "Pro3D")
+            let kernel  = Path.Combine(appData, "JR", "CooTransformationConfig", "pck00010.tpc")
+            if File.Exists kernel then
+                let failed =
+                    { GisApp.initial None with
+                        spiceKernel = Some (CooTransformation.SPICEKernel.ofPath kernel)
+                        spiceKernelLoadSuccess = false }
+                let m = GisApp.loadSpiceKernel false kernel failed
+                Expect.isTrue m.spiceKernelLoadSuccess "the retried kernel should load"
+            else
+                skiptest (sprintf "default SPICE kernel not installed at %s" kernel)
+        }
+
         // TC-12.2 Observation Settings
 
         test "TC-12.2 SetObserver sets the observed body" {
@@ -113,6 +129,377 @@ let tests =
             Expect.isFalse (old.Contains "windingCorrection") "the field is gone from the old scene"
             let restoredOld : GisApp = old |> Json.parse |> Json.deserialize
             Expect.isFalse restoredOld.projectedImageList.windingCorrection "old scenes: off"
+        }
+
+        test "TC-12.3 projected-image folder survives save/load; absent when never chosen" {
+            let m = GisApp.initial None
+            let unset = m |> Json.serialize |> Json.formatWith JsonFormattingOptions.SingleLine
+            Expect.isFalse (unset.Contains "projectedImagesDirectory") "not written when never chosen (old scenes look the same)"
+            let restoredUnset : GisApp = unset |> Json.parse |> Json.deserialize
+            Expect.isNone restoredUnset.projectedImageList.imageDirectory "old scenes: no folder"
+
+            let dir = @"C:\data\AFC_2027-03-21"
+            let set = { m with projectedImageList = { m.projectedImageList with imageDirectory = Some dir } }
+            let restored : GisApp =
+                set |> Json.serialize |> Json.formatWith JsonFormattingOptions.SingleLine |> Json.parse |> Json.deserialize
+            Expect.equal restored.projectedImageList.imageDirectory (Some dir) "folder survives save/load"
+        }
+
+        test "TC-12.3 the projection stack is saved as file names and restored in order" {
+            // native paths: Path.GetFileName splits on '\' only on Windows, so a "C:\..." fixture
+            // fails on the Linux and macOS runners although the code under test is right
+            let dir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "imgs")
+            let img (name : string) =
+                { PRo3D.ImageMapping.ProjectedImageApp.initial with id = Guid.NewGuid(); texture = System.IO.Path.Combine(dir, name) }
+            let a, b, c = img "a.png", img "B.tif", img "c.png"
+            let list =
+                { PRo3D.ImageMapping.ProjectedImageListModel.initial with
+                    images = FSharp.Data.Adaptive.IndexList.ofList [ a; b; c ]
+                    imageDirectory = Some dir
+                    stack = FSharp.Data.Adaptive.IndexList.ofList [ c.id; a.id ] } // bottom -> top
+            Expect.equal (PRo3D.ImageMapping.ProjectedImageListModel.stackFileNames list) [ "c.png"; "a.png" ] "file names, bottom -> top"
+
+            // JSON roundtrip: written under its own key, read back as pending
+            let m = GisApp.initial None
+            let serialized =
+                { m with projectedImageList = list } |> Json.serialize |> Json.formatWith JsonFormattingOptions.SingleLine
+            Expect.stringContains serialized "projectedImagesStack" "own key"
+            let restored : GisApp = serialized |> Json.parse |> Json.deserialize
+            Expect.equal restored.projectedImageList.pendingStack [ "c.png"; "a.png" ] "pending until the folder is imported"
+            let unset = m |> Json.serialize |> Json.formatWith JsonFormattingOptions.SingleLine
+            Expect.isFalse (unset.Contains "projectedImagesStack") "not written for an empty stack"
+
+            // re-import mints new ids: map names back, case-insensitively, skip the gone ones
+            let a', b', c' = img "a.png", img "B.tif", img "c.png"
+            let reimported = { PRo3D.ImageMapping.ProjectedImageListModel.initial with images = FSharp.Data.Adaptive.IndexList.ofList [ a'; b'; c' ] }
+            let r, missing =
+                PRo3D.ImageMapping.ProjectedImageListModel.restoreStack [ "b.TIF"; "gone.png"; "c.png"; "b.tif" ] reimported
+            Expect.equal (FSharp.Data.Adaptive.IndexList.toList r.stack) [ b'.id; c'.id ] "order kept, duplicates dropped"
+            Expect.equal missing [ "gone.png" ] "missing reported"
+            Expect.isEmpty r.pendingStack "consumed"
+        }
+
+        test "TC-12.3 dragging a stack row previews the drop; cancel restores, drop commits" {
+            let img (name : string) =
+                { PRo3D.ImageMapping.ProjectedImageApp.initial with id = Guid.NewGuid(); texture = name }
+            let a, b, c = img "a.png", img "b.png", img "c.png"
+            let m =
+                { PRo3D.ImageMapping.ProjectedImageListModel.initial with
+                    images = FSharp.Data.Adaptive.IndexList.ofList [ a; b; c ]
+                    stack = FSharp.Data.Adaptive.IndexList.ofList [ a.id; b.id; c.id ] } // bottom -> top
+            let update = PRo3D.ImageMapping.ProjectedImageListApp.update
+            let effective m = PRo3D.ImageMapping.ProjectedImageListModel.effectiveStack m |> FSharp.Data.Adaptive.IndexList.toList
+            let focus = PRo3D.ImageMapping.ProjectedImageListModel.stackFocus
+
+            let dragging = update m (PRo3D.ImageMapping.StackDragStart a.id)
+            Expect.equal (effective dragging) [ a.id; b.id; c.id ] "no target yet: committed order"
+            Expect.equal dragging.hoveredImage (Some a.id) "the dragged image is the hovered one (footprint, frustum)"
+            Expect.equal (focus dragging) (Some (a.id, PRo3D.ImageMapping.ProjectedImages.fadeForStackFocus)) "strong fade"
+
+            let over = update dragging (PRo3D.ImageMapping.StackDragOver 2)
+            Expect.equal (effective over) [ b.id; c.id; a.id ] "previewed at the top"
+            Expect.equal (FSharp.Data.Adaptive.IndexList.toList over.stack) [ a.id; b.id; c.id ] "not committed"
+
+            let cancelled = update over PRo3D.ImageMapping.StackDragEnd
+            Expect.equal (effective cancelled) [ a.id; b.id; c.id ] "cancel: back to the committed order"
+            Expect.isNone cancelled.stackDrag "drag over"
+            Expect.isNone (focus cancelled) "nothing faded"
+
+            let dropped = update over (PRo3D.ImageMapping.StackDrop (a.id, 2))
+            Expect.equal (FSharp.Data.Adaptive.IndexList.toList dropped.stack) [ b.id; c.id; a.id ] "drop commits"
+            Expect.isNone dropped.stackDrag "and ends the drag"
+            Expect.equal (effective (update dropped PRo3D.ImageMapping.StackDragEnd)) (effective dropped) "a late dragend changes nothing"
+
+            // a library image (not in the stack) is previewed on top with a light fade
+            let d = img "d.png"
+            let withLib = { m with images = FSharp.Data.Adaptive.IndexList.add d m.images; hoveredImage = Some d.id }
+            Expect.equal (effective withLib) [ a.id; b.id; c.id; d.id ] "preview layer on top"
+            Expect.equal (focus withLib) (Some (d.id, PRo3D.ImageMapping.ProjectedImages.fadeForLibraryFocus)) "light fade"
+            Expect.isNone (update m (PRo3D.ImageMapping.StackDragStart d.id)).stackDrag "only stack rows can be dragged"
+        }
+
+        test "TC-12.3 re-import and sort give the library fresh indices (library rows keep their ids per index)" {
+            // ProjectedImageModel.id is NonAdaptive: a row built for an index keeps its id.
+            // Reusing an index for another image made +/fly-to act on the wrong image.
+            let img (name : string) (d : float) =
+                { PRo3D.ImageMapping.ProjectedImageApp.initial with id = Guid.NewGuid(); texture = name; distance = d }
+            let indices (l : FSharp.Data.Adaptive.IndexList<_>) =
+                FSharp.Data.Adaptive.IndexList.toSeqIndexed l |> Seq.map fst |> Set.ofSeq
+            let m =
+                { PRo3D.ImageMapping.ProjectedImageListModel.initial with
+                    images = FSharp.Data.Adaptive.IndexList.ofList [ img "a" 3.0; img "b" 1.0; img "c" 2.0 ] }
+            let reimported = PRo3D.ImageMapping.ProjectedImageListModel.replaceImages [ img "x" 1.0; img "y" 2.0 ] m
+            Expect.isTrue (Set.intersect (indices m.images) (indices reimported)).IsEmpty "re-import: no index reused"
+            Expect.equal (reimported |> FSharp.Data.Adaptive.IndexList.toList |> List.map (fun i -> i.texture)) [ "x"; "y" ] "the new images, in order"
+
+            let sorted = PRo3D.ImageMapping.ProjectedImageListApp.update m PRo3D.ImageMapping.SortEntriesByDistance
+            Expect.isTrue (Set.intersect (indices m.images) (indices sorted.images)).IsEmpty "sort: no index reused"
+            Expect.equal (sorted.images |> FSharp.Data.Adaptive.IndexList.toList |> List.map (fun i -> i.texture)) [ "b"; "c"; "a" ] "sorted"
+        }
+
+        test "TC-12.3 loading a missing image folder keeps the library and does not throw" {
+            let m = { PRo3D.ImageMapping.ProjectedImageListModel.initial with imageDirectory = Some "kept" }
+            let m' =
+                PRo3D.ImageMapping.ProjectedImageListApp.update m
+                    (PRo3D.ImageMapping.ProjectedImageListMessage.LoadImagesDir @"Z:\does\not\exist\anywhere")
+            Expect.equal m'.imageDirectory (Some "kept") "unchanged"
+            Expect.equal m'.images.Count 0 "no images"
+        }
+
+        test "TC-12.3 a library range filter is off at its whole range, and its bounds stay ordered and in range" {
+            let whole = PRo3D.ImageMapping.RangeFilter.create 0.0 10.0 0.1 "{0:0.0}"
+            Expect.isFalse (PRo3D.ImageMapping.RangeFilter.isActive whole) "whole range: off"
+
+            let narrowed = whole |> PRo3D.ImageMapping.RangeFilter.setLower 2.0
+            Expect.isTrue (PRo3D.ImageMapping.RangeFilter.isActive narrowed) "narrowed: on"
+            Expect.isFalse (PRo3D.ImageMapping.RangeFilter.contains 1.0 narrowed) "below the lower bound"
+            Expect.isTrue (PRo3D.ImageMapping.RangeFilter.contains 2.0 narrowed) "bounds are inclusive"
+
+            let pushed = narrowed |> PRo3D.ImageMapping.RangeFilter.setUpper 5.0 |> PRo3D.ImageMapping.RangeFilter.setLower 7.0
+            Expect.equal (pushed.lower.value, pushed.upper.value) (7.0, 7.0) "a lower bound above the upper pushes it along"
+            let pushedDown = pushed |> PRo3D.ImageMapping.RangeFilter.setUpper 3.0
+            Expect.equal (pushedDown.lower.value, pushedDown.upper.value) (3.0, 3.0) "and the other way round"
+
+            let clamped = whole |> PRo3D.ImageMapping.RangeFilter.setLower -5.0 |> PRo3D.ImageMapping.RangeFilter.setUpper 50.0
+            Expect.equal (clamped.lower.value, clamped.upper.value) (0.0, 10.0) "clamped to the range"
+            Expect.isFalse (PRo3D.ImageMapping.RangeFilter.isActive clamped) "clamped to the whole range: off"
+            Expect.isFalse (PRo3D.ImageMapping.RangeFilter.isActive (PRo3D.ImageMapping.RangeFilter.reset narrowed)) "reset: off"
+        }
+
+        test "TC-12.3 a range filter bound within one step of the range's end snaps to it" {
+            // a step that does not divide the range: the browser's slider stops the upper
+            // thumb one step short of max (min + 999 steps)
+            let lo, hi = 6.7, 8.4
+            let step = (hi - lo) / 1000.0
+            let whole = PRo3D.ImageMapping.RangeFilter.create lo hi step "{0:0.00}"
+            let narrowed = whole |> PRo3D.ImageMapping.RangeFilter.setUpper 8.0
+            Expect.isTrue (PRo3D.ImageMapping.RangeFilter.isActive narrowed) "narrowed: on"
+
+            let back = narrowed |> PRo3D.ImageMapping.RangeFilter.setUpper (lo + 999.0 * step)
+            Expect.equal back.upper.value hi "one step short of max snaps to max"
+            Expect.isFalse (PRo3D.ImageMapping.RangeFilter.isActive back) "dragged back to the end: off"
+
+            let lowBack = whole |> PRo3D.ImageMapping.RangeFilter.setLower (lo + 0.9 * step)
+            Expect.equal lowBack.lower.value lo "within one step of min snaps to min"
+
+            let kept = whole |> PRo3D.ImageMapping.RangeFilter.setUpper (hi - 2.0 * step)
+            Expect.isLessThan kept.upper.value hi "two steps short stays where it is"
+            Expect.isTrue (PRo3D.ImageMapping.RangeFilter.isActive kept) "and the filter is on"
+        }
+
+        test "TC-12.3 library filters: instruments and distance, off when nothing narrows them" {
+            let passes f instrument d = PRo3D.ImageMapping.ImageFilter.matches f { PRo3D.ImageMapping.ProjectedImageApp.initial with id = Guid.NewGuid(); instrument = instrument; distance = d }
+            let img (instrument : string) (d : float) =
+                { PRo3D.ImageMapping.ProjectedImageApp.initial with id = Guid.NewGuid(); instrument = instrument; distance = d }
+            // all filters off (the Date filter starts at its default window)
+            let f = (PRo3D.ImageMapping.ImageFilter.update PRo3D.ImageMapping.ImageFilter.initial (PRo3D.ImageMapping.ResetRange PRo3D.ImageMapping.RangeFilterKind.Time))
+            Expect.equal (f.distance.lower.min, f.distance.upper.max) (0.1, 1e9) "fixed distance range, independent of the library"
+            Expect.equal (PRo3D.ImageMapping.ImageFilter.activeCount f) 0 "nothing active at first"
+            Expect.isTrue (passes f "AFC1" 10.0 && passes f "" 30.0) "everything passes"
+
+            let f = PRo3D.ImageMapping.ImageFilter.update f (PRo3D.ImageMapping.ToggleInstrument "AFC2")
+            Expect.equal (PRo3D.ImageMapping.ImageFilter.activeCount f) 1 "instrument filter on"
+            Expect.isFalse (passes f "AFC1" 10.0) "other instruments hidden"
+            Expect.isTrue (passes f "AFC2" 30.0) "the selected one shown"
+
+            let f = PRo3D.ImageMapping.ImageFilter.update f (PRo3D.ImageMapping.ToggleInstrument PRo3D.ImageMapping.ImageFilter.unknownInstrument)
+            Expect.isTrue (passes f "" 20.0) "unknown instruments are selectable"
+
+            let f =
+                PRo3D.ImageMapping.ImageFilter.update f
+                    (PRo3D.ImageMapping.SetUpper (PRo3D.ImageMapping.RangeFilterKind.Distance, Aardvark.UI.Primitives.Numeric.SetValue 25.0))
+            Expect.equal (PRo3D.ImageMapping.ImageFilter.activeCount f) 2 "distance filter on"
+            Expect.isFalse (passes f "AFC2" 30.0) "beyond the distance range"
+
+            let f = PRo3D.ImageMapping.ImageFilter.update f PRo3D.ImageMapping.ResetAll
+            Expect.equal (PRo3D.ImageMapping.ImageFilter.activeCount f) 0 "reset all"
+            Expect.isTrue f.expanded "reset keeps the block unfolded"
+        }
+
+        test "TC-12.3 resolution: distance × pixel angle, filtered over a fixed range" {
+            // AFC: 5.5° over 1020 px; at 10 km one pixel spans 10000 * 2 tan(2.75°) / 1020
+            let expected = 10000.0 * 2.0 * tan (2.75 * Math.PI / 180.0) / 1020.0
+            match PRo3D.SPICE.InstrumentProjection.tryResolution "AFC1" 10.0 1020 with
+            | Some r -> Expect.floatClose Accuracy.high r expected "AFC1 at 10 km"
+            | None -> failtest "AFC1 has a known field of view"
+            Expect.isNone (PRo3D.SPICE.InstrumentProjection.tryResolution "NOPE" 10.0 1020) "unknown instrument"
+            Expect.isNone (PRo3D.SPICE.InstrumentProjection.tryResolution "AFC1" 0.0 1020) "no distance"
+            Expect.isNone (PRo3D.SPICE.InstrumentProjection.tryResolution "AFC1" 10.0 0) "no width"
+
+            let img (r : Option<float>) =
+                { PRo3D.ImageMapping.ProjectedImageApp.initial with id = Guid.NewGuid(); instrument = "AFC1"; distance = 1.0; resolution = r }
+            // all filters off (the Date filter starts at its default window)
+            let f = (PRo3D.ImageMapping.ImageFilter.update PRo3D.ImageMapping.ImageFilter.initial (PRo3D.ImageMapping.ResetRange PRo3D.ImageMapping.RangeFilterKind.Time))
+            Expect.equal (f.resolution.lower.min, f.resolution.upper.max) (0.001, 1e5) "fixed resolution range"
+            let passes f r = PRo3D.ImageMapping.ImageFilter.matches f { PRo3D.ImageMapping.ProjectedImageApp.initial with id = Guid.NewGuid(); instrument = "AFC1"; distance = 1.0; resolution = r }
+            Expect.isTrue (passes f None) "filter off: images without a resolution shown"
+            let f =
+                PRo3D.ImageMapping.ImageFilter.update f
+                    (PRo3D.ImageMapping.SetUpper (PRo3D.ImageMapping.RangeFilterKind.Resolution, Aardvark.UI.Primitives.Numeric.SetValue 0.3))
+            Expect.equal (PRo3D.ImageMapping.ImageFilter.activeCount f) 1 "resolution filter on"
+            Expect.isTrue (passes f (Some 0.1)) "inside"
+            Expect.isFalse (passes f (Some 0.5)) "coarser than the bound"
+            Expect.isFalse (passes f None) "filter set: images without a resolution hidden"
+        }
+
+        test "TC-12.3 phase angle: sun–target–camera angle from the sidecar, filtered over 0–180°" {
+            let phase sun target =
+                match PRo3D.ImageMapping.ProjectedImageModel.phaseAngleOf sun target with
+                | Some a -> a
+                | None -> failtest "expected a phase angle"
+            // camera on the sun side of the target: the target lies in -x from the camera
+            Expect.floatClose Accuracy.high (phase (Aardvark.Base.V3d(1.5e8, 0.0, 0.0)) (Aardvark.Base.V3d(-10.0, 0.0, 0.0))) 0.0 "sun behind the camera: 0°"
+            Expect.floatClose Accuracy.high (phase (Aardvark.Base.V3d(1.5e8, 0.0, 0.0)) (Aardvark.Base.V3d(0.0, -10.0, 0.0))) 90.0 "side lit: 90°"
+            Expect.floatClose Accuracy.high (phase (Aardvark.Base.V3d(1.5e8, 0.0, 0.0)) (Aardvark.Base.V3d(10.0, 0.0, 0.0))) 180.0 "backlit: 180°"
+            Expect.isNone (PRo3D.ImageMapping.ProjectedImageModel.phaseAngleOf Aardvark.Base.V3d.Zero (Aardvark.Base.V3d(1.0, 0.0, 0.0))) "no sun vector"
+
+            let img (a : Option<float>) =
+                { PRo3D.ImageMapping.ProjectedImageApp.initial with id = Guid.NewGuid(); phaseAngle = a }
+            // all filters off (the Date filter starts at its default window)
+            let f = (PRo3D.ImageMapping.ImageFilter.update PRo3D.ImageMapping.ImageFilter.initial (PRo3D.ImageMapping.ResetRange PRo3D.ImageMapping.RangeFilterKind.Time))
+            Expect.equal (f.phaseAngle.lower.min, f.phaseAngle.upper.max) (0.0, 180.0) "the whole range of angles"
+            Expect.isTrue (PRo3D.ImageMapping.ImageFilter.matches f (img None)) "off: everything shown"
+            let f =
+                PRo3D.ImageMapping.ImageFilter.update f
+                    (PRo3D.ImageMapping.SetLower (PRo3D.ImageMapping.RangeFilterKind.PhaseAngle, Aardvark.UI.Primitives.Numeric.SetValue 50.0))
+            Expect.equal (PRo3D.ImageMapping.ImageFilter.activeCount f) 1 "phase angle filter on"
+            Expect.isFalse (PRo3D.ImageMapping.ImageFilter.matches f (img (Some 20.0))) "below"
+            Expect.isTrue (PRo3D.ImageMapping.ImageFilter.matches f (img (Some 80.0))) "inside"
+            Expect.isFalse (PRo3D.ImageMapping.ImageFilter.matches f (img None)) "no phase angle: hidden while set"
+        }
+
+        test "TC-12.3 date filter: 2026-11-01 to today, UTC, images without a time hidden while set" {
+            // inside the range: it ends today
+            let t0 = DateTime(2026, 11, 2, 10, 0, 0, DateTimeKind.Utc)
+            let img (t : DateTime) =
+                { PRo3D.ImageMapping.ProjectedImageApp.initial with id = Guid.NewGuid(); time = t }
+            // all filters off (the Date filter starts at its default window)
+            let f = (PRo3D.ImageMapping.ImageFilter.update PRo3D.ImageMapping.ImageFilter.initial (PRo3D.ImageMapping.ResetRange PRo3D.ImageMapping.RangeFilterKind.Time))
+            let key t = PRo3D.ImageMapping.ImageFilter.timeKey t |> Option.defaultValue nan
+            Expect.equal f.time.lower.min (key (DateTime(2026, 11, 1, 0, 0, 0, DateTimeKind.Utc))) "from 2026-11-01"
+            Expect.equal f.time.upper.max (key (DateTime.UtcNow.Date.AddDays(1.0).AddSeconds(-1.0))) "to the end of today"
+            Expect.equal (PRo3D.ImageMapping.ImageFilter.activeCount PRo3D.ImageMapping.ImageFilter.initial) 0 "off at start: the whole range"
+            Expect.equal (PRo3D.ImageMapping.ImageFilter.timeOfKey (key t0)) t0 "round trip"
+            let passes f t = PRo3D.ImageMapping.ImageFilter.matches f { PRo3D.ImageMapping.ProjectedImageApp.initial with id = Guid.NewGuid(); time = t }
+            Expect.isTrue (passes f DateTime.MinValue) "off: everything shown"
+            let f =
+                PRo3D.ImageMapping.ImageFilter.update f
+                    (PRo3D.ImageMapping.SetUpper (PRo3D.ImageMapping.RangeFilterKind.Time, Aardvark.UI.Primitives.Numeric.SetValue (key (t0.AddDays 1.0))))
+            Expect.equal (PRo3D.ImageMapping.ImageFilter.activeCount f) 1 "date filter on"
+            Expect.isTrue (passes f t0) "inside"
+            Expect.isFalse (passes f (t0.AddDays 2.0)) "after the upper bound"
+            Expect.isFalse (passes f DateTime.MinValue) "no time: hidden while set"
+        }
+
+        test "TC-12.3 the library sorts by the image list's columns, again the other way round" {
+            let img (name : string) (instrument : string) (d : float) (r : Option<float>) =
+                { PRo3D.ImageMapping.ProjectedImageApp.initial with id = Guid.NewGuid(); texture = name; instrument = instrument; distance = d; resolution = r }
+            let m =
+                { (GisApp.initial None).projectedImageList with
+                    images = FSharp.Data.Adaptive.IndexList.ofList [ img "b" "HSH" 20.0 (Some 2.0); img "a" "AFC1" 30.0 None; img "c" "AFC2" 10.0 (Some 1.0) ] }
+            let sortBy key m = PRo3D.ImageMapping.ProjectedImageListApp.update m (PRo3D.ImageMapping.SortLibraryBy key)
+            let names (m : PRo3D.ImageMapping.ProjectedImageListModel) = m.images |> FSharp.Data.Adaptive.IndexList.toList |> List.map (fun i -> i.texture)
+            let byDistance = sortBy PRo3D.ImageMapping.SortDistance m
+            Expect.equal (names byDistance) [ "c"; "b"; "a" ] "distance, ascending"
+            Expect.equal byDistance.librarySort (Some (PRo3D.ImageMapping.SortDistance, true)) "the header shows it"
+            Expect.equal (names (sortBy PRo3D.ImageMapping.SortDistance byDistance)) [ "a"; "b"; "c" ] "again: descending"
+            Expect.equal (names (sortBy PRo3D.ImageMapping.SortInstrument m)) [ "a"; "c"; "b" ] "instrument"
+            Expect.equal (names (sortBy PRo3D.ImageMapping.SortResolution m)) [ "c"; "b"; "a" ] "resolution, unknown last"
+        }
+
+        test "TC-12.3 library thumbnails: a small PNG per registered image, nothing for others" {
+            // the repo's test TIFFs are empty placeholders: a generated image instead
+            let dir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "PRo3D-thumbnail-test-" + string (Guid.NewGuid()))
+            System.IO.Directory.CreateDirectory dir |> ignore
+            try
+                let source = System.IO.Path.Combine(dir, "image.png")
+                let pi = Aardvark.Base.PixImage<byte>(Aardvark.Base.Col.Format.RGBA, Aardvark.Base.V2i(200, 100))
+                pi.Save source
+                let key (path : string) = (PRo3D.GIS.LibraryThumbnails.thumbnailPath path).Substring PRo3D.GIS.LibraryThumbnails.route.Length
+                Expect.isNone (PRo3D.GIS.LibraryThumbnails.thumbnailFile (key source)) "not registered: not served"
+                PRo3D.GIS.LibraryThumbnails.register source
+                match PRo3D.GIS.LibraryThumbnails.thumbnailFile (key source) with
+                | Some png ->
+                    let thumb = Aardvark.Base.PixImage.Load png
+                    Expect.equal (thumb.Size.X, thumb.Size.Y) (PRo3D.GIS.LibraryThumbnails.size, PRo3D.GIS.LibraryThumbnails.size / 2) "64 px wide, the aspect kept"
+                | None -> failtest "a registered image has a thumbnail"
+                Expect.isNone (PRo3D.GIS.LibraryThumbnails.render (System.IO.Path.Combine(dir, "missing.tif"))) "an unreadable file: no thumbnail"
+            finally
+                try System.IO.Directory.Delete(dir, true) with _ -> ()
+        }
+
+        test "TC-12.3 shared filters: fixed ranges, log scale for distance and resolution, kept on import" {
+            // all filters off (the Date filter starts at its default window)
+            let f = (PRo3D.ImageMapping.ImageFilter.update PRo3D.ImageMapping.ImageFilter.initial (PRo3D.ImageMapping.ResetRange PRo3D.ImageMapping.RangeFilterKind.Time))
+            Expect.equal (PRo3D.ImageMapping.ImageFilter.activeCount f) 0 "all off: the whole ranges"
+            Expect.equal (PRo3D.ImageMapping.ImageFilter.activeCount PRo3D.ImageMapping.ImageFilter.initial) 0 "all off at start"
+            Expect.isTrue (PRo3D.ImageMapping.ImageFilter.isLogScale PRo3D.ImageMapping.RangeFilterKind.Distance) "distance: log"
+            Expect.isTrue (PRo3D.ImageMapping.ImageFilter.isLogScale PRo3D.ImageMapping.RangeFilterKind.Resolution) "resolution: log"
+            Expect.isFalse (PRo3D.ImageMapping.ImageFilter.isLogScale PRo3D.ImageMapping.RangeFilterKind.PhaseAngle) "phase angle: linear"
+            Expect.isFalse (PRo3D.ImageMapping.ImageFilter.isLogScale PRo3D.ImageMapping.RangeFilterKind.Time) "date: linear"
+            // a log slider: positions and values round-trip, and the ends snap exactly
+            let lo, hi = f.distance.lower.min, f.distance.upper.max
+            let step = PRo3D.ImageMapping.DualRangeSlider.Scale.step true lo hi f.distance.lower.step
+            for v in [ 0.5; 12.0; 3.4e5 ] do
+                let x = PRo3D.ImageMapping.DualRangeSlider.Scale.toSlider true lo v
+                Expect.floatClose Accuracy.medium (PRo3D.ImageMapping.DualRangeSlider.Scale.valueOf true lo hi step x) v "value -> position -> value"
+            let top = PRo3D.ImageMapping.DualRangeSlider.Scale.toSlider true lo hi
+            Expect.equal (PRo3D.ImageMapping.DualRangeSlider.Scale.valueOf true lo hi step (top - 0.5 * step)) hi "one step short of the end: the end"
+            Expect.equal (PRo3D.ImageMapping.DualRangeSlider.Scale.valueOf true lo hi step (log10 lo + 0.5 * step)) lo "and at the start"
+
+            // an import keeps the filters: they are shared with the catalog search
+            let narrowed =
+                PRo3D.ImageMapping.ImageFilter.update f
+                    (PRo3D.ImageMapping.SetUpper (PRo3D.ImageMapping.RangeFilterKind.Distance, Aardvark.UI.Primitives.Numeric.SetValue 25.0))
+            let m = { (GisApp.initial None).projectedImageList with filter = narrowed }
+            let dataDir = System.IO.Path.Combine(__SOURCE_DIRECTORY__, "..", "data")
+            let imported = PRo3D.ImageMapping.ProjectedImageListApp.update m (PRo3D.ImageMapping.ProjectedImageListMessage.LoadImagesDir dataDir)
+            Expect.isFalse imported.images.IsEmpty "the test images were imported"
+            Expect.equal imported.filter narrowed "the filters stay"
+        }
+
+        test "TC-12.3 camera follows camera source survives save/load and defaults to on" {
+            let m = GisApp.initial None
+            Expect.isTrue m.cameraFollowsSource "a new scene follows"
+            let off = { m with cameraFollowsSource = false }
+            let serialized = off |> Json.serialize |> Json.formatWith JsonFormattingOptions.SingleLine
+            let restored : GisApp = serialized |> Json.parse |> Json.deserialize
+            Expect.isFalse restored.cameraFollowsSource "off survives save/load"
+
+            // a scene from before the field existed loads with it on
+            // the keys are written sorted, so this one comes first: take its trailing comma
+            let old = Text.RegularExpressions.Regex.Replace(serialized, "\"cameraFollowsSource\"\\s*:\\s*(true|false)\\s*,?", "")
+            Expect.isFalse (old.Contains "cameraFollowsSource") "the field is gone from the old scene"
+            let restoredOld : GisApp = old |> Json.parse |> Json.deserialize
+            Expect.isTrue restoredOld.cameraFollowsSource "old scenes: on"
+        }
+
+        test "TC-12.2 which messages re-aim the camera from the camera source body" {
+            let on = GisApp.initial None
+            let off = { on with cameraFollowsSource = false }
+            let entry = GisApp.getMissionTimeEntriesData () |> List.tryHead
+            match entry with
+            | None -> failtest "no mission time entries"
+            | Some entry ->
+                let timeChanges = [
+                    GisAppAction.SetTime (entry, FSharp.Data.Adaptive.Index.zero, 0.5)
+                    GisAppAction.SetMissionTimesRowAndSetDate (entry, FSharp.Data.Adaptive.Index.zero)
+                    GisAppAction.ObservationInfoMessage (ObservationInfoAction.SetTime DateTime.UtcNow)
+                ]
+                for msg in timeChanges do
+                    Expect.isTrue  (GisApp.reaimsCamera on msg)  (sprintf "%A follows while on" msg)
+                    Expect.isFalse (GisApp.reaimsCamera off msg) (sprintf "%A leaves the camera while off" msg)
+                let settings = [
+                    ObservationInfoAction.Reset
+                    ObservationInfoAction.SetTarget (Some (EntitySpiceName "HERA"))
+                    ObservationInfoAction.SetObserver (Some (EntitySpiceName "DIMORPHOS"))
+                    ObservationInfoAction.SetReferenceFrame (Some (FrameSpiceName "DIMORPHOS_FIXED"))
+                ]
+                for msg in settings do
+                    Expect.isTrue (GisApp.reaimsCamera off (GisAppAction.ObservationInfoMessage msg)) (sprintf "%A always re-aims" msg)
+                // fly-to moves the time too, but frames the image itself
+                let flyTo = GisAppAction.ProjectedImageListMessage (PRo3D.ImageMapping.ProjectedImageListMessage.FlyToImage (Guid.NewGuid()))
+                Expect.isFalse (GisApp.reaimsCamera on flyTo) "fly-to keeps its own camera"
         }
 
         // TC-12.4 Scene body (#758) — the global planet and the GIS observation are one
@@ -233,10 +620,19 @@ let tests =
             Expect.equal restored.projectedImageList.lightingMode
                 PRo3D.ImageMapping.LightingMode.SunShadow "SunShadow should survive save/load"
 
-            // and the default stays Off, so old scenes without the field load unchanged
-            let off = GisApp.initial None |> Json.serialize |> Json.formatWith JsonFormattingOptions.SingleLine
+            // a new scene starts Off; an old scene's 0 (what "Off" meant before Headlight
+            // existed: the camera light) reads as Headlight, so it keeps its look
+            Expect.equal (GisApp.initial None).projectedImageList.lightingMode PRo3D.ImageMapping.LightingMode.Off "a new scene starts Off"
+            let headlight =
+                { m with projectedImageList = { m.projectedImageList with lightingMode = PRo3D.ImageMapping.LightingMode.Headlight } }
+                |> Json.serialize |> Json.formatWith JsonFormattingOptions.SingleLine
+            Expect.isTrue (System.Text.RegularExpressions.Regex.IsMatch(headlight, "\"lightingMode\"\\s*:\\s*0\\b")) "Headlight is stored as 0, as the old Off"
+
+            // the new Off (no light at all) survives too
+            let off =
+                { m with projectedImageList = { m.projectedImageList with lightingMode = PRo3D.ImageMapping.LightingMode.Off } }
+                |> Json.serialize |> Json.formatWith JsonFormattingOptions.SingleLine
             let restoredOff : GisApp = off |> Json.parse |> Json.deserialize
-            Expect.equal restoredOff.projectedImageList.lightingMode
-                PRo3D.ImageMapping.LightingMode.Off "the default lighting mode is Off"
+            Expect.equal restoredOff.projectedImageList.lightingMode PRo3D.ImageMapping.LightingMode.Off "Off survives save/load"
         }
     ]

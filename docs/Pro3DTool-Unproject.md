@@ -121,16 +121,18 @@ and it does not fail the run. `no-image`, `no-pointing` and `bad-input` do.
 Where the OPC ships per-vertex `*.aara` layers (see [VertexAttributes.md](./VertexAttributes.md))
 they are interpolated at the hit point and added as columns: `Slope`, `Potential`, `Elevation`,
 `Magnitude`, and the vector layers `Normal`, `Gravity` and `LonLatRad` split into `_x` `_y` `_z`.
-Not every export has them — the HERA `AARA_Textures` products do, others do not — and the run
+Not every export has them — the Dimorphos OPC (`HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos`) does, others do not — and the run
 says so once when none are found.
 
 Only the per-vertex layers are read, never the texture fallback: that decodes an image per layer
 per sample, which is fine for a cursor readout and not for a list of points.
 
 Attribute columns are the layer's **raw stored values**, not converted. That matters for
-`LonLatRad`, which on the HERA exports is in **gradians**: `LonLatRad_x` is longitude x 10/9
-(0..400) and `LonLatRad_y` is (latitude + 90) x 10/9 (0..200, counted from the south pole); only
-`LonLatRad_z`, the radius, is in metres. For degrees use the `lat_deg`/`lon_deg`/`alt_m` columns.
+`LonLatRad`: on the current Dimorphos OPC `LonLatRad_x`/`LonLatRad_y` are longitude and latitude
+in degrees, but older HERA exports stored **gradians** (longitude x 10/9, 0..400, and
+(latitude + 90) x 10/9, 0..200); the OPC's `.opcx` range says which. `LonLatRad_z`, the radius,
+is metres either way. For degrees regardless of the export, use the `lat_deg`/`lon_deg`/`alt_m`
+columns.
 
 ### Coordinates
 
@@ -138,7 +140,9 @@ Attribute columns are the layer's **raw stored values**, not converted. That mat
 east-positive, as `CooTransformation` returns it.
 
 `lat_deg`, `lon_deg` and `alt_m` are derived via SPICE from the intersection point, not read
-from the shape model. A body with no known coordinate convention leaves these three columns
+from the shape model. `alt_m` is geometric and depends on the body: height above the
+reference spheroid, or on Dimorphos the radius from the centre - see
+[HeightReference.md](HeightReference.md). It is not the potential-based `Elevation` layer. A body with no known coordinate convention leaves these three columns
 empty.
 
 For the shape model's own values, use its attribute columns instead: `Elevation`, and the radius
@@ -157,7 +161,7 @@ in `LonLatRad_z`.
 | `--observer <name>` | observing spacecraft; by default derived per image from its instrument |
 | `--kernel <file>` | explicit metakernel, overriding the sidecar's declaration |
 | `--kernel-root <dir>` | SPICE kernel tree; overrides `$PRO3D_SPICE_KERNELS` |
-| `--method spice\|mbi` | projection method (default `mbi`) |
+| `--method spice\|spice-aimed\|mbi\|mbi-spice-range` | orientation source (default `mbi`; the viewer defaults to Spice, which is `spice` here): `spice` = SPICE only, SPK position and the instrument's own frame (CK × frames kernel), not aimed; `spice-aimed` = SPICE position and spacecraft attitude turned onto the target (what `spice` was before); `mbi` = the sidecar's `SC_QUAT` and `TRG_POS`; `mbi-spice-range` = `SC_QUAT` with the SPICE range, for sidecars without `TRG_POS` (see [MultiImageProjection.md](MultiImageProjection.md#if-an-image-does-not-land-on-the-terrain)) |
 | `--pixel-convention image\|fits` | how the input addresses pixels — see below |
 | `--config <file>` | JSON supplying any of the above; explicit flags win |
 

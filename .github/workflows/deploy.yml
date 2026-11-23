@@ -1,10 +1,17 @@
 name: Deploy
 on:
-  push: 
+  # Release branches only. Any branch deploys otherwise: merging a release commit back into
+  # develop carries the same release-notes change and would build a second draft of the same
+  # version off the wrong branch.
+  push:
+    branches:
+      - 'releases/**'
     paths:
       - PRODUCT_RELEASE_NOTES.md
       - aardium/package.json
       - .github/workflows/deploy.yml
+  # Lets a failed deploy be retried from the Actions tab without another commit.
+  workflow_dispatch:
 
 concurrency:
   group: deploy-${{ github.ref }}

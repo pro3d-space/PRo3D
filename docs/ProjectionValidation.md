@@ -15,11 +15,15 @@ three — see [the proof](#the-proof) below.
 
 Things that still make images look wrong independently of the projection itself:
 
-1. **Orientation Source** set to *SPICE* reads no pointing from the image at all
-   — it aims the camera at the body centre with a fixed roll, so real frames land
-   on the body with their features out of place. It used to be the default, which
-   made a correct projection look broken out of the box; **MBI** is the default
-   now.
+1. **Orientation Source** set to *SPICE, aimed at target* (`SpiceAimed`; this was
+   *SPICE* before the frames-kernel change) reads no pointing from the image at all
+   — it aims the camera at the body centre (with SPICE's roll since the
+   orientation sources were unified; an arbitrary one before), so real frames land
+   on the body with their features out of place. *SPICE* (`Spice`) is now the
+   instrument frame from CK × frames kernel, not aimed. The aimed mode used to be the
+   default, which made a correct projection look broken out of the box; the default
+   was then **MbiAttitudeSpiceRange** (the image's own attitude, SPICE range) and is
+   now *SPICE (instrument frame)*, which keeps pointing errors visible.
 2. A sidecar can state the pointing wrongly, and the projector will follow it
    faithfully. The HERA COP delivery does exactly this.
 3. **The scene has to be set up before any of it can work.** From an empty
@@ -60,7 +64,7 @@ width ratio and the two must agree **at zero shift**. That is a stronger claim
 than fitting each body's bounding box: a fit quietly absorbs a real pointing
 error and then reports a meaningless few-pixel residual.
 
-Prerequisites for step 3, all now in: the *Transfer Function* toggle (off = the
+Prerequisites for step 3, all now in: the *Transfer Function* toggle (now *Apply Image Adjustments*; off = the
 image's own RGB, so the render is comparable to the source rather than to a
 colour-mapped version of it), the viewer's missing `NormalFlip` binding, a
 fly-to that lands pointing at the body, and the projector matrix fix below.
@@ -75,7 +79,9 @@ single state, so the page cannot drift out of internal consistency:
 - OPC `Dimorphos_opc` (the current export)
 - texture layer **DRACO_2**, epoch **2027-03-21T20:00**, range 6 706.8 m
 - viewer window 1100×1100, *Focal (mm)* 122.563 = AFC-1's 5.5307°
-- *Orientation Source* MBI, *Transfer Function* off
+  (measured before #882: the test set has since been regenerated on shape model v004 at
+  5.5°, *Focal (mm)* 123.247, and these numbers have not been re-measured on it)
+- *Orientation Source* MBI, *Apply Image Adjustments* off
 
 | rung | correlation at zero shift | best shift found | mean ΔDN |
 |---|---|---|---|
@@ -139,7 +145,7 @@ an `.mbi.json` describing **the camera it actually used**.
 single-image projection shader, rendering from the same camera:
 
 ```
-pro3d-tool simulate-image --opc <test data>/HERA/Dimorphos_opc/Dimorphos \
+pro3d-tool simulate-image --opc <test data>/HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos \
     --project <test data>/HERA/Dimorphos_opc/AFC_2027-03-21/AFC1_DRACO2_20270321_200000.png \
     --texture-layer DRACO_2 --body DIMORPHOS --frame DIMORPHOS_FIXED \
     --observer HERA --instrument HERA_AFC-1 --out reprojected.png
@@ -157,7 +163,7 @@ rather than through a colour map.
 |---|---|---|
 | ![source](images/projectionValidation/step1-source.png) | ![reprojected](images/projectionValidation/step1-reprojected.png) | ![difference](images/projectionValidation/step1-diff.png) |
 
-(AFC-1 frames are **1020 × 1020** — square, per `hera_afc_v06.ti`. These three
+(AFC-1 frames are **1020 × 1020** — square, per the AFC instrument kernel. These three
 are the same square crop around the body, at the same scale.)
 
 | | |
@@ -233,8 +239,9 @@ what the surface is textured with.
 
 Setup: one simulated AFC-1 frame of Dimorphos, projected onto
 `Dimorphos_opc`. *Fly to image* puts the camera on that frame's projector
-axis; *Focal (mm)* = 122.563 makes the viewer's field of view AFC-1's 5.5307°;
-*Orientation Source* = MBI; *Transfer Function* off, so the layer is painted as
+axis; *Focal (mm)* = 123.247 makes the viewer's field of view AFC-1's 5.5° (122.563 /
+5.5307° before #882);
+*Orientation Source* = MBI; *Apply Image Adjustments* off, so the layer is painted as
 its own RGB. Window 1100×1100, square, because a 16:9 window would frame the
 body by its shorter vertical fov instead of the instrument's.
 
@@ -292,7 +299,7 @@ together with the OPC it was rendered from:
 
 | path | content |
 |---|---|
-| `HERA/Dimorphos_opc/Dimorphos` | the Dimorphos OPC (DRACO_1/DRACO_2 layers, outward-wound) |
+| `HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos` | the Dimorphos OPC (DRACO_1/DRACO_2 layers, outward-wound) |
 | `HERA/Dimorphos_opc/AFC_2027-03-21` | eight AFC-1 frames (texture-only and lit, four epochs), their sidecars, a README and the scene template |
 
 Every sidecar passes the boresight invariant — `TRG_POS` transformed into the
@@ -338,11 +345,18 @@ ships.
 
 | mode | where the pointing comes from |
 |---|---|
-| **SPICE** | Nowhere in the image. The spacecraft position is SPICE's, but the camera is then aimed at the **body centre** with a fixed up-vector — `InstrumentProjection.getLookAt` computes an attitude and discards it. Every image is painted as if shot dead-centre with one roll. |
-| **MBI** (default) | The image's measured attitude (`SC_QUAT`) and range (`TRG_POS`). Correct when the sidecar is, and faithfully wrong when it is not. |
+| **SPICE (instrument frame)** (`Spice`, default) | Nowhere in the image. Position from the SPK, attitude is SPICE's **instrument frame** (spacecraft CK × frames kernel, mounting and misalignment included), **not aimed**: the image lands where SPICE predicts the instrument pointed, so pointing and ephemeris errors stay visible. See [MultiImageProjection.md](MultiImageProjection.md#the-frames-kernel-instrument-mounting). |
+| **SPICE, aimed at target** (`SpiceAimed`; *SPICE* before) | Nowhere in the image. Position and attitude are SPICE's (SPK and spacecraft CK, no frames kernel), and the camera is then turned onto the **body centre**. Every image is painted as if shot dead-centre. (Measured below — as *SPICE* — before the roll came from the CK: then it had an arbitrary roll as well.) |
+| **MBI** | The image's measured attitude (`SC_QUAT`) and range (`TRG_POS`). Correct when the sidecar is, and faithfully wrong when it is not. |
+| **MbiAttitudeSpiceRange** | The image's attitude (`SC_QUAT`), target on the boresight at the SPICE range. Dead-centre like SPICE, but with the image's own roll; for sidecars without `TRG_POS`. |
+
+All of them accept the *Registration* pitch/yaw/roll, which turn the projector
+about its own position — the way to move a dead-centre image onto a body that
+sits off-centre in the frame. See
+[MultiImageProjection.md](MultiImageProjection.md#if-an-image-does-not-land-on-the-terrain).
 
 So the symptom tells you where to look: *"lands on the body but the features do
-not line up"* is the first mode; *"does not land at all"* is the second plus a
+not line up"* is an aimed mode; *"does not land at all"* is the second plus a
 sidecar problem.
 
 Measured in the viewer, one image in the stack, same scene and camera
@@ -353,7 +367,7 @@ throughout:
 | COP frame, as delivered | ![COP with SPICE](images/projectionValidation/viewer-cop-spice.png)<br>87.9% of the body repainted — but offset | ![COP with MBI](images/projectionValidation/viewer-cop-mbi.png)<br>**0.0% — misses entirely** |
 
 `pro3d-tool unproject` says the same without a GPU: that frame's centre pixel
-finds no surface with `--method mbi`, and hits at 8557 m with `--method spice`.
+finds no surface with `--method mbi`, and hits at 8557 m with `--method spice-aimed` (`spice` at the time of measuring).
 
 ## The HERA COP delivery
 
@@ -484,7 +498,7 @@ up so that projection works the moment it opens:
 
 ```
 python scripts/make-projection-test-data.py \
-    --opc <test data>/HERA/Dimorphos_opc/Dimorphos --out <folder> \
+    --opc <test data>/HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos --out <folder> \
     --texture-layer DRACO_2 \
     --scene-template <test data>/HERA/Dimorphos_opc/AFC_2027-03-21/ProjectionTest.pro3d
 
@@ -500,14 +514,14 @@ The frames it produces are what this page measures: the numbers above were
 re-derived from a freshly generated set, and reproduce to the digit
 (registration 0.9705, identity, zero shift).
 
-Shape model: `<test data>/HERA/Dimorphos_opc/Dimorphos`. The frames are only
+Shape model: `<test data>/HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos`. The frames are only
 meaningful on the shape model they were rendered against, so keep them together;
 the README beside them covers the viewer settings that matter.
 
 ```
 # the frames (--texture-layer matters: without it the tool draws the patch's
 # DEFAULT layer, which is not necessarily the one a scene displays)
-pro3d-tool simulate-image --opc <...>/Dimorphos_opc/Dimorphos \
+pro3d-tool simulate-image --opc <...>/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos \
     --time 2027-03-21T20:00:00Z --body DIMORPHOS --frame DIMORPHOS_FIXED \
     --observer HERA --instrument HERA_AFC-1 \
     --texture-only --texture-layer DRACO_2 --write-mbi \
@@ -527,7 +541,7 @@ cd tests-ui
 PRO3D_SCENE=<...>/ProjectionTest.pro3d \
 PRO3D_PROBE_IMAGE_DIR=<...> PRO3D_PROBE_IMAGE=AFC1_DRACO2_20270321_200000.png \
 PRO3D_PROBE_METHOD=MbiBased PRO3D_PROBE_TRANSFER=off \
-PRO3D_PROBE_FLYTO=1 PRO3D_PROBE_FOCAL=122.563 \
+PRO3D_PROBE_FLYTO=1 PRO3D_PROBE_FOCAL=123.247 \
 PRO3D_PROBE_VIEWPORT=1100x1100 PRO3D_PROBE_LABEL=rung3 \
   npx tsx src/probe-projection-landing.ts
 

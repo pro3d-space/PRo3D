@@ -176,18 +176,21 @@ module TestViewer =
         let observations = 
             instrumentData 
             |> Array.map (fun (s, (mbi, _)) -> 
-                let obsTime = mbi.obs_date
-                let p = 
-                    {
-                        target = InstrumentImages.CameraFocus.FocusBody "MARS"
-                        cameraSource =  InstrumentImages.CameraSource.InBody "HERA"
-                        instrumentReferenceFrame = "HERA_AFC-1"
-                        instrumentName = "HERA_AFC-1"
-                        supportBody = "SUN"
-                        time = obsTime
-                        boresightAdjustment = None
+                let p =
+                    InstrumentProjection.resolve {
+                        instrument  = "HERA_AFC-1"
+                        spacecraft  = "HERA"
+                        target      = "MARS"
+                        origin      = observer.Value
+                        originFrame = referenceFrame.Value
+                        time        = mbi.obs_date
+                        pose        = ProjectorPose.SpiceAimed
+                        boresight   = None
+                        nearFar     = None
+                        fov         = None
+                        flipRows    = false
                     }
-                mbi.obs_date, InstrumentProjection.projectOnto referenceFrame.Value observer.Value instruments p
+                mbi.obs_date, (match p with Ok p -> Some p.full | Result.Error _ -> None)
             )
 
         let userIndex = cval 94
@@ -278,7 +281,8 @@ module TestViewer =
                     |> Array.choose id
                     |> Array.map (fun t ->
                         let layer : Sg.ProjectedStackLayer =
-                            { trafo = Some t; minMax = V2f(0.0f, 1.0f); texturePath = ""; channel = 0 }
+                            { trafo = Some t; minMax = V2f(0.0f, 1.0f); texturePath = ""; channel = 0; brightnessContrast = V2f.OI; falseColor = true
+                              colorMap = int PRo3D.ImageMapping.ColorMap.Magma; dataType = int PRo3D.ImageMapping.DataType.Float }
                         layer)
                     |> AVal.constant
 
@@ -289,6 +293,7 @@ module TestViewer =
                             stackProjections = stackProjections
                             stackCoverageEnabled = AVal.constant true
                             hoveredProjection = AVal.constant None
+                            stackFocus = AVal.constant (-1, 1.0f)
                             windingCorrection = AVal.constant false
                             sunDirection = sunLight
                             sunLightEnabled = sunLightEnabled
@@ -331,6 +336,8 @@ module TestViewer =
             |> Sg.uniform "ProjectedStackCount" (projectionCount |> AVal.map (min PRo3D.ImageMapping.ProjectedImages.maxCount))
             |> Sg.uniform' "ProjectedStackTrafos" projectorTrafos
             |> Sg.uniform' "ProjectedStackCoverageEnabled" true
+            |> Sg.uniform' "ProjectedStackFocus" -1
+            |> Sg.uniform' "ProjectedStackFade" 1.0f
             // projected texture
             |> Sg.texture "ProjectedTexture" projectedTexture
             |> Sg.applyProjectedImage getProjectionTrafo

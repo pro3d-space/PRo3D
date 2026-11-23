@@ -79,9 +79,12 @@ let private fingerprint (img : PixImage<byte>) =
 /// the batch so the readback is not inside the measured interval at all.
 /// (SurfaceEffectHarness.Renderer sleeps 20 ms per frame -- correct for settling, useless
 /// for timing.)
-type private Bench(runtime : IRuntime, signature : IFramebufferSignature, sg : ISg, size : V2i) =
+///
+/// `clearColor` (default black) lets a caller tell background from dark content.
+type Bench(runtime : IRuntime, signature : IFramebufferSignature, sg : ISg, size : V2i, ?clearColor : C4f) =
+    let background = defaultArg clearColor C4f.Black
     let task     = runtime.CompileRender(signature, sg)
-    let clear    = runtime.CompileClear(signature, clear { color C4f.Black; depth 1.0; stencil 0 })
+    let clear    = runtime.CompileClear(signature, clear { color background; depth 1.0; stencil 0 })
     let color    = runtime.CreateTexture2D(size, TextureFormat.Rgba8, 1, signature.Samples)
     let depth    = runtime.CreateRenderbuffer(size, TextureFormat.Depth24Stencil8, signature.Samples)
     let resolved = runtime.CreateTexture2D(size, TextureFormat.Rgba8)
@@ -164,7 +167,7 @@ type private Bench(runtime : IRuntime, signature : IFramebufferSignature, sg : I
         member x.Dispose() =
             fbo.Dispose(); resolved.Dispose(); depth.Dispose(); color.Dispose(); clear.Dispose(); task.Dispose()
 
-let private report (name : string) (m : Measured) =
+let report (name : string) (m : Measured) =
     let g, w = median m.gpuMs, median m.wallMs
     Log.line "[bench] %-18s gpu %7.3f ms  wall %7.3f ms/frame (%5.1f fps)  draws %d/%d  instr %d"
         name g w (1000.0 / w) m.effDrawCalls m.drawCalls m.instructions
@@ -229,7 +232,7 @@ let private crossSectionCovering (bb : Box3d) (m : Model) =
                         crossSection = Some { geometry = LineOnSurface [| at 2.0944; at 4.1888 |]; refPoint = at 0.0 }
                         clippingEnabled = true } } }
 
-let private say fmt = Printf.kprintf (fun t -> printfn "%s" t; Console.Out.Flush()) fmt
+let say fmt = Printf.kprintf (fun t -> printfn "%s" t; Console.Out.Flush()) fmt
 
 /// Returns 0 on success, non-zero if a precondition or a correctness check failed.
 let run () : int =

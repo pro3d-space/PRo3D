@@ -8,6 +8,7 @@
 module PRo3D.Tests.Section12_SceneBody
 
 open System
+open System.IO
 open System.Collections.Concurrent
 open System.Threading
 
@@ -62,6 +63,32 @@ let private dimorphos = Some "Dimorphos", Some "DIMORPHOS_FIXED"
 
 let tests =
     testList "Section 12 — GIS View: scene body (viewer)" [
+
+        test "TC-12.3 the image lists' clock sets the GIS time to the image's observation time, the camera stays" {
+            let model, update = Head.make ()
+            let t = DateTime(2026, 11, 4, 10, 31, 55, DateTimeKind.Utc)
+            let image = { PRo3D.ImageMapping.ProjectedImageApp.initial with id = Guid.NewGuid(); time = t }
+            let candidate : PRo3D.ImageMapping.StacCandidate =
+                { itemId = "c"; collection = "x"; title = "c"; time = t.AddHours 2.0; instrument = "afc"
+                  assets = { mbi = "m"; image = "i"; imageMetadata = None; overview = None }
+                  check = PRo3D.ImageMapping.StacCheck.Checking; values = None }
+            let m =
+                { model with
+                    scene =
+                        { model.scene with
+                            gisApp =
+                                { model.scene.gisApp with
+                                    projectedImageList =
+                                        { model.scene.gisApp.projectedImageList with
+                                            images = FSharp.Data.Adaptive.IndexList.single image
+                                            stacSearch = { model.scene.gisApp.projectedImageList.stacSearch with candidates = FSharp.Data.Adaptive.IndexList.single candidate } } } } }
+            let time (m : Model) = PRo3D.Base.Calendar.toUtc m.scene.gisApp.defaultObservationInfo.time.date
+            let library = update m (ViewerAction.GisAppMessage (GisAppAction.ProjectedImageListMessage (PRo3D.ImageMapping.SetTimeToImage image.id)))
+            Expect.equal (time library) t "library image: its observation time"
+            Expect.equal library.navigation.camera.view m.navigation.camera.view "the camera stays"
+            let search = update m (ViewerAction.GisAppMessage (GisAppAction.ProjectedImageListMessage (PRo3D.ImageMapping.StacMessage (PRo3D.ImageMapping.SetTimeToCandidate "c"))))
+            Expect.equal (time search) (t.AddHours 2.0) "search result: the catalog's observation time"
+        }
 
         test "TC-12.5 picking the planet points the GIS at its body in its fixed frame" {
             let m, update = Head.make ()
@@ -144,11 +171,84 @@ let tests =
             Expect.equal m.navigation.camera.view.Location bookmark.cameraView.Location "no camera source: the bookmark's camera stands"
         }
 
+        test "TC-12.5 the mission time slider re-aims the camera from the camera source, unless off" {
+            let kernel = IO.Path.Combine(HeraSpiceTests.mkDir, "hera_plan.tm")
+            if not (IO.File.Exists kernel) then
+                skiptest (sprintf "HERA planning kernel not found at %s" kernel)
+            HeraSpiceTests.ensureKernelAt [ kernel ]
+            let m, update = Head.make ()
+            let m = update m (Head.setPlanet Planet.Dimorphos)
+            let m = update m (ViewerAction.GisAppMessage (GisAppAction.ObservationInfoMessage (ObservationInfoAction.SetTarget (Some (EntitySpiceName "HERA")))))
+            let row =
+                m.scene.gisApp.missionTimesEntries
+                |> Option.bind (fun entries ->
+                    entries |> FSharp.Data.Adaptive.IndexList.toSeqIndexed |> Seq.tryFind (fun (_, e) -> e.name = "Didymos Orbital Insertion"))
+            match row with
+            | None -> failtest "no Didymos mission time entry"
+            | Some (idx, entry) ->
+                let slide v = ViewerAction.GisAppMessage (GisAppAction.SetTime (entry, idx, v))
+                let a = update m (slide 0.2)
+                let b = update a (slide 0.8)
+                Expect.isGreaterThan (Vec.distance a.navigation.camera.view.Location b.navigation.camera.view.Location) 1e-3
+                    "sliding the time moves the camera with the camera source body"
+                let expected = GisApp.lookAtObserver b.scene.gisApp |> Option.map (fun c -> c.Location)
+                Expect.equal (Some b.navigation.camera.view.Location) expected "the camera looks from HERA at Dimorphos"
+
+                let off = update b (ViewerAction.GisAppMessage GisAppAction.ToggleCameraFollowsSource)
+                let c = update off (slide 0.3)
+                Expect.notEqual c.scene.gisApp.defaultObservationInfo.time.date b.scene.gisApp.defaultObservationInfo.time.date "the time still moves"
+                Expect.equal c.navigation.camera.view.Location b.navigation.camera.view.Location "off: the camera stays"
+
+                let r = update c (ViewerAction.GisAppMessage (GisAppAction.ObservationInfoMessage ObservationInfoAction.Reset))
+                let expected = GisApp.lookAtObserver r.scene.gisApp |> Option.map (fun c -> c.Location)
+                Expect.equal (Some r.navigation.camera.view.Location) expected "Re-use settings above re-aims even when off"
+        }
+
         test "TC-12.5 a camera source equal to the observed body does not move the camera" {
             let m, update = Head.make ()
             let m = update m (Head.setPlanet Planet.Dimorphos)
             let before = m.navigation.camera.view
             let m = update m (ViewerAction.GisAppMessage (GisAppAction.ObservationInfoMessage (ObservationInfoAction.SetTarget (Some (EntitySpiceName "DIMORPHOS")))))
             Expect.equal m.navigation.camera.view.Location before.Location "no look-at from the body at itself"
+        }
+
+        test "TC-12.3 a scene whose projected-image folder is gone tells the user and keeps the path" {
+            let m, _ = Head.make ()
+            let missing = @"Z:\no\such\image\folder"
+            let gis = m.scene.gisApp
+            let m =
+                { m with
+                    scene = { m.scene with gisApp = { gis with projectedImageList = { gis.projectedImageList with imageDirectory = Some missing; pendingStack = [ "a.png"; "b.png" ] } } } }
+            let m = SceneLoader.updateGisApp m
+            Expect.equal (PRo3D.ImageMapping.ProjectedImageListModel.stackFileNames m.scene.gisApp.projectedImageList) [ "a.png"; "b.png" ] "stack kept for the next save"
+            match m.layout.dialog with
+            | LayoutDialog.Notice ("Projected Images", message, _) -> Expect.stringContains message missing "names the folder"
+            | other -> failtestf "expected a notice, got %A" other
+            Expect.equal m.scene.gisApp.projectedImageList.imageDirectory (Some missing) "kept for the next save"
+            Expect.equal m.scene.gisApp.projectedImageList.images.Count 0 "nothing loaded"
+        }
+
+        test "TC-12.3 a scene with its projected-image folder re-imports it without a notice" {
+            let m, _ = Head.make ()
+            let dir = Path.Combine(Path.GetTempPath(), "pro3d-projimg-" + string (Guid.NewGuid()))
+            Directory.CreateDirectory dir |> ignore
+            try
+                let gis = m.scene.gisApp
+                let m =
+                    { m with
+                        scene = { m.scene with gisApp = { gis with projectedImageList = { gis.projectedImageList with imageDirectory = Some dir } } } }
+                let m = SceneLoader.updateGisApp m
+                Expect.equal m.layout.dialog LayoutDialog.None "no notice"
+                Expect.equal m.scene.gisApp.projectedImageList.imageDirectory (Some dir) "folder kept"
+
+                // a stack entry whose file is no longer in the folder is reported
+                let gis = m.scene.gisApp
+                let m = { m with scene = { m.scene with gisApp = { gis with projectedImageList = { gis.projectedImageList with pendingStack = [ "gone.png" ] } } } }
+                let m = SceneLoader.updateGisApp m
+                match m.layout.dialog with
+                | LayoutDialog.Notice ("Projected Images", message, _) -> Expect.stringContains message "gone.png" "names the image"
+                | other -> failtestf "expected a notice, got %A" other
+            finally
+                Directory.Delete(dir, true)
         }
     ]

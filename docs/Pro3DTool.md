@@ -15,12 +15,18 @@ It supersedes the older `opc-tool` (see [Migrating](#migrating-from-opc-tool)).
 | `sun-angles` | Per-pixel illumination geometry for instrument images, for photometric work such as image calibration | **[Pro3DTool-SunAngles.md](./Pro3DTool-SunAngles.md)** |
 | `unproject` | Image pixel coordinates to body-fixed surface coordinates on a shape model | **[Pro3DTool-Unproject.md](./Pro3DTool-Unproject.md)** |
 | `simulate-image` | Simulated instrument image of a body at a SPICE time: Lommel-Seeliger sun lighting, procedural micro-structure, cast shadows, optional de-shaded texture albedo | **[Pro3DTool-SimulateImage.md](./Pro3DTool-SimulateImage.md)** |
+| `sample-layers` | Assemble AFC, ASPECT and HyperScout observations onto a body: per OPC vertex, which image sees it, where, under which sun geometry, and every band's value — as CSV keyed by vertex id | **[Pro3DTool-SampleLayers.md](./Pro3DTool-SampleLayers.md)** |
+| `render-bookmarks` | Open a `.pro3d` scene headlessly and render its bookmarks to PNGs as the viewer shows them; batch via a JSON job file; optionally at a fixed OPC level of detail. Also an in-process library, `PRo3D.SceneRender` | **[Pro3DTool-RenderBookmarks.md](./Pro3DTool-RenderBookmarks.md)** |
+| `render-view` | Render OPCs without a scene file from explicitly given cameras (location, forward, up, horizontal FOV), each OPC placed by a transformation, optionally sun-lit; JSON job files | **[Pro3DTool-RenderView.md](./Pro3DTool-RenderView.md)** |
 
 ## Install
 
 ```
 dotnet tool install PRo3D.Tool --global
 ```
+
+This needs the .NET 9 SDK. For a step-by-step setup on Windows, macOS and Linux — .NET, `PATH`, test data
+and SPICE kernels, with screenshots — see [Installation.md](./Installation.md#3-pro3d-tool).
 
 ```
 > pro3d-tool
@@ -37,6 +43,9 @@ Command line tools for PRo3D data.
   sun-angles      render per-pixel illumination geometry for instrument images
   unproject       convert image pixel coordinates to body-fixed surface coordinates
   simulate-image  render a simulated instrument image of a body at a SPICE time
+  sample-layers   assemble instrument images onto the OPC vertices of a body, as CSV
+  render-bookmarks render a scene's bookmarks to images, optionally at a fixed LoD
+  render-view     render OPCs from given cameras, optionally sun-lit (job file)
 
 Run `pro3d-tool <verb> --help` for the options of a verb.
 ```
@@ -48,6 +57,9 @@ pro3d-tool kdtree --help
 pro3d-tool sun-angles --help
 pro3d-tool unproject --help
 pro3d-tool simulate-image --help
+pro3d-tool sample-layers --help
+pro3d-tool render-bookmarks --help
+pro3d-tool render-view --help
 ```
 
 ## Test data
@@ -83,22 +95,19 @@ scripts/run-simulate-image.sh   <path-to-clone>
 ## SPICE kernels
 
 Anything involving planetary geometry — body positions, orientations, the direction to the
-Sun — needs SPICE kernels. These are **not** part of the PRo3D test data: ESA publishes
-them separately, as a git repository.
+Sun — needs SPICE kernels. For Mars missions the kernels PRo3D needs are included. For HERA,
+make sure you have the appropriate kernels for your task; they are **not** part of the PRo3D
+test data. Download them from ESA's
+[SPICE for HERA](https://www.cosmos.esa.int/web/spice/spice-for-hera) page — its *Direct
+Download* is a ZIP of the latest operational kernels (step by step with screenshots:
+[Installation.md](./Installation.md#33-spice-kernels)).
+
+Then set **`PRO3D_SPICE_KERNELS`** to the unpacked `HERA` folder, or to its `kernels`
+subdirectory — either works:
 
 ```
-git clone https://spiftp.esac.esa.int/git/hera.git
-```
-
-No credentials are needed. Expect roughly 6.5 GB; the ESA server does not support partial
-clones, so `--filter` and sparse-checkout will not reduce this.
-
-Then set **`PRO3D_SPICE_KERNELS`** to the clone, or to its `kernels` subdirectory — either
-works:
-
-```
-setx PRO3D_SPICE_KERNELS C:\path\to\hera        REM Windows
-export PRO3D_SPICE_KERNELS=/path/to/hera        #   POSIX
+setx PRO3D_SPICE_KERNELS C:\path\to\HERA        REM Windows
+export PRO3D_SPICE_KERNELS=/path/to/HERA        #   POSIX
 ```
 
 `--kernel-root <dir>` overrides the variable for a single run. There is deliberately **no

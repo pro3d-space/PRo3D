@@ -10,7 +10,7 @@ In order to deploy all supported architectures using github actions is the prefe
 
 Deployments are triggered by github actions. 
 There are two release types:
- 1. public releases: add a new top entry (with the new version) to [PRODUCT_RELEASE_NOTES.md](https://github.com/pro3d-space/PRo3D/blob/develop/PRODUCT_RELEASE_NOTES.md), commit and push. The CI builds a multiplatform build with installers and the result appears as a draft on the github release page.
+ 1. public releases: add a new top entry (with the new version) to [PRODUCT_RELEASE_NOTES.md](https://github.com/pro3d-space/PRo3D/blob/develop/PRODUCT_RELEASE_NOTES.md), with the bullets collected in [NEXT_RELEASE_NOTES.md](https://github.com/pro3d-space/PRo3D/blob/develop/NEXT_RELEASE_NOTES.md) (then leave that file with its header and an empty list), commit and push. The CI builds a multiplatform build with installers and the result appears as a draft on the github release page.
 
 > **You no longer need to edit `aardium/package.json`.** `PRODUCT_RELEASE_NOTES.md` is the single source of truth for the release version: the build syncs `package.json`'s `version` from it automatically (see *How a release is crafted* below). A push that touches `PRODUCT_RELEASE_NOTES.md` is enough to trigger the deploy workflow.
 
@@ -29,7 +29,7 @@ When publishing the release, make sure to set the correct tag, branch and verify
 
 A single draft release is assembled from two independent publishers; everything is keyed off **one version string** and **one tag**.
 
-1. **Trigger & version.** `.github/workflows/deploy.yml` runs on a push that touches `PRODUCT_RELEASE_NOTES.md`, `aardium/package.json`, or `deploy.yml`. The version is the topmost entry in `PRODUCT_RELEASE_NOTES.md` (`notes.NugetVersion`). It is the only source of truth — the build patches `aardium/package.json`'s top-level `version` to it (`patchAardiumVersion` in `CopyToElectron`) and patches `viewerVersion` in `Program.fs`. The committed `package.json` version is irrelevant to the result; it is overwritten at build time.
+1. **Trigger & version.** `.github/workflows/deploy.yml` runs on a push **to a `releases/**` branch** that touches `PRODUCT_RELEASE_NOTES.md`, `aardium/package.json`, or `deploy.yml` (plus a manual *Run workflow*). The branch restriction is what keeps a merge back into `develop` — which carries the same release-notes change — from building a second draft of the same version off the wrong branch. The version is the topmost entry in `PRODUCT_RELEASE_NOTES.md` (`notes.NugetVersion`). It is the only source of truth — the build patches `aardium/package.json`'s top-level `version` to it (`patchAardiumVersion` in `CopyToElectron`) and patches `viewerVersion` in `Program.fs`. The committed `package.json` version is irrelevant to the result; it is overwritten at build time.
 
 2. **The runner matrix.** Each platform builds on its own runner and all `needs: win32_x64`:
    - `win32_x64` (windows-latest) — runs `GitHubRelease` **then** `PublishToElectron`.
@@ -40,7 +40,8 @@ A single draft release is assembled from two independent publishers; everything 
    - **Standalone** (`GitHubRelease`, win-x64 only): zips `bin/publish/win-x64` into `PRo3D.Viewer-standalone.{version}.zip`, creates the draft release with tag_name `v{version}`, and appends the source commit + tag to the release body. It also creates and pushes the git tag `v{version}`.
    - **Electron** (`PublishToElectron` → `yarn dist` → electron-builder, `--publish always`): builds the installer for the runner's OS/arch (`.exe`/`.dmg`/`.AppImage`) and publishes to a draft with tag `v{version}` (electron-builder's default `vPrefixedTagName`). Because the win job's `GitHubRelease` step has already created that draft, electron-builder attaches its artifacts to the **same** draft instead of creating a second one. The mac/linux jobs (`needs: win32_x64`) likewise attach to the existing draft.
 
-4. **Tag & provenance.** git tag, standalone release tag, and electron release tag are all `v{version}`. The pushed git tag points at the built commit, so the published release anchors to that commit, and the release body records `built from commit <sha>`.
+4. **Tag & provenance.** git tag, standalone release tag, and electron release tag are all `v{version}`. `GitHubRelease` pushes the git tag at the built commit **before** creating the draft, and creates the draft with `target_commitish` = that commit (`GITHUB_SHA`), so the release is anchored to it and the release body records `built from commit <sha>`.
+   Without an explicit target GitHub records the repository's **default branch** (`develop`, earlier `main`) as the release target. That is what releases up to `6.3.0-prerelease002` show: their tags are on the right commits, but the release page refers to the default branch, and had a tag push failed, publishing the draft would have created the tag at the default branch's tip. To correct an existing release: `gh api -X PATCH repos/pro3d-space/PRo3D/releases/<id> -f target_commitish=$(git rev-list -n1 <tag>)`.
 
 5. **Publishing.** The release stays a **draft** (`GitHub.publishDraft` is commented out; electron uses `releaseType: draft`). A human reviews artifacts/notes and publishes it. Verify the tag and target branch when publishing.
 
@@ -53,6 +54,7 @@ The `new` build system uses the Build.fsproj and Build.fs/Helpers.fs files for r
 
 Thus we have those components:
  - Build.fs run by ./build.sh and build.cmd
+ - the target "Adapt" generates the Adaptify `*.g.fs` files (not checked in) via `utilities/Adapt.fsx`; `Compile`, `CompileDebug`, `Tests`, `CopyToElectron` and `Publish` depend on it, so CI needs no extra step. See [ModelTypes.md](ModelTypes.md).
  - the target "CopyToElectron" patches the version string and copies overW the build result into the aardium/bin folders
  - the target "PublishToElectron" performs the build and runs yarn dist in the aardium folder. The rest of deployment/signing/notarization/upload is taken care of by ./aardium/package.json.
 
@@ -68,6 +70,11 @@ For development use `./build.sh CopyToElectron`, switch into the aardium directo
 ## Release notes
 
 tags and release notes taken from PRODCT_RELEASE_NOTES.md
+
+Between releases, each PR adds its user-visible changes to `NEXT_RELEASE_NOTES.md`, not to
+`PRODUCT_RELEASE_NOTES.md`: `ReleaseNotes.load` parses every `##` heading of the latter as a
+version, so an `## Unreleased` section fails every build. Releasing moves those bullets into the
+new version's section.
 
 ## Version numbers
 
@@ -139,3 +146,58 @@ to just create the release in the bin/publish folder.
 Our electron-based workflow (above) uses click-once installers. 'Old-school' zip-releases still useful for team-internal tests and diagnostics. For this reason in early 2024 we re-introduced zip-deployments and made them CI ready via a [github workflow](https://github.com/pro3d-space/PRo3D/blob/00ace24f078b54582c9553ee39ed8d60b1c7be29/.github/workflows/testrelease.yml#L28)
 
 The `--test` flag uses `TEST_RELEASE_NOTES.md` instead of `PRODUCT_RELEASE_NOTES.md` to quickly create test releases without interrupting the official PRODUCT_RELEASE_NOTES track. plase use a `--testing` suffix for test versions.
+
+# 3 -- Continuous integration: what runs when
+
+`.github/workflows/build.yml` builds and tests. Running all four platforms on every commit of
+every branch costs roughly four times what it needs to, and the old triggers ran twice for each
+commit on a branch with an open PR (`push` *and* `pull_request`). The policy now:
+
+| Event | Platforms | Notes |
+|---|---|---|
+| pull request | windows-latest | fast feedback; draft PRs are skipped |
+| push to `develop`, `main`, `releases/**` | ubuntu, windows, macos-15-intel, macos-15 | the merge commit is what the four platforms have to agree on |
+| nightly (03:17 UTC, default branch) | all four | catches platform drift and runner-image changes while nothing is pending |
+| *Run workflow* (manual) | all four | |
+| PR labelled `ci: full-matrix` | all four | for a change that is platform-sensitive by nature |
+
+Two more things save runs:
+
+- **`concurrency: build-${{ github.ref }}` with `cancel-in-progress: true`** — pushing again to a
+  branch or PR cancels the run of the commit you just superseded. Only the tip is ever built.
+- **`paths-ignore`** — a commit touching only `README.md` or `docs/**` builds nothing.
+
+The SPICE job (`spice-tests`, ubuntu only, ~1.3 GB of cached ESA kernels) runs on every non-draft
+PR and push, independent of the matrix: kernels are platform-independent data, so a second OS would
+add cache pressure but no coverage.
+
+**Consequence to be aware of:** a PR is green on Windows only. A platform-specific break (a path
+separator, a case-sensitive file name, a GL driver difference) is caught when the PR is merged into
+`develop`, or by the nightly run — not on the PR itself. If a change is likely to be
+platform-sensitive, add the `ci: full-matrix` label before asking for a review. Nothing reaches a
+release branch without the full matrix having run on it.
+
+## Paket restore inside msbuild (#891)
+
+`Paket.Restore.targets` is supposed to skip `dotnet paket restore` when `paket.lock` matches the
+`projectsRestoredHash` in `paket-files/paket.restore.cached`. That works in msbuild's build pass, but
+in the **restore** pass (`msbuild -restore`, `dotnet build`, `dotnet run`, `dotnet test`) the targets
+force a global restore anyway, once per project in the reference graph, and in parallel. Every one of
+those starts a `dotnet paket` process that prints "The last full restore is still up to date" and
+exits. On the macos-15 (ARM) runners one of them was occasionally SIGKILLed a fraction of a second
+after starting (`"dotnet paket restore" exited with code 137`), which failed the job.
+
+So wherever a global restore has demonstrably already happened, the build passes
+`-p:PaketDisableGlobalRestore=true`:
+
+- `utilities/Adapt.fsx` runs `dotnet paket restore` once at the top and then passes it to every
+  per-project `msbuild -restore`.
+- `runTests.cmd` / `runTests.sh` run Adapt first, then pass it to `dotnet run`.
+- `Build.fs` passes it to every `DotNet.build` / `test` / `publish` (`skipGlobalPaketRestore`), but
+  only when the hash check above holds. When it does not hold, for example after a `git pull` that
+  changed `paket.lock` without running the build scripts, msbuild restores as before.
+
+This property skips **only** the global Exec. Paket's per-project step, which re-restores a project
+whose `paket.references` changed and hands its packages to NuGet as `PackageReference`s, still runs.
+Do not use `PaketRestoreDisabled=true` instead: it turns off that step too, NuGet then writes
+`project.assets.json` without any packages, and Adaptify silently finds no model types.

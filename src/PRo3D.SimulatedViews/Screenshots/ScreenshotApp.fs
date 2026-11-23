@@ -17,20 +17,15 @@ module ScreenshotApp =
         | ImageFormat.PNG  -> "png"
         | _ -> "png"
     
-    let private urlOfStats
-        baseUrl
-        numberOfSamples
-        (m : ScreenshotModel)
-        (stats : list<ScreenshotUtilities.Utilities.ClientStatistics>) =
+    /// The render server's screenshot URL for `scene`. `numberOfSamples` must be the viewer's:
+    /// with it the server renders the live scene it already has, OPC patches loaded; with another
+    /// it compiles a new one, whose single frame comes out without surfaces.
+    let screenshotUrl baseUrl numberOfSamples (scene : string) (m : ScreenshotModel) =
         let color = m.backgroundColor.c.ToC4f().ToV4f()
-        let renderingNodeId =
-            match stats with
-            | first :: _ -> first.name
-            | [] -> failwith "[Screenshots] no rendering client available"
         let url =
             sprintf "%s/rendering/screenshot/%s?w=%i&h=%i&samples=%i&fmt=%s&background=[%f,%f,%f,%f]"
                 baseUrl
-                renderingNodeId
+                scene
                 (int m.width.value)
                 (int m.height.value)
                 numberOfSamples
@@ -40,15 +35,23 @@ module ScreenshotApp =
         Log.line "[Screenshots] URL: %s" url
         url
 
-    let createUrlAsync
+    /// `mainViewScenes`: the main view's render-server scenes, newest first (Viewer
+    /// Model.mainViewScenes, reported by the render controls when they boot).
+    let private createUrlAsync
         baseUrl
         numberOfSamples
+        (mainViewScenes : list<string>)
         (m : ScreenshotModel)
         (httpClient : System.Net.Http.HttpClient)
         (ct : CancellationToken) =
         task {
             let! stats = ScreenshotUtilities.Utilities.downloadClientStatisticsAsync baseUrl httpClient ct
-            return urlOfStats baseUrl numberOfSamples m stats
+            match ScreenshotUtilities.Utilities.tryChooseScene mainViewScenes stats with
+            | Some scene -> return screenshotUrl baseUrl numberOfSamples scene m
+            | None ->
+                return
+                    failwithf "no main view is being rendered (main view scenes %A, live scenes %A)"
+                        mainViewScenes (stats |> List.map (fun s -> s.name))
         }
 
     let mutable imgNr = 0
@@ -91,11 +94,11 @@ module ScreenshotApp =
     /// and the request dies in HttpClient's 100s timeout ("A task was canceled.").
     /// So the round trip has to happen off the update thread - and once it does, there is
     /// no reason to block a thread on it either.
-    let makeScreenshotAsync baseUrl numberOfSamples outputPath (m : ScreenshotModel) =
+    let makeScreenshotAsync baseUrl numberOfSamples outputPath mainViewScenes (m : ScreenshotModel) =
         task {
             try
                 use cts = new CancellationTokenSource(requestTimeout)
-                let! url = createUrlAsync baseUrl numberOfSamples m httpClient cts.Token
+                let! url = createUrlAsync baseUrl numberOfSamples mainViewScenes m httpClient cts.Token
                 let filenamepath = nextFreeName outputPath m
                 let! data = httpClient.GetByteArrayAsync(url, cts.Token)
                 do! File.WriteAllBytesAsync(filenamepath, data, cts.Token)
@@ -106,10 +109,10 @@ module ScreenshotApp =
 
     /// Fire and forget: `update` cannot await, and every failure is already logged inside
     /// makeScreenshotAsync, so there is no fault left for anyone to observe.
-    let makeScreenshot baseUrl numberOfSamples outputPath (m : ScreenshotModel) =
-        makeScreenshotAsync baseUrl numberOfSamples outputPath m |> ignore
+    let makeScreenshot baseUrl numberOfSamples outputPath mainViewScenes (m : ScreenshotModel) =
+        makeScreenshotAsync baseUrl numberOfSamples outputPath mainViewScenes m |> ignore
 
-    let update baseUrl numberOfSamples outputPath (m : ScreenshotModel) (action : ScreenshotAction) =
+    let update baseUrl numberOfSamples outputPath (mainViewScenes : list<string>) (m : ScreenshotModel) (action : ScreenshotAction) =
         match action with
         | SetWidth msg -> 
             { m with width = Numeric.update m.width msg }
@@ -118,7 +121,7 @@ module ScreenshotApp =
         | SetBackgroundColor msg ->
             { m with backgroundColor = ColorPicker.update m.backgroundColor msg }
         | CreateScreenshot ->
-            makeScreenshot baseUrl numberOfSamples outputPath m
+            makeScreenshot baseUrl numberOfSamples outputPath mainViewScenes m
             m
         | SetImageFormat format ->
             { m with imageFormat = format }

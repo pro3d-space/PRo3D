@@ -35,6 +35,26 @@ let toolNotes = ReleaseNotes.load "TOOL_RELEASE_NOTES.md"
 
 printfn "tool %A" toolNotes
 
+/// Paket.Restore.targets forces a global `dotnet paket restore` in every msbuild restore
+/// evaluation, even when everything is restored, so each build/test/publish starts one
+/// paket process per project. On the macos-15 runners one of them gets SIGKILLed now and
+/// then (exit 137, #891). When paket.lock matches what was last restored, skip that global
+/// Exec; the per-project check and the PackageReference injection NuGet needs still run.
+/// When it does not match, leave msbuild alone so it restores as before.
+let skipGlobalPaketRestore (p : MSBuild.CliArguments) =
+    let restored =
+        try
+            let lockHash =
+                use s = File.OpenRead "paket.lock"
+                use sha = System.Security.Cryptography.SHA256.Create()
+                Convert.ToHexString(sha.ComputeHash s)
+            let cached = File.ReadAllText(Path.Combine("paket-files", "paket.restore.cached"))
+            let m = Regex.Match(cached, @"""projectsRestoredHash""\s*:\s*""([0-9A-Fa-f]+)""")
+            m.Success && String.Equals(m.Groups.[1].Value, lockHash, StringComparison.OrdinalIgnoreCase)
+        with _ -> false
+    if restored then { p with Properties = ("PaketDisableGlobalRestore", "true") :: p.Properties }
+    else p
+
 let solutionName = "src/PRo3D.sln"
 let framework = "net9.0"
 let aardiumPath = Path.Combine("aardium", "Aardium")
@@ -102,6 +122,16 @@ let patchViewerVersion (version : string) =
 //    run dotnet "build" "src"
 //)
 
+// The Adaptify *.g.fs files are not checked in: generate the missing or stale ones before
+// anything compiles the solution. See docs/ModelTypes.md.
+Target.create "Adapt" (fun _ ->
+    let ret =
+        CreateProcess.fromRawCommand "dotnet" ["fsi"; "utilities/Adapt.fsx"]
+        |> Proc.run
+    if ret.ExitCode <> 0 then
+        failwith "generating the Adaptify *.g.fs files failed (utilities/Adapt.fsx)"
+)
+
 
 Target.create "Compile" (fun _ ->
     let debug = false
@@ -132,10 +162,11 @@ Target.create "Compile" (fun _ ->
             NoRestore = false 
             Configuration = if debug then DotNet.BuildConfiguration.Debug else DotNet.BuildConfiguration.Release
             MSBuildParams =
-                { o.MSBuildParams with
-                    Properties = props
-                    DisableInternalBinLog = true
-                }
+                skipGlobalPaketRestore
+                    { o.MSBuildParams with
+                        Properties = props
+                        DisableInternalBinLog = true
+                    }
         }
     )
 )
@@ -315,9 +346,10 @@ Target.create "Tests" (fun _ ->
         { o with
             NoRestore = false 
             MSBuildParams =
-                { o.MSBuildParams with
-                    DisableInternalBinLog = true
-                }
+                skipGlobalPaketRestore
+                    { o.MSBuildParams with
+                        DisableInternalBinLog = true
+                    }
         }
     ) "./src/Tests/Tests.fsproj"
 )
@@ -390,7 +422,7 @@ Target.create "CopyToElectron" (fun _ ->
                  Configuration = DotNet.BuildConfiguration.Release
                  VersionSuffix = Some notes.NugetVersion
                  OutputPath = Some dotnetOutputPath
-                 MSBuildParams = { o.MSBuildParams with DisableInternalBinLog = true }
+                 MSBuildParams = skipGlobalPaketRestore { o.MSBuildParams with DisableInternalBinLog = true }
              }
          )
          copyMacNativeLibs arch dotnetOutputPath
@@ -407,7 +439,7 @@ Target.create "CopyToElectron" (fun _ ->
                     Configuration = DotNet.BuildConfiguration.Release
                     VersionSuffix = Some notes.NugetVersion
                     OutputPath = Some dotnetOutputPath
-                    MSBuildParams = { o.MSBuildParams with DisableInternalBinLog = true } 
+                    MSBuildParams = skipGlobalPaketRestore { o.MSBuildParams with DisableInternalBinLog = true } 
                 }
         )
         for f in System.IO.Directory.GetFiles("./lib/Native/JR.Wrappers/linux/AMD64") do    
@@ -426,7 +458,7 @@ Target.create "CopyToElectron" (fun _ ->
                 Configuration = DotNet.BuildConfiguration.Release
                 VersionSuffix = Some notes.NugetVersion
                 OutputPath = Some dotnetOutputPath
-                MSBuildParams = { o.MSBuildParams with DisableInternalBinLog = true } 
+                MSBuildParams = skipGlobalPaketRestore { o.MSBuildParams with DisableInternalBinLog = true } 
             }
         )
         // snapshots CLI (PRo3D.Snapshots.exe) — same as in the standalone "Publish" target,
@@ -439,7 +471,7 @@ Target.create "CopyToElectron" (fun _ ->
                 Configuration = DotNet.BuildConfiguration.Release
                 VersionSuffix = Some notes.NugetVersion
                 OutputPath = Some dotnetOutputPath
-                MSBuildParams = { o.MSBuildParams with DisableInternalBinLog = true }
+                MSBuildParams = skipGlobalPaketRestore { o.MSBuildParams with DisableInternalBinLog = true }
             }
         )
 
@@ -481,7 +513,7 @@ Target.create "Publish" (fun _ ->
             Configuration = DotNet.BuildConfiguration.Release
             VersionSuffix = Some notes.NugetVersion
             OutputPath = Some "bin/publish/win-x64"
-            MSBuildParams = { o.MSBuildParams with DisableInternalBinLog = true } 
+            MSBuildParams = skipGlobalPaketRestore { o.MSBuildParams with DisableInternalBinLog = true } 
         }
     )
 
@@ -495,7 +527,7 @@ Target.create "Publish" (fun _ ->
             Configuration = DotNet.BuildConfiguration.Release
             VersionSuffix = Some notes.NugetVersion
             OutputPath = Some "bin/publish/win-x64"
-            MSBuildParams = { o.MSBuildParams with DisableInternalBinLog = true } 
+            MSBuildParams = skipGlobalPaketRestore { o.MSBuildParams with DisableInternalBinLog = true } 
             
         }
     )
@@ -510,7 +542,7 @@ Target.create "Publish" (fun _ ->
             Configuration = DotNet.BuildConfiguration.Release
             VersionSuffix = Some notes.NugetVersion
             OutputPath = Some "bin/publish/mac-x64"
-            MSBuildParams = { o.MSBuildParams with DisableInternalBinLog = true }
+            MSBuildParams = skipGlobalPaketRestore { o.MSBuildParams with DisableInternalBinLog = true }
         }
     )
     copyMacNativeLibs Architecture.X64 "bin/publish/mac-x64"
@@ -526,7 +558,7 @@ Target.create "Publish" (fun _ ->
             Configuration = DotNet.BuildConfiguration.Release
             VersionSuffix = Some notes.NugetVersion
             OutputPath = Some "bin/publish/mac-arm64"
-            MSBuildParams = { o.MSBuildParams with DisableInternalBinLog = true }
+            MSBuildParams = skipGlobalPaketRestore { o.MSBuildParams with DisableInternalBinLog = true }
         }
     )
     copyMacNativeLibs Architecture.Arm64 "bin/publish/mac-arm64"
@@ -609,10 +641,11 @@ Target.create "CompileDebug" (fun _ ->
             NoRestore = true 
             Configuration = DotNet.BuildConfiguration.Debug
             MSBuildParams =
-                { o.MSBuildParams with
-                    Properties = props
-                    DisableInternalBinLog = true
-                }
+                skipGlobalPaketRestore
+                    { o.MSBuildParams with
+                        Properties = props
+                        DisableInternalBinLog = true
+                    }
         }
     )
 )
@@ -645,10 +678,11 @@ Target.create "CompileInstruments" (fun _ ->
             NoRestore = false 
             Configuration = DotNet.BuildConfiguration.Debug
             MSBuildParams =
-                { o.MSBuildParams with
-                    Properties = props
-                    DisableInternalBinLog = true
-                }
+                skipGlobalPaketRestore
+                    { o.MSBuildParams with
+                        Properties = props
+                        DisableInternalBinLog = true
+                    }
         }
     )
 
@@ -657,10 +691,11 @@ Target.create "CompileInstruments" (fun _ ->
             NoRestore = false 
             Configuration = DotNet.BuildConfiguration.Release
             MSBuildParams =
-                { o.MSBuildParams with
-                    Properties = props
-                    DisableInternalBinLog = true
-                }
+                skipGlobalPaketRestore
+                    { o.MSBuildParams with
+                        Properties = props
+                        DisableInternalBinLog = true
+                    }
         }
     )
 
@@ -698,6 +733,9 @@ Target.create "GitHubRelease" (fun _ ->
                 | _ -> try Information.getCurrentSHA1 "." with _ -> "unknown"
             let body = Seq.append notes.Notes [ ""; sprintf "_release %s — built from commit %s_" tagName commit ]
 
+            // Push the tag before the draft exists, so the release binds to it.
+            try Branches.pushTag "." "origin" tagName with e -> Trace.logf "could not push tag: %A" e
+
             // Create the canonical draft with the v-prefixed tag_name so
             // electron-builder (default vPrefixedTagName = v{version}) attaches
             // its installers to THIS draft. The non-electron standalone zip is
@@ -705,13 +743,28 @@ Target.create "GitHubRelease" (fun _ ->
             // runs after the electron jobs): uploading an asset here makes
             // electron-builder fork a SECOND draft, so it must not happen at
             // draft-creation time. Keep this draft empty.
-            let release =
-                GitHub.createClientWithToken token
-                |> GitHub.draftNewRelease "pro3d-space" "PRo3D" tagName (notes.SemVer.PreRelease <> None) body
-                //|> GitHub.publishDraft
-                |> Async.RunSynchronously
-
-            try Branches.pushTag "." "origin" tagName with e -> Trace.logf "could not create tag: %A" e
+            //
+            // TargetCommitish is the built commit. Left empty, GitHub records the
+            // repository's default branch (develop) as the release target: the
+            // release page then refers to develop, and if the tag push above had
+            // failed, publishing the draft would create the tag at develop's tip.
+            let targetCommitish =
+                match commit with
+                | "unknown" ->
+                    Trace.traceImportant "GitHubRelease: build commit unknown, the release target falls back to the default branch"
+                    ""
+                | sha -> sha
+            GitHub.createClientWithToken token
+            |> GitHub.createRelease "pro3d-space" "PRo3D" tagName (fun p ->
+                { p with
+                    Name            = tagName
+                    Body            = String.Join(Environment.NewLine, body)
+                    Draft           = true
+                    Prerelease      = (notes.SemVer.PreRelease <> None)
+                    TargetCommitish = targetCommitish })
+            //|> GitHub.publishDraft
+            |> Async.RunSynchronously
+            |> ignore
 
         with e ->
             Trace.logf "failed to create github release: %A" e
@@ -848,6 +901,13 @@ Target.create "Version" (fun _ ->
 "Credits" ==> "PublishToElectron" |> ignore
 "Compile" ==> "Pack" |> ignore
 "Pack" ==> "Push" |> ignore
+
+// every target that builds, publishes or tests the solution
+"Adapt" ==> "Compile" |> ignore
+"Adapt" ==> "CompileDebug" |> ignore
+"Adapt" ==> "Tests" |> ignore
+"Adapt" ==> "CopyToElectron" |> ignore
+"Adapt" ==> "Publish" |> ignore
 
 [<EntryPoint>]
 let main args = 

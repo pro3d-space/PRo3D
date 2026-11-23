@@ -123,31 +123,123 @@ module DebugKdTreesX =
         
         loadTriangles' kd.affine kd.objectSetPath 
 
-    let loadObjectSet (cache : HashMap<string, ConcreteKdIntersectionTree>) (lvl0Tree : Level0KdTree) =             
+    /// Lazy KdTrees with their triangles, loaded once per file for the whole process (#874).
+    /// The callers' `HashMap` caches are copies threaded through by value: the hover pick
+    /// (background thread) and click picks (update thread) each loaded a cold patch into their
+    /// own copy, the last write-back dropped the other's, and `Picking` kept a copy only on a
+    /// hit - so the same patch was read again and again, seconds each. The `Lazy` makes
+    /// concurrent first uses wait for one load instead of starting their own.
+    ///
+    /// This store is the only place a loaded lazy tree is kept (`loadObjectSet` no longer puts
+    /// them into the callers' caches), so dropping an entry frees it. An entry is dropped when it
+    /// has not been used for `maxIdle`, and, least recently used first, while the loaded trees
+    /// together exceed `budgetBytes`.
+    type private LoadedKdTree(tree : Lazy<ConcreteKdIntersectionTree>) =
+        member _.Tree = tree
+        /// `Stopwatch` timestamp of the last use.
+        member val LastUse = 0L with get, set
+        /// Estimated size; 0 until loaded.
+        member val Bytes = 0L with get, set
+
+    let private envOr (name : string) (fallback : float) =
+        match Environment.GetEnvironmentVariable name with
+        | null | "" -> fallback
+        | s ->
+            match Double.TryParse(s, Globalization.NumberStyles.Float, Globalization.CultureInfo.InvariantCulture) with
+            | true, v when v >= 0.0 -> v
+            | _ ->
+                Log.warn "[KdTree] ignoring %s=%s: not a non-negative number" name s
+                fallback
+
+    /// Loaded lazy KdTrees together may hold about this much (triangles plus the tree's file
+    /// size). Environment: PRO3D_KDTREE_BUDGET_MB, default 2048.
+    let mutable budgetBytes = int64 (envOr "PRO3D_KDTREE_BUDGET_MB" 2048.0 * 1024.0 * 1024.0)
+    /// A loaded lazy KdTree unused this long is dropped. Environment: PRO3D_KDTREE_IDLE_MINUTES,
+    /// default 10.
+    let mutable maxIdle = TimeSpan.FromMinutes (envOr "PRO3D_KDTREE_IDLE_MINUTES" 10.0)
+
+    let private loadedLazyKdTrees =
+        System.Collections.Concurrent.ConcurrentDictionary<string, LoadedKdTree>()
+    let private evictLock = obj ()
+
+    let private estimateBytes (kdtreePath : string) (tree : ConcreteKdIntersectionTree) =
+        let triangles =
+            match tree.KdIntersectionTree.ObjectSet with
+            | :? TriangleSet as t -> int64 t.Position3dList.Count * 24L // V3d per corner
+            | _ -> 0L
+        let treeFile = try IO.FileInfo(kdtreePath).Length with _ -> 0L
+        triangles + treeFile
+
+    /// Drops loaded trees, oldest use first, while they are idle longer than `maxIdle` or the
+    /// loaded ones exceed `budgetBytes`. `keep` (the tree just loaded) stays, even if it alone is
+    /// over the budget. Runs on every load and once a minute; O(n log n) in the loaded trees.
+    let private evict (keep : string) =
+        lock evictLock (fun () ->
+            let now = Diagnostics.Stopwatch.GetTimestamp()
+            let idleTicks = int64 (maxIdle.TotalSeconds * float Diagnostics.Stopwatch.Frequency)
+            let loaded = loadedLazyKdTrees.ToArray() |> Array.filter (fun e -> e.Value.Bytes > 0L)
+            Array.sortInPlaceBy (fun (e : Collections.Generic.KeyValuePair<string, LoadedKdTree>) -> e.Value.LastUse) loaded
+            let mutable held = 0L
+            for e in loaded do held <- held + e.Value.Bytes
+            let mutable dropped = 0
+            for e in loaded do
+                if e.Key <> keep && (now - e.Value.LastUse > idleTicks || held > budgetBytes) then
+                    if loadedLazyKdTrees.TryRemove e then
+                        held <- held - e.Value.Bytes
+                        dropped <- dropped + 1
+            if dropped > 0 then
+                Log.line "[KdTree] dropped %d loaded KdTrees; %d kept, %.0f MB" dropped (loaded.Length - dropped) (float held / 1048576.0))
+
+    let private idleTimer =
+        lazy (
+            let tick _ =
+                try evict ""
+                with e -> Log.warn "[KdTree] dropping idle KdTrees failed: %s" e.Message
+            new Threading.Timer(tick, null, TimeSpan.FromMinutes 1.0, TimeSpan.FromMinutes 1.0))
+
+    let private loadLazyKdTree (kd : LazyKdTree) =
+        let load () =
+            Activity.track "kdtree" (fun () ->
+                let tree = KdTrees.loadKdtree kd.kdtreePath
+                Log.startTimed "loading kd tree: %s" kd.kdtreePath
+                let triangles = kd |> loadTriangles
+                Log.stop()
+                tree.KdIntersectionTree.ObjectSet <- triangles
+                tree)
+        let entry = loadedLazyKdTrees.GetOrAdd(kd.kdtreePath, fun _ -> LoadedKdTree(lazy (load ())))
+        let tree =
+            try entry.Tree.Value
+            with _ ->
+                // a failed load is not kept: the next pick tries again
+                loadedLazyKdTrees.TryRemove(Collections.Generic.KeyValuePair(kd.kdtreePath, entry)) |> ignore
+                reraise ()
+        entry.LastUse <- Diagnostics.Stopwatch.GetTimestamp()
+        if entry.Bytes = 0L then
+            // first use after the load; two racing threads may both get here, which is harmless
+            entry.Bytes <- max 1L (estimateBytes kd.kdtreePath tree)
+            idleTimer.Force() |> ignore
+            evict kd.kdtreePath
+        tree
+
+    /// Forgets every loaded lazy KdTree: after a surface is removed, or its KdTrees rebuilt.
+    let clearLoaded () = loadedLazyKdTrees.Clear()
+
+    /// Drops what is idle or over the budget now, instead of at the next load or timer tick.
+    let evictLoaded () = evict ""
+
+    /// The number of loaded lazy KdTrees in the store.
+    let loadedCount () = loadedLazyKdTrees.Count
+
+    /// Lazy trees come from the process-wide store above and are not added to `cache`, so that
+    /// dropping them from the store frees them; `cache` is passed through for the callers.
+    let loadObjectSet (cache : HashMap<string, ConcreteKdIntersectionTree>) (lvl0Tree : Level0KdTree) =
         match lvl0Tree with
-        | Aardvark.VRVis.Opc.KdTrees.InCoreKdTree kd -> 
+        | Aardvark.VRVis.Opc.KdTrees.InCoreKdTree kd ->
           kd.kdTree, cache
-        | Aardvark.VRVis.Opc.KdTrees.LazyKdTree kd ->             
-            let kdTree, cache =
-                match kd.kdTree with
-                | Some k -> k, cache
-                | None -> 
-                    let key = (kd.boundingBox.ToString())
-                    let tree = cache |> HashMap.tryFind key
-                    match tree with
-                    | Some t ->                 
-                        t, cache
-                    | None ->                                     
-                        //Log.line "cache miss %A- loading kdtree" kd.boundingBox
-                    
-                        let mutable tree = KdTrees.loadKdtree kd.kdtreePath
-                        Log.startTimed "loading kd tree: %s" kd.kdtreePath
-                        let triangles = kd |> loadTriangles
-                        Log.stop()
-                        
-                        tree.KdIntersectionTree.ObjectSet <- triangles                                                            
-                        tree, (HashMap.add key tree cache)
-            kdTree, cache
+        | Aardvark.VRVis.Opc.KdTrees.LazyKdTree kd ->
+            match kd.kdTree with
+            | Some k -> k, cache
+            | None -> loadLazyKdTree kd, cache
 
     let getTriangle (set : TriangleSet) (index : int) : Triangle3d =
         let pi = index * 3
@@ -175,7 +267,7 @@ module DebugKdTreesX =
                     //b |> getTriangle triangles |> isNotOversized hitObject.triangleSize.value |> not // = tooBig       
                     false
             
-            if kdi.Intersect(ray, null, Func<IIntersectableObjectSet,int,int, RayHit3d,bool>(hitFilter), 0.0, Double.MaxValue, &hit) then              
+            if PRo3D.Core.KdIntersection.intersect kdi ray null (Func<IIntersectableObjectSet,int,int, RayHit3d,bool>(hitFilter)) 0.0 Double.MaxValue &hit then              
                 let info = hit.GetIntersectionRayHitInfo()
                 Some (hit, hitObject),c
             else            
@@ -199,7 +291,34 @@ type KdTreeHitInfo = {
 
 module SurfaceIntersection =
 
-    let doKdTreeIntersection
+    /// OPC space (the space of the KdTree boxes and of `LazyKdTree.affine`'s output) to
+    /// world space, for one surface. The forward direction is the one
+    /// `doKdTreeIntersection` places its boxes with, so a query that walks the patch
+    /// grids directly puts the surface where picking finds it.
+    let surfaceTrafo
+        (surf           : Surface)
+        (refSys         : ReferenceSystem)
+        (observedSystem : Option<SpiceReferenceSystem>)
+        (observerSystem : Option<ObserverSystem>) =
+
+        let observedSystem, observerSystem =
+            match observedSystem, observerSystem with
+            | Some observed, Some observer -> Some observed, Some observer
+            | _ -> None, None
+
+        let fullTrafo = TransformationApp.fullTrafo' surf.transformation refSys observedSystem observerSystem
+
+        if surf.transformation.flipZ then
+            surf.preTransform * fullTrafo * Trafo3d.Scale(1.0, 1.0, -1.0)
+        else if surf.transformation.isSketchFab then
+            Sg.switchYZTrafo
+        else
+            surf.preTransform * fullTrafo
+
+    /// The nearest hit of the ray on each surface `filterSurface` accepts (at most one per
+    /// surface), and the updated KdTree cache. Shared by `doKdTreeIntersection` (picking: the
+    /// highest priority wins) and `doKdTreeIntersectionNearest` (occlusion: the nearest wins).
+    let private hitsPerSurface
         (m             : SurfaceModel)
         (refSys        : ReferenceSystem)
         (observedSystem : SurfaceId -> Option<SpiceReferenceSystem>)
@@ -208,7 +327,7 @@ module SurfaceIntersection =
         (filterSurface : Guid -> Leaf -> SgSurface -> bool) 
         (loadedKdTrees : HashMap<string, ConcreteKdIntersectionTree>)
         (verboseLogging : bool)
-        : option<KdTreeHitInfo> * HashMap<_,_> =
+        : list<KdTreeHitInfo> * HashMap<_,_> =
 
         let mutable loadedKdTrees = loadedKdTrees
         let activeSgSurfaces =
@@ -217,14 +336,14 @@ module SurfaceIntersection =
             |> List.choose (fun (id,leaf) ->
                 match m.sgSurfaces |> HashMap.tryFind id with
                 | Some s ->
-                    if filterSurface id leaf s then Some s
+                    if filterSurface id leaf s then Some (s, leaf)
                     else None
                 | _ -> None
             )
 
         let hits =
             activeSgSurfaces
-            |> List.map (fun d -> d, d.picking, (m.surfaces.flat |> HashMap.find d.surface) |> Leaf.toSurface)
+            |> List.map (fun (d, leaf) -> d, d.picking, Leaf.toSurface leaf)
             |> List.choose (fun (sgSurf, p, surf) ->
                 match p with
                 | Picking.NoPicking -> None
@@ -241,39 +360,37 @@ module SurfaceIntersection =
                             | _ -> None, None
 
                         let fullTrafo = TransformationApp.fullTrafo' surf.transformation refSys observedSystem observerSystem //SurfaceTransformations.fullTrafo' surf refSys
+                        // once per surface, not per box: the same for every patch
+                        let trafo =
+                            if surf.transformation.flipZ then
+                                Trafo3d.Scale(1.0, 1.0, -1.0).Forward * (fullTrafo.Forward * surf.preTransform.Forward)
+                            else if surf.transformation.isSketchFab then
+                                Sg.switchYZTrafo.Forward
+                            else
+                                (fullTrafo.Forward * surf.preTransform.Forward)
+                        let backward =
+                            if surf.transformation.flipZ then
+                                Trafo3d.Scale(1.0, 1.0, -1.0).Backward * surf.preTransform.Backward * fullTrafo.Backward
+                            else if surf.transformation.isSketchFab then
+                                Sg.switchYZTrafo.Backward
+                            else
+                                surf.preTransform.Backward * fullTrafo.Backward
+                        let localRay = r.Ray.Transformed(backward) |> FastRay3d
+
                         //get bbs that are hit
                         let hitBoxes =
                             kd
                             |> HashMap.toList |> List.map fst
                             |> List.filter(fun x ->
                                 let mutable t = 0.0
-                                let r' = r.Ray //combine pre and current transform
-
-                                let trafo =
-                                    if surf.transformation.flipZ then
-                                        Trafo3d.Scale(1.0, 1.0, -1.0).Forward * (fullTrafo.Forward * surf.preTransform.Forward)
-                                    else if surf.transformation.isSketchFab then
-                                        Sg.switchYZTrafo.Forward
-                                    else
-                                        (fullTrafo.Forward * surf.preTransform.Forward)
-
-                                x.Transformed(trafo).Intersects(r', &t)
+                                x.Transformed(trafo).Intersects(r.Ray, &t)
                             )
                         //intersect corresponding kdtrees
                         let closestHit =
                             hitBoxes
                             |> List.choose(fun key ->
                                 if verboseLogging then Log.startTimed "intersection: %s; pr: %f" surf.name surf.priority.value
-                                //let ray = r.Ray.Transformed(surf.preTransform.Backward) |> FastRay3d  //combine pre and current transform
-                                let backward =
-                                    if surf.transformation.flipZ then
-                                        Trafo3d.Scale(1.0, 1.0, -1.0).Backward * surf.preTransform.Backward * fullTrafo.Backward
-                                    else if surf.transformation.isSketchFab then
-                                        Sg.switchYZTrafo.Backward
-                                    else
-                                        surf.preTransform.Backward * fullTrafo.Backward
-
-                                let ray = r.Ray.Transformed(backward) |> FastRay3d
+                                let ray = localRay
                                 let hit, c =
                                     kd |> DebugKdTreesX.intersectKdTrees key surf loadedKdTrees ray
                                 if verboseLogging then Log.stop()
@@ -288,11 +405,48 @@ module SurfaceIntersection =
                         closestHit
                 | Picking.PickMesh pm -> Log.error "no kdtree loaded for %s" surf.name; None
             )
+
+        hits, loadedKdTrees
+
+    /// Picking: the nearest hit among the surfaces of the highest priority that is hit at all.
+    let doKdTreeIntersection
+        (m             : SurfaceModel)
+        (refSys        : ReferenceSystem)
+        (observedSystem : SurfaceId -> Option<SpiceReferenceSystem>)
+        (observerSystem : Option<ObserverSystem>)
+        (r             : FastRay3d) 
+        (filterSurface : Guid -> Leaf -> SgSurface -> bool) 
+        (loadedKdTrees : HashMap<string, ConcreteKdIntersectionTree>)
+        (verboseLogging : bool)
+        : option<KdTreeHitInfo> * HashMap<_,_> =
+
+        let hits, loadedKdTrees =
+            hitsPerSurface m refSys observedSystem observerSystem r filterSurface loadedKdTrees verboseLogging
+        let best =
+            hits
             |> List.groupBy(fun info -> info.surface.priority.value) |> List.sortByDescending fst
             |> List.tryHead
             |> Option.bind(fun (_,b) -> b |> List.sortBy (fun info -> info.hit.RayHit.T) |> List.tryHead)
-            //|> List.sortBy(fun (t,_) -> t)
-            //|> List.tryPick(fun d -> Some d)
+        best, loadedKdTrees
 
-        hits, loadedKdTrees
+    /// Occlusion: the nearest hit over all accepted surfaces, whatever their priority - a
+    /// nearer low-priority surface still hides what is behind it. One pass over the surfaces.
+    let doKdTreeIntersectionNearest
+        (m             : SurfaceModel)
+        (refSys        : ReferenceSystem)
+        (observedSystem : SurfaceId -> Option<SpiceReferenceSystem>)
+        (observerSystem : Option<ObserverSystem>)
+        (r             : FastRay3d) 
+        (filterSurface : Guid -> Leaf -> SgSurface -> bool) 
+        (loadedKdTrees : HashMap<string, ConcreteKdIntersectionTree>)
+        : option<KdTreeHitInfo> * HashMap<_,_> =
+
+        let hits, loadedKdTrees =
+            hitsPerSurface m refSys observedSystem observerSystem r filterSurface loadedKdTrees false
+        let nearest =
+            hits |> List.fold (fun (best : Option<KdTreeHitInfo>) h ->
+                match best with
+                | Some b when b.hit.RayHit.T <= h.hit.RayHit.T -> best
+                | _ -> Some h) None
+        nearest, loadedKdTrees
 

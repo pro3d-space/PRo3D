@@ -177,7 +177,8 @@ module CooTransformation =
     let tryLoadKernel (kernelDirectory : string) (name : string) =
         let fullPath = Path.GetFullPath(Path.Combine(kernelDirectory,name))
         if File.Exists fullPath then () else failwith ("spice kernel file does not exist: " + fullPath)
-        let r = CooTransformation.AddSpiceKernel(materializeMetaKernel fullPath)
+        let kernel = materializeMetaKernel fullPath
+        let r = lock PRo3D.SPICE.CooTransformation.l (fun () -> CooTransformation.AddSpiceKernel kernel)
         if r <> 0 then
             Log.warn "could not load spice kernel: %s in %s." name kernelDirectory
             None
@@ -216,6 +217,14 @@ module CooTransformation =
     /// without every caller having to thread `appData` through again.
     let mutable private lastLogDir : Option<string> = None
 
+    /// The kernel the most recent `initCooTrafo` call was asked to load
+    /// (--defaultSpiceKernel) and whether it loaded; None when none was asked for.
+    /// When it did not load, the bundled pck00010.tpc is loaded in its place.
+    let mutable private requestedStartupKernel : Option<string * bool> = None
+
+    /// See `requestedStartupKernel`: what the UI reports as the startup kernel.
+    let startupKernel () = requestedStartupKernel
+
     let initCooTrafo (customSpiceKernelPath : Option<string>) (appData : string) =
 
         let jrDir = Path.combine [appData; "JR";]
@@ -252,23 +261,35 @@ module CooTransformation =
 
       
 
-        let spiceDirectory, spiceFileName = 
-            let defaultKernel = configDir, "pck00010.tpc"
-            match customSpiceKernelPath with
-            | None -> defaultKernel
-            | Some filePath -> 
-                let fullPath = Path.GetFullPath(filePath)
-                if not (File.Exists(fullPath)) then
-                    defaultKernel
-                else
-                    Path.GetDirectoryName(fullPath), Path.GetFileName fullPath
+        let loadDefaultKernel () =
+            Log.line $"[SPICE] kernel location: {configDir}, kernel file name: pck00010.tpc."
+            match tryLoadKernel configDir "pck00010.tpc" with
+            | None -> Log.warn "running without default spice kernel."
+            | Some s -> Log.line "[SPICE] loaded kernel: %s" s.FullPath
 
-        Log.line $"[SPICE] kernel location: {spiceDirectory}, kernel file name: {spiceFileName}."
-        match tryLoadKernel spiceDirectory spiceFileName with
-        | None -> 
-            Log.warn "running without default spice kernel."
-        | Some s -> 
-            Log.line "[SPICE] loaded kernel: %s" s.FullPath
+        // a requested kernel that is missing or fails to load falls back to the bundled
+        // one -- and is remembered as failed, so the UI does not claim it is loaded
+        requestedStartupKernel <-
+            match customSpiceKernelPath with
+            | None ->
+                loadDefaultKernel ()
+                None
+            | Some filePath ->
+                let fullPath = Path.GetFullPath(filePath)
+                if not (File.Exists fullPath) then
+                    Log.warn "[SPICE] --defaultSpiceKernel %s does not exist, loading the default kernel instead." fullPath
+                    loadDefaultKernel ()
+                    Some (fullPath, false)
+                else
+                    Log.line $"[SPICE] kernel location: {Path.GetDirectoryName fullPath}, kernel file name: {Path.GetFileName fullPath}."
+                    match tryLoadKernel (Path.GetDirectoryName fullPath) (Path.GetFileName fullPath) with
+                    | Some s ->
+                        Log.line "[SPICE] loaded kernel: %s" s.FullPath
+                        Some (fullPath, true)
+                    | None ->
+                        Log.warn "[SPICE] --defaultSpiceKernel %s could not be loaded, loading the default kernel instead." fullPath
+                        loadDefaultKernel ()
+                        Some (fullPath, false)
 
         try
             let error = JR.InstrumentPlatforms.Init(configDir,logDir)
@@ -291,8 +312,10 @@ module CooTransformation =
             Log.warn "[CooTransformation] switchKernel called before initCooTrafo -- cannot determine log directory"
             None
         | Some logDir ->
-            CooTransformation.DeInit()
-            let errorCode = CooTransformation.Init(true, Path.Combine(logDir, "CooTransformation.log"), 1, 2)
+            let errorCode =
+                lock PRo3D.SPICE.CooTransformation.l (fun () ->
+                    CooTransformation.DeInit()
+                    CooTransformation.Init(true, Path.Combine(logDir, "CooTransformation.log"), 1, 2))
             if errorCode <> 0 then
                 Log.warn "[CooTransformation] failed to reinit SPICE after DeInit (code %d)" errorCode
                 None
@@ -301,7 +324,7 @@ module CooTransformation =
 
     let deInitCooTrafo () =
         Log.line "[CooTransformation] shutting down..."
-        CooTransformation.DeInit()
+        lock PRo3D.SPICE.CooTransformation.l (fun () -> CooTransformation.DeInit())
         Log.line "[CooTransformation] down."
 
     /// Coordinate convention used per body.
@@ -429,7 +452,10 @@ module CooTransformation =
         let mutable lat = nan
         let mutable lon = nan
         let mutable alt = nan
-        let errorCode = CooTransformation.Xyz2LatLonAlt(planetName, p.X, p.Y, p.Z, &lat, &lon, &alt)
+        // CSPICE is not thread-safe: every native call takes the one SPICE lock
+        // (SpiceInterfacing's), or a call from another thread corrupts its state --
+        // seen as SPICE(BADSUBSCRIPT) in trcpkg and a dead viewer
+        let errorCode = lock PRo3D.SPICE.CooTransformation.l (fun () -> CooTransformation.Xyz2LatLonAlt(planetName, p.X, p.Y, p.Z, &lat, &lon, &alt))
         if errorCode <> 0 then None
         else Some { latitude = lat; longitude = lon; altitude = alt; radian = 0.0 }
 
@@ -438,7 +464,7 @@ module CooTransformation =
         let mutable pY = nan
         let mutable pZ = nan
         let errorCode =
-            CooTransformation.LatLonAlt2Xyz(planetName, sc.latitude, sc.longitude, sc.altitude, &pX, &pY, &pZ)
+            lock PRo3D.SPICE.CooTransformation.l (fun () -> CooTransformation.LatLonAlt2Xyz(planetName, sc.latitude, sc.longitude, sc.altitude, &pX, &pY, &pZ))
         if errorCode <> 0 then None
         else Some (V3d(pX, pY, pZ))
 
@@ -484,15 +510,50 @@ module CooTransformation =
         let sc = { latitude = coordinate.X; longitude = coordinate.Y; altitude = coordinate.Z; radian = 0.0 }
         tryGetXYZFromLatLonAlt sc planet
 
+    /// Horizontal length of the step from `p` to `q`: their distance with the height
+    /// difference removed, the increment of an export's `groundDistance`.
+    ///
+    /// - Planetographic / Ellipsoidal: both points flattened onto the reference surface
+    ///   (altitude 0), then their straight distance.
+    /// - Spherical: altitude is the radial distance from the body centre, so altitude 0
+    ///   would be the centre itself (#830). The step is measured on the sphere through the
+    ///   step instead, of radius sqrt(|p|·|q|): 2·sqrt(|p||q|)·sin(θ/2), θ the angle
+    ///   between them seen from the centre. That is unit-agnostic (a mean radius would tie it
+    ///   to metres), right anywhere on a lumpy body, and never longer than |p − q|.
+    /// - NonPlanetary: None, there is no height to remove.
+    let tryGroundStep (planet : Planet) (p : V3d) (q : V3d) : double option =
+        match getConvention planet with
+        | NonPlanetary -> None
+        | Spherical _ ->
+            let rp = p.Length
+            let rq = q.Length
+            if rp = 0.0 || rq = 0.0 then None
+            // |p̂ − q̂| = 2·sin(θ/2), without acos losing small angles
+            else Some (sqrt (rp * rq) * (p / rp - q / rq).Length)
+        | Ellipsoidal _
+        | Planetographic ->
+            let flatten v =
+                tryGetLatLonAlt planet v
+                |> Option.bind (fun sc -> tryGetXYZFromLatLonAlt { sc with altitude = 0.0 } planet)
+            match flatten p, flatten q with
+            | Some fp, Some fq -> Some (Vec.distance fp fq)
+            | _ -> None
+
+    /// The value PRo3D shows as a point's height - see `HeightReference` for what it
+    /// means per body. On a body this is `SphericalCoo.altitude` and `up` is ignored.
+    /// In a local frame (Planet.None/.JPL/.ENU) it is the coordinate along the
+    /// reference system's `up`: `p . up`. (This used to be the component-wise product
+    /// `p * up`, read as `.Z` or `.Length` depending on the caller - two different
+    /// numbers, the latter folding negative heights onto positive ones.)
     let tryGetHeight (p : V3d) (up : V3d) (planet : Planet) : double option =
         match planet with
-        | Planet.None | Planet.JPL | Planet.ENU -> Some (p * up).Length
+        | Planet.None | Planet.JPL | Planet.ENU ->
+            if up.LengthSquared > 0.0 then Some (Vec.dot p up.Normalized) else None
         | _ -> tryGetLatLonAlt planet p |> Option.map (fun sc -> sc.altitude)
 
+    /// Same value as `tryGetHeight`; kept for its callers.
     let tryGetAltitude (p : V3d) (up : V3d) (planet : Planet) : double option =
-        match planet with
-        | Planet.None | Planet.JPL | Planet.ENU -> Some (p * up).Z
-        | _ -> tryGetLatLonAlt planet p |> Option.map (fun sc -> sc.altitude)
+        tryGetHeight p up planet
 
     let tryGetElevation (planet : Planet) (p : V3d) : double option =
         tryGetLatLonAlt planet p |> Option.map (fun sc -> sc.altitude)
@@ -543,6 +604,24 @@ module CooTransformation =
                 | None    -> radial ()
 
 
+    /// Local north at a point, from the local up there: `east = pole x up`,
+    /// `north = up x east`, with the body's polar axis taken as body-fixed +Z.
+    /// Both results are *tangent* to the surface - north points along the ground
+    /// toward the pole, it does not point at it.
+    ///
+    /// `pole x up` collapses to the zero vector when up runs parallel to the polar
+    /// axis: standing on a pole, and - because `getUpVector` falls back to +Z there -
+    /// at the body centre, which is where `InferCoordSystem` puts the origin for an
+    /// OPC that wraps a whole body. North is genuinely undefined in that case, so
+    /// pick a stable arbitrary tangent rather than normalise a zero vector.
+    /// `MapViewController.mapFrame` guards the same singularity the same way.
+    let getNorthVector (up : V3d) =
+        let east = V3d.OOI.Cross(up)
+        let east =
+            if east.LengthSquared > 1e-12 then east.Normalized
+            else V3d.IOO.Cross(up).Normalized   // up ∥ pole, so up ∦ X
+        up.Cross(east).Normalized
+
     let planetFromString (spiceBodyName : string) = 
         match spiceBodyName.ToLower() with
         | "earth" -> Some Planet.Earth
@@ -567,6 +646,65 @@ module CooTransformation =
         match planetFromString (bodyName.Trim()) with
         | Some planet -> tryGetXYZFromLatLonAlt sc planet
         | None        -> tryGetXYZFromLatLonAltPlanet sc bodyName
+
+    /// What the "altitude" PRo3D shows actually is, in words, for labels and tooltips.
+    /// Documented in docs/HeightReference.md - keep the two in sync.
+    ///
+    /// PRo3D computes no gravity potential, so none of these is an elevation above an
+    /// equipotential surface (geoid/areoid). Potential-based values only come from OPC
+    /// attribute layers (`Elevation`, `Potential`, `Gravity`, ...), which are the data's.
+    module HeightReference =
+
+        let notElevation = "Geometric, not an elevation (PRo3D has no gravity model)."
+
+        /// Short row label for the height of a point on `planet`, without colon or unit.
+        let label (planet : Planet) =
+            match getConvention planet with
+            | Planetographic -> "Height above spheroid"
+            | Spherical _    -> "Radius from centre"
+            | Ellipsoidal _  -> "Height above ellipsoid"
+            | NonPlanetary   -> "Height along up"
+
+        /// The noun for derived values (annotation "Avg ...", "... delta"): on a body whose
+        /// value is a radius it says so.
+        let noun (planet : Planet) =
+            match getConvention planet with
+            | Spherical _ -> "radius"
+            | _           -> "height"
+
+        /// Tooltip for `label planet`.
+        let description (planet : Planet) =
+            match getConvention planet with
+            | Planetographic ->
+                sprintf "Height above the %A spheroid (SPICE PCK radii). %s" planet notElevation
+            | Spherical _ ->
+                sprintf "Distance from the %A centre. %s" planet notElevation
+            | Ellipsoidal radii ->
+                sprintf "Height above the %A ellipsoid (%.1f, %.1f, %.1f m). %s"
+                    planet radii.X radii.Y radii.Z notElevation
+            | NonPlanetary ->
+                "Coordinate along the reference up vector."
+
+        /// For places that cannot know the body (static tooltips, column help).
+        let generic =
+            "Spheroid height; radius from centre on Dimorphos; along up without a body. " + notElevation
+
+        /// For measurements that take the reference system's up as "vertical".
+        let upNote = "Vertical = reference up, not gravity (#867)."
+
+        /// Tooltip for an OPC attribute layer, by its name in the patch (`Elevation.aara` ->
+        /// "Elevation"). These values are the data producer's; PRo3D only interpolates them.
+        let layerDescription (layer : string) =
+            let what =
+                match layer.Trim().ToLowerInvariant() with
+                | "elevation" -> "Potential-based height (producer's definition). "
+                | "potential" -> "Gravitational + rotational potential. "
+                | "gravity"   -> "Surface acceleration vector. "
+                | "magnitude" -> "|Gravity|. "
+                | "slope"     -> "Slope of the shape model, not PRo3D's. "
+                | "lonlatrad" -> "Lon, lat (degrees; gradians in older exports); radius in m. "
+                | _           -> ""
+            what + "From the OPC data (shape model), not computed by PRo3D."
 
     module SphericalCoo =
         let toV3d (spherical : SphericalCoo) =

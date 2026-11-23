@@ -27,6 +27,7 @@ open Chiron
 
 open Aardvark.UI
 open Aardvark.UI.Giraffe
+open Aardvark.UI.Primitives.Golden
 
 open FSharp.Data.Adaptive
 
@@ -201,8 +202,8 @@ let main argv =
         Log.line "PRo3D Viewer - Version: %s; powered by Aardvark" viewerVersion
         let titlestr = 
                 match startupArgs.port with
-                | Some p -> "PRo3D Viewer - " + viewerVersion + " - VRVis Zentrum für Virtual Reality und Visualisierung Forschungs-GmbH - listening: http://localhost:" + p
-                | None -> "PRo3D Viewer - " + viewerVersion + " - VRVis Zentrum für Virtual Reality und Visualisierung Forschungs-GmbH"
+                | Some p -> "PRo3D by VRVis supported by community and open source contributors - " + viewerVersion + " - listening: http://localhost:" + p
+                | None -> "PRo3D by VRVis supported by community and open source contributors - " + viewerVersion
 
         Config.title <- titlestr
     
@@ -231,10 +232,24 @@ let main argv =
 
         UI.enabletoolTips <- (argv |> Array.contains "-notooltips" |> not)
 
+        // Escape hatch for the busy indicator: -nobusy turns off both the overlay and the
+        // polling that feeds it, -busyms <n> moves the threshold (0 is the same as -nobusy).
+        // See docs/BusyIndicator.md.
+        if argv |> Array.contains "-nobusy" then
+            Config.busyIndicatorMilliseconds <- 0
+        else
+            match argv |> Array.tryFindIndex (fun a -> a = "-busyms") with
+            | Some i ->
+                match Array.tryItem (i + 1) argv |> Option.bind (fun v -> Int32.TryParse v |> function true, n -> Some n | _ -> None) with
+                | Some n when n >= 0 -> Config.busyIndicatorMilliseconds <- n
+                | _ -> Log.warn "[StartupArgs] -busyms needs a non-negative number, ignoring"
+            | None -> ()
+
         // main app
         //use form = new Form(Width = 1280, Height = 800)
         let cts = new CancellationTokenSource()
-        let messagingMailbox = MailboxProcessor.Start(Viewer.initMessageLoop cts, cts.Token)    
+        let messagingMailbox = MailboxProcessor.Start(Viewer.initMessageLoop cts, cts.Token)
+        Activity.registerQueue (fun () -> messagingMailbox.CurrentQueueLength)
 
        // let minervaMailbox = MailboxProcessor.Start(PRo3D.Minerva.App.messagingMailbox cts, cts.Token)
     
@@ -307,7 +322,7 @@ let main argv =
                 renderingUrl 
                 ViewerApp.dataSamples
                 startupArgs.enableProvenanceTracking
-                appData
+                (startupArgs.screenshotDirectory |> Option.defaultValue appData)
                 viewerVersion
 
         let adaptiveModel = mainApp.MutableModel
@@ -378,8 +393,51 @@ let main argv =
                 http.subRoute "/api" remoteApi
                 WebPart.ofType<EmbeddedRessource>
                 WebPart.ofType<Primitives.EmbeddedResources>
+                GoldenLayout.toWebPart http
                // Reflection.assemblyWebPart typeof<CorrelationDrawing.CorrelationPanelResources>.Assembly //(System.Reflection.Assembly.LoadFrom "PRo3D.CorrelationPanels.dll")
                // prefix "/instrument" >=> MutableApp.toWebPart runtime instrumentApp
+
+                // What the update thread is doing right now, for the busy indicator. Top
+                // level rather than under /api, which is only mounted with -remoteApi. The
+                // handler reads one ref cell: no adaptive value, no app.lock, nothing that
+                // can block - which is the whole reason it still answers while the update
+                // thread is wedged. See docs/BusyIndicator.md.
+                http.route "/busy" >=> http.mimeType "application/json" >=> http.request (fun _ ->
+                    http.ok (Busy.toJson ()))
+
+                // Everything in flight, counted, for automation deciding when to send the next
+                // input (docs/Activity.md). Lock-free like /busy; /busy stays the pill's source.
+                http.route "/activity" >=> http.mimeType "application/json" >=> http.request (fun _ ->
+                    http.ok (Activity.toJson ()))
+
+                // Image catalog thumbnails, downloaded with the session's sign-in
+                // (StacSearch.overviewPath). Only listed results' overviews; anything
+                // else is 404. Blocks this request while downloading, not the update thread.
+                http.routef "/stac-overview/%s" (fun key ->
+                    match PRo3D.GIS.StacSearch.overviewFile key with
+                    | Some path ->
+                        let mime =
+                            match (Path.GetExtension path).ToLowerInvariant() with
+                            | ".jpg" | ".jpeg" -> "image/jpeg"
+                            | ".tif" | ".tiff" -> "image/tiff"
+                            | _ -> "image/png"
+                        // the bytes, not http.sendFile: Giraffe's resolves the path against
+                        // the content root, and the cache is in %TEMP% (thumbnails were
+                        // blank). An overview is small.
+                        match (try Some (File.ReadAllBytes path) with _ -> None) with
+                        | Some bytes -> http.mimeType mime >=> http.ok bytes
+                        | None -> http.notFound "thumbnail not readable"
+                    | None -> http.notFound "no such thumbnail")
+
+                // Library thumbnails (LibraryThumbnails.thumbnailPath), rendered on first
+                // request on this request's thread. Only registered library images.
+                http.routef "/library-thumbnail/%s" (fun key ->
+                    match PRo3D.GIS.LibraryThumbnails.thumbnailFile key with
+                    | Some path ->
+                        match (try Some (File.ReadAllBytes path) with _ -> None) with
+                        | Some bytes -> http.mimeType "image/png" >=> http.ok bytes
+                        | None -> http.notFound "thumbnail not readable"
+                    | None -> http.notFound "no such thumbnail")
 
                 http.route "/crash.txt" >=> http.mimeType "text/plain" >=> http.sendFile logFilePath
 
@@ -514,6 +572,11 @@ let main argv =
                 log (fun msg -> Report.Line(2, $"[Aardium] {msg}"))
 #endif
                 title titlestr
+                // macOS: Cmd+C/V/X/A/Z reach a text field only through the application
+                // menu's Edit items; without a menu they do nothing (no pasting into the
+                // sign-in dialog, the catalog field, ...). Windows/Linux handle Ctrl+V in the
+                // page itself and keep their menu-less window.
+                menu (os = OSPlatform.OSX)
             }
 
     finally

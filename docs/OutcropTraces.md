@@ -164,8 +164,9 @@ and fades the sequence out below ~3 px per bed, so an over-dense stack dissolves
 instead of aliasing. (Use `ddx`/`ddy`, never `ddxFine`/`ddyFine` — the Fine variants need GLSL
 4.50 and macOS caps OpenGL at 4.1, where they take the whole surface shader down with them.)
 
-**The trace shader runs last** in both the OPC and OBJ effect stacks, so trace colour survives
-lighting and shadowing. `contourLines` sits earlier and *is* shaded — right for a property of the
+**The trace shader runs after lighting** in both the OPC and OBJ effect stacks, so trace colour
+survives lighting and shadowing. In the OPC stack it sits in the unlit overlay band, over the
+LatLon grid and under the instrument footprint, hover outline and cursor. `contourLines` sits earlier and *is* shaded — right for a property of the
 terrain, wrong for an interpretive overlay.
 
 **Poles are axial data**, which is why the orientation tensor and not a mean of normals:

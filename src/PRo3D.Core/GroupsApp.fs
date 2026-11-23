@@ -69,6 +69,15 @@ module GroupsApp =
 
         loop target |> IndexList.ofList
 
+    /// The group path of every leaf in the tree, in the innermost-first order the tree view
+    /// builds (`i :: path`) and updateNodeAt expects. One walk, for callers that turn many ids
+    /// into TreeSelections at once.
+    let leafPaths (root : Node) : HashMap<Guid, list<Index>> =
+        let rec loop (path : list<Index>) (n : Node) (acc : HashMap<Guid, list<Index>>) =
+            let acc = n.leaves |> IndexList.fold (fun acc id -> HashMap.add id path acc) acc
+            n.subNodes |> IndexList.toSeqIndexed |> Seq.fold (fun acc (i, sub) -> loop (i :: path) sub acc) acc
+        loop [] root HashMap.empty
+
     let updateLeaf' id f model =
         let update = 
             (fun (d:option<Leaf>) ->
@@ -169,6 +178,17 @@ module GroupsApp =
 
         { tree with key = Guid.NewGuid(); subNodes = subNodes }
 
+    /// repairGroupNodesGuid, also returning old key -> new key, for whatever refers to groups
+    /// by key (geological maps, #843). A key that occurred twice maps to its first group.
+    let repairGroupNodesGuidMapped (tree : Node) : Node * Map<Guid, Guid> =
+        let mutable mapping = Map.empty
+        let rec repair (n : Node) =
+            let key = Guid.NewGuid()
+            if not (Map.containsKey n.key mapping) then mapping <- Map.add n.key key mapping
+            { n with key = key; subNodes = n.subNodes |> IndexList.map repair }
+        let repaired = repair tree
+        repaired, mapping
+
     // add one child to children of active group ... maybe move to active group
     let addLeafToActiveGroup (leaf:Leaf) (select:bool) model=
         let treeSelection =  
@@ -251,6 +271,35 @@ module GroupsApp =
             flat             = model.flat |> HashMap.remove id
             singleSelectLeaf = (match model.singleSelectLeaf with Some s when s = id -> None | s -> s)
             selectedLeaves   = model.selectedLeaves |> HashSet.filter (fun ts -> ts.id <> id) }
+
+    /// `removeLeafById` for many leaves in one walk of the tree.
+    let removeLeavesById (ids : HashSet<Guid>) (model : GroupsModel) =
+        if ids.IsEmpty then model
+        else
+            let rec strip (n : Node) =
+                { n with
+                    leaves   = n.leaves |> IndexList.filter (fun leafId -> not (ids |> HashSet.contains leafId))
+                    subNodes = n.subNodes |> IndexList.map strip }
+            { model with
+                rootGroup        = strip model.rootGroup
+                flat             = model.flat |> HashMap.filter (fun id _ -> not (ids |> HashSet.contains id))
+                singleSelectLeaf = (match model.singleSelectLeaf with Some s when ids |> HashSet.contains s -> None | s -> s)
+                selectedLeaves   = model.selectedLeaves |> HashSet.filter (fun ts -> not (ids |> HashSet.contains ts.id)) }
+
+    /// Expands every group from the root down to the one holding leaf `id`, so the list shows
+    /// it (#900: a single pick in 3D opens its folder). Groups off that path are untouched;
+    /// the model comes back unchanged when no group holds the leaf.
+    let expandToLeaf (id : Guid) (model : GroupsModel) : GroupsModel =
+        let rec go (n : Node) : Option<Node> =
+            if n.leaves |> IndexList.exists (fun _ leaf -> leaf = id) then
+                Some { n with expanded = true }
+            else
+                n.subNodes
+                |> IndexList.tryPick (fun i child -> go child |> Option.map (fun child -> i, child))
+                |> Option.map (fun (i, child) -> { n with expanded = true; subNodes = n.subNodes |> IndexList.set i child })
+        match go model.rootGroup with
+        | Some root -> { model with rootGroup = root }
+        | None      -> model
 
     let rec removeSelected (selection:list<TreeSelection>) (removeFromFlat:bool) (m:GroupsModel)  =
         match selection with

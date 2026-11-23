@@ -18,7 +18,7 @@ To follow the demo download or clone the [repository](https://s2e2.cosmos.esa.in
 There are two options to load SPICE kernels. 
 
 #### The command line
- - by using the command-line argument `--defaultSpiceKernel path`, e.g. the path to the tm file: `"../hera/kernels/mk/hera_crema_2_0_LPC_ECP_PDP.tm"`, the SPICE kernel to be loaded at application startup can be specified.
+ - by using the command-line argument `--defaultSpiceKernel path`, e.g. the path to the tm file: `"../hera/kernels/mk/hera_crema_2_0_LPC_ECP_PDP.tm"`, the SPICE kernel to be loaded at application startup can be specified. If that file is missing or fails to load, PRo3D loads its default kernel instead and the top bar shows the requested kernel as failed.
 
 #### The UI
 
@@ -26,17 +26,22 @@ There are two options to load SPICE kernels.
 
 ![alt text](./images/gis-view.png)
 
-2. Load the kernel via:
+2. Load the kernel with the **Load SPICE kernel** button in the top bar, next to the
+   **Reference System** dropdown, or from the main menu (*Load SPICE kernel*). Both open a
+   file dialog for a meta-kernel (`.tm`) or a single kernel file.
 
-![alt text](images/loadKernel.png)
+3. The box next to the button names the loaded kernel's file (*default (pck00010.tpc)* until one is: the planetary-constants kernel PRo3D loads at startup, without spacecraft or mission data),
+   with a green check mark when it loaded and a red mark and *(failed)* when it did not. Hover
+   it for the kernel's full path. PRo3D's text output says why a kernel failed to load, for
+   example a wrong path.
 
-3. Then the Gis View should print the path to the kernel (scroll down, and look at the settings pane within the GIS view):
-
-![](images/loadedKernel.png)
-
-A green check mark appears below the path if loading the kernel was successful. If there is a red exclamation mark beneath the path loading was not successful. PRo3D's text output will give more detailed information why, it might be that the path to the kernel is not correct.
+An italic hint at the top of the GIS View (and of the Projected Images panel) reminds you to
+set the kernel matching the images.
 
 ## PRO3D GIS View Tab
+
+Projecting instrument images onto surfaces has its own **Projected Images** panel, next to
+the GIS View; see [MultiImageProjection.md](MultiImageProjection.md).
 
 ### Current Observation Settings
 
@@ -46,8 +51,20 @@ At the top of the GIS tab there is a section entitled "Current Observation Setti
 
 * Observed body: the **scene body** — the body at the origin of the scene. It is the same setting as the planet in the top bar: choosing one sets the other (see [SceneBody.md](SceneBody.md)).
 * Camera source Body: the entity the camera looks from. When set, the camera is placed at its position and looks at the observed body.
-* Time: The point of time at which we want to observe. The loaded spice kernel needs to have data for the bodies involved at the selected point in time!
+* Time: The point of time at which we want to observe, in **UTC** (date and time to the second, like the Projected Images Date filter). Click the field for the date/time picker, click it again to close it. The loaded spice kernel needs to have data for the bodies involved at the selected point in time!
 * Reference Frame: the frame the scene is expressed in. For a body PRo3D knows (Mars, Earth, Moon, Phobos, Deimos, Didymos, Dimorphos) this is the body's fixed frame (e.g. `DIMORPHOS_FIXED`) and is set automatically — that is what lets map view and the planet-based measurements work. A scene saved in another frame (e.g. `J2000`) keeps it and shows a note with a button to switch.
+* Re-use settings above: puts the camera back at the camera source body, looking at the observed body — e.g. after you navigated away.
+
+#### When the camera moves
+
+With a camera source body set, the camera is re-aimed (placed at the camera source, looking at the observed body) when
+
+* you choose the observed body, the camera source body or the reference frame, or click *Re-use settings above* — always;
+* the time changes, from the *Time* field or the **Mission Time** table (row click, slider) — only while **Settings → Camera follows camera source body** is on. It is on by default and saved with the scene; switch it off to scrub time (the sun, the bodies' placement) under a camera you placed yourself.
+
+*Fly to* an image also sets the time but never re-aims: it keeps its own camera.
+
+Nothing moves when the camera source equals the observed body, or when the kernel has no data for the camera source at that time (the log then says `[SPICE] failed to transform body`). HERA, for example, is only near Didymos/Dimorphos from late 2026 on — at the default 2025 time the camera stays put.
 
 ### Surfaces
 
@@ -130,18 +147,27 @@ Since we have a full surface for mars now, we can switch of the proxy geometry:
 
 ## Sun illumination and cast shadows
 
-The **Sun / Lighting Mode** dropdown (in the projected-images section of the GIS tab)
-shades OPC surfaces with the real sun position for the current observation time:
+The **Sun / Lighting Mode** dropdown (*GIS View* → *Settings*, or the light button at the top
+of the [tool strip](ToolStrip.md)) shades OPC surfaces with the real sun position for the
+current observation time:
 
 | Mode | Effect |
 |---|---|
-| `Off` (default) | no sun shading, surfaces render as always |
-| `SunDirect` | sun shading: Lommel-Seeliger photometry (physically appropriate for dark regolith; plain Lambert over-darkens the limb) over the per-face terrain normal, so relief is visible under the sun |
-| `SunShadow` | `SunDirect` plus **cast shadows** from a sun-aligned shadow map |
+| `Headlight` | a light at the camera on **every** surface, textured or not, so the shape shows. A projected image is never lit by it: it shows only its own pixels (in proportion to *Image Opacity*). Also used while a sun mode has no sun direction (no kernel, or a time outside its coverage) |
+| `Off` (default) | no lighting at all: textures and projected images as they are, untextured surfaces flat |
+| `SunDirect` | sun shading: Lommel-Seeliger photometry (physically appropriate for dark regolith; plain Lambert over-darkens the limb) over the per-face terrain normal, so relief is visible under the sun. A projected image is not shaded: it already shows the sun's light |
+| `SunShadow` | `SunDirect` plus **cast shadows** from a sun-aligned shadow map (not on a projected image, which shows its own shadows) |
 
-Requirements: a loaded SPICE kernel, an observation time inside its coverage, and the
-surface registered in the GIS Surfaces tab (reference frame + body) — the same
-prerequisites the projected-image features have. The sun direction updates with the
+Scenes store the mode as a number; `Headlight` is 0, which is what `Off` meant before
+`Headlight` existed (it switched the camera light on for untextured surfaces only). Older
+scenes (and scenes without the field) therefore open with `Headlight`: untextured surfaces
+look as they did, textured ones are now shaded by the headlight too (switch to `Off` for
+the plain texture). A new scene starts `Off`.
+
+Requirements: a loaded SPICE kernel, an observation time inside its coverage, and a
+surface that resolves to a body and frame — either the scene body it inherits by
+default, or an explicit assignment in the GIS Surfaces tab. The same prerequisites the
+projected-image features have. The sun direction updates with the
 observation time, so scrubbing time moves the terminator and the shadows.
 
 The lighting mode is saved with the scene, which also means **batch rendering
@@ -157,6 +183,10 @@ Caveats:
   4096² map has too little resolution to be useful — the feature targets small-body
   scenes (asteroids, moons).
 - Only OPC surfaces cast shadows (not OBJ surfaces, annotations or scene objects).
+- The shadow depth bias is a viewer setting, *Viewer configuration → Shadow Bias (texels)*
+  (default 1.5, saved with the scene). It is measured in shadow-map texels, so it scales with
+  the scene's extent. Raise it if sunlit terrain shows speckled self-shadowing (acne); lower
+  it if shadows start visibly away from the relief that casts them.
 - Switching `SunDirect` on changes the look compared to older PRo3D versions: shading
   now uses the terrain normal and Lommel-Seeliger photometry instead of a
   Lambert-on-sphere-normal approximation.

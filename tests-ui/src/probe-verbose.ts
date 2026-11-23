@@ -9,7 +9,7 @@ import * as path from "path";
     const lines: string[] = [];
     const proc = spawn(
         config.exe,
-        ["--server", "--port", "54377", "--verbose", "--scene", config.scene ?? sceneFor(fixture.sceneTemplate, fixture.opc, "artifacts/testdata-scene.pro3d")],
+        ["--server", "--port", "54377", "--verbose", "--scene", config.scene ?? sceneFor(fixture.sceneTemplate, fixture.framesOpc, "artifacts/testdata-scene.pro3d")],
         { cwd: path.dirname(config.exe), stdio: ["pipe", "pipe", "pipe"] }
     );
     const collect = (b: Buffer) =>

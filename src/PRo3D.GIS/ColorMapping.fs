@@ -8,6 +8,16 @@ open Aardvark.Rendering
 open PRo3D.ImageMapping
 
 
+/// The layout of the projection stack's colour-map texture (stackColormapAtlas),
+/// shared by the shader (ImageProjection) that looks it up.
+module ColormapAtlas =
+    /// the number of ColorMap values (0 .. count - 1)
+    [<Literal>]
+    let count = 6
+    /// texels per colour map
+    [<Literal>]
+    let segmentWidth = 640
+
 type VisualizationProperties = 
     {
         visualizationRange : aval<Range1d>
@@ -51,6 +61,32 @@ module InstrumentImageVisualization =
     let getColorMapTexture (name : string) = 
         StreamTexture(getResourceStream name) :> ITexture
 
+    /// Every colour map side by side in one row texture, for the projection stack:
+    /// each layer looks its own map up (ProjectedStackColorMap) instead of all of
+    /// them sharing the selected image's. Segment i is the map whose ColorMap value
+    /// is i, resampled to `ColormapAtlas.segmentWidth` texels. Laid out along X, so
+    /// the lookup does not depend on how the backend orients image rows; one texel
+    /// high and without mip maps, so neither filter blends neighbouring maps.
+    let stackColormapAtlas : Lazy<ITexture> =
+        lazy (
+            let count = ColormapAtlas.count
+            let width = ColormapAtlas.segmentWidth
+            let atlas = PixImage<byte>(Col.Format.RGBA, V2i(width * count, 1))
+            let mutable target = atlas.GetMatrix<C4b>()
+            for i in 0 .. count - 1 do
+                let name = ColorMap.getColorMapFileName (enum<ColorMap> i)
+                use stream = getResourceStream name ()
+                let source = PixImage.Load(stream).ToPixImage<byte>(Col.Format.RGBA)
+                let pixels = source.GetMatrix<C4b>()
+                let w = source.Size.X
+                let y = int64 (source.Size.Y / 2)
+                for x in 0 .. width - 1 do
+                    // nearest source texel of this segment texel's centre
+                    let sx = min (w - 1) (int ((float x + 0.5) * float w / float width))
+                    target.[int64 (i * width + x), 0L] <- pixels.[int64 sx, y]
+            PixTexture2d(PixImageMipMap [| atlas :> PixImage |], false) :> ITexture
+        )
+
     let applyProperties (p : VisualizationProperties) (sg : ISg) = 
         sg 
         |> Sg.uniform "MinValue" (p.visualizationRange |> AVal.map _.Min)
@@ -60,6 +96,7 @@ module InstrumentImageVisualization =
         |> Sg.uniform "DataType" (p.dataType |> AVal.map int)
         |> Sg.uniform "ProjectedImageOpacity2" (p.projectionOpacity |> AVal.map (fun v -> v))
         |> Sg.uniform "ProjectedUseTransferFunction" p.useTransferFunction
+        |> Sg.texture "ProjectedStackColormaps" (AVal.constant stackColormapAtlas.Value)
         |> Sg.texture "ColormapTexture" (
             p.colorMapping |> AVal.bind (function
                 | None -> DefaultTextures.blackTex 

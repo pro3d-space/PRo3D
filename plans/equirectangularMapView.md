@@ -1,3 +1,5 @@
+> **Superseded** by the implemented design in [docs/MapProjectionView.md](../docs/MapProjectionView.md) (#772): projection in shaders on the map's own `OpcSg.build` PatchNodes, no custom LoD decider in phase 1, polar stereographic, standalone exe.
+
 # Equirectangular projection — small-body map view
 
 ## Goal

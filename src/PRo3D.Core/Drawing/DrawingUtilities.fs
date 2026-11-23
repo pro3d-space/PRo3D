@@ -228,13 +228,19 @@ module DrawingUtilities =
         //TODO refactor to types
         let loadAnnotationse (annotations : Annotations) =             
             
+            // group keys are renewed on every load; what refers to a group by key follows
+            let rootGroup, renewed = GroupsApp.repairGroupNodesGuidMapped annotations.annotations.rootGroup
+            let renew (key : System.Guid) = Map.tryFind key renewed |> Option.defaultValue key
             let annotations =
                 { annotations with 
                     annotations = { 
                         annotations.annotations with 
-                            rootGroup = 
-                                annotations.annotations.rootGroup 
-                                |> GroupsApp.repairGroupNodesGuid
+                            rootGroup   = rootGroup
+                            activeGroup = { annotations.annotations.activeGroup with id = renew annotations.annotations.activeGroup.id }
+                    }
+                    geologicalMaps = {
+                        annotations.geologicalMaps with
+                            maps = annotations.geologicalMaps.maps |> IndexList.map (fun m -> { m with sourceGroup = renew m.sourceGroup })
                     }
                 }
 

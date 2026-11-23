@@ -117,10 +117,18 @@ let loadKernelForMbiContent (mbiJsonContent : string) : unit =
     match mkName with
     | None -> ensureOpsKernel ()
     | Some mkName ->
-        ensureKernelAt
+        let candidates =
             [ Path.Combine(mkDir, mkName + ".tm")
-              Path.Combine(mkDir, "former_versions", mkName + ".tm")
-              spiceFileName ]
+              Path.Combine(mkDir, "former_versions", mkName + ".tm") ]
+        // No fallback to hera_ops.tm here: every fixture declares a kernel pinned in
+        // scripts/spice-kernels.pins, and substituting another set does not skip the
+        // test, it fails it with an unrelated-looking geometry error (a kernel set of the
+        // wrong vintage has no Milani ephemeris in 2027, and the projection returns None).
+        // A missing pinned kernel is a setup problem and has to say so.
+        if not (candidates |> List.exists File.Exists) then
+            failtestf "this fixture needs the metakernel %s, pinned in scripts/spice-kernels.pins but not under %s. PRO3D_SPICE_KERNELS points at a kernel set without it: fetch the pinned set with scripts/fetch-spice-kernels.sh <dest> and point PRO3D_SPICE_KERNELS at <dest> (docs/tests/SpiceKernels.md)."
+                mkName mkDir
+        ensureKernelAt candidates
 
 
 let heraSpecificTests () = 

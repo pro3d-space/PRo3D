@@ -116,7 +116,8 @@ module ProjectionPreconditions =
             imageProjection = gate None p.imageProjection
             stackProjections = gate Array.empty p.stackProjections
             hoveredProjection = gate None p.hoveredProjection
-            stackCoverageEnabled = gate false p.stackCoverageEnabled }
+            stackCoverageEnabled = gate false p.stackCoverageEnabled
+            stackFocus = gate (-1, 1.0f) p.stackFocus }
 
 module ImageProjectionOpcExtensions =
 
@@ -213,6 +214,48 @@ module ImageProjectionOpcExtensions =
                 context.projectedImages |> AVal.bind (function
                     | None -> AVal.constant Array.empty<V2f>
                     | Some p -> p.stackProjections |> AVal.map (Array.map (fun l -> l.minMax))
+                ) :> IAdaptiveValue
+            )
+            "ProjectedStackBrightnessContrast", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) ->
+                let context = scope |> unbox<OpcRenderingExtensions.Context>
+                context.projectedImages |> AVal.bind (function
+                    | None -> AVal.constant Array.empty<V2f>
+                    | Some p -> p.stackProjections |> AVal.map (Array.map (fun l -> l.brightnessContrast))
+                ) :> IAdaptiveValue
+            )
+            "ProjectedStackFalseColor", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) ->
+                let context = scope |> unbox<OpcRenderingExtensions.Context>
+                context.projectedImages |> AVal.bind (function
+                    | None -> AVal.constant Array.empty<int>
+                    | Some p -> p.stackProjections |> AVal.map (Array.map (fun l -> if l.falseColor then 1 else 0))
+                ) :> IAdaptiveValue
+            )
+            "ProjectedStackColorMap", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) ->
+                let context = scope |> unbox<OpcRenderingExtensions.Context>
+                context.projectedImages |> AVal.bind (function
+                    | None -> AVal.constant Array.empty<int>
+                    | Some p -> p.stackProjections |> AVal.map (Array.map (fun l -> l.colorMap))
+                ) :> IAdaptiveValue
+            )
+            "ProjectedStackDataType", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) ->
+                let context = scope |> unbox<OpcRenderingExtensions.Context>
+                context.projectedImages |> AVal.bind (function
+                    | None -> AVal.constant Array.empty<int>
+                    | Some p -> p.stackProjections |> AVal.map (Array.map (fun l -> l.dataType))
+                ) :> IAdaptiveValue
+            )
+            "ProjectedStackFocus", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) ->
+                let context = scope |> unbox<OpcRenderingExtensions.Context>
+                context.projectedImages |> AVal.bind (function
+                    | None -> AVal.constant -1
+                    | Some p -> p.stackFocus |> AVal.map fst
+                ) :> IAdaptiveValue
+            )
+            "ProjectedStackFade", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) ->
+                let context = scope |> unbox<OpcRenderingExtensions.Context>
+                context.projectedImages |> AVal.bind (function
+                    | None -> AVal.constant 1.0f
+                    | Some p -> p.stackFocus |> AVal.map snd
                 ) :> IAdaptiveValue
             )
             "ProjectedStackCount", (fun scope (patch : Aardvark.GeoSpatial.Opc.PatchLod.RenderPatch) ->

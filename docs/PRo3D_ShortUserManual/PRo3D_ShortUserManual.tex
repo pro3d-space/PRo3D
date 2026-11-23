@@ -96,6 +96,17 @@
 	linkcolor=black,
 	urlcolor=blue}
 
+% ********* Links into the online documentation *******
+% The repository carries one markdown page per feature in the docs/ folder.
+% \onlinedoc{Page.md}{link text} links to such a page on GitHub,
+% \furtherreading{...} typesets a "Further reading" note containing such links.
+\newcommand{\onlinedoc}[2]{\href{https://github.com/pro3d-space/PRo3D/blob/main/docs/#1}{#2}}
+\newcommand{\docsfolder}[1]{\href{https://github.com/pro3d-space/PRo3D/tree/main/docs}{#1}}
+\newcommand{\furtherreading}[1]{%
+	\par\smallskip\noindent
+	\textit{Further reading:} #1%
+	\par\smallskip}
+
 
 %this defines the page style for the first pages: all empty
 %\renewpagestyle{plain}%
@@ -172,7 +183,7 @@
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
  %%%%%%%%%%%%%         CHANGE VERSION NUMBER HERE    %%%%%%%%%%%
-\newcommand{\version}{5.5.0}
+\newcommand{\version}{6.3.2}
  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
  
@@ -188,7 +199,7 @@
 	\vspace{1.cm}
 	\includegraphics[width=1.0\textwidth]{pics/CoverPic.png}\par\vspace{1cm}		
 	{\large Authors: \par 
-	Thomas Ortner, Laura Fritz, Rebecca Nowak, Harald Steinlechner}
+	Thomas Ortner, Laura Fritz, Rebecca Nowak, Harald Steinlechner, Sophie Pichler}
 	\vfill
 	% Bottom of the page
 	{Last Updated: \today\par}

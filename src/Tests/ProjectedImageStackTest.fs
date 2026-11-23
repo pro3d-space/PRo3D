@@ -119,13 +119,11 @@ let tests () =
                 let m =
                     { mkModel [a; b; c] with
                         stack = IndexList.ofList [c.id; a.id]
-                        selectedImage = Some a.id
-                        editImages = HashSet.ofList [b.id] }
+                        selectedImage = Some a.id }
                 let sorted = ProjectedImageListApp.update m SortEntriesByDistance
                 Expect.equal (sorted.images |> IndexList.toList |> List.map (fun i -> i.texture)) ["b"; "c"; "a"] "library sorted by distance"
                 Expect.equal (stackIds sorted) [c.id; a.id] "the stack must not move"
                 Expect.equal sorted.selectedImage (Some a.id) "selection must survive"
-                Expect.isTrue (sorted.editImages |> HashSet.contains b.id) "edit set must survive"
                 let sorted2 = ProjectedImageListApp.update sorted SortEntriesByDate
                 Expect.equal (sorted2.images |> IndexList.toList |> List.map (fun i -> i.texture)) ["b"; "a"; "c"] "library sorted by date"
                 Expect.equal (stackIds sorted2) [c.id; a.id] "the stack must still not move"
@@ -278,9 +276,10 @@ let tests () =
                     {
                         imageProjection = AVal.constant (Some Trafo3d.Identity)
                         stackProjections =
-                            AVal.constant [| ({ trafo = Some Trafo3d.Identity; minMax = V2f.OI; texturePath = "a"; channel = 0 } : Sg.ProjectedStackLayer) |]
+                            AVal.constant [| ({ trafo = Some Trafo3d.Identity; minMax = V2f.OI; texturePath = "a"; channel = 0; brightnessContrast = V2f.OI; falseColor = true; colorMap = 0; dataType = 2 } : Sg.ProjectedStackLayer) |]
                         stackCoverageEnabled = AVal.constant true
                         hoveredProjection = AVal.constant (Some Trafo3d.Identity)
+                        stackFocus = AVal.constant (-1, 1.0f)
                         windingCorrection = AVal.constant false
                         sunDirection = AVal.constant (Some V3d.OOI)
                         sunLightEnabled = AVal.constant true

@@ -47,6 +47,8 @@ module Shaders =
         member x.MaxValue : float32 = uniform?MaxValue
         member x.UseFalseColor : bool = uniform?UseFalseColor
         member x.DataType : int = uniform?DataType
+        member x.Brightness : float32 = uniform?Brightness
+        member x.Contrast : float32 = uniform?Contrast
 
     let hshColors (v : Vertex)  = 
         fragment {
@@ -55,16 +57,15 @@ module Shaders =
                 ((min uniform.MaxValue (max uniform.MinValue (hshValueX * 65000.0f))) - uniform.MinValue) / (uniform.MaxValue - uniform.MinValue)
             let remappedClampedNormalizedXFloat =
                 (hshValueX - uniform.MinValue) / (uniform.MaxValue - uniform.MinValue)
+            let normalized =
+                PRo3D.ImageMapping.BrightnessContrastShader.apply
+                    (if uniform.DataType = 2 then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16)
+                    uniform.Brightness uniform.Contrast
             let remapClampNormalize =
                 if uniform.UseFalseColor then
-                    V4f(
-                        (if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16),
-                        (if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16),
-                        (if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16),
-                        1.0f
-                    )
+                    V4f(normalized, normalized, normalized, 1.0f)
                 else 
-                    colormapTextureSampler.Sample(V2f ((if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16), 0.0f))
+                    colormapTextureSampler.Sample(V2f (normalized, 0.0f))
             return remapClampNormalize
         }
 
@@ -93,25 +94,49 @@ module ProjectedImageApp =
         defaultMaxValues = [numericInput.value];
         texture = initialPath;
         distance = 0;
+        resolution = None;
+        phaseAngle = None;
         time = new DateTime();
         falseColorModel = projectedImageLegend (Range1d(numericInput.min, numericInput.max)) (InstrumentImageVisualization.getResourceStream (ColorMap.getColorMapFileName ColorMap.Magma) ())
         falseColorPreview = false
+        brightnessContrast = BrightnessContrast.init
     }
 
+    /// Data type and per-band (min, max) of the finite samples, read from the
+    /// TIFF itself -- for images delivered without the `<image>.tif.json`
+    /// statistics sidecar. Without it the range was 0..0, which the shader
+    /// divides by: the projection came out black. One pass over the pixels,
+    /// at import only.
+    let private tryStatisticsFromImage (texturePath : string) : Option<DataType * (float * float)[]> =
+        let range (n : int) (value : int -> float) =
+            let mutable lo = Double.PositiveInfinity
+            let mutable hi = Double.NegativeInfinity
+            for i in 0 .. n - 1 do
+                let v = value i
+                if Double.IsFinite v then
+                    if v < lo then lo <- v
+                    if v > hi then hi <- v
+            if lo < hi then (lo, hi)
+            elif lo = hi then (lo, lo + 1.0)
+            else (0.0, 1.0)
+        try
+            match MultiBandReader.tryReadMultiBandTiff texturePath false with
+            | Result.Error e ->
+                Log.warn "[ProjectedImage] no statistics for %s: %s" texturePath e
+                None
+            | Result.Ok r ->
+                match r.buffers with
+                | Float32Bands b -> Some (DataType.Float,  b |> Array.map (fun a -> range a.Length (fun i -> float a.[i])))
+                | UInt16Bands b  -> Some (DataType.UInt16, b |> Array.map (fun a -> range a.Length (fun i -> float a.[i])))
+                | UInt32Bands b  -> Some (DataType.UInt32, b |> Array.map (fun a -> range a.Length (fun i -> float a.[i])))
+                | Int16Bands b   -> Some (DataType.UInt16, b |> Array.map (fun a -> range a.Length (fun i -> float a.[i])))
+                | Int32Bands b   -> Some (DataType.UInt32, b |> Array.map (fun a -> range a.Length (fun i -> float a.[i])))
+        with e ->
+            Log.warn "[ProjectedImage] no statistics for %s: %s" texturePath e.Message
+            None
+
     let loadFile (texturePath : string) =
-        // this could be a fallback
-        let ifUsefulThisIsHowToExtractInfos = MultiBandReader.tryGetChannels texturePath
-
         let (tiffMbiJson, tiffJson) = InstrumentMetadata.tryParseMetadataForImagePath texturePath
-
-        let channels =
-            match tiffJson with
-            | Some tf -> tf.channels
-            | None -> 1
-
-        let channelOptions = [ 0 .. channels - 1 ] |> List.map (fun channel -> {idx = channel; name = None})
-
-        let selectedChannelIdx = 0
 
         // Plain image formats (synthetic COP renders) come without the
         // statistics sidecar and are sampled as normalized [0,1] -- treat them
@@ -122,25 +147,44 @@ module ProjectedImageApp =
             | ".png" | ".jpg" | ".jpeg" -> true
             | _ -> false
 
-        let defaultMinValues =
+        // a TIFF without the statistics sidecar: take them from the image
+        let imageStatistics =
             match tiffJson with
-            | Some tf -> tf.image_statistics |> Array.toList |> List.map (fun x -> x.minimum)
-            | None -> [0.0]
+            | None when not isPlainImage -> tryStatisticsFromImage texturePath
+            | _ -> None
+
+        let channels =
+            match tiffJson, imageStatistics with
+            | Some tf, _ -> tf.channels
+            | None, Some (_, ranges) when ranges.Length > 0 -> ranges.Length
+            | _ -> 1
+
+        let channelOptions = [ 0 .. channels - 1 ] |> List.map (fun channel -> {idx = channel; name = None})
+
+        let selectedChannelIdx = 0
+
+        let defaultMinValues =
+            match tiffJson, imageStatistics with
+            | Some tf, _ -> tf.image_statistics |> Array.toList |> List.map (fun x -> x.minimum)
+            | None, Some (_, ranges) when ranges.Length > 0 -> ranges |> Array.toList |> List.map fst
+            | _ -> [0.0]
 
         let defaultMaxValues =
-            match tiffJson with
-            | Some tf -> tf.image_statistics |> Array.toList|> List.map (fun x -> x.maximum)
-            | None -> if isPlainImage then [1.0] else [0.0]
+            match tiffJson, imageStatistics with
+            | Some tf, _ -> tf.image_statistics |> Array.toList|> List.map (fun x -> x.maximum)
+            | None, Some (_, ranges) when ranges.Length > 0 -> ranges |> Array.toList |> List.map snd
+            | _ -> if isPlainImage then [1.0] else [0.0]
 
         let dataType =
-            match tiffJson with
-            | Some tf ->
+            match tiffJson, imageStatistics with
+            | Some tf, _ ->
                 match tf.data_type with
                 | "uint16" -> DataType.UInt16
                 | "uint32" -> DataType.UInt32
                 | "float" -> DataType.Float
                 | _ -> DataType.UInt16
-            | None -> if isPlainImage then DataType.Float else DataType.UInt16
+            | None, Some (dt, _) -> dt
+            | None, None -> if isPlainImage then DataType.Float else DataType.UInt16
 
         let rangeOffset = 0.1 * (defaultMaxValues[selectedChannelIdx] - defaultMinValues[selectedChannelIdx])
 
@@ -152,25 +196,16 @@ module ProjectedImageApp =
 
         let inputMaxValue = { numericInput with value = defaultMaxValues[selectedChannelIdx]; min = rangeMin; max = rangeMax; step = stepSize }
 
-        let distance =
-            match tiffMbiJson with
-            | Some mbi -> mbi.targetPos.Length
-            | None -> 0.0
-
-        // curated header: instrument, plus the camera system when the
-        // statistics sidecar declares one and it adds information
-        let instrument =
-            match tiffMbiJson, tiffJson with
-            | Some mbi, Some tf when not (String.IsNullOrWhiteSpace tf.camera_system) && tf.camera_system <> mbi.instrument ->
-                sprintf "%s (%s)" mbi.instrument tf.camera_system
-            | Some mbi, _ -> mbi.instrument
-            | None, Some tf -> tf.camera_system
-            | None, None -> ""
-
-        let time =
-            match tiffMbiJson with
-            | Some mbi -> mbi.obs_date
-            | None -> System.DateTime.MinValue // which default time?
+        // what the filters compare: one function for library images and catalog
+        // results (ImageFilter.valuesOf), so both are filtered alike
+        let values = ImageFilter.valuesOf (tiffMbiJson, tiffJson)
+        // the image list's Preview column may serve this file's thumbnail
+        PRo3D.GIS.LibraryThumbnails.register texturePath
+        let distance = values.distance
+        let instrument = values.instrument
+        let resolution = values.resolution
+        let phaseAngle = values.phaseAngle
+        let time = values.time
 
 
 
@@ -192,6 +227,8 @@ module ProjectedImageApp =
                 channelOptions   = channelOptions;
                 dataType         = dataType;
                 distance         = distance;
+                resolution       = resolution;
+                phaseAngle       = phaseAngle;
                 time             = time;
                 falseColorModel  = falseColorModel
         }
@@ -233,6 +270,14 @@ module ProjectedImageApp =
             | ToggleFalseColorLegend -> 
                 { m with falseColorModel = { m.falseColorModel with useFalseColors = not m.falseColorModel.useFalseColors } }
 
+            | BrightnessContrastMessage action ->
+                let bc = m.brightnessContrast
+                let bc =
+                    match action with
+                    | SetBrightness a -> { bc with brightness = Numeric.update bc.brightness a }
+                    | SetContrast a -> { bc with contrast = Numeric.update bc.contrast a }
+                    | ResetBrightnessContrast -> BrightnessContrast.init
+                { m with brightnessContrast = bc }
             | ImageMessage.Empty ->
                 m
 
@@ -245,65 +290,129 @@ module ProjectedImageApp =
     let whiteTex =
         PixTexture2d(PixImageMipMap [| whitePix :> PixImage |], false) :> ITexture
 
-    let view (m : AdaptiveProjectedImageModel) =
-        let content = 
-            Html.table [ 
-                Html.row "EXR Channel:" [
-                    div [style "color: white;"] [
-                        let channelRepr (c : Channel) = 
-                            match c.name with
-                            | None -> string c.idx
-                            | Some name -> name
-                        Html.SemUi.dropDown' (AList.ofAVal m.channelOptions) m.selectedChannel (fun value -> SetEXRChannel value) channelRepr
-                        // Html.SemUi.dropDown m.channel SetEXRChannel
-                    ]
-                ]
-                Html.row "False Color:" [
-                    text "Show color legend:" 
-                    GuiEx.iconCheckBox m.falseColorModel.useFalseColors ToggleFalseColorLegend
-                    br[]
-                    text "Activate: " 
-                    GuiEx.iconCheckBox m.falseColorPreview ToggleFalseColor
-                    br []
-                    Html.SemUi.dropDown m.colorMap SetColorMap                    
-                ]
-
-                Html.row "Minimum:" [
-                    SimplePrimitives.numeric { min = 0.0; max = 65535.0; largeStep = 0.1; smallStep = 0.01 } AttributeMap.empty (m.falseColorModel.lowerBound.value) SetCustomMin
-                    br []
-                    Numeric.view' [Slider] m.falseColorModel.lowerBound
-                    |> UI.map (fun action -> 
-                        match action with
-                        | Numeric.Action.SetValue v ->
-                            SetCustomMin v
-                        | _ ->
-                            ImageMessage.Empty
-                        )
-                    ]
-                Html.row "Maximum:"  [
-                    SimplePrimitives.numeric { min = 0.0; max = 65535.0; largeStep = 0.1; smallStep = 0.01 } AttributeMap.empty (m.falseColorModel.upperBound.value) SetCustomMax
-                    br []
-                    div [style "width: 100%"] [
-                        Numeric.numericField' m.falseColorModel.upperBound Slider
-                        |> UI.map (fun action -> 
-                            match action with
-                            | Numeric.Action.SetValue v ->
-                                SetCustomMax v
-                            | _ ->
-                                ImageMessage.Empty
-                            )
-                        ]
-                    ] 
-                Html.row "" [button [clazz "ui inverted button"; onClick (fun _ -> ResetCustomMinMax)] [
-                        text "Reset"
+    /// A Properties section: a header row (like Registration) -- `lead` before the
+    /// title (e.g. a switch), `extras` after it (e.g. a hint), an optional reset icon at
+    /// the right -- then label | control rows.
+    let private section (title : string) (tooltip : Option<string>)
+                        (lead : list<DomNode<ImageMessage>>) (extras : list<DomNode<ImageMessage>>)
+                        (reset : Option<string * ImageMessage>) (rows : list<DomNode<ImageMessage>>) =
+        let header =
+            tr [] [
+                th [
+                    yield attribute "colspan" "2"
+                    match tooltip with
+                    | Some t -> yield attribute "title" t
+                    | None -> ()
+                ] [
+                    div [style "display: flex; align-items: center; gap: 6px"] [
+                        yield! lead
+                        yield text title
+                        yield! extras
+                        match reset with
+                        | Some (what, msg) ->
+                            yield i [clazz "undo icon"
+                                     style "margin-left: auto; cursor: pointer"
+                                     attribute "title" what
+                                     onClick (fun _ -> msg)] []
+                        | None -> ()
                     ]
                 ]
             ]
+        table [clazz "ui celled striped inverted table unstackable"; style "margin: 6px 0 0 0"] [
+            tbody [] (header :: rows)
+        ]
 
+    let private propertyRow (label : string) (control : list<DomNode<ImageMessage>>) =
+        tr [] [
+            td [clazz "collapsing"] [text label]
+            td [] control
+        ]
+
+    /// A row that is dimmed and inert while `enabled` is false.
+    let private switchedRow (enabled : aval<bool>) (label : string) (control : list<DomNode<ImageMessage>>) =
+        let attributes =
+            amap {
+                let! enabled = enabled
+                if not enabled then yield style "opacity: 0.4; pointer-events: none"
+            } |> AttributeMap.ofAMap
+        Incremental.tr attributes (
+            AList.ofList [
+                td [clazz "collapsing"] [text label]
+                td [] control
+            ])
+
+    /// Data: what is shown -- the band and the range of its values that spans the
+    /// colour map (and the legend's labels). Reset: the range to the image's statistics.
+    let private viewData (m : AdaptiveProjectedImageModel) =
+        let channelRepr (c : Channel) =
+            match c.name with
+            | None -> string c.idx
+            | Some name -> name
+        let onValue (f : float -> ImageMessage) (action : Numeric.Action) =
+            match action with
+            | Numeric.Action.SetValue v -> f v
+            | _ -> ImageMessage.Empty
+        let lower = m.falseColorModel.lowerBound
+        let upper = m.falseColorModel.upperBound
+        section "Data" (Some "which band is shown, and the range of its values the colour map and the legend span")
+            [] [] (Some ("reset the range to the image's statistics", ResetCustomMinMax)) [
+            propertyRow "Channel:" [
+                Html.SemUi.dropDown' (AList.ofAVal m.channelOptions) m.selectedChannel SetEXRChannel channelRepr
+            ]
+            // min | two-handle slider (as the library filters) | max
+            propertyRow "Range:" [
+                div [style "display: flex; align-items: center; gap: 6px"] [
+                    div [clazz "pro3d-range-bound"; style "width: 80px; flex-shrink: 0"] [
+                        Numeric.view' [NumericInputType.InputBox] lower |> UI.map (onValue SetCustomMin)
+                    ]
+                    // padded at both ends: a gap to the min and max boxes
+                    div [style "flex: 1; min-width: 80px; padding: 0 6px"] [
+                        DualRangeSlider.view lower upper (AVal.constant false) SetCustomMin SetCustomMax ImageMessage.Empty
+                    ]
+                    div [clazz "pro3d-range-bound"; style "width: 80px; flex-shrink: 0"] [
+                        Numeric.view' [NumericInputType.InputBox] upper |> UI.map (onValue SetCustomMax)
+                    ]
+                ]
+            ]
+        ]
+
+    /// Tone: brightness / contrast on the normalised value, before the colour map --
+    /// purely visual.
+    let private viewTone (m : AdaptiveProjectedImageModel) =
+        let bc = m.brightnessContrast
+        let row (label : string) (input : AdaptiveNumericInput) (action : Numeric.Action -> BrightnessContrastAction) =
+            propertyRow label [ Numeric.view' [NumericInputType.Slider] input |> UI.map (action >> BrightnessContrastMessage) ]
+        section "Tone"
+            (Some "visual only: on the image's values within its Data range, before the colour map; on the surface only with Apply Image Adjustments on")
+            [] [] (Some ("reset brightness and contrast", BrightnessContrastMessage ResetBrightnessContrast)) [
+            row "Brightness:" bc.brightness SetBrightness
+            row "Contrast:" bc.contrast SetContrast
+        ]
+
+    /// False Colour: the header's checkbox switches the colour map on (off: grey
+    /// values); the map and the legend are dimmed while it is off.
+    let private viewFalseColour (m : AdaptiveProjectedImageModel) =
+        let on = m.falseColorPreview
+        section "False Colour" (Some "off: grey values, in the preview and on the surface")
+            [ div [style "font-weight: normal"] [ GuiEx.iconCheckBox on ToggleFalseColor ] ] [] None [
+            switchedRow on "Colour Map:" [
+                Html.SemUi.dropDown m.colorMap SetColorMap
+            ]
+            switchedRow on "Legend:" [
+                div [style "display: flex; align-items: center; gap: 8px"] [
+                    GuiEx.iconCheckBox m.falseColorModel.useFalseColors ToggleFalseColorLegend
+                    span [style "opacity: 0.75"] [text "show in main view"]
+                ]
+            ]
+        ]
+
+    let view (m : AdaptiveProjectedImageModel) =
         require Html.semui (
             div [] [
-                div [style "position: relative; paddingLeft: 25px; paddingTop: 25px; width: 100%"] [
-                    content
+                div [style "position: relative; width: 100%"] [
+                    viewData m
+                    viewTone m
+                    viewFalseColour m
                 ]
             ]
         )
@@ -347,7 +456,17 @@ module ProjectedImageApp =
                             | _ -> 
                                 Log.warn "could not load texture"
                                 DefaultTextures.checkerboard.GetValue()
-                        | ".png" | _ -> whiteTex 
+                        // as the projection loads them (Visualization.createProjectedPixTexture):
+                        // the shader reads the red channel, the grayscale image
+                        | ".png" | ".jpg" | ".jpeg" ->
+                            try
+                                PixTexture2d(PixImageMipMap [| PixImage.Load path |], true) :> ITexture
+                            with e ->
+                                Log.warn "[ProjectedImage] preview could not load %s: %s" path e.Message
+                                whiteTex
+                        | ext ->
+                            Log.warn "[ProjectedImage] no preview for image format %s (%s)" ext path
+                            whiteTex
                 ) 
             )
 
@@ -355,6 +474,8 @@ module ProjectedImageApp =
         let max = img |> extract (AVal.constant 1.0) (fun m -> m.falseColorModel.upperBound.value |> AVal.map (fun v -> float v))
         let falseColor = img |> extract (AVal.constant false) (fun m -> m.falseColorPreview |> AVal.map (fun f -> not f))
         let dataType = img |> extract (AVal.constant 2) (fun m -> m.dataType |> AVal.map (fun dt -> int dt))
+        let brightness = img |> extract (AVal.constant 0.0f) (fun m -> m.brightnessContrast.brightness.value |> AVal.map float32)
+        let contrast = img |> extract (AVal.constant 1.0f) (fun m -> m.brightnessContrast.contrast.value |> AVal.map float32)
 
         Sg.fullScreenQuad
         |> Sg.noEvents
@@ -364,6 +485,8 @@ module ProjectedImageApp =
         |> Sg.uniform "MaxValue" max
         |> Sg.uniform "UseFalseColor" falseColor
         |> Sg.uniform "DataType" dataType
+        |> Sg.uniform "Brightness" brightness
+        |> Sg.uniform "Contrast" contrast
         |> Sg.shader {
             do! (Shaders.hshColors)
         }
@@ -376,7 +499,7 @@ module ProjectedImageApp =
         let frustum' = Frustum.ortho (Box3d.FromMinAndSize(-V3d.III, V3d.III))
 
         require Html.semui (
-            div [style "width: 100%; height: 200px; display: flex; align-items: center; justify-content: center; margin-top: 10px; border: solid 2px black; background: rgb(0, 0, 0, 0.5);"] [
+            div [style "width: 100%; height: 200px; display: flex; align-items: center; justify-content: center; border: solid 2px black; background: rgb(0, 0, 0, 0.5);"] [
                 let style = [style "position: relative; width: 200px; height: 100%; padding: 2px; display: block; min-width: 0;"; attribute "showLoader" "false"]
                 renderControl (AVal.constant (Camera.create cameraView frustum')) style instrumentVisualization
             ]

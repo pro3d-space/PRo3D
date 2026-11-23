@@ -1,5 +1,9 @@
 import { PNG } from "pngjs";
 
+/** the viewer's clear colour, #222222 (src/PRo3D.Viewer/Config.fs backgroundColor).
+ *  See probe-lib.ts BG for why this is a constant and never sampled from the image. */
+const BG = 34;
+
 export interface Diff {
     /// fraction of pixels whose max channel delta exceeds the epsilon
     changedFraction: number;
@@ -88,18 +92,16 @@ export function bodyCoverage(
 
     // "body" is anything that is not the viewer's clear colour, NOT anything
     // bright: the DRACO mosaic is hemispheric, so the unobserved cap renders
-    // pure black while empty space is the clear colour (#2A2A2A). A brightness
+    // pure black while empty space is the clear colour (#222222). A brightness
     // threshold puts that cap on the space side and then reports every pixel
     // the projection legitimately paints there as spill.
-    const bg = (() => {
-        let r = 0, g = 0, b = 0, n = 0;
-        for (let y = y1 - 12; y < y1 - 4; y++)
-            for (let x = x1 - 12; x < x1 - 4; x++) {
-                const o = (y * pa.width + x) * 4;
-                r += pa.data[o]; g += pa.data[o + 1]; b += pa.data[o + 2]; n++;
-            }
-        return [r / n, g / n, b / n];
-    })();
+    //
+    // The clear colour is a CONSTANT and must never be sampled from the image.
+    // This used to average a patch near the bottom-right corner, which inverts
+    // the entire classification the moment the black unobserved cap reaches that
+    // corner: bg reads ~0, so every black body pixel is counted as space and
+    // every space pixel as body. See probe-lib.ts BG and ai/TESTING.md.
+    const bg = [BG, BG, BG];
 
     let body = 0,
         covered = 0,
@@ -178,6 +180,17 @@ const squareSymmetries: Array<(u: number, v: number) => [number, number]> = [
  * Compared over the source's signal pixels (DN above `signal`) inside the same
  * central window `bodyCoverage` uses, clear of the legend and the HUD text.
  */
+/** The PNG upside down: a frame stored in an instrument's row order (AFC: line 0 =
+ *  bottom, per its instrument kernel) as it looks on screen. */
+export function flipRowsPng(png: Buffer): Buffer {
+    const p = PNG.sync.read(png);
+    const row = p.width * 4;
+    const out = new PNG({ width: p.width, height: p.height });
+    for (let y = 0; y < p.height; y++)
+        p.data.copy(out.data, (p.height - 1 - y) * row, y * row, (y + 1) * row);
+    return PNG.sync.write(out);
+}
+
 export function registration(
     source: Buffer,
     render: Buffer,

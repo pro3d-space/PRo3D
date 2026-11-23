@@ -47,6 +47,15 @@ module SgExtensions =
                 texturePath : string
                 /// which band of a multi-band image is uploaded
                 channel : int
+                /// brightness (x) and contrast (y) on the normalised value; (0, 1) = unchanged
+                brightnessContrast : V2f
+                /// through the colour map (the image's False Colour switch); false: grey values
+                falseColor : bool
+                /// the image's colour map: its ColorMap value, the row of the stack's
+                /// colour-map atlas (ColorMapping.stackColormapAtlas)
+                colorMap : int
+                /// the image's DataType value (2 = Float, otherwise 16-bit integer)
+                dataType : int
             }
 
         type ProjectedImages =
@@ -60,6 +69,10 @@ module SgExtensions =
                 /// InstrumentVisibilityMode.RelativeCount: tint fragments by
                 /// how many stack layers cover them (projectedStackCoverage)
                 stackCoverageEnabled : aval<bool>
+                /// The stack layer in focus (index into stackProjections, -1: none)
+                /// and the opacity factor for every other layer -- the hovered or
+                /// dragged image stays at full strength, the rest fade.
+                stackFocus : aval<int * float32>
                 /// The hovered image's own projector (surface frame, its obs
                 /// time) -- drives the hover-only footprint outline uniform and
                 /// the frustum wireframe (D5). None when nothing is hovered or

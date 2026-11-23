@@ -23,25 +23,24 @@ open PRo3D.Tool
 /// directly. Net cost to the suite: no extra swaps.
 module private Fixtures =
 
+    /// PRO3D_TEST_DATA like every other data-backed test (this list used to read a
+    /// PRO3D_TESTDATA of its own), then a PRo3D.Resources.TestData clone next to the repo.
     let testData =
-        [
-            Environment.GetEnvironmentVariable "PRO3D_TESTDATA"
+        TestUtils.Roots.firstExisting [
+            Environment.GetEnvironmentVariable "PRO3D_TEST_DATA"
             Path.Combine(__SOURCE_DIRECTORY__, "..", "..", "..", "PRo3D.Resources.TestData")
         ]
-        |> List.tryFind (fun p -> not (String.IsNullOrWhiteSpace p) && Directory.Exists p)
         |> Option.map Path.GetFullPath
 
-    let private under (rel : string) =
-        testData
-        |> Option.map (fun root -> Path.Combine(root, rel))
-        |> Option.filter Directory.Exists
+    let private under (segments : list<string>) =
+        testData |> Option.bind (fun root -> TestUtils.Roots.testDataDir (Some root) segments)
 
     /// MSL/Stimson OPC -- kdtree fixture. Needs no GPU and no kernels.
-    let mslOpc = under "1087_004779_MSLMST_0011"
+    let mslOpc = under [ "MSL"; "1087_004779_MSLMST_0011" ]
 
     /// Didymos OPC and the ASPECT frame -- sun-angles fixtures.
-    let didymosOpc = under (Path.Combine("HERA", "Didymos_ASPECT"))
-    let aspectImages = under (Path.Combine("HERA", "Instrument Data"))
+    let didymosOpc = under [ "HERA"; "Didymos_ASPECT" ]
+    let aspectImages = under [ "HERA"; "Instrument Data" ]
 
     let kdTreeDefaults : KdTreeOptions =
         {
@@ -78,6 +77,8 @@ module private Fixtures =
             time = ""
             mbi = null
             writeMbi = false
+            product = false
+            aim = null
             out = ""
             instrument = "MILANI_ASPECT_NIR1"
             observer = "MILANI"
@@ -105,6 +106,7 @@ module private Fixtures =
             project = null
             projectShader = null
             shadowBias = 0.002
+            method = null
         }
 
     /// A scratch copy: --forcekdtreerebuild rewrites .aakd files in place, and the test data
@@ -130,14 +132,14 @@ let private kdTreeTests =
 
         test "validates the OPC fixture" {
             match Fixtures.mslOpc with
-            | None -> skiptest "no OPC test data (set PRO3D_TESTDATA)"
+            | None -> skiptest "no OPC test data (set PRO3D_TEST_DATA)"
             | Some dir ->
                 Expect.equal (KdTree.run { Fixtures.kdTreeDefaults with surfaceDirectory = dir }) 0 "exit code"
         }
 
         test "forcekdtreerebuild rewrites the kd-trees" {
             match Fixtures.mslOpc with
-            | None -> skiptest "no OPC test data (set PRO3D_TESTDATA)"
+            | None -> skiptest "no OPC test data (set PRO3D_TEST_DATA)"
             | Some dir ->
                 let root, work = Fixtures.copyToTemp dir
                 try
@@ -169,7 +171,7 @@ let private sunAngleTests =
                 skiptest "HERA spice kernels unavailable (or --skip-hera)"
 
             match Fixtures.didymosOpc, Fixtures.aspectImages with
-            | None, _ | _, None -> skiptest "no Didymos/ASPECT test data (set PRO3D_TESTDATA)"
+            | None, _ | _, None -> skiptest "no Didymos/ASPECT test data (set PRO3D_TEST_DATA)"
             | Some opc, Some images ->
 
             match PRo3D.Tests.Render.context.Value with
@@ -262,7 +264,7 @@ let private simulateImageTests =
                 skiptest "HERA spice kernels unavailable (or --skip-hera)"
 
             match Fixtures.didymosOpc, Fixtures.aspectImages with
-            | None, _ | _, None -> skiptest "no Didymos/ASPECT test data (set PRO3D_TESTDATA)"
+            | None, _ | _, None -> skiptest "no Didymos/ASPECT test data (set PRO3D_TEST_DATA)"
             | Some opc, Some images ->
 
             match PRo3D.Tests.Render.context.Value with
@@ -324,8 +326,24 @@ let private simulateImageTests =
         }
     ]
 
+/// `simulate-image --method`: the pure parsing, no GPU, no SPICE.
+let private methodTests =
+    testList "simulate-image --method" [
+        test "parses the camera sources and rejects anything else" {
+            let ok s = match SimulateImageVerb.parseMbiCameraMethod s with Ok m -> Some m | Result.Error _ -> None
+            Expect.equal (ok null) (Some (SimulateImageVerb.Viewer ProjectionMethod.MbiBased)) "default mbi"
+            Expect.equal (ok "MBI-SPICE-POSITION") (Some SimulateImageVerb.SpicePosition) "case-insensitive"
+            Expect.equal (ok "mbi-spice-range") (Some (SimulateImageVerb.Viewer ProjectionMethod.MbiAttitudeSpiceRange)) "range"
+            Expect.equal (ok "spice") (Some (SimulateImageVerb.Viewer ProjectionMethod.Spice)) "spice = SPK + CK x FK, unaimed"
+            Expect.equal (ok "spice-instrument") (Some (SimulateImageVerb.Viewer ProjectionMethod.Spice)) "alias"
+            Expect.equal (ok "spice-aimed") (Some (SimulateImageVerb.Viewer ProjectionMethod.SpiceAimed)) "the old spice"
+            Expect.isNone (ok "boresight") "unknown"
+        }
+    ]
+
 let tests () =
     testList "pro3d-tool" [
+        methodTests
         kdTreeTests
         sunAngleTests
         simulateImageTests

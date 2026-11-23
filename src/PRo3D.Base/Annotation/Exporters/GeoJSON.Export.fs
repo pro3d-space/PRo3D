@@ -86,10 +86,10 @@ module GeoJSONExport =
         | Geometry.AxisEllipse -> 
             let coordinates = coordinates |> List.map ThreeDim |> List.singleton 
             let properties = 
-                match a.ellipticResults with
+                match a.ellipticResults |> Option.bind (fun r -> r.geographicalEllipse) with
                 | None -> None
-                | Some e -> 
-                    Some { geometry = GeometryProperties.EllipseProperties(e.geographicalEllipse.Center, e.geographicalEllipse.Axis0, e.geographicalEllipse.Axis1); 
+                | Some e ->
+                    Some { geometry = GeometryProperties.EllipseProperties(e.Center, e.Axis0, e.Axis1);
                       selected = isSelected a
                     }
             

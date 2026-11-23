@@ -11,6 +11,9 @@ module AnnotationExport =
 
     // ------------------------------------------------------- coordinates ---
 
+    /// No columns of the caller's own; see `buildRecordsWith`.
+    let noColumns : AnnotationColumns = fun _ -> []
+
     let private wrap360 (longitude : float) =
         let l = longitude % 360.0
         if l < 0.0 then l + 360.0 else l
@@ -83,6 +86,16 @@ module AnnotationExport =
     /// back to SPICE.
     [<Literal>]
     let LatLonAltSourceColumn = "latLonAltSource"
+
+    /// What `alt` means, per `latLonAltSource` token: written into GeoJSON exports and
+    /// shown as the tooltip of the geographic options, so file and UI say the same.
+    /// None without a body: lat/lon/alt are empty then, so there is nothing to define.
+    let altDefinition (planet : Planet) =
+        match CooTransformation.getConvention planet with
+        | CooTransformation.NonPlanetary -> None
+        | _ ->
+            Some ("alt by latLonAltSource: spice_* = " + CooTransformation.HeightReference.description planet
+                  + " aara_file = radius from centre (m).")
 
     /// Which routine `CooTransformation.tryGetLatLonAlt` runs for this body.
     let private spiceSourceToken (planet : Planet) =
@@ -173,10 +186,12 @@ module AnnotationExport =
             |> IndexList.toList
             |> List.mapi (fun segmentIndex segment ->
                 let length = Calculations.getSegmentDistance segment
-                [ yield segment.startPoint
-                  yield! (segment.points |> IndexList.toList)
-                  yield segment.endPoint ]
-                |> List.map (fun p ->
+                let ps =
+                    [ yield segment.startPoint
+                      yield! (segment.points |> IndexList.toList)
+                      yield segment.endPoint ]
+                let ps = if Annotation.isReversedClosingSegment a.points a.segments.Count segmentIndex segment.startPoint segment.endPoint then List.rev ps else ps
+                ps |> List.map (fun p ->
                     { position = p; segmentIndex = Some segmentIndex; segmentLength = Some length }))
             |> List.concat
         else
@@ -214,6 +229,16 @@ module AnnotationExport =
         [ if wantsCartesian mode then yield! [ "x"; "y"; "z" ]
           if wantsGeographic mode then yield! [ "lat"; "lon"; "alt"; BodyColumn; LatLonAltSourceColumn ] ]
 
+    /// The fixed columns of a per-segment row, after the annotation fields. Start and
+    /// end coordinates are gated by the coordinate mode like every other position.
+    let private segmentColumns (mode : CoordinateMode) =
+        [ yield "segmentIndex"
+          if wantsCartesian mode then yield! [ "startX"; "startY"; "startZ" ]
+          if wantsGeographic mode then yield! [ "startLat"; "startLon"; "startAlt" ]
+          if wantsCartesian mode then yield! [ "endX"; "endY"; "endZ" ]
+          if wantsGeographic mode then yield! [ "endLat"; "endLon"; "endAlt"; BodyColumn; LatLonAltSourceColumn ]
+          yield! [ "segmentLength"; "segmentChord"; "segmentAzimuth" ] ]
+
     /// The columns that follow from the settings alone. The surface-property
     /// columns are *not* in here — their names come from the OPC layers the
     /// points turned out to hit, so they can only be discovered from the built
@@ -225,6 +250,9 @@ module AnnotationExport =
             match settings.granularity with
             | ExportGranularity.PerAnnotation ->
                 yield! coordinateColumns settings.coordinates
+            | ExportGranularity.PerSegment ->
+                // fixed: no selectable segment fields
+                yield! segmentColumns settings.coordinates
             | _ ->
                 let hasPointField f = settings.pointFields |> List.contains f
 
@@ -329,6 +357,7 @@ module AnnotationExport =
     let private perAnnotationRecord
         (settings : AnnotationExportSettings)
         (sampler  : Option<SurfacePropertySampler>)
+        (columns  : AnnotationColumns)
         (groupPath : HashMap<Guid, list<string>>)
         (planet   : Planet)
         (up       : V3d)
@@ -337,10 +366,13 @@ module AnnotationExport =
 
         // A single record cannot carry the whole polyline, so the position is
         // the bounding-box centre — the same choice the CSV export always made.
+        // An ellipse with a stored shape uses that shape's centre instead: the
+        // outline's box is skewed by the terrain it is draped on.
         let centre =
-            match points with
-            | [] -> V3d.NaN
-            | _  -> Box3d(points).Center
+            match a.ellipticResults, points with
+            | Some e, _ when not e.center.AnyNaN -> e.center
+            | _, [] -> V3d.NaN
+            | _, _  -> Box3d(points).Center
 
         // The centre is computed, not picked: for anything but a straight line
         // it floats above the terrain, so the ray cast can miss even where the
@@ -360,7 +392,7 @@ module AnnotationExport =
               if wantsGeographic settings.coordinates then
                   yield! geographicFields planet (resolveGeographic planet settings sample centre) ]
 
-        { fields   = annotationFieldPairs settings groupPath up a @ coordinates
+        { fields   = annotationFieldPairs settings groupPath up a @ coordinates @ columns a
           geometry =
             if settings.format = ExportFormat.GeoJson then
                 annotationGeometry settings planet a points
@@ -378,14 +410,6 @@ module AnnotationExport =
         let annotationPairs = annotationFieldPairs settings groupPath up a
         let hasPointField f = settings.pointFields |> List.contains f
 
-        /// Project a point onto the reference surface, dropping its height. The
-        /// old profile export did this before measuring, which is what made its
-        /// distance column the horizontal run rather than the slanted path.
-        let flatten (p : V3d) =
-            CooTransformation.tryGetLatLonAlt planet p
-            |> Option.bind (fun coo ->
-                CooTransformation.tryGetXYZFromLatLonAlt { coo with altitude = 0.0 } planet)
-
         let mutable cumulative = 0.0
         let mutable previous = None
 
@@ -393,6 +417,8 @@ module AnnotationExport =
         // geographic frame, or a failed native call) leaves the ground total
         // untouched and reports missing, rather than aborting the export as the
         // old profile handler did.
+        // The steps are measured with the height removed, which is what makes this the
+        // horizontal run rather than the slanted path (CooTransformation.tryGroundStep).
         let mutable groundCumulative = 0.0
         let mutable previousGround = None
 
@@ -406,13 +432,13 @@ module AnnotationExport =
             previous <- Some point.position
 
             let ground =
-                match flatten point.position with
+                // the first point steps from itself: 0 where the body has a frame
+                let from = previousGround |> Option.defaultValue point.position
+                match CooTransformation.tryGroundStep planet from point.position with
                 | None -> VMissing
-                | Some flattened ->
-                    match previousGround with
-                    | Some p -> groundCumulative <- groundCumulative + Vec.distance p flattened
-                    | None   -> ()
-                    previousGround <- Some flattened
+                | Some d ->
+                    groundCumulative <- groundCumulative + d
+                    previousGround <- Some point.position
                     VNum groundCumulative
 
             // One re-pick per point, serving both the geographic coordinates and
@@ -463,31 +489,108 @@ module AnnotationExport =
     /// consume. `sampler` adds the surface-property columns; `None` leaves them
     /// out, and it is ignored for per-annotation granularity, which has no point
     /// to sample at.
-    let buildRecords
+    /// The segments of an annotation as (start, end, draped length): the stored
+    /// segments where there are any, else consecutive clicked points (a line drawn
+    /// with the Linear projection stores none). An ellipse's outline has no
+    /// clicked-to-clicked segments, so it has none.
+    let private segmentsOf (a : Annotation) =
+        if ExportTypeFilter.isEllipse a.geometry then []
+        elif a.segments.Count > 0 then
+            a.segments
+            |> IndexList.toList
+            |> List.mapi (fun i s ->
+                // a ring's closing segment is stored first -> last (#821): exported last -> first,
+                // in drawing order, like its point rows
+                if Annotation.isReversedClosingSegment a.points a.segments.Count i s.startPoint s.endPoint
+                then s.endPoint, s.startPoint, Calculations.getSegmentDistance s
+                else s.startPoint, s.endPoint, Calculations.getSegmentDistance s)
+        else
+            a.points
+            |> IndexList.toList
+            |> List.pairwise
+            |> List.map (fun (p, q) -> p, q, Vec.distance p q)
+
+    /// One row per segment, with the fixed columns of `segmentColumns`. Lat/lon/alt
+    /// come from SPICE: the per-vertex source is a per-point setting.
+    let private perSegmentRecords
+        (settings  : AnnotationExportSettings)
+        (groupPath : HashMap<Guid, list<string>>)
+        (planet    : Planet)
+        (up        : V3d)
+        (north     : V3d)
+        (a         : Annotation) =
+
+        let annotationPairs = annotationFieldPairs settings groupPath up a
+        let geographic (p : V3d) = resolveGeographic planet settings SurfaceSample.empty p
+        let latLonAlt (prefix : string) (resolved : ResolvedGeographic) =
+            match resolved.latLonAlt with
+            | Some g -> [ prefix + "Lat", VNum g.X; prefix + "Lon", VNum g.Y; prefix + "Alt", VNum g.Z ]
+            | None   -> [ prefix + "Lat", VMissing; prefix + "Lon", VMissing; prefix + "Alt", VMissing ]
+        let xyz (prefix : string) (p : V3d) =
+            [ prefix + "X", VNum p.X; prefix + "Y", VNum p.Y; prefix + "Z", VNum p.Z ]
+
+        segmentsOf a
+        |> List.mapi (fun i (start, finish, length) ->
+            let startGeo = geographic start
+            let endGeo = geographic finish
+            let azimuth =
+                let localUp, localNorth = Calculations.localFrame planet up north ((start + finish) * 0.5)
+                Calculations.axialAzimuth localUp localNorth (finish - start)
+            { fields =
+                [ yield! annotationPairs
+                  yield "segmentIndex", VInt i
+                  if wantsCartesian settings.coordinates then yield! xyz "start" start
+                  if wantsGeographic settings.coordinates then yield! latLonAlt "start" startGeo
+                  if wantsCartesian settings.coordinates then yield! xyz "end" finish
+                  if wantsGeographic settings.coordinates then
+                      yield! latLonAlt "end" endGeo
+                      yield BodyColumn, VText (string planet)
+                      yield LatLonAltSourceColumn, startGeo.source
+                  yield "segmentLength",  ExportValue.ofFloat length
+                  yield "segmentChord",   ExportValue.ofFloat (Vec.distance start finish)
+                  yield "segmentAzimuth", ExportValue.ofFloat azimuth ]
+              geometry = None })
+
+    ///
+    /// `columns` adds columns of its own to each per-annotation record, after the
+    /// coordinates (the viewer's ellipse statistics); per-point records ignore it.
+    let buildRecordsWith
         (settings : AnnotationExportSettings)
         (sampler  : Option<SurfacePropertySampler>)
+        (columns  : AnnotationColumns)
         (groupPath : HashMap<Guid, list<string>>)
         (planet   : Planet)
         (up       : V3d)
+        (north    : V3d)
         (annotations : list<Annotation>)
         : list<ExportRecord> =
 
         annotations
         |> List.collect (fun a ->
-            let resolved = resolvePoints settings.useSampledPoints a
             match settings.granularity with
             | ExportGranularity.PerAnnotation ->
-                [ perAnnotationRecord settings sampler groupPath planet up a (resolved |> List.map (fun r -> r.position)) ]
+                let resolved = resolvePoints settings.useSampledPoints a
+                [ perAnnotationRecord settings sampler columns groupPath planet up a (resolved |> List.map (fun r -> r.position)) ]
+            | ExportGranularity.PerSegment ->
+                perSegmentRecords settings groupPath planet up north a
             | _ ->
-                perPointRecords settings sampler groupPath planet up a resolved)
+                perPointRecords settings sampler groupPath planet up a (resolvePoints settings.useSampledPoints a))
 
-    /// Writes the export. `Attitude` keeps its own fixed-schema writer.
-    let write
+    /// `buildRecordsWith` without columns of its own and without a north: per-segment
+    /// rows then have an empty `segmentAzimuth` rather than one against a guessed north.
+    let buildRecords settings sampler groupPath planet (up : V3d) annotations =
+        buildRecordsWith settings sampler noColumns groupPath planet up V3d.NaN annotations
+
+    /// Writes the export. `Attitude` keeps its own fixed-schema writer. `columns`
+    /// as in `buildRecordsWith`.
+    let writeWith
         (settings : AnnotationExportSettings)
         (sampler  : Option<SurfacePropertySampler>)
+        (columns  : AnnotationColumns)
         (groupPath : HashMap<Guid, list<string>>)
         (planet   : Planet)
         (up       : V3d)
+        (north    : V3d)
         (path     : string)
         (annotations : list<Annotation>)
         : unit =
@@ -500,11 +603,50 @@ module AnnotationExport =
             // by the caller that owns the drawing model — never here
             Log.warn "[AnnotationExport] the continuous export is not written through this path"
         | format ->
-            let records = buildRecords settings sampler groupPath planet up annotations
+            let records = buildRecordsWith settings sampler columns groupPath planet up north annotations
             match format with
             | ExportFormat.GeoJson ->
                 let body =
-                    if wantsGeographic settings.coordinates then Some (string planet) else None
+                    if wantsGeographic settings.coordinates then
+                        Some (string planet, altDefinition planet)
+                    else None
                 ExportWriters.writeGeoJson path body records
             | _ ->
                 ExportWriters.writeCsv path (schemaFor settings records) records
+
+    // ---- the profiles file beside a Craters export (#833) ---------------------------
+
+    /// `<stem>_profiles.csv` next to the main file.
+    let profilesPath (path : string) =
+        let dir = IO.Path.GetDirectoryName path
+        let stem = IO.Path.GetFileNameWithoutExtension path
+        IO.Path.Combine((if isNull dir then "" else dir), stem + "_profiles.csv")
+
+    /// The profiles file is laid out like the *Profile* preset, one row per point, but
+    /// takes the main export's coordinate settings so both files agree on lat/lon. The
+    /// main file has one row per annotation, so *Surface properties* applies to this one.
+    let profilesSettings (main : AnnotationExportSettings) =
+        { AnnotationExportSettings.applyPreset ExportPreset.Profile main with
+            scope                   = ExportScope.All
+            coordinates             = main.coordinates
+            longitude               = main.longitude
+            signedLongitude         = main.signedLongitude
+            latLonAltSource         = main.latLonAltSource
+            sampleSurfaceProperties = main.sampleSurfaceProperties }
+
+    /// The profiles generated from `parents`, found among `candidates`: grouped by parent in
+    /// the order of `parents`, then by profile index. Profiles of other annotations, and ones
+    /// whose parent is gone, are left out.
+    let profilesOf (parents : list<Annotation>) (candidates : list<Annotation>) =
+        let order = parents |> List.mapi (fun i a -> a.key, i) |> HashMap.ofList
+        candidates
+        |> List.choose (fun a ->
+            a.profileOf
+            |> Option.bind (fun link ->
+                order |> HashMap.tryFind link.parent |> Option.map (fun i -> (i, link.index), a)))
+        |> List.sortBy fst
+        |> List.map snd
+
+    /// `writeWith` without columns of its own.
+    let write settings sampler groupPath planet (up : V3d) path annotations =
+        writeWith settings sampler noColumns groupPath planet up V3d.NaN path annotations

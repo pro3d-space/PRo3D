@@ -42,26 +42,21 @@ module Data =
           testDataSource ]
         |> List.tryPick existingDir
 
-    /// Any OPC hierarchy is enough for the geometry-level tests. Prefer the DRACO1
-    /// export they were written against; fall back to the HERA Dimorphos export,
-    /// which is the same body with per-vertex attribute layers added.
+    /// The Dimorphos OPC every test uses: DRACO_1/DRACO_2/Earth texture layers plus
+    /// per-vertex attributes (see TestUtils.Roots.dimorphosOpc).
     let opcBasePath (root : string) =
-        [ Path.Combine(root, "Dimorphos_DRACO1", "Dimorphos_DRACO1")
-          Path.Combine(root, "HERA", "Dimorphos") ]
-        |> List.tryPick existingDir
+        TestUtils.Roots.dimorphosOpc (Some root)
 
+    /// A ~450 point draped profile across Dimorphos: the annotation of the
+    /// slow-profile-export case.
     let annotationPath (root : string) =
-        let path = Path.Combine(root, "Dimorphos_DRACO1", "testAnnotatation.pro3d.ann")
+        let path = Path.Combine(root, "cases", "slowProfileExport.pro3d.ann")
         if File.Exists path then Some path else None
 
-    /// Directory holding OPC hierarchies that ship per-vertex attribute layers
-    /// (`*.aara` files listed in each patch's `<Attributes>`). PRO3D_AARA_OPC
-    /// overrides the location for an export kept outside the test-data checkout.
+    /// OPC hierarchies that ship per-vertex attribute layers (`*.aara` files listed in
+    /// each patch's `<Attributes>`): the same Dimorphos OPC.
     let aaraOpcBasePath (root : string) =
-        [ Environment.GetEnvironmentVariable "PRO3D_AARA_OPC"
-          Path.Combine(root, "HERA", "Dimorphos")
-          Path.Combine(root, "AARA_Textures", "Dimorphos") ]
-        |> List.tryPick existingDir
+        opcBasePath root
 
 /// Raised as a skip when the test-data checkout is missing entirely.
 let private noTestData =
@@ -142,7 +137,7 @@ let tests (parameters : TestUtils.TestParameters) =
     testList "ProfileAttributeExtraction" [
 
         test "buildTriangleToGridMapping produces valid mapping" {
-            let opcBasePath = require "OPC hierarchy (Dimorphos_DRACO1 / HERA/Dimorphos)" opcBasePath'
+            let opcBasePath = require "Dimorphos OPC (HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos)" opcBasePath'
 
             let hierarchies = loadHierarchies opcBasePath
             Expect.isGreaterThan hierarchies.Length 0 "should have at least one hierarchy"
@@ -180,8 +175,89 @@ let tests (parameters : TestUtils.TestParameters) =
                         Expect.isTrue (tri.[c] >= 0 && tri.[c] < vertexCount) "index should be inside the position grid"
         }
 
+        testSequenced <| test "a lazy KdTree loads once, from many threads and fresh caches (#874)" {
+            let opcBasePath = require "Dimorphos OPC (HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos)" opcBasePath'
+
+            let hierarchies = loadHierarchies opcBasePath
+            let kdTreeMap =
+                KdTrees.loadKdTrees hierarchies.[0] Trafo3d.Identity ViewerModality.XYZ
+                    Serialization.binarySerializer false true DebugKdTreesX.loadTriangles' false
+            let lazyTree =
+                kdTreeMap |> HashMap.toSeq |> Seq.tryPick (fun (_, t) ->
+                    match t with
+                    | Level0KdTree.LazyKdTree kd when kd.kdTree.IsNone -> Some t
+                    | _ -> None)
+            match lazyTree with
+            | None -> failtest "no lazily loaded KdTree in the Dimorphos OPC"
+            | Some tree ->
+                DebugKdTreesX.clearLoaded ()
+                // the hover pick and a click pick race on a cold patch, each with its own copy
+                // of the cache: both must get the one tree, not load their own
+                let trees =
+                    Array.init 8 (fun _ -> async { return DebugKdTreesX.loadObjectSet HashMap.empty tree |> fst })
+                    |> Async.Parallel
+                    |> Async.RunSynchronously
+                for t in trees do
+                    Expect.isTrue (obj.ReferenceEquals(t, trees.[0])) "every thread gets the same loaded tree"
+                Expect.isNotNull trees.[0].KdIntersectionTree.ObjectSet "the triangles are attached"
+                // a cache that was thrown away (a pick that missed) does not load it again
+                let again = DebugKdTreesX.loadObjectSet HashMap.empty tree |> fst
+                Expect.isTrue (obj.ReferenceEquals(again, trees.[0])) "a fresh cache finds the loaded tree"
+                DebugKdTreesX.clearLoaded ()
+                let reloaded = DebugKdTreesX.loadObjectSet HashMap.empty tree |> fst
+                Expect.isFalse (obj.ReferenceEquals(reloaded, trees.[0])) "clearLoaded forgets it"
+        }
+
+        testSequenced <| test "loaded lazy KdTrees are dropped when idle or over the budget (#874)" {
+            let opcBasePath = require "Dimorphos OPC (HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos)" opcBasePath'
+
+            let hierarchies = loadHierarchies opcBasePath
+            let kdTreeMap =
+                KdTrees.loadKdTrees hierarchies.[0] Trafo3d.Identity ViewerModality.XYZ
+                    Serialization.binarySerializer false true DebugKdTreesX.loadTriangles' false
+            let lazyTrees =
+                kdTreeMap |> HashMap.toArray |> Array.choose (fun (_, t) ->
+                    match t with
+                    | Level0KdTree.LazyKdTree kd when kd.kdTree.IsNone -> Some t
+                    | _ -> None)
+            if lazyTrees.Length < 2 then failtest "fewer than two lazily loaded KdTrees in the Dimorphos OPC"
+            let a, b = lazyTrees.[0], lazyTrees.[1]
+            let load t = DebugKdTreesX.loadObjectSet HashMap.empty t |> fst
+            let budget, idle = DebugKdTreesX.budgetBytes, DebugKdTreesX.maxIdle
+            try
+                DebugKdTreesX.clearLoaded ()
+
+                // over the budget: loading b drops a, the least recently used, but keeps b
+                DebugKdTreesX.budgetBytes <- 1L
+                let a1 = load a
+                let b1 = load b
+                Expect.equal (DebugKdTreesX.loadedCount ()) 1 "only the tree just loaded stays"
+                Expect.isTrue (obj.ReferenceEquals(load b, b1)) "the tree just loaded is kept"
+                Expect.isFalse (obj.ReferenceEquals(load a, a1)) "the older tree was dropped and loads again"
+
+                // within the budget and in use: both stay
+                DebugKdTreesX.budgetBytes <- budget
+                DebugKdTreesX.clearLoaded ()
+                let a2 = load a
+                let _ = load b
+                DebugKdTreesX.evictLoaded ()
+                Expect.equal (DebugKdTreesX.loadedCount ()) 2 "nothing is dropped within the budget"
+                Expect.isTrue (obj.ReferenceEquals(load a, a2)) "a used tree is kept"
+
+                // idle: dropped
+                DebugKdTreesX.maxIdle <- TimeSpan.Zero
+                System.Threading.Thread.Sleep 10
+                DebugKdTreesX.evictLoaded ()
+                Expect.equal (DebugKdTreesX.loadedCount ()) 0 "idle trees are dropped"
+                Expect.isFalse (obj.ReferenceEquals(load a, a2)) "a dropped tree loads again"
+            finally
+                DebugKdTreesX.budgetBytes <- budget
+                DebugKdTreesX.maxIdle <- idle
+                DebugKdTreesX.clearLoaded ()
+        }
+
         test "aara header round trip" {
-            let opcBasePath = require "OPC hierarchy (Dimorphos_DRACO1 / HERA/Dimorphos)" opcBasePath'
+            let opcBasePath = require "Dimorphos OPC (HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos)" opcBasePath'
 
             let hierarchies = loadHierarchies opcBasePath
             let h = hierarchies.[0]
@@ -199,7 +275,7 @@ let tests (parameters : TestUtils.TestParameters) =
         }
 
         testCase "full kdtree intersection and attribute extraction" <| fun () ->
-            let opcBasePath = require "OPC hierarchy (Dimorphos_DRACO1 / HERA/Dimorphos)" opcBasePath'
+            let opcBasePath = require "Dimorphos OPC (HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos)" opcBasePath'
 
             let hierarchies = loadHierarchies opcBasePath
             let patchInfoLookup = buildPatchInfoLookup hierarchies
@@ -259,7 +335,7 @@ let tests (parameters : TestUtils.TestParameters) =
 
         testCase "per-vertex layers are physically consistent" <| fun () ->
             // Only OPCs exported with per-vertex attribute layers can be checked here.
-            let aaraBasePath = require "OPC with per-vertex attribute layers (HERA/Dimorphos)" aaraOpcBasePath'
+            let aaraBasePath = require "Dimorphos OPC with per-vertex attribute layers (HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos)" aaraOpcBasePath'
 
             let hierarchies = loadHierarchies aaraBasePath
             let patchInfoLookup = buildPatchInfoLookup hierarchies
@@ -349,7 +425,7 @@ let tests (parameters : TestUtils.TestParameters) =
             // The attribute textures store each layer normalised into its *.opcx
             // ChannelsDefinedRange, so the fallback has to map samples back onto that range
             // before they can be compared with the per-vertex values.
-            let aaraBasePath = require "OPC with per-vertex attribute layers (HERA/Dimorphos)" aaraOpcBasePath'
+            let aaraBasePath = require "Dimorphos OPC with per-vertex attribute layers (HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos)" aaraOpcBasePath'
 
             match Directory.EnumerateFiles(aaraBasePath, "*.opcx") |> Seq.tryHead with
             | None -> skiptest "no *.opcx next to the OPC"
@@ -456,7 +532,7 @@ let tests (parameters : TestUtils.TestParameters) =
             //     of the seven attribute textures.
             // Both are fixed; this pins the outcome. Whatever a patch declares has to reach
             // the CSV, from either source, with all of its components.
-            let aaraBasePath = require "OPC with per-vertex attribute layers (HERA/Dimorphos)" aaraOpcBasePath'
+            let aaraBasePath = require "Dimorphos OPC with per-vertex attribute layers (HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos)" aaraOpcBasePath'
 
             let rangeOf =
                 match Directory.EnumerateFiles(aaraBasePath, "*.opcx") |> Seq.tryHead with
@@ -612,8 +688,8 @@ let tests (parameters : TestUtils.TestParameters) =
             Log.line "[Test] %d patches, attributes: %A" checkedPatches (allNames |> Set.toList)
 
         testCase "end-to-end profile extraction from annotation file" <| fun () ->
-            let opcBasePath = require "OPC hierarchy (Dimorphos_DRACO1 / HERA/Dimorphos)" opcBasePath'
-            let annotationPath = require "Dimorphos_DRACO1/testAnnotatation.pro3d.ann" annotationPath'
+            let opcBasePath = require "Dimorphos OPC (HERA/Dimorphos_opc/Dimorphos_DRACO1_DRACO2_Earth/Dimorphos)" opcBasePath'
+            let annotationPath = require "cases/slowProfileExport.pro3d.ann" annotationPath'
 
             let sw = System.Diagnostics.Stopwatch()
             let mb () = float (GC.GetTotalMemory(false)) / (1024.0 * 1024.0)
@@ -732,9 +808,13 @@ let tests (parameters : TestUtils.TestParameters) =
                             let layers = VertexAttributes.getLayers patchDir patchInfo
                             let fromVertices = VertexAttributes.sample layers gridSize gridIndices weights
                             let covered = fromVertices |> List.map (fun a -> a.name) |> Set.ofList
+                            // Only *.opcx `Map` layers are attributes (they have a range);
+                            // a colour texture such as Earth would otherwise be decoded in
+                            // full at every one of the ~450 points, as #809 did in the export
+                            let skip (name : string) = covered.Contains name || Option.isNone (rangeOf name)
                             let fromTextures =
                                 match uv with
-                                | Some uv -> ProfileAttributeExtraction.extractAttributesAtUV uv patchInfo opcPaths rangeOf covered.Contains
+                                | Some uv -> ProfileAttributeExtraction.extractAttributesAtUV uv patchInfo opcPaths rangeOf skip
                                 | None    -> []
                             stepSw.Stop(); tExtract <- tExtract + stepSw.Elapsed.TotalMilliseconds
 

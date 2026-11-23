@@ -16,6 +16,55 @@ open Aardvark.UI.Primitives
 open Aardvark.Base
 
 
+/// One saved instrument (GisApp "instrumentFovs"): only the instruments a scene changed
+/// from the kernel default (field of view, or flipped rows) are written, so a scene that
+/// never touched them looks as before and picks up corrected kernel values in later
+/// releases. `flipRows` is always written; absent (older scenes) = the instrument's
+/// default (InstrumentProjection.defaultFlipRows), and older releases ignore it.
+type InstrumentFovJson =
+    {
+        instrument : string
+        horizontal : float
+        vertical   : float
+        flipRows   : bool
+    }
+    static member ToJson (x : InstrumentFovJson) =
+        json {
+            do! Json.write      "instrument" x.instrument
+            do! Json.writeFloat "horizontal" x.horizontal
+            do! Json.writeFloat "vertical"   x.vertical
+            do! Json.write      "flipRows"   x.flipRows
+        }
+    static member FromJson (_ : InstrumentFovJson) =
+        json {
+            let! instrument = Json.read      "instrument"
+            let! horizontal = Json.readFloat "horizontal"
+            let! vertical   = Json.readFloat "vertical"
+            let! (flipRows : Option<bool>) = Json.tryRead "flipRows"
+            return { instrument = instrument; horizontal = horizontal; vertical = vertical
+                     flipRows = flipRows |> Option.defaultValue (PRo3D.SPICE.InstrumentProjection.defaultFlipRows instrument) }
+        }
+
+module InstrumentFovJson =
+    let private valid (v : float) = Double.IsFinite v && v > 0.0 && v < 180.0
+
+    let ofModel (f : InstrumentFov) : InstrumentFovJson =
+        { instrument = f.instrument; horizontal = f.horizontal.value; vertical = f.vertical.value; flipRows = f.flipRows }
+
+    /// An unusable angle falls back to the kernel default (an instrument without one is
+    /// dropped); the row flip is kept either way.
+    let toOverride (x : InstrumentFovJson) : Option<string * PRo3D.SPICE.InstrumentProjection.InstrumentSetup> =
+        if String.IsNullOrWhiteSpace x.instrument then None
+        else
+            let fov =
+                if valid x.horizontal && valid x.vertical then
+                    let f : PRo3D.SPICE.InstrumentProjection.Fov = { horizontal = x.horizontal; vertical = x.vertical }
+                    Some f
+                else InstrumentFov.kernelDefault x.instrument
+            fov |> Option.map (fun fov ->
+                let s : PRo3D.SPICE.InstrumentProjection.InstrumentSetup = { fov = fov; flipRows = x.flipRows }
+                x.instrument, s)
+
 type GisSurface = {
     surfaceId       : SurfaceId
     entity          : option<EntitySpiceName>
@@ -131,7 +180,9 @@ type GisApp =
         gisSurfaces            : HashMap<SurfaceId, GisSurface>
         spiceKernel            : Option<CooTransformation.SPICEKernel>
         spiceKernelLoadSuccess : bool
-        cameraInObserver       : bool
+        /// Time changes (calendar, mission time table) re-aim the camera from the camera
+        /// source body. Off: only the time moves; the view stays where the user put it.
+        cameraFollowsSource    : bool
         projectedImageList     : ProjectedImageListModel
         showMarkers            : bool // whether line + text markers are displayed (for known planets)
 
@@ -162,17 +213,27 @@ module GisAppJson =
                 | None -> List.empty
             let! (spiceKernel : option<string>) = Json.tryRead "spiceKernel"
 
-            let! cameraInObserver = Json.tryRead "cameraInObserver"
+            // additive, default on; the unused "cameraInObserver" before it was never written
+            let! cameraFollowsSource = Json.tryRead "cameraFollowsSource"
 
             let! showMarkers = Json.tryRead "showMarkers"
 
             // Additive field (tryRead + default), so scenes from before it existed load
-            // unchanged. Only the mode is persisted, not the whole image list -- the list
-            // staying session-local is existing behaviour.
+            // unchanged. Of the image list only the mode, the winding switch and the
+            // import folder are persisted (projectedImagesDirectory, below).
             let! (lightingMode : Option<int>) = Json.tryRead "lightingMode"
             let lightingMode =
-                lightingMode |> Option.map enum<LightingMode> |> Option.defaultValue LightingMode.Off
+                // a scene without the field predates it: it had the camera light (Headlight)
+                lightingMode |> Option.map enum<LightingMode> |> Option.defaultValue LightingMode.Headlight
             let! (windingCorrection : Option<bool>) = Json.tryRead "windingCorrection"
+            // additive: only the folder is stored; the images themselves are
+            // re-imported from it when the scene is applied (SceneLoader.updateGisApp)
+            let! (imageDirectory : Option<string>) = Json.tryRead "projectedImagesDirectory"
+            // additive: stack file names bottom -> top, mapped back to the re-imported images
+            let! (stackFiles : Option<list<string>>) = Json.tryRead "projectedImagesStack"
+            // additive: the instruments whose field of view the scene changed
+            let! (fovs : Option<list<InstrumentFovJson>>) = Json.tryRead "instrumentFovs"
+            let fovs = fovs |> Option.defaultValue [] |> List.choose InstrumentFovJson.toOverride
 
             return {
                 version                = GisApp.current
@@ -183,12 +244,15 @@ module GisAppJson =
                 newFrame               = None
                 gisSurfaces            = HashMap.ofList gisSurfaces
                 spiceKernel            = Option.map CooTransformation.SPICEKernel.ofPath spiceKernel
-                cameraInObserver       = Option.defaultValue false cameraInObserver
+                cameraFollowsSource    = Option.defaultValue true cameraFollowsSource
                 spiceKernelLoadSuccess = false
                 projectedImageList        =
                     { ProjectedImageListModel.initial with
                         lightingMode = lightingMode
-                        windingCorrection = Option.defaultValue false windingCorrection }
+                        windingCorrection = Option.defaultValue false windingCorrection
+                        imageDirectory = imageDirectory
+                        pendingStack = Option.defaultValue [] stackFiles
+                        instrumentFovs = InstrumentFov.withOverrides fovs }
                 showMarkers            = Option.defaultValue false showMarkers
 
                 selectedMissionTimeRow = None
@@ -206,6 +270,7 @@ type GisApp with
             do! Json.write "gisSurfaces"             (x.gisSurfaces |> HashMap.toList |> List.map snd)
             do! Json.write "spiceKernel"             (Option.map CooTransformation.SPICEKernel.toPath x.spiceKernel)
             do! Json.write "showMarkers"             x.showMarkers
+            do! Json.write "cameraFollowsSource"     x.cameraFollowsSource
             // The sun/lighting mode must survive save/load: PRo3D.Snapshots.exe restores
             // the scene through this codec, so an unserialized mode would silently reset
             // to Off in every batch render.
@@ -213,6 +278,21 @@ type GisApp with
             // a property of the scene's OPCs, so it travels with the scene (and into
             // PRo3D.Snapshots) like the lighting mode
             do! Json.write "windingCorrection"       x.projectedImageList.windingCorrection
+            // new key, written only when set: older releases ignore it
+            match x.projectedImageList.imageDirectory with
+            | Some dir -> do! Json.write "projectedImagesDirectory" dir
+            | None -> ()
+            let stackFiles = ProjectedImageListModel.stackFileNames x.projectedImageList
+            if not stackFiles.IsEmpty then
+                do! Json.write "projectedImagesStack" stackFiles
+            // new key, written only when an instrument differs from its kernel default or its default row flip
+            let fovOverrides =
+                x.projectedImageList.instrumentFovs
+                |> HashMap.toList
+                |> List.choose (fun (_, f) -> if InstrumentFov.isOverride f then Some (InstrumentFovJson.ofModel f) else None)
+                |> List.sortBy (fun f -> f.instrument)
+            if not fovOverrides.IsEmpty then
+                do! Json.write "instrumentFovs" fovOverrides
         }
     static member FromJson (_ : GisApp) =
         json {
@@ -260,7 +340,7 @@ type GisAppAction =
     | EntityMessage             of (EntitySpiceName * EntityAction)
     | FrameMessage              of (FrameSpiceName * ReferenceFrameAction)
     | SetSpiceKernel            of string
-    | ToggleCameraInObserver    
+    | ToggleCameraFollowsSource
     | NewEntity
     | NewFrame
     | ProjectedImageListMessage of ProjectedImageListMessage

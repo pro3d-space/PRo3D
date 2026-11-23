@@ -16,12 +16,15 @@ type AnnotationExportAction =
     | SetFormat              of ExportFormat
     | SetGranularity         of ExportGranularity
     | SetScope               of ExportScope
+    | SetTypeFilter          of ExportTypeFilter
     | SetCoordinates         of CoordinateMode
     | SetLongitude           of LongitudeConvention
     | ToggleSignedLongitude
     | SetLatLonAltSource     of LatLonAltSource
     | ToggleSampledPoints
     | ToggleSurfaceProperties
+    | ToggleEllipseStatistics
+    | ToggleWithProfiles
     | ToggleAnnotationField  of AnnotationField
     | TogglePointField       of PointField
     /// select / deselect every annotation-level attribute at once
@@ -53,12 +56,15 @@ type AnnotationExportModel = {
     format            : ExportFormat
     granularity       : ExportGranularity
     scope             : ExportScope
+    typeFilter        : ExportTypeFilter
     coordinates       : CoordinateMode
     longitude         : LongitudeConvention
     signedLongitude   : bool
     latLonAltSource   : LatLonAltSource
     useSampledPoints  : bool
     sampleSurfaceProperties : bool
+    ellipseStatistics : bool
+    withProfiles      : bool
 
     annotationFields  : HashSet<AnnotationField>
     pointFields       : HashSet<PointField>
@@ -78,12 +84,15 @@ module AnnotationExportModel =
         format            = s.format
         granularity       = s.granularity
         scope             = s.scope
+        typeFilter        = s.typeFilter
         coordinates       = s.coordinates
         longitude         = s.longitude
         signedLongitude   = s.signedLongitude
         latLonAltSource   = s.latLonAltSource
         useSampledPoints  = s.useSampledPoints
         sampleSurfaceProperties = s.sampleSurfaceProperties
+        ellipseStatistics = s.ellipseStatistics
+        withProfiles      = s.withProfiles
         annotationFields  = HashSet.ofList s.annotationFields
         pointFields       = HashSet.ofList s.pointFields
         warning           = None
@@ -96,12 +105,15 @@ module AnnotationExportModel =
         format            = m.format
         granularity       = m.granularity
         scope             = m.scope
+        typeFilter        = m.typeFilter
         coordinates       = m.coordinates
         longitude         = m.longitude
         signedLongitude   = m.signedLongitude
         latLonAltSource   = m.latLonAltSource
         useSampledPoints  = m.useSampledPoints
         sampleSurfaceProperties = m.sampleSurfaceProperties
+        ellipseStatistics = m.ellipseStatistics
+        withProfiles      = m.withProfiles
         // `Key` is the annotation's Guid and the only stable handle a GIS round
         // trip has for matching a feature back to its annotation, so it is
         // exported whether or not it is ticked.

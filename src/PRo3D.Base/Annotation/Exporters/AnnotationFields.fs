@@ -39,9 +39,9 @@ type AnnotationField =
     | HorizontalDelta   = 21
     | Thickness         = 22
     | ManualDipAngle    = 23
-    // ellipse
-    | MajorDiameter     = 24
-    | MinorDiameter     = 25
+    // 24-25 were majorDiameter / minorDiameter. They read the lon/lat ellipse
+    // (degrees, not metres) and were empty for every ellipse drawn on a plane;
+    // the semi-axes at 39-40 replace them. Retired like 30-36.
     // dip & strike
     | DipAngle          = 26
     | DipAzimuth        = 27
@@ -59,6 +59,37 @@ type AnnotationField =
     /// #RRGGBB, for GIS tools that can bind a symbol colour to a field.
     /// `Color` stays in Aardvark's own format so it reimports exactly.
     | ColorHex          = 38
+    // ellipse, read from the EllipticAnnotationResult stored at construction
+    /// m, half the long axis
+    | SemiMajorAxis     = 39
+    /// m, half the short axis
+    | SemiMinorAxis     = 40
+    /// deg, long axis clockwise from local north at the centre, axial 0-180
+    | MajorAxisAzimuth  = 41
+    // generated profiles (#833), read from the ProfileLink stored at generation;
+    // empty for every other annotation
+    /// key of the ellipse or polyline the profile was generated from
+    | ParentKey         = 42
+    /// 0, 1, 2, ... in generation order
+    | ProfileIndex      = 43
+    /// "N-S", "NE-SW", "E-W", "NW-SE", "major", ...; empty for polyline profiles
+    | ProfileDirection  = 44
+    /// deg, bearing from the profile's centre to its start end, 0-360
+    | ProfileAzimuth    = 45
+    /// m along the parent polyline
+    | ProfileStation    = 46
+    // annotation metadata (#887, docs/AnnotationMetadata.md)
+    /// 1-4, empty when not rated
+    | Confidence        = 47
+    | Comment           = 48
+    /// SPC model name (FITS DATASRCV), else the OPC product
+    | ShapeModel        = 49
+    /// FITS MAP_VER, or the vNNN of the SPC file name
+    | ShapeModelVersion = 50
+    /// image file names, separated by "; "
+    | ProjectedImages   = 51
+    /// who made the shape model: stated by the product, else its archive's citation
+    | ShapeModelCredit  = 52
 
 /// Per-point attributes, available when the export granularity is "one record
 /// per point". Which of `Cartesian` / `Geographic` actually produce columns is
@@ -90,6 +121,7 @@ type AnnotationFieldGroup =
     | Measurements
     | Ellipse
     | DipAndStrike
+    | Profile
 
 module AnnotationFields =
 
@@ -109,10 +141,16 @@ module AnnotationFields =
         | AnnotationField.GroupPath | AnnotationField.SurfaceName | AnnotationField.Geometry
         | AnnotationField.Semantic | AnnotationField.Projection | AnnotationField.Color
         | AnnotationField.ColorHex | AnnotationField.Visible
-        | AnnotationField.PointCount -> Identity
-        | AnnotationField.MajorDiameter | AnnotationField.MinorDiameter -> Ellipse
+        | AnnotationField.PointCount
+        | AnnotationField.Confidence | AnnotationField.Comment | AnnotationField.ShapeModel
+        | AnnotationField.ShapeModelVersion | AnnotationField.ProjectedImages
+        | AnnotationField.ShapeModelCredit -> Identity
+        | AnnotationField.SemiMajorAxis | AnnotationField.SemiMinorAxis
+        | AnnotationField.MajorAxisAzimuth -> Ellipse
         | AnnotationField.DipAngle | AnnotationField.DipAzimuth
         | AnnotationField.StrikeAzimuth | AnnotationField.Rake -> DipAndStrike
+        | AnnotationField.ParentKey | AnnotationField.ProfileIndex | AnnotationField.ProfileDirection
+        | AnnotationField.ProfileAzimuth | AnnotationField.ProfileStation -> Profile
         | _ -> Measurements
 
     /// Stable machine name — the CSV header cell and the GeoJSON property key.
@@ -146,12 +184,24 @@ module AnnotationFields =
         | AnnotationField.HorizontalDelta   -> "horizontalDelta"
         | AnnotationField.Thickness         -> "thickness"
         | AnnotationField.ManualDipAngle    -> "manualDip"
-        | AnnotationField.MajorDiameter     -> "majorDiameter"
-        | AnnotationField.MinorDiameter     -> "minorDiameter"
+        | AnnotationField.SemiMajorAxis     -> "semiMajorAxis"
+        | AnnotationField.SemiMinorAxis     -> "semiMinorAxis"
+        | AnnotationField.MajorAxisAzimuth  -> "majorAxisAzimuth"
         | AnnotationField.DipAngle          -> "dipAngle"
         | AnnotationField.DipAzimuth        -> "dipAzimuth"
         | AnnotationField.StrikeAzimuth     -> "strikeAzimuth"
         | AnnotationField.Rake              -> "rake"
+        | AnnotationField.ParentKey         -> "parentKey"
+        | AnnotationField.ProfileIndex      -> "profileIndex"
+        | AnnotationField.ProfileDirection  -> "profileDirection"
+        | AnnotationField.ProfileAzimuth    -> "profileAzimuth"
+        | AnnotationField.ProfileStation    -> "profileStation"
+        | AnnotationField.Confidence        -> "confidence"
+        | AnnotationField.Comment           -> "comment"
+        | AnnotationField.ShapeModel        -> "shapeModel"
+        | AnnotationField.ShapeModelVersion -> "shapeModelVersion"
+        | AnnotationField.ProjectedImages   -> "projectedImages"
+        | AnnotationField.ShapeModelCredit  -> "shapeModelCredit"
         | _                                 -> sprintf "%A" field
 
     /// Human-readable label with unit, shown next to the checkbox.
@@ -169,9 +219,11 @@ module AnnotationFields =
         | AnnotationField.ColorHex          -> "Colour (#RRGGBB, for GIS styling)"
         | AnnotationField.Visible           -> "Visible"
         | AnnotationField.PointCount        -> "Point count"
-        | AnnotationField.Height            -> "Height (m)"
-        | AnnotationField.HeightDelta       -> "Height delta (m)"
-        | AnnotationField.AvgAltitude       -> "Avg altitude (m)"
+        // "height" per docs/HeightReference.md - a radius on Dimorphos; the column ids
+        // (height, heightDelta, avgAltitude) stay as they are for existing readers
+        | AnnotationField.Height            -> "Height range, max - min (m)"
+        | AnnotationField.HeightDelta       -> "Height delta, last - first (m)"
+        | AnnotationField.AvgAltitude       -> "Avg height (m)"
         | AnnotationField.Length            -> "Length, straight (m)"
         | AnnotationField.WayLength         -> "Length, total along surface (m)"
         | AnnotationField.Bearing           -> "Bearing (deg)"
@@ -183,13 +235,44 @@ module AnnotationFields =
         | AnnotationField.HorizontalDelta   -> "Horizontal delta (m)"
         | AnnotationField.Thickness         -> "Line thickness"
         | AnnotationField.ManualDipAngle    -> "Manual dip angle (deg)"
-        | AnnotationField.MajorDiameter     -> "Major diameter (m)"
-        | AnnotationField.MinorDiameter     -> "Minor diameter (m)"
+        | AnnotationField.SemiMajorAxis     -> "Semi-major axis (m)"
+        | AnnotationField.SemiMinorAxis     -> "Semi-minor axis (m)"
+        | AnnotationField.MajorAxisAzimuth  -> "Long-axis azimuth (deg, 0-180)"
         | AnnotationField.DipAngle          -> "Dip angle (deg)"
         | AnnotationField.DipAzimuth        -> "Dip azimuth (deg)"
         | AnnotationField.StrikeAzimuth     -> "Strike azimuth (deg)"
         | AnnotationField.Rake              -> "Rake (rad)"
+        | AnnotationField.ParentKey         -> "Parent id (generated from)"
+        | AnnotationField.ProfileIndex      -> "Profile index"
+        | AnnotationField.ProfileDirection  -> "Profile direction (N-S, ...)"
+        | AnnotationField.ProfileAzimuth    -> "Profile azimuth, centre to start (deg)"
+        | AnnotationField.ProfileStation    -> "Profile station along the parent (m)"
+        | AnnotationField.Confidence        -> "Confidence (1-4)"
+        | AnnotationField.Comment           -> "Comment"
+        | AnnotationField.ShapeModel        -> "Shape model"
+        | AnnotationField.ShapeModelVersion -> "Shape model version"
+        | AnnotationField.ProjectedImages   -> "Projected images used"
+        | AnnotationField.ShapeModelCredit  -> "Shape model credit"
         | _                                 -> sprintf "%A" field
+
+    /// Tooltip of a field's checkbox, where the label alone does not say what is measured
+    /// against what. Empty when the label is enough.
+    let description (field : AnnotationField) =
+        let height = CooTransformation.HeightReference.generic
+        let up     = CooTransformation.HeightReference.upNote
+        match field with
+        | AnnotationField.Height            -> "Max - min height. " + height
+        | AnnotationField.HeightDelta       -> "|last - first| height. " + height
+        | AnnotationField.AvgAltitude       -> "Mean height (column avgAltitude). " + height
+        | AnnotationField.Slope
+        | AnnotationField.VerticalDelta
+        | AnnotationField.HorizontalDelta
+        | AnnotationField.VerticalThickness
+        | AnnotationField.DipAngle
+        | AnnotationField.DipAzimuth
+        | AnnotationField.StrikeAzimuth
+        | AnnotationField.ManualDipAngle    -> up
+        | _ -> ""
 
     let pointColumnName (field : PointField) =
         match field with
@@ -212,8 +295,17 @@ module AnnotationFields =
         | PointField.CumulativeDistance -> "Cumulative distance, through 3D (m)"
         | PointField.GroundDistance     -> "Ground distance, height ignored (m)"
         | PointField.Cartesian          -> "Cartesian x / y / z"
-        | PointField.Geographic         -> "Geographic lat / lon / alt"
+        | PointField.Geographic         -> "Geographic lat / lon / alt (alt: see tooltip)"
         | _                             -> sprintf "%A" field
+
+    /// Tooltip of a point field's checkbox; empty when the label is enough.
+    let pointDescription (field : PointField) =
+        match field with
+        | PointField.Geographic ->
+            "alt: SPICE = spheroid height (radius on Dimorphos); .aara = radius. See latLonAltSource. "
+            + CooTransformation.HeightReference.notElevation
+        | PointField.GroundDistance -> "Distance with the height difference removed."
+        | _ -> ""
 
     // ------------------------------------------------------------ values ---
 
@@ -235,14 +327,33 @@ module AnnotationFields =
                 | None         -> VMissing
             | _ -> VMissing
 
-    /// Semi-axes are stored as vectors, so a diameter is twice their length.
+    /// The semi-axes are stored as vectors; their lengths are the values. A result
+    /// read from an older file holds NaN there, which `ofFloat` turns into an empty cell.
     let private ellipseValue (field : AnnotationField) (a : Annotation) =
         match a.ellipticResults with
         | None -> VMissing
         | Some e ->
             match field with
-            | AnnotationField.MajorDiameter -> ExportValue.ofFloat (2.0 * e.geographicalEllipse.Axis0.Length)
-            | AnnotationField.MinorDiameter -> ExportValue.ofFloat (2.0 * e.geographicalEllipse.Axis1.Length)
+            | AnnotationField.SemiMajorAxis    -> ExportValue.ofFloat e.semiMajorAxis.Length
+            | AnnotationField.SemiMinorAxis    -> ExportValue.ofFloat e.semiMinorAxis.Length
+            | AnnotationField.MajorAxisAzimuth -> ExportValue.ofFloat e.majorAxisAzimuth
+            | _ -> VMissing
+
+    /// Generated profiles carry where they came from; everything else has no value here.
+    let private profileValue (field : AnnotationField) (a : Annotation) =
+        match a.profileOf with
+        | None -> VMissing
+        | Some link ->
+            match field with
+            | AnnotationField.ParentKey        -> VText (link.parent.ToString())
+            | AnnotationField.ProfileIndex     -> VInt link.index
+            | AnnotationField.ProfileDirection ->
+                if String.IsNullOrEmpty link.direction then VMissing else VText link.direction
+            | AnnotationField.ProfileAzimuth   -> ExportValue.ofFloat link.azimuth
+            | AnnotationField.ProfileStation   ->
+                match link.station with
+                | Some s -> ExportValue.ofFloat s
+                | None   -> VMissing
             | _ -> VMissing
 
     /// Separator between the group names of `GroupPath`. Forward slash reads as
@@ -300,10 +411,33 @@ module AnnotationFields =
         | AnnotationField.HorizontalDelta ->
             ExportValue.ofFloat (Calculations.horizontalDelta (a.points |> IndexList.toList) up)
 
-        | AnnotationField.MajorDiameter
-        | AnnotationField.MinorDiameter -> ellipseValue field a
+        | AnnotationField.SemiMajorAxis | AnnotationField.SemiMinorAxis
+        | AnnotationField.MajorAxisAzimuth -> ellipseValue field a
 
         | AnnotationField.DipAngle | AnnotationField.DipAzimuth
         | AnnotationField.StrikeAzimuth | AnnotationField.Rake -> dnsValue up field a
+
+        | AnnotationField.ParentKey | AnnotationField.ProfileIndex | AnnotationField.ProfileDirection
+        | AnnotationField.ProfileAzimuth | AnnotationField.ProfileStation -> profileValue field a
+
+        | AnnotationField.Confidence ->
+            match a.metadata.confidence with
+            | Some c -> VInt c
+            | None   -> VMissing
+        | AnnotationField.Comment -> VText a.metadata.comment
+        | AnnotationField.ShapeModel ->
+            match a.metadata.shapeModel with
+            | Some sm -> VText (sm.modelName |> Option.defaultValue sm.product)
+            | None    -> VMissing
+        | AnnotationField.ShapeModelVersion ->
+            match a.metadata.shapeModel |> Option.bind (fun sm -> sm.version) with
+            | Some v -> VText v
+            | None   -> VMissing
+        | AnnotationField.ProjectedImages ->
+            VText (a.metadata.projectedImagesUsed |> List.map (fun i -> i.image) |> String.concat "; ")
+        | AnnotationField.ShapeModelCredit ->
+            match a.metadata.shapeModel |> Option.bind (fun sm -> sm.credit) with
+            | Some c -> VText c
+            | None   -> VMissing
 
         | _ -> VMissing

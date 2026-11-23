@@ -21,11 +21,17 @@
     <Compile Include="TestUtils.fs" />
     <Compile Include="GeoJsonExportTest.fs" />
     <Compile Include="AnnotationExportTest.fs" />
+    <Compile Include="EllipseExportTest.fs" />
     <Compile Include="ColorByCategoryPersistenceTest.fs" />
+    <Compile Include="GeologicalMapPersistenceTests.fs" />
+    <Compile Include="TransformationScalingTest.fs" />
     <Compile Include="ColorByCategoryColorTest.fs" />
     <Compile Include="SpiceTests.fs" />
     <Compile Include="HeraSpiceTests.fs" />
+    <Compile Include="FakeStacCatalog.fs" />
+    <Compile Include="StacSearchTests.fs" />
     <Compile Include="SbmtImportAlignmentTest.fs" />
+    <Compile Include="PolygonCsvImportTests.fs" />
     <None Include="data\AF2_0CO72A_250311T025652_1B.mbi.json" />
     <None Include="data\ASP_000000_270323T060000_2B.mbi.json" />
     <None Include="data\ASP_000000_270323T060000_2B_Vis_0.tif" />
@@ -36,25 +42,35 @@
     <Compile Include="ProjectedImageMetadataTest.fs" />
     <Compile Include="ProjectedImageStackTest.fs" />
     <Compile Include="InstrumentProjectionComparisonTest.fs" />
+    <Compile Include="ProjectorPoseTest.fs" />
     <Compile Include="DidymosProjectionSpiceTest.fs" />
     <None Include="RemoteApi.rest" />
     <Compile Include="TriangleSetTests.fs" />
     <Compile Include="FillInvariants.fs" />
     <Compile Include="RegionInvariants.fs" />
     <Compile Include="PolygonFillTests.fs" />
+    <Compile Include="FillVolumeTests.fs" />
     <Compile Include="RegionOpsTests.fs" />
+    <Compile Include="ContactTopologyTests.fs" />
+    <Compile Include="MapShellTests.fs" />
     <Compile Include="RegionFixtureTests.fs" />
     <Compile Include="AnnotationRegionOpsTests.fs" />
     <None Include="data\regions\seed-basic.region" />
     <Compile Include="ProfileAttributeExtractionTest.fs" />
+    <Compile Include="EllipseStatisticsTest.fs" />
     <Compile Include="OpcSidecarTests.fs" />
     <Compile Include="UnprojectTest.fs" />
+    <Compile Include="LodCullTest.fs" />
+    <Compile Include="SampleLayersTest.fs" />
     <Compile Include="BaseTests.fs" />
     <None Include="data\bulk-rose-annotations.pro3d.ann" />
     <Compile Include="BulkAnnotationRoseTest.fs" />
     <Compile Include="OutcropTraceAttitudeTest.fs" />
     <Compile Include="OutcropTraceShaderTest.fs" />
     <Compile Include="SurfaceEffectVariantTest.fs" />
+    <Compile Include="MapProjectionMathTests.fs" />
+    <Compile Include="MapProjectionShaderTest.fs" />
+    <Compile Include="MapProjectionAnnotationFixture.fs" />
     <Compile Include="Features\TestHelpers.fs" />
     <Compile Include="Features\Section01_StartingPRo3D.fs" />
     <Compile Include="Features\Section02_ViewerActionsNavigation.fs" />
@@ -75,15 +91,33 @@
     <Compile Include="Features\Section19_UndoRedoGroupColor.fs" />
     <Compile Include="Features\Section20_BooleanOperations.fs" />
     <Compile Include="Features\Section21_OutcropTraces.fs" />
+    <Compile Include="Features\Section22_SupportingProfiles.fs" />
+    <Compile Include="Features\Section23_AnnotationMetadata.fs" />
+    <Compile Include="Features\Section24_BoxSelection.fs" />
+    <Compile Include="Features\WindowLayoutTests.fs" />
     <Compile Include="Features\FootprintSceneFixture.fs" />
+    <Compile Include="Features\GeologicalMapShowcase.fs" />
     <Compile Include="Pro3DToolTests.fs" />
     <Compile Include="MbiSidecarTest.fs" />
     <Compile Include="Features\SnapshotSunLightingTest.fs" />
     <!-- after Features\TestHelpers.fs: these drive the real DrawingApp through the Draw harness -->
     <Compile Include="AdaptiveNestingTests.fs" />
     <Compile Include="VertexEditingTests.fs" />
+    <Compile Include="GeologicalMapDrawingTests.fs" />
     <Compile Include="SurfaceEffectSwitchTest.fs" />
+    <Compile Include="SceneRenderTests.fs" />
+    <Compile Include="RenderViewTests.fs" />
+    <Compile Include="InstrumentFovTests.fs" />
+    <Compile Include="MapProjectionRenderTest.fs" />
+    <Compile Include="FillRenderTest.fs" />
+    <!-- after Features\TestHelpers.fs: renders through its GL context -->
+    <Compile Include="BrightnessContrastTest.fs" />
+    <Compile Include="SlowProfileExportTest.fs" />
+    <Compile Include="BoulderStatisticsExportTest.fs" />
+    <Compile Include="SurfaceComparisonTest.fs" />
+    <Compile Include="BrokenAnnotationSaveTest.fs" />
     <Compile Include="SurfaceEffectBenchmark.fs" />
+    <Compile Include="MapProjectionBenchmark.fs" />
     <Compile Include="Program.fs" />
     <None Include="paket.references" />
   </ItemGroup>
@@ -91,7 +125,9 @@
     <ProjectReference Include="..\PRo3D.Base\PRo3D.Base.fsproj" />
     <ProjectReference Include="..\PRo3D.Core\PRo3D.Core.fsproj" />
     <ProjectReference Include="..\PRo3D.GIS\PRo3D.GIS.fsproj" />
+    <ProjectReference Include="..\PRo3D.MapProjection\PRo3D.MapProjection.fsproj" />
     <ProjectReference Include="..\PRo3D.Tool\PRo3D.Tool.fsproj" />
+    <ProjectReference Include="..\PRo3D.SceneRender\PRo3D.SceneRender.fsproj" />
     <!-- Scene, SceneLoader and ViewerIO live in the viewer: needed by the TC-1 scene lifecycle tests -->
     <ProjectReference Include="..\PRo3D.Viewer\PRo3D.Viewer.fsproj" />
     <!-- Scene transitively exposes JR.InstrumentPlatforms types (view plans / rovers);

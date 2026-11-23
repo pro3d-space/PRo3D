@@ -254,18 +254,26 @@ module FalseColorLegendApp =
 
                 Svg.stop ["offset" => offset; style color]
 
-        let buildGradiantsOfImage (rev : bool) (numberOfStops : int) (stream : System.IO.Stream) = 
-            let image = PixImage.Load(stream).AsPixImage<Byte>()
+        let buildGradiantsOfImage (rev : bool) (numberOfStops : int) (stream : System.IO.Stream) =
+            // The stream lives in the model and is read on every legend rebuild
+            // (re-selecting a projected image, changing its range, ...). Without
+            // rewinding, the second read starts at the end and the DevIL load of the
+            // empty rest never returns -- on the UI thread, so the whole app froze.
+            if stream.CanSeek then stream.Seek(0L, System.IO.SeekOrigin.Begin) |> ignore
+            // in RGBA explicitly: the channel order a loader returns differs by platform
+            // (BGRA on Windows, RGBA on macOS) -- reading it as BGRA swapped red and
+            // blue on macOS, so the legend showed colours the image did not
+            let image = PixImage.Load(stream).ToPixImage<Byte>(Col.Format.RGBA)
             let width = image.Width
             let numberOfStops = if width < numberOfStops then width else numberOfStops
-            let step = (float32 width) / (float32 numberOfStops)            
+            let step = (float32 width) / (float32 numberOfStops)
             let data = image.Data
-                        
+
             [0 .. 1 .. (numberOfStops-1)]
-            |> List.map(fun i -> 
+            |> List.map(fun i ->
                 let index    = if rev then int ((float32 i) * step) * 4 else int ((float32 (numberOfStops - 1 - i) * step)) * 4
-                let position = ((float32 i) / (float32 numberOfStops))                
-                let value = C3b(data.[index+2], data.[index+1], data.[index])
+                let position = ((float32 i) / (float32 numberOfStops))
+                let value = C3b(data.[index], data.[index+1], data.[index+2])
                 (position,  value)
                 )
 

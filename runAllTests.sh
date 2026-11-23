@@ -7,4 +7,5 @@
 # fallback). See docs/tests/SpiceKernels.md. For the kernel-independent subset use
 # runTests.sh instead. Extra args are passed through to the Expecto runner.
 set -e
+bash "$(dirname "$0")/adapt.sh"
 dotnet run --project src/Tests/Tests.fsproj -c Release -- "$@"

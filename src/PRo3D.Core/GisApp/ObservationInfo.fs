@@ -31,11 +31,10 @@ module ObservationInfo =
             {m with time = {m.time with date = Calendar.toUtc time}}
         | ObservationInfoAction.SetReferenceFrame frame ->
             {m with referenceFrame = frame}
-        | ObservationInfoAction.Reset -> 
-            match m.target with
-            | None -> { m with target = None }
-            | Some (EntitySpiceName n) -> // hack: perform dummy change to trigger recomputation of all parameters 
-                {m with target = Some (EntitySpiceName (n + "")) }
+        | ObservationInfoAction.Reset ->
+            // Nothing to change: the Viewer re-aims the camera on Reset (GisApp.reaimsCamera),
+            // which is all "Re-use settings above" asks for.
+            m
 
     /// `sceneRows`: show the observed body and the reference frame. Only the scene's own
     /// observation has them - they are the scene body (#758); a bookmark contributes its
@@ -110,8 +109,8 @@ module ObservationInfo =
                 Html.row "Camera source Body"   [targetDropdown]
                 Html.row "Time:"     
                     [
-                        Calendar.view m.time false false 
-                                      Calendar.CalendarType.DateTime
+                        // UTC, like every observation time (the Fomantic calendar showed local time)
+                        Calendar.viewUtc m.time
                     ] |> UI.map CalendarMessage
                 if sceneRows then
                     Html.row "Reference Frame:" [frameCell]

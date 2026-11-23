@@ -10,7 +10,7 @@ open Aardvark.Application.Slim
 open FSharp.Data.Adaptive
 
 open Aardvark.GeoSpatial.Opc
-open Aardvark.GeoSpatial.Opc.Load   // IRuntime.CreateLoadRunner
+open Aardvark.GeoSpatial.Opc.Load   // OPC load runners (Sg.loadRunnerFor)
 
 open Aardvark.PixImage.LibTiff
 
@@ -129,26 +129,6 @@ let private applyAngleShaders (sg : ISg) =
         do! SunAngles.Shaders.sunAnglesFloat
     }
 
-/// Attributes the OPC surface shaders inherit whether or not this verb uses them. Without
-/// each of these the Ag lookup throws at CompileRender rather than at graph construction,
-/// so the failure surfaces as an opaque "could not get inh attribute X" deep in a scope
-/// path. Kept as one block so the next added attribute has an obvious home. Shared with
-/// the simulate-image verb, whose graphs inherit the same attributes.
-let withOpcScaffolding (sg : ISg) =
-    sg
-    // The angle shaders do not sample the instrument image -- they need only geometry and
-    // the sun direction -- but the surface shaders still expect the sampler to be bound.
-    |> Sg.texture "ProjectedTexture" DefaultTextures.blackTex
-    |> Sg.uniform' "ProjectedImageModelViewProjValid" true
-    |> Sg.uniform' "LodVisEnabled" false
-    |> PRo3D.Core.Surface.Sg.applyFootprint (AVal.constant M44d.Identity)
-    // Cross-section clipping (releases/6.0.0) is another OPC-surface Ag attribute.
-    |> PRo3D.Core.SgExtensions.Sg.applyCrossSection (AVal.constant None)
-    |> PRo3D.Core.SgExtensions.Sg.applyLatLonGrid (AVal.constant None)
-    |> Aardvark.GeoSpatial.Opc.SecondaryTexture.Sg.applySecondaryTextureId
-        (AVal.constant (Some { texture = TextureReference.LegacyId 0
-                               channel = ChannelReference.NoChannelSelection }))
-
 /// Split the packed RGBA readback into one float array per angle, substituting NaN wherever
 /// the coverage mask says nothing was drawn.
 let private extractBand (img : PixImage<float32>) (band : Band) =
@@ -227,7 +207,7 @@ let processImage (runtime : IRuntime) (o : SunAnglesOptions)
                          (methodValue : ProjectionMethod) (outDir : string) (kernel : string)
                          (hierarchies : string[]) (img : ResolvedImage) : Result<string list, string> =
 
-    match InstrumentObservation.projectorCamera None observer frame body methodValue img with
+    match InstrumentObservation.projectorCamera None frame body methodValue img with
     | Result.Error e -> Result.Error e
     | Ok cam ->
 
@@ -265,6 +245,7 @@ let processImage (runtime : IRuntime) (o : SunAnglesOptions)
                 stackProjections = AVal.constant [||]
                 stackCoverageEnabled = AVal.constant false
                 hoveredProjection = AVal.constant None
+                stackFocus = AVal.constant (-1, 1.0f)
                 windingCorrection = AVal.constant false
                 sunDirection = AVal.constant (Some sun)
                 sunLightEnabled = AVal.constant true
@@ -273,7 +254,7 @@ let processImage (runtime : IRuntime) (o : SunAnglesOptions)
 
     let target = FloatTarget.create runtime size
     try
-        let runner = runtime.CreateLoadRunner 1
+        let runner = PRo3D.Core.Surface.Sg.loadRunnerFor runtime
         let cfg =
             { OpcSg.defaultConfig target.signature runner DefaultMetrics.mars2 body with
                 // Blocking loads: with async loading the readback captures whatever subset
@@ -284,7 +265,7 @@ let processImage (runtime : IRuntime) (o : SunAnglesOptions)
             OpcSg.build cfg projectedImages VisualizationProperties.empty hierarchies
             |> Sg.ofList
             |> applyAngleShaders
-            |> withOpcScaffolding
+            |> OpcSg.withOpcScaffolding
             |> Sg.viewTrafo (AVal.constant cam.view)
             |> Sg.projTrafo (AVal.constant cam.proj)
 
@@ -327,11 +308,13 @@ let run (o : SunAnglesOptions) : int =
     let methodValue =
         match (if isNull o.method then "mbi" else o.method).ToLowerInvariant() with
         | "spice" -> Some ProjectionMethod.Spice
+        | "spice-aimed" -> Some ProjectionMethod.SpiceAimed
         | "mbi"   -> Some ProjectionMethod.MbiBased
+        | "mbi-spice-range" -> Some ProjectionMethod.MbiAttitudeSpiceRange
         | _       -> None
 
     match methodValue with
-    | None -> Log.error "unknown --method '%s' (expected spice or mbi)" o.method; 1
+    | None -> Log.error "unknown --method '%s' (expected spice, spice-aimed, mbi or mbi-spice-range)" o.method; 1
     | Some methodValue ->
 
     if not (Directory.Exists o.opc) then Log.error "OPC directory not found: %s" o.opc; 1
@@ -417,6 +400,7 @@ let run (o : SunAnglesOptions) : int =
         with e ->
             // Per-image isolation: a batch that dies on image 3 of 400 is useless.
             Log.error "[%s] unhandled: %s" name e.Message
+            Log.line "[%s] details for a bug report: %s" name (string e)
             failures <- failures + 1
         Log.stop()
 

@@ -94,23 +94,40 @@ module ProjectedImagesListAppHelper =
     /// `lightViewProj`: world -> sun-camera clip space for shadow mapping, produced by
     /// the viewer's shadow-map pass; None (also whenever the lighting mode is not
     /// SunShadow) keeps the per-patch shadow lookup disabled.
-    let getProjectedImageData (g : AdaptiveGisApp) (lightViewProj : aval<Option<Trafo3d>>) (surfaceId : Guid) (projectionSurfaceBodyName : string) : Option<Sg.ProjectedImages> =
+    let getProjectedImageData (g : AdaptiveGisApp) (lightViewProj : aval<Option<Trafo3d>>) (surfaceId : Guid) : Option<Sg.ProjectedImages> =
         let currentProjectedImage =  g.projectedImageList |> getSelectedTexture
         let selectedImage = g.projectedImageList |> getSelectedImage
         let observer = GisApp.getObserverSystemAdaptive g
         let sunDirection = Gis.GisApp.getSunDirection g surfaceId
         let surfaceReferenceSystem = Gis.GisApp.getSpiceReferenceSystemAdaptive g surfaceId
-        let computeBoresight (b : AdaptiveBoresightAdjustment) : aval<Trafo3d> = 
-            b.Current |> AVal.map (fun b -> 
-                Trafo3d.RotationXInDegrees(b.yaw.value) * Trafo3d.RotationYInDegrees(b.pitch.value) * Trafo3d.RotationZInDegrees(b.roll.value)
-            )
-        let boresightAdjustment = computeBoresight g.projectedImageList.boresightAdjustment
+        let boresightAdjustment =
+            g.projectedImageList.boresightAdjustment.Current |> AVal.map (fun b ->
+                PRo3D.SPICE.InstrumentProjection.boresightCorrection b.roll.value b.pitch.value b.yaw.value)
         // Hoisted on purpose: a map built inside an AVal.custom is owned by nothing and
         // stops propagating once collected (src/Tests/AdaptiveNestingTests.fs).
-        let surfaceReferenceFrameA =
-            surfaceReferenceSystem |> AVal.map (function None -> "J2000" | Some v -> v.referenceFrame.Value)
+        // The projector is expressed relative to the surface's own body, in its frame;
+        // a surface without one falls back to the scene observer in J2000.
+        let surfaceOriginA =
+            surfaceReferenceSystem |> AVal.map (Option.map (fun v ->
+                let (EntitySpiceName body) = v.body
+                body, v.referenceFrame.Value))
+        let originOf (t : FSharp.Data.Adaptive.AdaptiveToken) (observer : string) =
+            surfaceOriginA.GetValue(t) |> Option.defaultValue (observer, "J2000")
+        // the scene's instruments (field of view, row flip; Instrument Settings section); hoisted like the above
+        let instrumentsA : aval<PRo3D.SPICE.InstrumentProjection.Instruments> =
+            g.projectedImageList.instrumentFovs
+            |> AMap.mapA (fun _ f -> f.Current)
+            |> AMap.toAVal
+            |> AVal.map InstrumentFov.toInstruments
+        // The loaded SPICE kernel: SPICE's own state is not adaptive, so the projectors
+        // read this to be recomputed when a kernel is loaded -- otherwise images
+        // imported before their kernel keep the projection that failed without it.
+        // Hoisted like the above.
+        let kernelA =
+            (g.spiceKernel, g.spiceKernelLoadSuccess) ||> AVal.map2 (fun kernel ok -> kernel, ok)
         let imageTrafo =
             AVal.custom (fun t ->
+                kernelA.GetValue(t) |> ignore
                 match observer.GetValue(t) with
                 | None -> None
                 | Some o ->
@@ -118,12 +135,13 @@ module ProjectedImagesListAppHelper =
 
                     let borsight = boresightAdjustment.GetValue(t)
                     let img = currentProjectedImage.GetValue(t)
-                    let surfaceReferenceFrame = surfaceReferenceFrameA.GetValue(t)
+                    let originBody, originFrame = originOf t observer
                     let projectionMethod = g.projectedImageList.projectionMethod.GetValue(t)
+                    let instruments = instrumentsA.GetValue(t)
 
                     match img with
                     | Some (_, metadata) ->
-                        Visualization.projectDirect observer surfaceReferenceFrame metadata projectionSurfaceBodyName (Some borsight) projectionMethod
+                        Visualization.projectDirectWith instruments None originBody originFrame metadata (Some borsight) projectionMethod
                     | _ ->
                         None
             )
@@ -135,12 +153,15 @@ module ProjectedImagesListAppHelper =
         //
         // SPICE is single-threaded and each call takes a global lock (see
         // InstrumentProjection.spiceCallLock), so projectors are memoized per
-        // (image, method, boresight, observer, frame) -- reordering or hovering
+        // (image, method, boresight, origin body, frame) -- reordering or hovering
         // recomputes nothing, only genuinely new configurations pay for SPICE
         // (D8 in plans/multiImageProjection.md). Metadata parses are memoized
         // by texture path (sidecars do not change during a session).
         let metadataCache = System.Collections.Generic.Dictionary<string, InstrumentMetadata.ParsedMetadata>()
-        let projectorCache = System.Collections.Generic.Dictionary<Guid * PRo3D.ImageMapping.ProjectionMethod * (float * float * float) * string * string, Option<Trafo3d>>()
+        let projectorCache = System.Collections.Generic.Dictionary<Guid * PRo3D.ImageMapping.ProjectionMethod * (float * float * float) * string * string * PRo3D.SPICE.InstrumentProjection.Instruments, Option<Trafo3d>>()
+        // the kernel the cached projectors were computed with: a newly loaded kernel
+        // invalidates all of them (a projector that failed without it is cached as None)
+        let mutable projectorCacheKernel = None
 
         /// one image's projector in the surface frame at its own obs time,
         /// memoized (D8: SPICE is single-threaded behind a global lock)
@@ -148,8 +169,13 @@ module ProjectedImagesListAppHelper =
             match ProjectedImageListModel.tryFind id model with
             | None -> None
             | Some img ->
-                let surfaceReferenceFrame = surfaceReferenceFrameA.GetValue(t)
+                let kernel = Some (kernelA.GetValue(t))
+                if kernel <> projectorCacheKernel then
+                    projectorCache.Clear()
+                    projectorCacheKernel <- kernel
+                let originBody, originFrame = originOf t observer
                 let boresightTrafo = boresightAdjustment.GetValue(t)
+                let instruments = instrumentsA.GetValue(t)
                 let boresightKey =
                     (model.boresightAdjustment.roll.value,
                      model.boresightAdjustment.pitch.value,
@@ -164,11 +190,11 @@ module ProjectedImagesListAppHelper =
                 // a boresight slider drag creates a key per step; keep the
                 // cache bounded rather than evicting cleverly
                 if projectorCache.Count > 512 then projectorCache.Clear()
-                let key = (id, model.projectionMethod, boresightKey, observer, surfaceReferenceFrame)
+                let key = (id, model.projectionMethod, boresightKey, originBody, originFrame, instruments)
                 match projectorCache.TryGetValue key with
                 | true, p -> p
                 | _ ->
-                    let p = Visualization.projectDirect observer surfaceReferenceFrame metadata projectionSurfaceBodyName (Some boresightTrafo) model.projectionMethod
+                    let p = Visualization.projectDirectWith instruments None originBody originFrame metadata (Some boresightTrafo) model.projectionMethod
                     projectorCache.[key] <- p
                     p
 
@@ -197,13 +223,61 @@ module ProjectedImagesListAppHelper =
                                     minMax = V2f(img.falseColorModel.lowerBound.value, img.falseColorModel.upperBound.value)
                                     texturePath = img.texture
                                     channel = img.selectedChannel.idx
+                                    brightnessContrast =
+                                        V2f(img.brightnessContrast.brightness.value, img.brightnessContrast.contrast.value)
+                                    falseColor = img.falseColorPreview
+                                    colorMap = int img.colorMap
+                                    dataType = int img.dataType
                                 }
                             Some layer
                     )
             )
 
+        // which layer stays at full strength while the others fade: the dragged
+        // or hovered image's index among the layers, filtered exactly like
+        // stackProjections above so the index addresses the same slot
+        let stackFocus =
+            g.projectedImageList.Current |> AVal.map (fun model ->
+                match ProjectedImageListModel.stackFocus model with
+                | None -> (-1, 1.0f)
+                | Some (focusId, fade) ->
+                    ProjectedImageListModel.effectiveStack model
+                    |> IndexList.toArray
+                    |> Array.filter (fun id -> ProjectedImageListModel.tryFind id model |> Option.isSome)
+                    |> Array.tryFindIndex ((=) focusId)
+                    |> function
+                        | Some i -> (i, float32 fade)
+                        | None -> (-1, 1.0f)
+            )
+
+        // A hovered STAC result row is not in the library; its projector comes from
+        // the sidecar the search's check downloaded into the cache
+        // (StacSearch.localImagePath). Memoized like computeProjector.
+        let stacProjectorCache = System.Collections.Generic.Dictionary<string * PRo3D.ImageMapping.ProjectionMethod * (float * float * float) * string * string * PRo3D.SPICE.InstrumentProjection.Instruments, Option<Trafo3d>>()
+        let computeStacProjector (t : FSharp.Data.Adaptive.AdaptiveToken) (observer : string) (itemId : string) (model : PRo3D.ImageMapping.ProjectedImageListModel) : Option<Trafo3d> =
+            match model.stacSearch.candidates |> IndexList.tryFind (fun _ c -> c.itemId = itemId) with
+            | None -> None
+            | Some c ->
+                let originBody, originFrame = originOf t observer
+                let boresightTrafo = boresightAdjustment.GetValue(t)
+                let instruments = instrumentsA.GetValue(t)
+                let boresightKey =
+                    (model.boresightAdjustment.roll.value,
+                     model.boresightAdjustment.pitch.value,
+                     model.boresightAdjustment.yaw.value)
+                if stacProjectorCache.Count > 512 then stacProjectorCache.Clear()
+                let key = (itemId, model.projectionMethod, boresightKey, originBody, originFrame, instruments)
+                match stacProjectorCache.TryGetValue key with
+                | true, p -> p
+                | _ ->
+                    let metadata = InstrumentMetadata.tryParseMetadataForImagePath (StacSearch.localImagePath c.itemId c.assets)
+                    let p = Visualization.projectDirectWith instruments None originBody originFrame metadata (Some boresightTrafo) model.projectionMethod
+                    stacProjectorCache.[key] <- p
+                    p
+
         // the hovered image's own projector, hover-only footprints (D5): the
-        // surface outline uniform and the frustum wireframe both read this
+        // surface outline uniform and the frustum wireframe both read this. A
+        // library image wins over a STAC result row.
         let hoveredProjection =
             AVal.custom (fun t ->
                 match observer.GetValue(t) with
@@ -211,14 +285,17 @@ module ProjectedImagesListAppHelper =
                 | Some o ->
                     let (EntitySpiceName observer) = o.body
                     let model = g.projectedImageList.Current.GetValue(t)
-                    model.hoveredImage
-                    |> Option.bind (fun id -> computeProjector t observer id model)
+                    match model.hoveredImage, model.stacSearch.hovered with
+                    | Some id, _ -> computeProjector t observer id model
+                    | None, Some itemId -> computeStacProjector t observer itemId model
+                    | None, None -> None
             )
 
         Some {
                 imageProjection = imageTrafo
                 stackProjections = stackProjections
                 hoveredProjection = hoveredProjection
+                stackFocus = stackFocus
                 windingCorrection = g.projectedImageList.windingCorrection
                 // coverage view: tint by how many stack layers cover a fragment
                 stackCoverageEnabled =
@@ -226,6 +303,6 @@ module ProjectedImagesListAppHelper =
                     |> AVal.map (fun m -> m = PRo3D.ImageMapping.InstrumentVisibilityMode.RelativeCount)
                 sunDirection = sunDirection
                 sunLightEnabled =
-                    (g.projectedImageList.lightingMode, sunDirection) ||> AVal.map2 (fun l hasDir -> l <> PRo3D.ImageMapping.LightingMode.Off && Option.isSome hasDir)
+                    (g.projectedImageList.lightingMode, sunDirection) ||> AVal.map2 (fun l hasDir -> PRo3D.ImageMapping.LightingMode.isSun l && Option.isSome hasDir)
                 lightViewProj = lightViewProj
             }

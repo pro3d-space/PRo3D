@@ -87,12 +87,27 @@ module Visualization =
             Log.warn "[ProjectedStack] could not decode %s: %s" path e.Message
             None
 
-    /// The stack texture array: slice i carries layer i's image band, aligned
-    /// with getProjectedImageData's stackProjections. Decoded bands are cached
-    /// per (path, channel) (D7); the GPU array is reallocated only when the
-    /// size, format or layer count grows past the current allocation --
-    /// reordering the stack is a re-upload, not a realloc.
-    let createProjectedStackTextureArray (runtime : ITextureRuntime) (layers : aval<array<string * int>>) : aval<ITexture> =
+    /// The stack texture array plus, per layer, the slice it reads.
+    /// `slices.[i]` is the slot of layer i (ProjectedStackSlices in the stack shader).
+    type StackTextureArray =
+        {
+            texture : ITexture
+            slices  : array<int>
+        }
+
+    /// The stack texture array, one slot per image (path, band) -- not per stack
+    /// position: an image keeps its slot while it is in the stack, and the layer
+    /// order reaches the shader as a slot index per layer (`slices`). Reordering
+    /// the stack, and its live drag preview, therefore upload nothing; only an
+    /// image new to the array is uploaded, into a free slot. A slot freed by an
+    /// image leaving the stack keeps its content until it is needed, so an image
+    /// that comes back (a library image hovered again) is not uploaded again.
+    ///
+    /// Decoded bands are cached per (path, channel) (D7). The GPU array is
+    /// reallocated -- and everything re-uploaded -- only when the image size or
+    /// format changes or more slots are needed than allocated; it grows by
+    /// doubling, up to ProjectedImages.maxCount.
+    let createProjectedStackTextureArray (runtime : ITextureRuntime) (layers : aval<array<string * int>>) : aval<StackTextureArray> =
         let decodeCache = System.Collections.Generic.Dictionary<string * int, Option<PixImage>>()
         let decodeCached (path : string) (channel : int) =
             match decodeCache.TryGetValue ((path, channel)) with
@@ -112,56 +127,90 @@ module Visualization =
                 t.Upload(PixImage<byte>(Col.Format.RGBA, V2i.II), slice = 0)
                 t
             )
+        let emptyResult () = { texture = empty.Value :> ITexture; slices = [||] }
 
         let mutable allocated : Option<IBackendTexture * V2i * TextureFormat * int> = None
-        let mutable uploaded : array<string * int> = [||]
+        // slot -> the image it holds, and back
+        let mutable content : array<Option<string * int>> = [||]
+        let slotOf = System.Collections.Generic.Dictionary<string * int, int>()
 
         AVal.custom (fun t ->
           try
             let ls = layers.GetValue t
-            if ls.Length = 0 then
-                empty.Value :> ITexture
+            if ls.Length = 0 then emptyResult ()
             else
-                let decoded = ls |> Array.map (fun (p, c) -> decodeCached p c)
+                let keys = ls |> Array.distinct
+                let decoded = keys |> Array.map (fun (p, c) -> decodeCached p c)
                 match decoded |> Array.tryPick id with
-                | None -> empty.Value :> ITexture
+                | None -> emptyResult ()
                 | Some first ->
                     let size = first.Size
                     let format = TextureFormat.ofPixFormat first.PixFormat TextureParams.None
                     let tex =
                         match allocated with
-                        | Some (tex, s, f, capacity) when s = size && f = format && capacity >= ls.Length -> tex
+                        | Some (tex, s, f, capacity) when s = size && f = format && capacity >= keys.Length -> tex
                         | current ->
                             current |> Option.iter (fun (old, _, _, _) -> runtime.DeleteTexture old)
-                            let tex = runtime.CreateTexture2DArray(size, format, levels = 1, samples = 1, count = max ls.Length 1)
-                            allocated <- Some (tex, size, format, max ls.Length 1)
-                            uploaded <- [||]
+                            // gone now: the catch below must not delete it again
+                            allocated <- None
+                            // a few spare slots (hovered library image, the next +)
+                            // rather than doubling: slices are full-resolution images
+                            let capacity = min ProjectedImages.maxCount (keys.Length + 4)
+                            let tex = runtime.CreateTexture2DArray(size, format, levels = 1, samples = 1, count = capacity)
+                            allocated <- Some (tex, size, format, capacity)
+                            content <- Array.create capacity None
+                            slotOf.Clear()
                             tex
-                    // a fresh allocation's content is undefined; slices without a
+                    let needed = System.Collections.Generic.HashSet<string * int>(keys)
+                    // free slots: never used first, then those holding an image no layer needs
+                    let free =
+                        System.Collections.Generic.Queue<int>(
+                            Array.append
+                                (Array.init content.Length id |> Array.filter (fun i -> content.[i].IsNone))
+                                (Array.init content.Length id |> Array.filter (fun i ->
+                                    match content.[i] with
+                                    | Some k -> not (needed.Contains k)
+                                    | None -> false)))
+                    // a fresh allocation's content is undefined; slots without a
                     // usable image must still be written, else they show garbage
-                    let black =
-                        lazy (PixImage<byte>(Col.Format.Gray, size) :> PixImage)
-                    for i in 0 .. ls.Length - 1 do
-                        let unchanged = i < uploaded.Length && uploaded.[i] = ls.[i]
-                        if not unchanged then
-                            match decoded.[i] with
-                            | Some pi when pi.Size = size ->
-                                tex.Upload(pi, slice = i)
+                    let black = lazy (PixImage<byte>(Col.Format.Gray, size) :> PixImage)
+                    let sw = System.Diagnostics.Stopwatch.StartNew()
+                    let mutable uploads = 0
+                    for ki in 0 .. keys.Length - 1 do
+                        let key = keys.[ki]
+                        if not (slotOf.ContainsKey key) then
+                            // capacity >= keys.Length, so a free slot exists
+                            let slot = free.Dequeue()
+                            content.[slot] |> Option.iter (fun old -> slotOf.Remove old |> ignore)
+                            match decoded.[ki] with
+                            | Some pi when pi.Size = size -> tex.Upload(pi, slice = slot)
                             | Some pi ->
                                 // same-instrument stacks share one size (D1); a
                                 // mismatched image keeps its slot but stays dark
-                                Log.warn "[ProjectedStack] %s is %A, expected %A -- slice %d stays black" (fst ls.[i]) pi.Size size i
-                                tex.Upload(black.Value, slice = i)
-                            | None ->
-                                tex.Upload(black.Value, slice = i)
-                    uploaded <- ls
-                    tex :> ITexture
+                                Log.warn "[ProjectedStack] %s is %A, expected %A -- slot %d stays black" (fst key) pi.Size size slot
+                                tex.Upload(black.Value, slice = slot)
+                            | None -> tex.Upload(black.Value, slice = slot)
+                            content.[slot] <- Some key
+                            slotOf.[key] <- slot
+                            uploads <- uploads + 1
+                    if uploads > 0 then
+                        Log.line "[ProjectedStack] uploaded %d image(s) (%A) for %d layers in %.1f ms" uploads size ls.Length sw.Elapsed.TotalMilliseconds
+                    let slices =
+                        ls |> Array.map (fun key ->
+                            match slotOf.TryGetValue key with
+                            | true, slot -> slot
+                            | _ -> 0)
+                    { texture = tex :> ITexture; slices = slices }
           with e ->
             // a failure here must not take the surface's render objects down
             // with it -- log loudly and fall back to the (lazily created)
             // 1-slice dummy so the sampler still has an array bound
             Log.error "[ProjectedStack] building the stack texture array failed: %A" e
-            empty.Value :> ITexture
+            allocated |> Option.iter (fun (old, _, _, _) -> try runtime.DeleteTexture old with _ -> ())
+            allocated <- None
+            content <- [||]
+            slotOf.Clear()
+            emptyResult ()
         )
 
     /// Frustum wireframe of the hovered image's projector (D5): the NDC cube
@@ -211,87 +260,78 @@ module Visualization =
                 DefaultTextures.checkerboard
         ) currentProjectedImage channel
 
-    /// `nearFar` overrides the depth range; when None it is derived from the observation
-    /// distance in the mbi sidecar (InstrumentProjection.nearFarForDistance). The old
-    /// hardcoded Mars-scale range clipped bodies the size of Didymos entirely.
-    let projectDirectWithNearFar (nearFar : Option<float * float>)
-                (observer : string) (referenceFrame : string) (metadata : ParsedMetadata)
-                (targetBody : string) (boresight : Option<Trafo3d>) (method : ProjectionMethod) : Option<Trafo3d> =
+    /// The projector pose an orientation source stands for.
+    let projectorPose (method : ProjectionMethod) (mbi : Tiff_Mbi_Json.Mbi) : ProjectorPose =
+        match method with
+        | ProjectionMethod.Spice -> ProjectorPose.SpiceInstrument
+        | ProjectionMethod.SpiceAimed -> ProjectorPose.SpiceAimed
+        | ProjectionMethod.MbiAttitudeSpiceRange -> ProjectorPose.SidecarAttitudeSpiceRange mbi.sc_quat
+        | _ -> ProjectorPose.Sidecar (mbi.sc_quat, mbi.targetPos)
 
+    /// Resolve an image's projector in the body-fixed frame `originFrame` of `originBody`,
+    /// the body the surface's coordinates are relative to. The image's target is the
+    /// sidecar's TARGET, falling back to `originBody` for sidecars without one.
+    ///
+    /// `instruments` are the scene's per-instrument field of view and row flip
+    /// (Map.empty = the kernels' values). `nearFar` overrides
+    /// the depth range; by default it follows the resolved distance to the target
+    /// (InstrumentProjection.nearFarForDistance).
+    let resolveProjectorWith (instruments : InstrumentProjection.Instruments) (nearFar : Option<float * float>)
+                             (originBody : string) (originFrame : string)
+                             (metadata : ParsedMetadata) (boresight : Option<Trafo3d>) (method : ProjectionMethod)
+                             : Result<ResolvedProjector, string> =
         match metadata with
         | Some mbi, _ ->
-            // targetPos is in km
-            let distance = mbi.targetPos.Length * 1000.0
-            let near, far = nearFar |> Option.defaultValue (InstrumentProjection.nearFarForDistance distance)
-            let instruments = InstrumentProjection.instruments near far
-            // The sidecar knows what it observed (TARGET header, e.g. "Didymos");
-            // the caller's targetBody is only the fallback for older exports
-            // that don't carry the header (legacy Mars data).
-            let targetBody = mbi.target |> Option.defaultValue targetBody
             match InstrumentProjection.instrument2SpiceName mbi.instrument with
-            | None ->
-                Log.warn "could not get instrument spice name"
-                None
+            | None -> Result.Error (sprintf "no SPICE frame known for instrument '%s'" mbi.instrument)
             | Some spiceName ->
-                let p = {
-                        instrumentReferenceFrame = spiceName
-                        target = InstrumentImages.FocusBody targetBody
-                        cameraSource = InstrumentImages.CameraSource.InBody (InstrumentProjection.instrument2CameraSource mbi.instrument)
-                        instrumentName = spiceName
-                        supportBody = "SUN"
-                        time = mbi.obs_date
-                        boresightAdjustment =boresight
-                    }
-                let t = InstrumentProjection.projectOntoQuat referenceFrame observer instruments p (-mbi.targetPos * 1000.0) mbi.sc_quat
-                let spice = InstrumentProjection.projectOnto referenceFrame observer instruments p
-                match method with
-                | ProjectionMethod.MbiBased -> t
-                | _ -> spice
-        | _  ->
-            None
-
-    let projectDirect (observer : string) (referenceFrame : string) (metadata : ParsedMetadata)
-                (targetBody : string) (boresight : Option<Trafo3d>) (method : ProjectionMethod) : Option<Trafo3d> =
-        projectDirectWithNearFar None observer referenceFrame metadata targetBody boresight method
-
-    let project (observer : string) (referenceFrame : string) (currentProjectedImage : Option<string * ParsedMetadata>)
-                (projection : InstrumentProjection) : Option<Trafo3d> =
-
-        match currentProjectedImage with
-        | Some (_, (Some mbi,_)) ->
-            let distance = mbi.targetPos.Length * 1000.0
-            let near, far = InstrumentProjection.nearFarForDistance distance
-            let instruments = InstrumentProjection.instruments near far
-            let p = {
-                projection with
-                    time = mbi.obs_date
+                let setup = Map.tryFind spiceName instruments
+                InstrumentProjection.resolve {
+                    instrument  = spiceName
+                    spacecraft  = InstrumentProjection.instrument2CameraSource mbi.instrument
+                    target      = mbi.target |> Option.defaultValue originBody
+                    origin      = originBody
+                    originFrame = originFrame
+                    time        = mbi.obs_date
+                    pose        = projectorPose method mbi
+                    boresight   = boresight
+                    nearFar     = nearFar
+                    fov         = setup |> Option.map (fun s -> s.fov.horizontal, s.fov.vertical)
+                    flipRows    = setup |> Option.map (fun s -> s.flipRows) |> Option.defaultValue (InstrumentProjection.defaultFlipRows spiceName)
                 }
-            InstrumentProjection.projectOnto referenceFrame observer instruments p
-        | _  ->
+        | _ ->
+            Result.Error "no mbi sidecar"
+
+    /// resolveProjectorWith at the kernels' instrument values (the tools).
+    let resolveProjector (nearFar : Option<float * float>) (originBody : string) (originFrame : string)
+                         (metadata : ParsedMetadata) (boresight : Option<Trafo3d>) (method : ProjectionMethod)
+                         : Result<ResolvedProjector, string> =
+        resolveProjectorWith Map.empty nearFar originBody originFrame metadata boresight method
+
+    /// resolveProjectorWith for callers that only need the matrix; problems are logged.
+    let projectDirectWith (instruments : InstrumentProjection.Instruments) (nearFar : Option<float * float>)
+                          (originBody : string) (originFrame : string)
+                          (metadata : ParsedMetadata) (boresight : Option<Trafo3d>) (method : ProjectionMethod)
+                          : Option<Trafo3d> =
+        match resolveProjectorWith instruments nearFar originBody originFrame metadata boresight method with
+        | Ok p ->
+            for w in p.warnings do Log.warn "[projection] %s" w
+            Some p.full
+        | Result.Error e ->
+            Log.warn "[projection] %s" e
             None
 
-    let creatProjectionFunction (observer : aval<string>) (referenceFrame : aval<string>) 
-                                (currentProjectedImage : aval<Option<string * ParsedMetadata>>) (instrumentProjection : aval<InstrumentProjection>) =
+    /// The kernels' instrument values, `nearFar` as in projectDirectWith.
+    let projectDirectWithNearFar (nearFar : Option<float * float>) (originBody : string) (originFrame : string)
+                                 (metadata : ParsedMetadata) (boresight : Option<Trafo3d>) (method : ProjectionMethod)
+                                 : Option<Trafo3d> =
+        projectDirectWith Map.empty nearFar originBody originFrame metadata boresight method
 
-    
-        let projectImage (targetPlanet : string) = 
-            AVal.custom (fun t -> 
-                let img = currentProjectedImage.GetValue t
-                match img with
-                | Some (_, (Some mbi,_)) -> 
-                    let observer = observer.GetValue t
-                    let referenceFrame = referenceFrame.GetValue t
-                    let instrumentProjection = instrumentProjection.GetValue t
-                    let p = {
-                        instrumentProjection with
-                            time = mbi.obs_date
-                        }
-                    project observer referenceFrame img p
-                | _  -> 
-                    None
-            )
-
-        projectImage
+    /// The kernels' instrument values (the tools); the viewer passes its scene's through
+    /// projectDirectWith.
+    let projectDirect (originBody : string) (originFrame : string) (metadata : ParsedMetadata)
+                      (boresight : Option<Trafo3d>) (method : ProjectionMethod) : Option<Trafo3d> =
+        projectDirectWithNearFar None originBody originFrame metadata boresight method
 
     //let createSceneGraph (projectedImageProperties : VisualizationProperties) (referenceFrame : aval<string>) (supportBody : aval<string>)
     //                     (observer : aval<string>) (time : aval<DateTime>) (projectImage : string -> aval<Option<Trafo3d>>) 

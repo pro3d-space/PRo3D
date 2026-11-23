@@ -25,50 +25,43 @@ open OpcViewer.Base.KdTrees
 
 module AreaComparison =
 
+    /// All triangle positions of a level-0 tree in world space. Hierarchical kd-trees nest
+    /// sub-trees that carry their own `Trafo` (sub-tree local -> parent); both those and the
+    /// surface trafo have to be applied, or the positions land in some sub-tree's local frame.
     let getPositions (level0Tree : Level0KdTree) areaBox (surfaceTrafo : Trafo3d) =
-        let rec toPositionsList (objectSet : IIntersectableObjectSet) = 
+        let rec toPositionsList (toWorld : Trafo3d) (objectSet : IIntersectableObjectSet) = 
             match objectSet with
-            | :? Aardvark.Geometry.TriangleSet -> 
-                let triangleSet = (objectSet :?> TriangleSet) 
-                let lst : List<V3d> = List.ofSeq triangleSet.Position3dList
-                lst |> Some
-            | :? Aardvark.Geometry.KdTreeSet ->
-                let kdTreeSet = (objectSet :?> KdTreeSet)
-                let lst : List<ConcreteKdIntersectionTree> = 
-                    kdTreeSet.ConcreteKdTreeList 
-                        |> List.ofSeq
-                let lst =
-                  lst |> List.map (fun x -> x.KdIntersectionTree.BoundingBox3d, x)
-                let lst = 
-                      lst |> List.filter (fun (box, tree) -> 
-                                            box.Transformed(surfaceTrafo).Intersects areaBox    
-                                          )
-                          |> List.map (fun (box, tree) -> tree)
-                          
-                      
-                let lst = lst 
-                            |> List.map (fun t -> t.Trafo, toPositionsList t.KdIntersectionTree.ObjectSet)
-                            |> List.filter (fun (t, x) -> x.IsSome)
-                            |> List.map (fun (t, x) -> x.Value)
-                let lst = List.concat (Seq.ofList lst)
-                lst |> Some
+            | :? Aardvark.Geometry.TriangleSet as triangleSet -> 
+                let m = toWorld.Forward
+                triangleSet.Position3dList
+                |> Seq.map (fun p -> m.TransformPos p)
+                |> List.ofSeq
+                |> Some
+            | :? Aardvark.Geometry.KdTreeSet as kdTreeSet ->
+                kdTreeSet.ConcreteKdTreeList 
+                |> List.ofSeq
+                |> List.choose (fun t ->
+                    let childToWorld = t.Trafo * toWorld
+                    if t.KdIntersectionTree.BoundingBox3d.Transformed(childToWorld).Intersects areaBox then
+                        toPositionsList childToWorld t.KdIntersectionTree.ObjectSet
+                    else None)
+                |> List.concat
+                |> Some
             | _ ->
                 Log.warn "[Comparison] Unknown Object Set Type"
                 None
 
-        let positions = 
-            match level0Tree with
-                | Aardvark.VRVis.Opc.KdTrees.InCoreKdTree kd -> 
-                    (kd.kdTree.KdIntersectionTree.ObjectSet |> toPositionsList)
-                | Aardvark.VRVis.Opc.KdTrees.LazyKdTree kd ->       
-                  match kd.kdTree with
-                  | Some tree -> 
-                      (tree.KdIntersectionTree.ObjectSet |> toPositionsList)
-                  | None -> 
-                      let triangles = (DebugKdTreesX.loadTriangles kd)
-                      let lst : List<V3d> = List.ofSeq (triangles.Position3dList)
-                      Some lst
-        positions
+        match level0Tree with
+        | Aardvark.VRVis.Opc.KdTrees.InCoreKdTree kd -> 
+            kd.kdTree.KdIntersectionTree.ObjectSet |> toPositionsList (kd.kdTree.Trafo * surfaceTrafo)
+        | Aardvark.VRVis.Opc.KdTrees.LazyKdTree kd ->       
+            match kd.kdTree with
+            | Some tree -> 
+                tree.KdIntersectionTree.ObjectSet |> toPositionsList (tree.Trafo * surfaceTrafo)
+            | None -> 
+                let triangles = DebugKdTreesX.loadTriangles kd
+                let m = surfaceTrafo.Forward
+                triangles.Position3dList |> Seq.map (fun p -> m.TransformPos p) |> List.ofSeq |> Some
 
     let getSurfaceVerticesIn  (kdTree : HashMap<Box3d,KdTrees.Level0KdTree>)
                               (surfaceTrafo : Trafo3d)
@@ -151,7 +144,9 @@ module AreaComparison =
         let r = clamp 0.0 1.0 (dist / maxDist)
         C4b(r,1.0 - r,0.1 , 1.0)
 
-      let statisticsToGeometry (stats : AdaptiveVertexStatistics) (radius : float) =
+      /// Positions are made relative to `origin` (the area centre): instance trafos and
+      /// line vertices reach the GPU as float32, which cannot hold planetary coordinates.
+      let statisticsToGeometry (stats : AdaptiveVertexStatistics) (radius : float) (origin : V3d) =
         let scaleTrafo = Trafo3d.Scale radius
 
         let colors = 
@@ -163,14 +158,14 @@ module AreaComparison =
 
         let lines =
               AVal.map2 (fun p1 p2 -> (Array.zip p1 p2) 
-                                        |> Array.map (fun (a,b) -> Line3d(a,b))) 
+                                        |> Array.map (fun (a,b) -> Line3d(a - origin, b - origin))) 
                         stats.diffPoints1 stats.diffPoints2
 
         let colors = 
            colors |> AVal.map (fun colors -> colors@colors |> Array.ofSeq :> System.Array)
 
         let multTrafos (translation : V3d) (trafo : Trafo3d) =
-            trafo * (Trafo3d.Translation translation)
+            trafo * (Trafo3d.Translation (translation - origin))
        
         let trafos1 = 
           AVal.map2 (fun p (t : Trafo3d) -> p |> Array.map (fun (p : V3d) -> multTrafos p t))
@@ -224,16 +219,22 @@ module AreaComparison =
         Incremental.div ([] |> AttributeMap.ofList) (AList.ofAValSingle legend)
         
     let sgDifference (area : AdaptiveAreaSelection) =
-        AVal.map3 (fun stats visible radius -> 
-                          match stats, visible with
-                          | AdaptiveSome stats, true ->
-                              let attributes, lines = Instancing.statisticsToGeometry stats (radius * 0.05)
-                              Instancing.indexedSphere
-                                  |> Sg.ofIndexedGeometry
-                                  |> Sg.instanced' attributes
-                                  |> Sg.andAlso (Sg.lines (C4b.Grey |> AVal.constant) lines)
-                          | _,_ -> Sg.empty
-        ) area.statistics area.visible area.radius
+        adaptive {
+            let! stats   = area.statistics
+            let! visible = area.visible
+            let! radius  = area.radius
+            let! origin  = area.location
+            match stats, visible with
+            | AdaptiveSome stats, true ->
+                let attributes, lines = Instancing.statisticsToGeometry stats (radius * 0.05) origin
+                return
+                    Instancing.indexedSphere
+                        |> Sg.ofIndexedGeometry
+                        |> Sg.instanced' attributes
+                        |> Sg.andAlso (Sg.lines (C4b.Grey |> AVal.constant) lines)
+                        |> Sg.trafo (AVal.constant (Trafo3d.Translation origin))
+            | _,_ -> return Sg.empty
+        }
 
     let sgAllDifferences (areas : amap<System.Guid, AdaptiveAreaSelection>) =
         areas |> AMap.toASet
@@ -284,12 +285,17 @@ module AreaComparison =
                                                                            (FastRay3d(ray)) 
                                                                            surfFilter 
                                                                            cache
-                                                                           true
+                                                                           false
                 cache <- c
                 hitInfo |> Option.map (fun info -> (info.hit.RayHit.T, info.surface))
 
+            // Rays start at the centre of both surfaces together: for a local patch compared
+            // against a global model, the patch's own centre lies on the surface and every ray
+            // would run tangentially.
+            let sphericalRayOrigin = Box3d(sgSurface1.globalBB, sgSurface2.globalBB).Center
+
             let calcDistanceRound (localPoint : V3d) =
-                let raysFrom : V3d = sgSurface1.globalBB.Center
+                let raysFrom : V3d = sphericalRayOrigin
                 let direction : V3d = (localPoint - raysFrom) //((localPoint - fromPoint).Normalized)
                 let direction = direction.Normalized
                 let ray = new Ray3d (raysFrom, direction)
@@ -301,16 +307,21 @@ module AreaComparison =
                     let hit1 = ray.GetPointOnRay(t1)                         
                     let hit2 = ray.GetPointOnRay(t2)     
                     let dist = hit1.Distance hit2 
-                    points <- points@[hit1, hit2]
+                    points <- (hit1, hit2) :: points
                     Some (dist)
                 |  _, _ ->
                     Log.line "[RayCastSurface] no hit in direction %s" (direction.ToString ())
                     None
 
+            // One plane per area (fitting it per vertex made this quadratic), on the denser
+            // surface: a coarse model has only a few vertices in a small area, and a plane
+            // through 3-4 points can come out nearly tangent to the terrain.
+            let fittedPlane = lazy (PlaneFitting.planeFit biggerList)
+
             let calcDistanceFlat (localPoint : V3d) =
-                let fittedPlane = PlaneFitting.planeFit smallerList
-                let direction = fittedPlane.Normal
-                let fromPoint = localPoint + direction
+                let direction = fittedPlane.Value.Normal
+                // offset by the area radius, not one model unit (1 km on a km-scale model)
+                let fromPoint = localPoint + direction * area.radius
                 let rayPosDir = new Ray3d (fromPoint, direction)
                 let hitInfo1Pos = sendRay rayPosDir surfaceFilter1
                 let hitInfo2Pos = sendRay rayPosDir surfaceFilter2
@@ -342,11 +353,15 @@ module AreaComparison =
                     let hit1 = ray1.GetPointOnRay(t1)                         
                     let hit2 = ray2.GetPointOnRay(t2)     
                     let dist = hit1.Distance hit2 
-                    points <- points@[hit1, hit2]
+                    points <- (hit1, hit2) :: points
                     Some (dist)
                 |  _, _ ->
                     Log.line "[RayCastSurface] no hit in direction %s" (direction.ToString ())
                     None
+
+            Log.line "[Comparison] %s: %d / %d vertices (%s / %s), plane normal %s, spherical origin %s"
+                area.label vertices1.Length vertices2.Length surface1.name surface2.name
+                (fittedPlane.Value.Normal.ToString()) (sphericalRayOrigin.ToString())
 
             let calcDistance localPoint = 
                 match geometryType with
@@ -386,10 +401,10 @@ module AreaComparison =
                 // it would be better to let the user choose whether to apply this, because it could remove relevant data
                 let thresh = 8.0 * avgDistance
                 let noOutliersDistances =
-                    indexedDistances |> List.filter (fun (i, d) -> d < thresh)
+                    indexedDistances |> List.filter (fun (i, d) -> d <= thresh)
                 let noOutliersPoints =
-                    points |> List.zip (indexedDistances |> List.map snd)
-                           |> List.filter (fun (d, _) -> d < thresh)
+                    List.rev points |> List.zip (indexedDistances |> List.map snd)
+                           |> List.filter (fun (d, _) -> d <= thresh)
                            |> List.map snd
 
                 let maxDistance = noOutliersDistances |> List.maxBy (fun (i,x) -> x) |> snd

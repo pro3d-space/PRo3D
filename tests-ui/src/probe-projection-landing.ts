@@ -79,8 +79,8 @@ async function settled(page: Page, name: string): Promise<Buffer> {
     await settled(render, `${label}-loaded.png`);
 
     // PRO3D_PROBE_FOCAL sets "Focal (mm)" on the Config page, which drives the
-    // INTERACTIVE view's frustum (hfov = 2*atan(11.84/(2*focal))). 122.563 mm is
-    // HERA/AFC-1's 5.5307 degrees, i.e. looking through the instrument.
+    // INTERACTIVE view's frustum (hfov = 2*atan(11.84/(2*focal))). 123.247 mm is
+    // HERA/AFC-1's 5.5 degrees, i.e. looking through the instrument.
     // Near/Far matter as much as the focal here: at the instrument's own distance the body
     // sits ~8 km out, and a far plane inside that clips it away entirely -- an empty frame
     // that looks exactly like a broken projection. Both rebuild m.frustum (Viewer.fs:
@@ -252,8 +252,9 @@ async function settled(page: Page, name: string): Promise<Buffer> {
     );
     await gis.locator("text=Import Directory").first().click();
 
-    // "Orientation Source": Spice (the default -- boresight forced onto the body
-    // centre, arbitrary roll) vs MbiBased (the image's measured attitude)
+    // "Orientation Source", by dropdown label (OrientationSource.label; the option
+    // values are indices, not enum names): e.g. "SPICE, aimed at target" (boresight
+    // forced onto the body centre) vs "MBI (SC_QUAT + TRG_POS)" (the measured attitude)
     const method = process.env.PRO3D_PROBE_METHOD;
     if (method) {
         const r = await gis.evaluate((m) => {

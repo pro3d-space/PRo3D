@@ -6,6 +6,7 @@ The process for contributing to PRo3D is optimized for easy peer reviews by the 
  * Implement the feature in a feature branch `features/[issue#]_thename` or `bugs/[issue#]_bugname`
  * Document the feature: every feature must ship with a technical documentation page under [`docs/`](docs/) (one Markdown file per feature, e.g. `docs/MyFeature.md`). Update the page when the feature's behavior changes. AI-agent-facing documentation lives separately under [`ai/`](ai/) — see [AGENTS.md](AGENTS.md).
  * Create a PullRequest (PR), ask for contributors to review the PR and merge the PR when done. The PR is expected to include the corresponding `docs/` page.
- * For creating a new release, change the PRODUCT_RELEASE_NOTES.md / package.json accordingly. For details please look at https://github.com/pro3d-space/PRo3D/blob/main/docs/Build-Deploy-System.md 
+ * Add a release-note bullet for every user-visible change to [NEXT_RELEASE_NOTES.md](NEXT_RELEASE_NOTES.md), in the same PR. Do not add unreleased sections to PRODUCT_RELEASE_NOTES.md (the build reads every heading there as a version).
+ * For creating a new release, change the PRODUCT_RELEASE_NOTES.md / package.json accordingly: the new version's section takes the bullets collected in NEXT_RELEASE_NOTES.md, which is then emptied. For details please look at https://github.com/pro3d-space/PRo3D/blob/main/docs/Build-Deploy-System.md 
  * The CI will trigger a build and create a tag accordingly
  * Please put into the release - the version, humand readable description of the new features/fixes and references to issues etc. (in github choose the release, press  edit button, apply the changes and use "publish release")

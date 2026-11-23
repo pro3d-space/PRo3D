@@ -24,8 +24,26 @@ open Aardvark.SceneGraph
 open PRo3D.Extensions
 open PRo3D.Extensions.FSharp
 
+/// A sun direction given directly instead of computed by SPICE, for headless rendering
+/// of OPCs without a scene body (pro3d-tool render-view, docs/Pro3DTool-RenderView.md).
+///
+/// `Some d`: d (towards the sun, in the frame the surfaces are rendered in) is the sun
+/// direction of every surface, and surfaces without a SPICE body get sun shading and
+/// shadows like surfaces with one. The lighting mode still decides whether the sun is
+/// used at all. `None` (the default) leaves everything to SPICE.
+///
+/// Process-wide and not persisted, like LodOverride: no scene ever carries it.
+module SunOverride =
+
+    let direction : cval<Option<V3d>> = cval None
+
+    /// What surfaces without a SPICE body are observed as while the override is set: the
+    /// body name only gates whether a surface gets sun data (Viewer-Utils observedBody).
+    [<Literal>]
+    let BodyName = "SUN-OVERRIDE"
+
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
-module GisApp = 
+module GisApp =
     type GisLenses<'viewer> = 
         {
             surfacesModel   : Lens<'viewer, SurfaceModel>
@@ -65,7 +83,9 @@ module GisApp =
 
     let loadSpiceKernel (force : bool) (path : string) (m : GisApp) =
         match m.spiceKernel, force with
-        | Some s, false when s = CooTransformation.SPICEKernel.ofPath path -> m
+        // skip only a kernel that is already loaded: a failed one (also a failed
+        // --defaultSpiceKernel) must load when the same path is chosen again
+        | Some s, false when s = CooTransformation.SPICEKernel.ofPath path && m.spiceKernelLoadSuccess -> m
         | _ -> 
             if File.Exists path then
                 let directory = Path.GetDirectoryName path
@@ -81,7 +101,8 @@ module GisApp =
                             spiceKernelLoadSuccess = true}
             else
                 Log.line "[GisApp] Could not find path %s" path
-                {m with spiceKernelLoadSuccess = false}
+                {m with spiceKernel = Some (CooTransformation.SPICEKernel.ofPath path)
+                        spiceKernelLoadSuccess = false}
 
     let loadSpiceKernel' (m : GisApp) =
         match m.spiceKernel with
@@ -94,28 +115,6 @@ module GisApp =
         match m.spiceKernel with
         | Some kernel -> loadSpiceKernel true kernel.FullPath m
         | None -> m
-
-    /// Like loadSpiceKernel, but resets SPICE's kernel pool first (see
-    /// CooTransformation.switchKernel) instead of just adding on top of
-    /// whatever is already loaded. Used when switching to a kernel from a
-    /// possibly different mission phase (e.g. via LoadSpiceAndTime), where
-    /// layering would risk silently conflicting kernel data.
-    let loadSpiceKernelSwitching (path : string) (m : GisApp) =
-        if File.Exists path then
-            let directory = Path.GetDirectoryName path
-            let name = Path.GetFileName path
-            match CooTransformation.switchKernel directory name with
-            | None ->
-                Log.line "[GisApp] Could not load spice kernel %s" path
-                {m with spiceKernel = Some (CooTransformation.SPICEKernel.ofPath path)
-                        spiceKernelLoadSuccess = false}
-            | Some spiceKernel ->
-                Log.line "[GisApp] Successfully loaded spice kernel %s" path
-                {m with spiceKernel = Some spiceKernel
-                        spiceKernelLoadSuccess = true}
-        else
-            Log.line "[GisApp] Could not find path %s" path
-            {m with spiceKernelLoadSuccess = false}
 
     let getMissionTimeEntriesData () : list<MissionTimeEntry> = 
         let getNumericInput v = { min = 0.0; max = 1.0; step = 0.001; value = v; format = "{0:0.000}" }
@@ -147,7 +146,7 @@ module GisApp =
     let private setObservationTime (date : DateTime) (m : GisApp) =
         { m with defaultObservationInfo = ObservationInfo.update m.defaultObservationInfo (ObservationInfoAction.SetTime date) }
 
-    /// Scene time := the image's observation time (fly-to, Load Spice and Time).
+    /// Scene time := the image's observation time (fly-to).
     let private setObservationTimeToImage (mbi : InstrumentMetadata.Tiff_Mbi_Json.Mbi) (m : GisApp) =
         let current = Calendar.toUtc m.defaultObservationInfo.time.date
         let epoch = Calendar.toUtc mbi.obs_date
@@ -285,8 +284,8 @@ module GisApp =
         | GisAppAction.SetSpiceKernel path ->
             let m = loadSpiceKernel false path m
             viewer, m
-        | GisAppAction.ToggleCameraInObserver ->
-            viewer, {m with cameraInObserver = not m.cameraInObserver}
+        | GisAppAction.ToggleCameraFollowsSource ->
+            viewer, {m with cameraFollowsSource = not m.cameraFollowsSource}
         | GisAppAction.ToggleDrawMarkers -> 
             viewer, {m with showMarkers = not m.showMarkers }
         | GisAppAction.ProjectedImageListMessage (ProjectedImageListMessage.FlyToImage imageId) ->
@@ -300,36 +299,24 @@ module GisApp =
                 match InstrumentMetadata.tryParseMetadataForImagePath image.texture with
                 | Some mbi, _ -> viewer, setObservationTimeToImage mbi m
                 | None, _ -> viewer, m
-        | GisAppAction.ProjectedImageListMessage (ProjectedImageListMessage.LoadSpiceAndTime directory) ->
-            if String.IsNullOrEmpty directory then
-                viewer, m // user cancelled the folder dialog
-            else
-                let selectedTexturePath =
-                    m.projectedImageList.selectedImage
-                    |> Option.bind (fun id -> ProjectedImageListModel.tryFind id m.projectedImageList)
-                    |> Option.map (fun img -> img.texture)
-                match selectedTexturePath with
-                | None ->
-                    Log.warn "[GisApp] no image selected -- select an image before loading its spice kernel"
-                    viewer, m
-                | Some texturePath ->
-                    match InstrumentMetadata.tryParseMetadataForImagePath texturePath with
-                    | None, _ ->
-                        Log.warn "[GisApp] selected image has no mbi sidecar metadata"
-                        viewer, m
-                    | Some mbi, _ ->
-                        let m = setObservationTimeToImage mbi m
-                        match mbi.spiceMk with
-                        | None ->
-                            Log.warn "[GisApp] selected image's mbi sidecar does not declare a SPICE_MK kernel name"
-                            viewer, m
-                        | Some mkName ->
-                            match CooTransformation.tryFindSpiceKernelFile directory mkName with
-                            | None ->
-                                Log.warn "[GisApp] could not find kernel \"%s\" (.tm) under %s" mkName directory
-                                viewer, {m with spiceKernelLoadSuccess = false}
-                            | Some kernelPath ->
-                                viewer, loadSpiceKernelSwitching kernelPath m
+        // the clock in the image lists: the GIS time to the image's observation time,
+        // the camera stays where it is
+        | GisAppAction.ProjectedImageListMessage (ProjectedImageListMessage.SetTimeToImage imageId) ->
+            match ProjectedImageListModel.tryFind imageId m.projectedImageList with
+            | Some image when image.time <> DateTime.MinValue -> viewer, setObservationTime (image.time.ToUniversalTime()) m
+            | _ -> viewer, m
+        | GisAppAction.ProjectedImageListMessage (ProjectedImageListMessage.StacMessage (StacSearchMessage.SetTimeToCandidate itemId)) ->
+            match m.projectedImageList.stacSearch.candidates |> IndexList.tryFind (fun _ c -> c.itemId = itemId) with
+            | Some c -> viewer, setObservationTime (c.time.ToUniversalTime()) m
+            | None -> viewer, m
+        | GisAppAction.ProjectedImageListMessage (ProjectedImageListMessage.StacMessage (StacSearchMessage.FlyToCandidate itemId)) ->
+            // as FlyToImage, from the result's downloaded metadata (the check fetched it)
+            match m.projectedImageList.stacSearch.candidates |> IndexList.tryFind (fun _ c -> c.itemId = itemId) with
+            | None -> viewer, m
+            | Some c ->
+                match InstrumentMetadata.tryParseMetadataForImagePath (PRo3D.GIS.StacSearch.localImagePath c.itemId c.assets) with
+                | Some mbi, _ -> viewer, setObservationTimeToImage mbi m
+                | None, _ -> viewer, m
         | GisAppAction.ProjectedImageListMessage msg ->
             viewer, {m with projectedImageList = ProjectedImageListApp.update m.projectedImageList msg }
         | GisAppAction.InitializeMissionTimeEntries ->
@@ -779,6 +766,16 @@ module GisApp =
                 | _ -> ()
             })
 
+    /// The Projected Images panel (`?page=projectedimages`): import, stack, library and
+    /// projection settings of the image list, plus the surfaces the projection refuses.
+    /// Its own docked tab, split out of the GIS View.
+    let viewProjectedImages (m : AdaptiveGisApp) (surfaces : AdaptiveSurfaceModel) =
+        div [] [
+            viewProjectionRefusals surfaces
+            ProjectedImageListApp.view m.projectedImageList ProjectedImageApp.view ProjectedImageApp.view2DRelative
+            |> UI.map GisAppAction.ProjectedImageListMessage
+        ]
+
     let view (m : AdaptiveGisApp)
              (planet : aval<Planet>)
              (surfaces : AdaptiveSurfaceModel)
@@ -807,6 +804,18 @@ module GisApp =
                     ()
             }
         div [] [ 
+            // the kernel is loaded from the top bar (next to Reference System) or the
+            // main menu; same hint as the Projected Images panel
+            // stays at the top while the panel scrolls (.pro3d-info-bar, semui-overrides.css)
+            div [clazz "pro3d-info-bar"] [
+                // underlined: the term has a tooltip saying where the kernel is set
+                text "ensure that the correct "
+                span [style "text-decoration: underline; text-underline-offset: 2px; cursor: help"
+                      attribute "title" "Load it in the top bar: Load SPICE kernel, next to Reference System"] [
+                    text "SPICE kernel"
+                ]
+                text " is set for the image projection"
+            ]
             div [clazz "ui inverted segment"] [ 
                 h5 [clazz "ui inverted horizontal divider header"
                     style "padding-top: 1rem"] 
@@ -826,40 +835,18 @@ module GisApp =
                 viewFrames m
             ]
 
-            GuiEx.accordion "Projected Images" "Images" false [
-                viewProjectionRefusals surfaces
-                ProjectedImageListApp.view m.projectedImageList ProjectedImageApp.view ProjectedImageApp.view2DRelative |> UI.map GisAppAction.ProjectedImageListMessage
-            ]
-            
-            let kernelPathTextBox = 
-                div [clazz "fullwidth textcontainer"] [
-                    Html.SemUi.textBox 
-                        (m.spiceKernel 
-                            |> AVal.map (function Some p -> p.FullPath | _ -> "PRo3D Default Spice Kernel Path")
-                        )
-                        GisAppAction.SetSpiceKernel 
-                ]
-
-            let kernelStatusIcon =
-                let attributes = 
-                    amap {
-                        let! ok = m.spiceKernelLoadSuccess
-                        if ok then
-                            yield clazz "ui green check icon"
-                        else
-                            yield clazz "ui red exclamation icon"
-                    } |> AttributeMap.ofAMap
-
-                Incremental.i attributes AList.empty
-
             GuiEx.accordion "Settings" "" false [
                 require GuiEx.semui (
                     Html.table [ 
-                        Html.row "Path to Spice Kernel" 
-                                 [kernelPathTextBox;kernelStatusIcon]
                         Html.row "Show Markers" [GuiEx.iconCheckBox m.showMarkers ToggleDrawMarkers]
-                        Html.row "Animation Camera in Observer"
-                                 [GuiEx.iconCheckBox m.cameraInObserver ToggleCameraInObserver]
+                        Html.row "Camera follows camera source body"
+                                 [GuiEx.iconCheckBox m.cameraFollowsSource ToggleCameraFollowsSource]
+                        // lights the whole scene, projections included: Off shows a projected
+                        // image as it is (no relief), the sun shades it by the terrain.
+                        // Kept in the projected-image model (scenes, render tools).
+                        Html.row "Sun / Lighting Mode"
+                                 [Html.SemUi.dropDown m.projectedImageList.lightingMode
+                                      (fun mode -> ProjectedImageListMessage (ProjectedImageListMessage.SetLightingMode mode))]
                     ]
                 )
             ]
@@ -1156,29 +1143,36 @@ module GisApp =
     /// Mars in IAU_MARS). None while the lighting mode is Off, where nothing reads it:
     /// every surface of a scene body inherits a reference system (#758), and a SPICE query
     /// per surface and time step is neither free nor quiet without an ephemeris kernel.
+    /// SunOverride.direction, when set, replaces the SPICE computation for every surface.
     let getSunDirection (m: AdaptiveGisApp) (s : SurfaceId) =
-        let observer = m.defaultObservationInfo.observer 
+        let observer = m.defaultObservationInfo.observer
         let time = m.defaultObservationInfo.time.date
         let targetReferenceFrame = m.defaultObservationInfo.referenceFrame
         let lit =
             m.projectedImageList.lightingMode
-            |> AVal.map (fun mode -> mode <> PRo3D.ImageMapping.LightingMode.Off)
-        (lit, getSpiceReferenceSystemAdaptive m s)
-        ||> AVal.map2 (fun lit r -> if lit then r else None)
-        |> AVal.bind (function
-            | None -> AVal.constant None
-            | Some r -> 
-                (observer, targetReferenceFrame, time) |||> AVal.map3 (fun observer targetReferenceFrame time ->
-                    match observer, targetReferenceFrame with
-                    | Some observer, Some targetReferenceFrame ->
-                        let bodyPos = CooTransformation.transformBody r.body (Some r.referenceFrame) observer targetReferenceFrame time
-                        let sunPos = CooTransformation.transformBody (EntitySpiceName "SUN") (Some r.referenceFrame) observer targetReferenceFrame time
-                        match sunPos, bodyPos with
-                        | Some sunPos, Some bodyPos -> sunPos.position - bodyPos.position |> Vec.normalize |> Some
+            |> AVal.map PRo3D.ImageMapping.LightingMode.isSun
+        let spice =
+            (lit, getSpiceReferenceSystemAdaptive m s)
+            ||> AVal.map2 (fun lit r -> if lit then r else None)
+            |> AVal.bind (function
+                | None -> AVal.constant None
+                | Some r -> 
+                    (observer, targetReferenceFrame, time) |||> AVal.map3 (fun observer targetReferenceFrame time ->
+                        match observer, targetReferenceFrame with
+                        | Some observer, Some targetReferenceFrame ->
+                            let bodyPos = CooTransformation.transformBody r.body (Some r.referenceFrame) observer targetReferenceFrame time
+                            let sunPos = CooTransformation.transformBody (EntitySpiceName "SUN") (Some r.referenceFrame) observer targetReferenceFrame time
+                            match sunPos, bodyPos with
+                            | Some sunPos, Some bodyPos -> sunPos.position - bodyPos.position |> Vec.normalize |> Some
+                            | _ -> None
                         | _ -> None
-                    | _ -> None
-                )
-        )
+                    )
+            )
+        SunOverride.direction
+        |> AVal.bind (function
+            | Some d -> lit |> AVal.map (fun lit -> if lit then Some (Vec.normalize d) else None)
+            | None -> spice)
+
         
     let getObserver (v : ObservationInfo) =
         match v.observer, v.referenceFrame with
@@ -1212,6 +1206,25 @@ module GisApp =
     let lookAtObserver (m : GisApp) =
         lookAtObserver' m.defaultObservationInfo
 
+    /// Whether `msg`, applied to give `m`, re-aims the camera from the camera source body
+    /// (lookAtObserver). Choosing bodies or frame and "Re-use settings above" always do;
+    /// a time change - calendar or mission time table - only while cameraFollowsSource is
+    /// on. Fly-to moves the time too but frames the camera itself.
+    let reaimsCamera (m : GisApp) (msg : GisAppAction) =
+        match msg with
+        | GisAppAction.ObservationInfoMessage (ObservationInfoAction.Reset
+                                              | ObservationInfoAction.SetTarget _
+                                              | ObservationInfoAction.SetObserver _
+                                              | ObservationInfoAction.SetReferenceFrame _) ->
+            true
+        | GisAppAction.ObservationInfoMessage (ObservationInfoAction.CalendarMessage _
+                                              | ObservationInfoAction.SetTime _)
+        | GisAppAction.SetTime _
+        | GisAppAction.SetMissionTimesRowAndSetDate _ ->
+            m.cameraFollowsSource
+        | _ ->
+            false
+
     let viewGisEntities (cam : aval<Camera>) (m : AdaptiveGisApp) =
         let observer = m.defaultObservationInfo.observer 
         let observerWithDefault = observer |> AVal.map (Option.defaultValue (EntitySpiceName "mars"))
@@ -1221,7 +1234,8 @@ module GisApp =
         |> Sg.onOff (observer |> AVal.map Option.isSome)
 
 
-    let initial (spiceKernel : option<string>) : GisApp =
+    /// `spiceKernel`: the startup kernel and whether it loaded (CooTransformation.startupKernel).
+    let initial (spiceKernel : Option<string * bool>) : GisApp =
         let entities =
             [
                 Entity.earth.spiceName,     Entity.earth 
@@ -1258,19 +1272,16 @@ module GisApp =
                 newEntity               = None
                 newFrame                = None
                 defaultObservationInfo  = ObservationInfo.initial
-                spiceKernel             = spiceKernel |> Option.map CooTransformation.SPICEKernel.ofPath  
-                spiceKernelLoadSuccess  = true
-                cameraInObserver        = false
+                spiceKernel             = spiceKernel |> Option.map (fst >> CooTransformation.SPICEKernel.ofPath)
+                spiceKernelLoadSuccess  = spiceKernel |> Option.forall snd
+                cameraFollowsSource     = true
                 projectedImageList      = ProjectedImageListModel.initial //{ ProjectedImages.initial with images = Directory.EnumerateFiles(@"C:\pro3ddata\HERA\simulated") |> Seq.map (fun a -> { fullName = a }) |> IndexList.ofSeq }
                 showMarkers             = false
                 selectedMissionTimeRow  = None
                 missionTimesEntries     = Some (IndexList.ofList missionTimeEntries)
             }
 
-        match spiceKernel with
-        | Some spiceKernel ->
-            loadSpiceKernel false spiceKernel m
-        | None ->
-            m
+        // initCooTrafo has already loaded (or failed to load) the startup kernel
+        m
 
 
