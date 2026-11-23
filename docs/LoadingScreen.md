@@ -2,8 +2,8 @@
 
 Every render control shows a boot screen while it is connecting and waiting for its
 first frame: the PRo3D logo on the viewer's own background, a "powered by Aardvark"
-credit with a "PRo3D by VRVis and open source contributors" byline under it, and a
-thin progress bar along the bottom edge.
+credit with a "PRo3D by VRVis and open source contributors" byline under it, a
+**Refresh** button, and a thin progress bar along the bottom edge.
 
 ![The PRo3D boot screen in the main render view](images/loadingScreen.png)
 
@@ -26,8 +26,9 @@ PRo3D restyles that element rather than replacing it:
 |------|------|
 | [`src/PRo3D.Viewer/resources/pro3d-loader.css`](../src/PRo3D.Viewer/resources/pro3d-loader.css) | Overrides `div.aardvark > div.loader`: artwork, background colour, hides the dots, draws the progress bar. |
 | [`src/PRo3D.Viewer/resources/pro3d-loader.svg`](../src/PRo3D.Viewer/resources/pro3d-loader.svg) | The artwork, self-contained (generated — see below). |
-| `Viewer.fs`, `viewerDependencies` | Pulls the stylesheet into every page. |
-| `PRo3D.Viewer.fsproj` | Embeds both files; they are served at `./resources/<name>`. |
+| [`src/PRo3D.Viewer/resources/pro3d-loader.js`](../src/PRo3D.Viewer/resources/pro3d-loader.js) | Adds the Refresh button to every loader that appears. |
+| `Viewer.fs`, `viewerDependencies` | Pulls the stylesheet and the script into every page. |
+| `PRo3D.Viewer.fsproj` | Embeds the three files; they are served at `./resources/<name>`. |
 
 Because the stylesheet is listed in `viewerDependencies`, it arrives through
 `aardvark.addReferences`, which resolves **before** the render control boots. The
@@ -40,6 +41,22 @@ Aardvark.UI does offer `RenderAttribute.customLoaderImage`. We do not use it: it
 injects its own "Powered by the Aardvark Platform" markup, which is malformed
 (unterminated `style` attribute) and sits inside the dot container. The credit is part
 of our artwork instead.
+
+## Refresh button
+
+A boot screen that does not go away is usually cured by reloading the page, so the
+loader carries a **Refresh** button under the artwork. It reloads the page, which is
+what the key it names does. The label shows that key for the platform: <kbd>F5</kbd>
+on Windows and Linux, <kbd>Fn</kbd>+<kbd>F5</kbd> on macOS.
+
+The loader is created by Aardvark.UI, not by us, so `pro3d-loader.js` watches the page
+with a `MutationObserver` and appends the button to every `div.aardvark > div.loader`
+that appears, including one that comes back after a dropped connection. The button
+stops its pointer events so they do not reach the render control as camera input.
+
+The button sits just under the artwork whatever size that is drawn at: the loader is a
+CSS size container and the button's `top` is computed from the artwork's width in
+`cqw`. In a render control less than 320px high it is hidden, leaving the artwork.
 
 ## The artwork
 

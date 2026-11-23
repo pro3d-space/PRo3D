@@ -25,6 +25,8 @@ div.aardvark > div.loader {
     background-size: min(760px, 72%) auto;
     background-position: center center;
     background-repeat: no-repeat;
+    /* lets the refresh button below follow the artwork's size (cqw/cqh) */
+    container-type: size;
 }
 
 /* the artwork carries the branding; the dots would only compete with it */
@@ -62,5 +64,61 @@ div.aardvark > div.loader::after {
     div.aardvark > div.loader::after {
         background-image: none;
         animation: none;
+    }
+}
+
+/* "Refresh" button under the artwork (added by pro3d-loader.js). The artwork is
+   centred and min(760px, 72%) wide at an aspect of 1160:752, so its lower edge
+   sits half of that height, min(760px, 72cqw) * 376/1160, below the centre. */
+div.aardvark > div.loader > .pro3d-loader-refresh {
+    position: absolute;
+    left: 50%;
+    top: calc(50% + 260px);   /* without container units: the artwork at full size */
+    top: calc(50% + min(760px, 72cqw) * 0.3241 + 14px);
+    transform: translateX(-50%);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    font: 13px/1.2 "Roboto Mono", monospace;
+    color: #9A9A9A;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 4px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+div.aardvark > div.loader > .pro3d-loader-refresh:hover,
+div.aardvark > div.loader > .pro3d-loader-refresh:focus-visible {
+    color: #FFFFFF;
+    border-color: #BED62F;
+    outline: none;
+}
+
+div.aardvark > div.loader > .pro3d-loader-refresh:hover svg {
+    color: #BED62F;
+}
+
+div.aardvark > div.loader > .pro3d-loader-refresh kbd {
+    font: inherit;
+    font-size: 11px;
+    padding: 1px 5px;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.06);
+}
+
+div.aardvark > div.loader > .pro3d-loader-refresh .pro3d-loader-keys {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    color: #7A7A7A;
+}
+
+/* a render control too short for artwork and button: keep the artwork */
+@container (max-height: 320px) {
+    div.aardvark > div.loader > .pro3d-loader-refresh {
+        display: none;
     }
 }
