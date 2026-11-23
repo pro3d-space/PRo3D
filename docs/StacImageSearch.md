@@ -162,7 +162,11 @@ Consequences of filtering after download:
   own check. Strict phase-angle, resolution or distance filters can leave fewer
   results than the catalog has; narrowing the Date range brings older ones in.
 - Each listed item's metadata is downloaded once (cached), also when the filters
-  then drop it.
+  then drop it. With a Distance filter that is every listed item (the catalog no
+  longer narrows by distance), plus a SPICE call for each sidecar without `TRG_POS`.
+- An item whose metadata could not be downloaded cannot be filtered: it is listed
+  red (with the reason) whatever the Phase Angle, Resolution or Distance filter
+  says, rather than silently hidden.
 
 ## Sun incidence (disabled)
 

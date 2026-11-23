@@ -38,9 +38,10 @@ module StacSearch =
             /// observation time range, UTC, inclusive; None = open
             from   : Option<DateTime>
             until  : Option<DateTime>
-            /// distance to the target, km, inclusive (the shared Distance filter);
-            /// None = any. Sent as hera:target_distance (AU), widened by
-            /// `distanceTolerance`: a pre-selection only, the exact check is PRo3D's.
+            /// distance to the target, km, inclusive; None = any. Sent as
+            /// hera:target_distance (AU), widened by `distanceTolerance`. The Image
+            /// Search (listFor) leaves it None: items without that property would never
+            /// be listed. The Distance filter is PRo3D's own check after download.
             distanceKm : Option<float * float>
             limit  : int
         }
@@ -291,8 +292,8 @@ module StacSearch =
                 | Some interval -> w.WriteString("datetime", interval)
                 | None -> ()
                 w.WriteNumber("limit", q.limit)
-                // CQL2 conditions, and-ed: the target, and the distance range (in AU,
-                // widened by distanceTolerance -- a pre-selection, see Query)
+                // CQL2 conditions, and-ed: the target, and the distance range when set
+                // (in AU, widened by distanceTolerance; listFor does not set it, see Query)
                 let targetClause (target : string) () =
                     w.WriteStartObject()
                     w.WriteString("op", "a_contains")
