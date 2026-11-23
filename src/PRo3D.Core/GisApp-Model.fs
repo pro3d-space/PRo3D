@@ -226,6 +226,8 @@ module GisAppJson =
                 // a scene without the field predates it: it had the camera light (Headlight)
                 lightingMode |> Option.map enum<LightingMode> |> Option.defaultValue LightingMode.Headlight
             let! (windingCorrection : Option<bool>) = Json.tryRead "windingCorrection"
+            // additive: what is projected (whole stack, selected, top of stack); absent = FullStack
+            let! (projectionStackMode : Option<int>) = Json.tryRead "projectionStackMode"
             // additive: only the folder is stored; the images themselves are
             // re-imported from it when the scene is applied (SceneLoader.updateGisApp)
             let! (imageDirectory : Option<string>) = Json.tryRead "projectedImagesDirectory"
@@ -250,6 +252,7 @@ module GisAppJson =
                     { ProjectedImageListModel.initial with
                         lightingMode = lightingMode
                         windingCorrection = Option.defaultValue false windingCorrection
+                        projectionMode = projectionStackMode |> Option.map enum<ProjectionStackMode> |> Option.defaultValue ProjectionStackMode.FullStack
                         imageDirectory = imageDirectory
                         pendingStack = Option.defaultValue [] stackFiles
                         instrumentFovs = InstrumentFov.withOverrides fovs }
@@ -278,6 +281,9 @@ type GisApp with
             // a property of the scene's OPCs, so it travels with the scene (and into
             // PRo3D.Snapshots) like the lighting mode
             do! Json.write "windingCorrection"       x.projectedImageList.windingCorrection
+            // what is projected; travels with the scene (and into PRo3D.Snapshots) like
+            // the lighting mode. Older releases ignore the key.
+            do! Json.write "projectionStackMode"     (int x.projectedImageList.projectionMode)
             // new key, written only when set: older releases ignore it
             match x.projectedImageList.imageDirectory with
             | Some dir -> do! Json.write "projectedImagesDirectory" dir

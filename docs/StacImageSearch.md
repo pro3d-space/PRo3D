@@ -36,12 +36,15 @@ the GIS tab under *Projected Images → Image Search (STAC)*.
    back and forth on the spot does not restart a running search.
 
    The list has the Image Library's columns, so both read the same. Above each
-   row: the product name (red when its pointing could not be resolved).
+   row is the product name (red when its pointing could not be resolved). Click it
+   to **select** the image: it is downloaded if needed, added to the library (not to
+   the stack), and shown under *Selected Image*. The selected row is highlighted
+   blue, as in the library. A second click deselects it.
 
    | column | meaning |
    |---|---|
    | Preview | the catalog's overview image |
-   | Add | download the image, add it to the library and put it on top of the projection stack |
+   | Add | **+**: download the image, add it to the library, select it and put it on top of the projection stack. Once the image is on the stack, the cell shows the stack icon, as in the library; click it to take the image off the stack |
    | Go to | the arrow flies to the image's camera (once the row is checked: it needs the downloaded metadata) and moves the scene time to the image's; the clock only sets the GIS time to the image's observation time (the catalog's, no download needed), the camera stays |
    | **Instr.** | instrument, from the image's metadata (the catalog's name before the check) |
    | **Distance** | distance to the target's centre, from the metadata — as in the library and the Distance filter |
@@ -53,25 +56,34 @@ the GIS tab under *Projected Images → Image Search (STAC)*.
    the point itself (range to the surface point, pixel size there) is in the
    row's tooltip.
 
-   **Hover a row** to see, in the 3D view, the image's frustum and its footprint outline on the
-   surface, the same as for a hovered library image. They come from the
-   sidecar the check downloaded, so nothing is fetched; the image itself is
-   not projected until the row is clicked. A red row has no frustum.
+   **Hover a row** to see, in the 3D view, the image's frustum and its footprint
+   outline on the surface, the same as for a hovered library image. They come
+   from the sidecar the check downloaded, so they appear at once. Rest on the row
+   for 0.3 s and the image itself is downloaded (a spinner in the + cell) and
+   **projected as a preview**, on top of the stack, like a hovered library
+   image. The preview is not added to the library or the stack, and it goes
+   when the mouse leaves the row. Sweeping quickly over the list downloads
+   nothing. An image downloaded once is previewed at once the next time. A red
+   row has no frustum and no preview. *Projection Settings → Projection* decides
+   whether the preview shows over the stack or alone
+   ([MultiImageProjection.md](MultiImageProjection.md), *Projection Settings*).
 
 5. **Add** (the row's + cell): its files are downloaded to a folder of its own under
-   `%TEMP%\PRo3D\stac\`, the image is added to the library and put on top of
-   the projection stack. A second click on the same image does not download it
-   again. Select it in the Image Library to edit its display settings. Added
-   images are **not saved with the scene**: they are not in the library's
-   imported folder, so reopening the scene leaves them out of the stack.
+   `%TEMP%\PRo3D\stac\`, the image is added to the library, selected, and put
+   on top of the projection stack. An image already downloaded (previewed or
+   selected) is not downloaded again. Added images are **not saved with the
+   scene**: they are not in the library's imported folder, so reopening the
+   scene leaves them out of the stack.
 
 Rows in red have no usable pointing. The message says why, e.g. the sidecar
 carries no attitude. Such an image would not project either; the status line
 counts them apart from the images found.
 
-The **eraser** clears the results and stops a running search. The **bin**
-deletes the downloaded files (`%TEMP%\PRo3D\stac`); the next search downloads
-what it needs again. Nothing else ever removes them.
+The **eraser** clears the results and their previews, and stops a running
+search. The **bin** deletes the downloaded files (`%TEMP%\PRo3D\stac`) and
+removes the images downloaded from the catalog from the library, the stack and
+the selection. The next search downloads what it needs again. Nothing else
+ever removes the files.
 
 Downloads: one file is downloaded once, however many searches and clicks ask
 for it at the same time; a download that does not complete within five minutes

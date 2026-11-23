@@ -3059,11 +3059,21 @@ module ViewerApp =
                 | Result.Ok filter -> (stacWorker mailbox).Rerun filter
                 | Result.Error _ -> ()
             | Gis.GisAppAction.ProjectedImageListMessage (PRo3D.ImageMapping.ProjectedImageListMessage.StacMessage stac) ->
-                match stac with
-                | PRo3D.ImageMapping.StacSearchMessage.Fetch itemId when not (HashSet.contains itemId downloadingBefore) && HashSet.contains itemId stacAfter.downloading ->
-                    match gisApp.projectedImageList.stacSearch.candidates |> IndexList.tryFind (fun _ c -> c.itemId = itemId) with
+                // a download the model just asked for (+, a click on the name, a hover
+                // preview: Fetch, SelectCandidate, PreviewDue) runs on the worker
+                let started = HashSet.difference stacAfter.downloading downloadingBefore
+                for itemId in started do
+                    match stacAfter.candidates |> IndexList.tryFind (fun _ c -> c.itemId = itemId) with
                     | Some c -> (stacWorker mailbox).Fetch(itemId, c.assets)
                     | None -> ()
+                match stac with
+                // the mouse entered a row whose image is not here yet: preview it after a short rest
+                | PRo3D.ImageMapping.StacSearchMessage.HoverCandidate (Some itemId)
+                    when stacAfter.hovered = Some itemId
+                         && (PRo3D.ImageMapping.ProjectedImageListApp.stacImage itemId gisApp.projectedImageList).IsNone
+                         && not (HashSet.contains itemId stacAfter.downloading)
+                         && PRo3D.ImageMapping.StacSearchModel.isConnected stacAfter ->
+                    (stacWorker mailbox).PreviewAfter itemId
                 // the connection: the attempts run on the worker, off this thread
                 | PRo3D.ImageMapping.StacSearchMessage.Connect when stacAfter.connection = PRo3D.ImageMapping.Connecting && stacBefore.connection <> PRo3D.ImageMapping.Connecting ->
                     (stacWorker mailbox).Connect(stacAfter.serverUrl, None)

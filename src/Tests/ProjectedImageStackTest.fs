@@ -69,6 +69,142 @@ let tests () =
             }
         ]
 
+        testList "projectionMode" [
+            let a = mkImage "a" 1.0 DateTime.MinValue
+            let b = mkImage "b" 2.0 DateTime.MinValue
+            let c = mkImage "c" 3.0 DateTime.MinValue
+            let m = { mkModel [a; b; c] with stack = IndexList.ofList [a.id; b.id]; selectedImage = Some c.id }
+            let eff (m : ProjectedImageListModel) = ProjectedImageListModel.effectiveStack m |> IndexList.toList
+
+            test "FullStack: the stack, the hover on top" {
+                Expect.equal (eff m) [a.id; b.id] "the whole stack"
+                Expect.equal (eff { m with hoveredImage = Some c.id }) [a.id; b.id; c.id] "hover previewed on top"
+            }
+            test "Selected: the selected image only, the hovered one instead while hovered" {
+                let m = { m with projectionMode = ProjectionStackMode.Selected }
+                Expect.equal (eff m) [c.id] "the selected image, though not on the stack"
+                Expect.equal (eff { m with hoveredImage = Some a.id }) [a.id] "the hovered image alone"
+                Expect.isEmpty (eff { m with selectedImage = None }) "nothing selected: nothing projected"
+            }
+            test "FirstInStack: the top of the stack only, the hovered one instead while hovered" {
+                let m = { m with projectionMode = ProjectionStackMode.FirstInStack }
+                Expect.equal (eff m) [b.id] "the top layer"
+                Expect.equal (eff { m with hoveredImage = Some c.id }) [c.id] "the hovered image alone"
+                Expect.isEmpty (eff { m with stack = IndexList.empty }) "an empty stack: nothing projected"
+            }
+            test "FirstInStack: a drag shows the top the drop would give" {
+                let m = { m with projectionMode = ProjectionStackMode.FirstInStack; hoveredImage = Some a.id; stackDrag = Some { image = a.id; target = Some 1 } }
+                Expect.equal (eff m) [a.id] "a dragged to the top"
+                let m = { m with stackDrag = Some { image = b.id; target = Some 0 }; hoveredImage = Some b.id }
+                Expect.equal (eff m) [a.id] "b dragged to the bottom leaves a on top"
+            }
+        ]
+
+        testList "stacImages" [
+            let assets = { mbi = "http://127.0.0.1/x.mbi.json"; image = "http://127.0.0.1/x.png"; imageMetadata = None; overview = None }
+            let candidate (id : string) =
+                { itemId = id; collection = "c"; title = id; time = DateTime(2027, 3, 21); instrument = "AFC1"
+                  assets = assets; check = StacCheck.Checking; values = None }
+            let connected =
+                { mkModel [] with
+                    stacSearch =
+                        { StacSearchModel.initial with
+                            connection = Connected None
+                            candidates = IndexList.ofList [candidate "x"; candidate "y"] } }
+            let stac msg m = ProjectedImageListApp.update m (StacMessage msg)
+            // a download finished for a file already previewed: no loadFile, no disk
+            let withPreview (m : ProjectedImageListModel) =
+                let img = mkImage "C:/cache/x/x.png" 1.0 DateTime.MinValue
+                { m with stacPreviews = HashMap.single img.id img }, img
+
+            test "a preview is found by tryFind, so it renders like a library image" {
+                let m, img = withPreview connected
+                Expect.equal (ProjectedImageListModel.tryFind img.id m |> Option.map (fun i -> i.id)) (Some img.id) "found"
+            }
+
+            test "resting on a row downloads it; the finished download is a hover preview" {
+                let m = connected |> stac (HoverCandidate (Some "x"))
+                Expect.isNone m.hoveredImage "nothing to preview yet"
+                let m = m |> stac (PreviewDue "x")
+                Expect.isTrue (HashSet.contains "x" m.stacSearch.downloading) "downloading"
+                let m, img = withPreview m
+                let m = m |> stac (FetchFinished ("x", Ok img.texture))
+                Expect.isEmpty (m.images |> IndexList.toList) "not in the library"
+                Expect.isEmpty (stackIds m) "not on the stack"
+                Expect.equal m.hoveredImage (Some img.id) "previewed while hovered"
+                Expect.equal (ProjectedImageListModel.effectiveStack m |> IndexList.toList) [img.id] "projected"
+                let m = m |> stac (HoverCandidate None)
+                Expect.isEmpty (ProjectedImageListModel.effectiveStack m |> IndexList.toList) "gone when the mouse leaves"
+            }
+
+            test "PreviewDue for a row no longer hovered downloads nothing" {
+                let m = connected |> stac (HoverCandidate (Some "x")) |> stac (HoverCandidate None) |> stac (PreviewDue "x")
+                Expect.isEmpty (m.stacSearch.downloading |> HashSet.toList) "no download"
+            }
+
+            test "+ on a previewed row moves it to the library and stack, no download" {
+                let m, img = withPreview connected
+                let m = { m with stacSearch = { m.stacSearch with fetched = HashMap.single "x" img.id } }
+                let m = m |> stac (Fetch "x")
+                Expect.isEmpty (m.stacSearch.downloading |> HashSet.toList) "nothing downloaded"
+                Expect.equal (m.images |> IndexList.toList |> List.map (fun i -> i.id)) [img.id] "in the library, same id"
+                Expect.isTrue (HashMap.isEmpty m.stacPreviews) "no longer a preview"
+                Expect.equal (stackIds m) [img.id] "on the stack"
+            }
+
+            test "+ while downloading: library and stack when it finishes" {
+                let m = connected |> stac (Fetch "x")
+                Expect.isTrue (HashSet.contains "x" m.stacSearch.downloading) "downloading"
+                let m, img = withPreview m
+                let m = m |> stac (FetchFinished ("x", Ok img.texture))
+                Expect.equal (stackIds m) [img.id] "on the stack"
+                Expect.equal m.selectedImage (Some img.id) "selected"
+                Expect.isEmpty (m.stacSearch.addWhenFetched |> HashSet.toList) "request done"
+            }
+
+            test "a click on the name selects (library, not stack); again deselects" {
+                let m = connected |> stac (SelectCandidate "x")
+                let m, img = withPreview m
+                let m = m |> stac (FetchFinished ("x", Ok img.texture))
+                Expect.equal m.selectedImage (Some img.id) "selected"
+                Expect.equal (m.images |> IndexList.toList |> List.map (fun i -> i.id)) [img.id] "in the library"
+                Expect.isEmpty (stackIds m) "not on the stack"
+                let m = m |> stac (SelectCandidate "x")
+                Expect.isNone m.selectedImage "deselected"
+            }
+
+            test "a failed preview download sets no error status" {
+                let m = connected |> stac (HoverCandidate (Some "x")) |> stac (PreviewDue "x")
+                let m = m |> stac (FetchFinished ("x", Result.Error "timeout"))
+                Expect.equal m.stacSearch.status StacSearchStatus.Idle "status untouched"
+            }
+
+            test "the bin removes downloaded images from library and stack" {
+                let cached = mkImage (IO.Path.Combine(PRo3D.GIS.StacSearch.cacheDirectory (), "item_1234", "x.png")) 1.0 DateTime.MinValue
+                let local = mkImage "C:/data/a.png" 1.0 DateTime.MinValue
+                let m =
+                    { mkModel [local; cached] with
+                        stack = IndexList.ofList [local.id; cached.id]
+                        selectedImage = Some cached.id
+                        hoveredImage = Some cached.id }
+                let m = m |> stac ClearCache
+                Expect.equal (m.images |> IndexList.toList |> List.map (fun i -> i.id)) [local.id] "only the local image stays"
+                Expect.equal (stackIds m) [local.id] "stack likewise"
+                Expect.isNone m.selectedImage "selection gone"
+                Expect.isNone m.hoveredImage "hover gone"
+            }
+
+            test "clearing the results ends a hovered row's preview" {
+                let m, img = withPreview connected
+                let m = { m with stacSearch = { m.stacSearch with fetched = HashMap.single "x" img.id } }
+                let m = m |> stac (HoverCandidate (Some "x"))
+                Expect.equal (ProjectedImageListModel.effectiveStack m |> IndexList.toList) [img.id] "previewed"
+                let m = m |> stac ClearResults
+                Expect.isNone m.hoveredImage "hover gone with its row"
+                Expect.isEmpty (ProjectedImageListModel.effectiveStack m |> IndexList.toList) "nothing projected"
+            }
+        ]
+
         testList "stack actions" [
             test "AddToStack appends on top, ignores duplicates and unknown ids" {
                 let a = mkImage "a" 1.0 DateTime.MinValue
@@ -110,6 +246,36 @@ let tests () =
                 let m = { mkModel [a; b] with stack = IndexList.ofList [a.id; b.id] }
                 let m = ProjectedImageListApp.update m (RemoveFromStack a.id)
                 Expect.equal (stackIds m) [b.id] "only the removed id goes"
+            }
+
+            // the colleague's report: removing the last stack image left it projected,
+            // through every search and OPC reload. The stack row's ✕ removes the row
+            // under the mouse, which never gets its mouseleave.
+            test "RemoveFromStack of the hovered image projects nothing more" {
+                let a = mkImage "a" 1.0 DateTime.MinValue
+                let m = { mkModel [a] with stack = IndexList.ofList [a.id]; hoveredImage = Some a.id }
+                let m = ProjectedImageListApp.update m (RemoveFromStack a.id)
+                Expect.isEmpty (stackIds m) "the stack is empty"
+                Expect.isNone m.hoveredImage "its hover ended with it"
+                Expect.isEmpty (ProjectedImageListModel.effectiveStack m |> IndexList.toList) "nothing projected"
+            }
+
+            test "RemoveFromStack keeps another row's hover" {
+                let a = mkImage "a" 1.0 DateTime.MinValue
+                let b = mkImage "b" 2.0 DateTime.MinValue
+                let m = { mkModel [a; b] with stack = IndexList.ofList [a.id]; hoveredImage = Some b.id }
+                let m = ProjectedImageListApp.update m (RemoveFromStack a.id)
+                Expect.equal m.hoveredImage (Some b.id) "b is still hovered"
+            }
+
+            test "ClearHover (mouse left the panel) ends every hover, not a drag" {
+                let a = mkImage "a" 1.0 DateTime.MinValue
+                let m = { mkModel [a] with hoveredImage = Some a.id; stacSearch = { StacSearchModel.initial with hovered = Some "x" } }
+                let cleared = ProjectedImageListApp.update m ClearHover
+                Expect.isNone cleared.hoveredImage "no image hovered"
+                Expect.isNone cleared.stacSearch.hovered "no result row hovered"
+                let dragging = { m with stack = IndexList.ofList [a.id]; stackDrag = Some { image = a.id; target = None } }
+                Expect.equal (ProjectedImageListApp.update dragging ClearHover).hoveredImage (Some a.id) "the dragged row stays held"
             }
 
             test "sorting the library touches neither stack nor selection" {

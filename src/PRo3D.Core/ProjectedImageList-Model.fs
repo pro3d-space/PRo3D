@@ -170,6 +170,18 @@ type ProjectionMethod =
     | MbiBased = 1
     | MbiAttitudeSpiceRange = 2
 
+/// What is projected (Projection Settings -> Projection). Saved with the scene as its
+/// number (GisApp "projectionStackMode"); a scene without it is FullStack.
+/// - FullStack: every stack image, the top one wins where they overlap; a hovered
+///   image is previewed on top.
+/// - Selected: only the selected image; a hovered image is shown instead while hovered.
+/// - FirstInStack: only the stack's top image; a hovered image is shown instead while
+///   hovered.
+type ProjectionStackMode =
+    | FullStack = 0
+    | Selected = 1
+    | FirstInStack = 2
+
 /// Where a STAC item keeps the files a projection needs. `mbi` and `image` are
 /// what the projection reads; the statistics sidecar and the overview are optional.
 type StacAssets =
@@ -357,8 +369,17 @@ type StacSearchModel =
         query        : Option<StacQueryPoint>
         status       : StacSearchStatus
         candidates   : IndexList<StacCandidate>
-        /// item ids whose files are being downloaded
+        /// item ids whose files are being downloaded (for +, a selection or a hover
+        /// preview)
         downloading  : HashSet<string>
+        /// item id -> the image its download became: in the library (+, selected)
+        /// or a hover preview (ProjectedImageListModel.stacPreviews). An id whose
+        /// image has gone since (a re-import) is not found by tryFind.
+        fetched      : HashMap<string, Guid>
+        /// items to put on the stack once their download finishes (+ clicked)
+        addWhenFetched : HashSet<string>
+        /// the item to select once its download finishes (its name clicked)
+        selectWhenFetched : Option<string>
         /// the result row under the mouse: its frustum and footprint are drawn like
         /// a hovered library image's (from the sidecar the check downloaded)
         hovered      : Option<string>
@@ -447,6 +468,9 @@ module StacSearchModel =
             status       = Idle
             candidates   = IndexList.empty
             downloading  = HashSet.empty
+            fetched      = HashMap.empty
+            addWhenFetched = HashSet.empty
+            selectWhenFetched = None
             hovered      = None
             connection   = Disconnected
             lastUser     = snd (remembered ())
@@ -767,9 +791,17 @@ type ProjectedImageListModel =
         /// wins. Holds ids into `images`, so sorting the library leaves it
         /// alone. Never longer than ProjectedImages.maxCount.
         stack                : IndexList<Guid>
-        /// Library or stack entry under the mouse. Previewed on top of the
-        /// stack and given a footprint; see ProjectedImageListModel.effectiveStack.
+        /// Library, stack or STAC result entry under the mouse. Previewed on top of
+        /// the stack and given a footprint; see ProjectedImageListModel.effectiveStack.
         hoveredImage         : Option<Guid>
+        /// Images downloaded only to preview a hovered STAC result: not in the
+        /// library, never saved. Found by tryFind like library images, so they
+        /// render the same; + or a click on the result's name moves one into
+        /// `images`. Read by rendering through Current only, hence NonAdaptive.
+        [<NonAdaptive>]
+        stacPreviews         : HashMap<Guid, ProjectedImageModel>
+        /// What is projected: the whole stack, the selected image or the stack's top.
+        projectionMode       : ProjectionStackMode
         /// A stack row being dragged; its drop position is previewed by
         /// effectiveStack. None when no drag is in progress.
         stackDrag            : Option<StackDrag>
@@ -828,8 +860,11 @@ module ProjectedImageListModel =
     let replaceImages (images : seq<ProjectedImageModel>) (m : ProjectedImageListModel) : IndexList<ProjectedImageModel> =
         IndexList.append m.images (IndexList.ofSeq images) |> IndexList.skip m.images.Count
 
+    /// A library image, else a STAC hover preview (stacPreviews).
     let tryFind (id : Guid) (m : ProjectedImageListModel) =
-        m.images |> IndexList.tryFind (fun _ i -> i.id = id)
+        match m.images |> IndexList.tryFind (fun _ i -> i.id = id) with
+        | Some i -> Some i
+        | None -> HashMap.tryFind id m.stacPreviews
 
     let isInStack (id : Guid) (m : ProjectedImageListModel) =
         m.stack |> IndexList.exists (fun _ i -> i = id)
@@ -864,17 +899,33 @@ module ProjectedImageListModel =
     /// the layer you see.
     /// While a stack row is dragged, the stack is shown as it would be after the
     /// drop (live preview); cancelling the drag simply clears stackDrag.
+    ///
+    /// projectionMode Selected / FirstInStack project one image only: the hovered
+    /// one while something is hovered (and no stack row is dragged), else the
+    /// selected image / the top of the (drag-previewed) stack.
     let effectiveStack (m : ProjectedImageListModel) : IndexList<Guid> =
         let committed =
             match m.stackDrag with
             | Some { image = id; target = Some p } -> moveInStack id p m.stack
             | _ -> m.stack
-        let stack =
-            match m.hoveredImage with
-            | Some h when not (isInStack h m) -> committed |> IndexList.add h
-            | _ -> committed
-        let overflow = stack.Count - ProjectedImages.maxCount
-        if overflow > 0 then stack |> IndexList.skip overflow else stack
+        let solo (fallback : Option<Guid>) =
+            let shown =
+                match m.stackDrag, m.hoveredImage with
+                | None, Some h -> Some h
+                | _ -> fallback
+            match shown with
+            | Some id -> IndexList.single id
+            | None -> IndexList.empty
+        match m.projectionMode with
+        | ProjectionStackMode.Selected -> solo m.selectedImage
+        | ProjectionStackMode.FirstInStack -> solo (committed |> IndexList.tryLast)
+        | _ ->
+            let stack =
+                match m.hoveredImage with
+                | Some h when not (isInStack h m) -> committed |> IndexList.add h
+                | _ -> committed
+            let overflow = stack.Count - ProjectedImages.maxCount
+            if overflow > 0 then stack |> IndexList.skip overflow else stack
 
     let private fileKey (path : string) = (System.IO.Path.GetFileName path).ToLowerInvariant()
 
@@ -917,6 +968,8 @@ module ProjectedImageListModel =
         pendingStack = [];
         stack = IndexList.Empty;
         hoveredImage = None;
+        stacPreviews = HashMap.empty;
+        projectionMode = ProjectionStackMode.FullStack;
         stackDrag = None;
         selectedImage = None;
         previewExpanded = true;
@@ -975,8 +1028,16 @@ type StacSearchMessage =
     /// The download is started by the Viewer (it owns the worker); this model
     /// only tracks that it is running.
     | Fetch         of itemId : string
-    /// Download finished: the local image path, or why it failed.
+    /// Download finished: the local image path, or why it failed. Goes to the
+    /// library (and stack / selection) when + or the name asked for it, else it is
+    /// a hover preview (stacPreviews).
     | FetchFinished of itemId : string * Result<string, string>
+    /// A click on a result's name: select its image (downloaded first if needed,
+    /// then in the library, not on the stack); the selected one again deselects.
+    | SelectCandidate of itemId : string
+    /// The mouse rested on a result row (the Viewer's dwell timer): download its
+    /// image to preview it, if the row is still hovered.
+    | PreviewDue of itemId : string
     | ClearResults
     /// The result row under the mouse, or None.
     | HoverCandidate of itemId : Option<string>
@@ -1031,6 +1092,10 @@ type ProjectedImageListMessage =
     /// Mouse entered/left a library or stack row; drives the preview layer and
     /// the footprint. None on leave.
     | HoverImage of Option<Guid>
+    /// The mouse left the whole panel: no row is hovered (also one that vanished
+    /// under the mouse, which never gets its mouseleave).
+    | ClearHover
+    | SetProjectionMode of ProjectionStackMode
     /// Frame this image's footprint. Handled by the Viewer (it owns the camera
     /// animation), not by ProjectedImageListApp.update.
     | FlyToImage of Guid

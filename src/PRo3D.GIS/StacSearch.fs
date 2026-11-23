@@ -901,6 +901,10 @@ module StacSearch =
     /// newer point leaves at most these behind (they finish into the cache).
     let downloadAhead = 16
 
+    /// How long the mouse rests on a result row before its image is downloaded for
+    /// the hover preview (docs/StacImageSearch.md).
+    let previewDwellMs = 300
+
     /// The server's items for the point: those whose footprint contains it; when
     /// there are none, the ones without any footprint (catalogs that have not
     /// computed footprints yet, e.g. for a newly visited body). The count is of the
@@ -1191,6 +1195,16 @@ module StacSearch =
                             with e -> return Result.Error e.Message
                         }
                     post (FetchFinished (itemId, result))
+                } :> Task) |> ignore
+
+        /// The mouse entered a result row whose image is not downloaded: after a short
+        /// rest, PreviewDue asks for it (the model drops it if the row is no longer
+        /// hovered), so sweeping over the list downloads nothing.
+        member _.PreviewAfter(itemId : string) =
+            Task.Run(fun () ->
+                task {
+                    do! Task.Delay previewDwellMs
+                    post (PreviewDue itemId)
                 } :> Task) |> ignore
 
         /// Ask the catalog, with this sign-in or none, off the update thread. On

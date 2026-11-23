@@ -16,3 +16,6 @@ release folds them into `PRODUCT_RELEASE_NOTES.md`.
 ## Pending
 
 - Projected images: **no longer shaded twice under the sun**: `SunDirect` and `SunShadow` leave a projected image unshaded, like the headlight, since the photograph already shows the sun's light and shadows; the surface around it is lit as before (docs/GisView.md, docs/MultiImageProjection.md)
+- Projected images: **removing the last image from the projection stack no longer leaves it projected**. Removing a stack row under the mouse kept it as the hover preview through new searches and OPC reloads, until PRo3D was restarted (docs/MultiImageProjection.md)
+- Projected images: **Projection Settings → Projection** chooses what is projected: the *Full Stack* (as before), only the *Selected* image, or only the *First in Stack*. A hovered image shows alone in the one-image modes. Saved with the scene (docs/MultiImageProjection.md)
+- Image Search (STAC): **hovering a result projects its image**: resting on a row for 0.3 s downloads the image and previews it like a hovered library image, without adding it to the library or the stack. **Clicking a result's name selects it** (highlighted; shown under *Selected Image*). A result on the stack shows the stack icon, which removes it. The bin also removes the downloaded images from the library and the stack (docs/StacImageSearch.md)
