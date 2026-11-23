@@ -20,7 +20,7 @@ if it is missing); the script uses it to crop the logo and encode it as JPEG.
 | Input | Used for |
 |-------|----------|
 | `data/logo_pro3d_big.png` | the photo (a 1024x560 band of it) and the "PRo3D" lettering, which is cut out as a mask |
-| `data/fonts/Roboto Mono/RobotoMono-Regular.ttf` | "POWERED BY AARDVARK", converted to outlines |
+| `data/fonts/Roboto Mono/RobotoMono-Regular.ttf` | "POWERED BY AARDVARK" and the "PRo3D by VRVis and open source contributors" byline, converted to outlines |
 | `aardvark-mark.json` | the aardvark silhouette and its transform |
 
 Everything is embedded, because an SVG used as a CSS `background-image` may not

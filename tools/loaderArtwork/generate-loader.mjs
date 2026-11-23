@@ -109,15 +109,21 @@ const TEXT = "POWERED BY AARDVARK";
 const SIZE = 34;
 const TRACK = 4.5;
 
-const advance = (ch) => (font.charToGlyph(ch).advanceWidth * SIZE) / font.unitsPerEm + TRACK;
-const textWidth = [...TEXT].reduce((w, ch) => w + advance(ch), 0) - TRACK;
+// the byline under the credit, smaller and dimmer
+const BYLINE = "PRo3D by VRVis and open source contributors";
+const BYLINE_SIZE = 22;
+const BYLINE_TRACK = 1.5;
 
-function textPath(x, y) {
+const advance = (ch, size, track) => (font.charToGlyph(ch).advanceWidth * size) / font.unitsPerEm + track;
+const widthOf = (text, size, track) => [...text].reduce((w, ch) => w + advance(ch, size, track), 0) - track;
+const textWidth = widthOf(TEXT, SIZE, TRACK);
+
+function textPath(text, size, track, x, y) {
     const glyphs = new opentype.Path();
     let cursor = x;
-    for (const ch of TEXT) {
-        glyphs.extend(font.getPath(ch, cursor, y, SIZE));
-        cursor += advance(ch);
+    for (const ch of text) {
+        glyphs.extend(font.getPath(ch, cursor, y, size));
+        cursor += advance(ch, size, track);
     }
     return glyphs.toPathData(2);
 }
@@ -143,6 +149,9 @@ const creditX = (W - creditW) / 2;
 const baseline = 690;
 const markY = baseline - MARK_H + 4;   // sit the animal on the text baseline
 
+const bylineX = (W - widthOf(BYLINE, BYLINE_SIZE, BYLINE_TRACK)) / 2;
+const bylineBaseline = 734;
+
 // scale the mark into the credit line, on top of its own matrix
 const place = [
     markScale * m[0], markScale * m[1],
@@ -158,7 +167,8 @@ const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" wid
 
     Photo:  a crop of data/logo_pro3d_big.png (the PRo3D logo), embedded as a
             data URI because an SVG used as a CSS background cannot load files.
-    Text:   Roboto Mono (Apache-2.0), data/fonts, converted to outlines.
+    Text:   Roboto Mono (Apache-2.0), data/fonts, converted to outlines:
+            the credit line and the "PRo3D by VRVis..." byline.
     Mark:   the aardvark silhouette from Aardvark.UI's resources/aardvark-light.svg
             (aardvark-platform/aardvark.media, Apache-2.0), brand green #BED62F.
   -->
@@ -194,7 +204,8 @@ const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" wid
   <g transform="matrix(${place.map((v) => v.toFixed(5)).join(",")})" fill="#BED62F">
     <path d="${mark.d}"/>
   </g>
-  <path fill="#9A9A9A" d="${textPath(creditX + markW + GAP, baseline)}"/>
+  <path fill="#9A9A9A" d="${textPath(TEXT, SIZE, TRACK, creditX + markW + GAP, baseline)}"/>
+  <path fill="#7A7A7A" d="${textPath(BYLINE, BYLINE_SIZE, BYLINE_TRACK, bylineX, bylineBaseline)}"/>
 </svg>
 `;
 

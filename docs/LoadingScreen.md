@@ -2,7 +2,8 @@
 
 Every render control shows a boot screen while it is connecting and waiting for its
 first frame: the PRo3D logo on the viewer's own background, a "powered by Aardvark"
-credit, and a thin progress bar along the bottom edge.
+credit with a "PRo3D by VRVis and open source contributors" byline under it, and a
+thin progress bar along the bottom edge.
 
 ![The PRo3D boot screen in the main render view](images/loadingScreen.png)
 
@@ -50,7 +51,8 @@ fonts:
   with a dark wash and a vignette, and masked so its edges melt into the background;
 - the "PRo3D" lettering is cut out of the same picture as a mask and painted again in
   pure white on top, so the vignette cannot grey it out;
-- "POWERED BY AARDVARK" is Roboto Mono converted to outlines;
+- "POWERED BY AARDVARK" and the byline "PRo3D by VRVis and open source contributors"
+  are Roboto Mono converted to outlines;
 - the aardvark silhouette comes from Aardvark.UI's own `resources/aardvark-light.svg`
   (Apache-2.0), in the brand green `#BED62F`.
 
