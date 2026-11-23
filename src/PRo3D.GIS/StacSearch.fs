@@ -67,9 +67,8 @@ module StacSearch =
             from      : Option<DateTime>
             until     : Option<DateTime>
             bounds    : ImageFilter.Bounds
-            // SUN INCIDENCE (disabled, see docs/StacImageSearch.md)
-            // /// sun incidence at the picked point, degrees, inclusive
-            // incidence : Range1d
+            /// sun incidence at the picked point, degrees, inclusive
+            incidence : Range1d
         }
 
     /// Whether an image's sun incidence at the picked point passes the filter. An
@@ -125,9 +124,9 @@ module StacSearch =
         // catalog's newest images of any time instead
         let from, until =
             Some (ImageFilter.timeOfKey f.time.lower.value), Some (ImageFilter.timeOfKey f.time.upper.value)
-        // SUN INCIDENCE (disabled, see docs/StacImageSearch.md)
-        // if s.incidenceMin > s.incidenceMax then Result.Error "the incidence range ends before it starts"
-        Ok { serverUrl = s.serverUrl; from = from; until = until; bounds = bounds }
+        if s.incidenceMin > s.incidenceMax then Result.Error "the incidence range ends before it starts"
+        else Ok { serverUrl = s.serverUrl; from = from; until = until; bounds = bounds
+                  incidence = Range1d(s.incidenceMin, s.incidenceMax) }
 
     /// The items worth checking by pointing alone when no footprint contains the
     /// point: those without a footprint (one with a footprint would have been found
@@ -1007,10 +1006,9 @@ module StacSearch =
                                 | _ when not passesFilters ->
                                     dropped <- { dropped with outsideFilters = dropped.outsideFilters + 1 }
                                     None
-                                // SUN INCIDENCE (disabled, see docs/StacImageSearch.md)
-                                // | Ok (Some m), _ when not (incidencePasses filter.incidence m.pointIncidenceDeg) ->
-                                //     dropped <- { dropped with outsideIncidence = dropped.outsideIncidence + 1 }
-                                //     None
+                                | Ok (Some m), _ when not (incidencePasses filter.incidence m.pointIncidenceDeg) ->
+                                    dropped <- { dropped with outsideIncidence = dropped.outsideIncidence + 1 }
+                                    None
                                 | Ok (Some m), _ -> Some (Resolved m)
                                 | Ok None, _ -> None
                                 | Result.Error e, ByFootprint -> Some (Unresolved e)

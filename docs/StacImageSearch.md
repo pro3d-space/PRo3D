@@ -53,7 +53,8 @@ the GIS tab under *Projected Images → Image Search (STAC)*.
 
    Instr., Distance, Date and Res. sort the list; a second click sorts the other
    way round, and the header shows the direction. What the check measured at
-   the point itself (range to the surface point, pixel size there) is in the
+   the point itself (range to the surface point, pixel size and sun incidence
+   there) is in the
    row's tooltip.
 
    **Hover a row** to see, in the 3D view, the image's frustum and its footprint
@@ -168,13 +169,17 @@ Consequences of filtering after download:
   red (with the reason) whatever the Phase Angle, Resolution or Distance filter
   says, rather than silently hidden.
 
-## Sun incidence (disabled)
+## Sun incidence
 
-The sun incidence filter (the angle at the picked point between the sun and the
-surface normal) is **disabled** for now: its code is commented out, marked
-`SUN INCIDENCE (disabled, see docs/StacImageSearch.md)`, and the model fields
-`incidenceMin`/`incidenceMax` are kept, so re-enabling it is uncommenting. The
-*inc.* column of the results is commented out with it. What it did:
+**Sun incidence** (in the Image Search section, below the catalog) keeps the
+images whose sun incidence at the picked point lies in the range, both ends
+included; the default 0°–90° keeps the images taken in daylight. The two ends
+stay ordered: raising the lower end above the upper one moves the upper end
+along, and vice versa. The incidence is
+the angle at the picked point between the sun and the surface normal. Changing the
+range searches the last point again. Each result's incidence is in its tooltip,
+next to the range and pixel size; the list has no column for it, because it shares
+its columns with the Image Library.
 
 Why incidence, and not sun elevation and azimuth: incidence is what planetary
 image searches filter on (PDS ODE, for instance, together with emission and
@@ -191,8 +196,14 @@ The incidence is measured against the loaded surface's normal at the point
 (the OPC triangle, in the body-fixed frame), with the sun position from the
 image's sidecar. On rough terrain that is the local facet, not a smooth body.
 An image without a sun position in its sidecar, or a point without a normal,
-passed the filter: it could not tell. Images dropped by the filter were counted
-in the status line.
+passes the filter: it cannot tell. Images dropped by the filter are counted in
+the status line (*off incidence*).
+
+No ray is cast for it: the normal is the one the pick already found, and only
+the sun direction differs per image. The incidence is therefore the one *at the
+picked point*, not at the image's centre or averaged over the image (what
+earlier versions measured with a boresight ray). Whether the point lies in a
+shadow cast by other terrain is not evaluated either.
 
 # What "shows the point" means
 
@@ -210,8 +221,9 @@ the image's own pointing, the same projector the projection uses (the
   terrain a facet tilted away from an oblique camera would drop an image that
   does show the point.
 
-No rays are cast: range, pixel size and incidence are measured from the
-camera to the picked point. Terrain that hides a point above the horizon (a crater
+No rays are cast: range and pixel size are measured from the camera to the
+picked point, the incidence from the picked normal and the sidecar's sun
+position (see [Sun incidence](#sun-incidence)). Terrain that hides a point above the horizon (a crater
 rim, a boulder at a grazing view) is not detected. Earlier versions cast an
 occlusion ray and a boresight ray per image; on a large OPC those rays loaded
 KdTree patches all over the body, more than the KdTree memory budget holds, so
