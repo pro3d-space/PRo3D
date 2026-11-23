@@ -1,3 +1,8 @@
+## 6.4.9
+Image Search finds images listed for other targets too (Other targets checkbox).
+
+- Image Search (STAC): **images listed for another body are found too** — new *Other targets* checkbox (on by default) also checks, by their pointing alone, the catalog's images of other targets in the Date range (e.g. a Didymos frame that shows Dimorphos); such a result shows the catalog's target after its name. Images whose target the loaded SPICE kernel cannot place relative to the surface's body are counted, not listed ([StacImageSearch.md](docs/StacImageSearch.md#images-of-other-targets))
+
 ## 6.4.8
 Image Search: hover preview, selectable results, Distance filter that works without catalog distances, sun incidence filter again; a projection mode (whole stack, selected or top image); SPICE orientation from the instrument frame with image axes from the instrument kernel; fixes for a SPICE crash, a stuck projected image and missing distances.
 

@@ -14,4 +14,3 @@ release folds them into `PRODUCT_RELEASE_NOTES.md`.
   and an empty list (docs/Build-Deploy-System.md).
 
 ## Pending
-- Image Search (STAC): **images listed for another body are found too** — new *Other targets* checkbox (on by default) also checks, by their pointing alone, the catalog's images of other targets in the Date range (e.g. a Didymos frame that shows Dimorphos); such a result shows the catalog's target after its name. Images whose target the loaded SPICE kernel cannot place relative to the surface's body are counted, not listed ([StacImageSearch.md](docs/StacImageSearch.md#images-of-other-targets))
