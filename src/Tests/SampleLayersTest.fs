@@ -158,7 +158,7 @@ let private surfaceTests =
             let view = CameraView.lookAt eye V3d.Zero V3d.OOI |> CameraView.viewTrafo
             let proj = Frustum.perspective 8.0 10.0 4000.0 1.0 |> Frustum.projTrafo
             let cam : ProjectorCamera =
-                { view = view; proj = proj; full = view * proj; distance = eye.Length; near = 10.0; far = 4000.0 }
+                { view = view; proj = proj; full = view * proj; distance = eye.Length; near = 10.0; far = 4000.0; target = "X" }
             let size = V2i(512, 512)
             let sun = V3d(1.0, 1.0, 0.0).Normalized
 

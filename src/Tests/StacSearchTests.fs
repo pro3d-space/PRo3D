@@ -141,6 +141,11 @@ let private offline =
             let kept = parsed |> Array.filter (StacSearch.isWithoutFootprintFor "DIDYMOS") |> Array.map (fun i -> i.id)
             Expect.equal kept [| "no-target"; "didymos" |]
                 "not the one with a footprint (it would have been found by it), not one of another body"
+            let others = parsed |> Array.filter (StacSearch.isOtherTargetFor "DIDYMOS") |> Array.map (fun i -> i.id)
+            Expect.equal others [| "with-footprint"; "other-body" |]
+                "other targets: another body's, and a footprint on an unnamed body; disjoint from the footprint-less ones"
+            Expect.equal (StacSearch.otherTargetLabel (item "other-body")) "mars" "the catalog's target"
+            Expect.equal (StacSearch.otherTargetLabel (item "with-footprint")) "no target named" "none named"
         }
 
         test "longitude is planetocentric and east-positive, like the footprints" {
@@ -307,6 +312,24 @@ type private LocalServer(respond : string -> IO.Stream -> unit) =
                     let n = stream.Read(buffer, 0, buffer.Length)
                     if n = 0 then failwith "closed"
                     head.Append(Text.Encoding.ASCII.GetString(buffer, 0, n)) |> ignore
+                // and a POST's body, whole: closing on unread bytes resets the
+                // connection, and the client may then lose the answer
+                let text = head.ToString()
+                let headEnd = text.IndexOf "\r\n\r\n" + 4
+                let contentLength =
+                    text.Split([| "\r\n" |], StringSplitOptions.None)
+                    |> Array.tryPick (fun line ->
+                        let parts = line.Split([| ':' |], 2)
+                        if parts.Length = 2 && parts.[0].Trim().Equals("Content-Length", StringComparison.OrdinalIgnoreCase) then
+                            match Int32.TryParse(parts.[1].Trim()) with
+                            | true, n -> Some n
+                            | _ -> None
+                        else None)
+                    |> Option.defaultValue 0
+                let mutable unread = contentLength - Text.Encoding.ASCII.GetByteCount(text.Substring headEnd)
+                while unread > 0 do
+                    let n = stream.Read(buffer, 0, min buffer.Length unread)
+                    if n = 0 then unread <- 0 else unread <- unread - n
                 let path = head.ToString().Split(' ').[1]
                 Threading.Interlocked.Increment requests |> ignore
                 respond path stream
@@ -348,7 +371,7 @@ let private aScene (lonDeg : float) : StacSearch.Scene =
     }
 
 let private aFilter : StacSearch.Filter =
-    { serverUrl = "https://example.org/api"; from = None; until = None; bounds = ImageFilter.bounds ImageFilter.initial; incidence = Range1d(0.0, 180.0) }
+    { serverUrl = "https://example.org/api"; from = None; until = None; bounds = ImageFilter.bounds ImageFilter.initial; incidence = Range1d(0.0, 180.0); otherTargets = false }
 
 /// Waits (polling) until `cond` holds, failing after `ms`.
 let private waitFor (ms : int) (what : string) (cond : unit -> bool) =
@@ -377,6 +400,45 @@ let private local =
             Expect.equal (StacSearch.sunFromTarget (V3d(1e8, 0.0, 0.0)) (V3d(10.0, 0.0, 0.0))) (Some (V3d(1e8 - 10.0, 0.0, 0.0)))
                 "target -> sun"
             Expect.isSome (StacSearch.sunFromTarget (V3d(1e8, 0.0, 0.0)) V3d.Zero) "TRG_POS = 0: spacecraft -> sun"
+        }
+
+        test "other targets: listed after the footprint hits, from the time range alone, only when asked for" {
+            // the first request is the footprint query, the second the time range alone
+            let footprintHit = """
+{ "type": "FeatureCollection", "features": [
+    { "type": "Feature", "id": "hit", "collection": "c", "geometry": { "type": "Polygon", "coordinates": [[[0,0],[1,0],[1,1],[0,0]]] },
+      "properties": { "datetime": "2026-01-01T00:00:00Z", "ssys:targets": ["Didymos"] },
+      "assets": { "mbi": { "href": "https://example.org/h.mbi.json" }, "image": { "href": "https://example.org/h.tif" } } } ] }"""
+            let serve (first : string) =
+                let n = ref 0
+                new LocalServer(fun _ stream ->
+                    let i = Threading.Interlocked.Increment n
+                    answer "200 OK" (Text.Encoding.UTF8.GetBytes (if i = 1 then first else withoutFootprint)) stream)
+            let scene = { aScene 0.0 with body = "DIDYMOS"; frame = "IAU_DIDYMOS" }
+            let list (server : LocalServer) (otherTargets : bool) =
+                let filter = { aFilter with serverUrl = server.Url "/api"; otherTargets = otherTargets }
+                match (StacSearch.listFor filter 100 scene).Result with
+                | Ok l -> l
+                | Result.Error e -> failtestf "listing failed: %s" e
+            let ids (items : array<StacSearch.Item>) = items |> Array.map (fun i -> i.id)
+            do
+                use server = serve footprintHit
+                let l = list server false
+                Expect.equal (ids l.items, ids l.others, l.listing) ([| "hit" |], [||], ByFootprint) "off: the footprint hits alone"
+                Expect.equal server.Requests 1 "off: no second query"
+            do
+                use server = serve footprintHit
+                let l = list server true
+                Expect.equal (ids l.items) [| "hit" |] "the footprint hits first"
+                Expect.equal (ids l.others) [| "with-footprint"; "other-body" |] "then the other targets"
+                Expect.equal server.Requests 2 "one more query"
+            do
+                // no footprint hit: the one time-range query serves both lists
+                use server = serve """{ "type": "FeatureCollection", "features": [] }"""
+                let l = list server true
+                Expect.equal (ids l.items, l.listing) ([| "no-target"; "didymos" |], WithoutFootprint) "the footprint-less ones"
+                Expect.equal (ids l.others) [| "with-footprint"; "other-body" |] "and the other targets"
+                Expect.equal server.Requests 2 "the time-range query once"
         }
 
         test "two downloads of one file at once: one request, both get the file" {
@@ -498,6 +560,7 @@ let private local =
                         Resolved { rangeM = 1.0; pixelSizeM = float (n - i); pointIncidenceDeg = None
                                    pixel = V2d.Zero }
                     values = None
+                    otherTarget = None
                 }
             let red : StacCandidate = { candidate n with itemId = "red"; check = Unresolved "no attitude" }
             let s =
@@ -527,7 +590,7 @@ let private local =
             let candidate (id : string) (day : int) (values : Option<StacImageValues>) : StacCandidate =
                 { itemId = id; collection = "c"; title = id; time = DateTime(2026, 11, day, 0, 0, 0, DateTimeKind.Utc); instrument = "afc"
                   assets = { mbi = "m"; image = "i"; imageMetadata = None; overview = None }
-                  check = resolved; values = values }
+                  check = resolved; values = values; otherTarget = None }
             let v instrument d r = Some { instrument = instrument; distanceKm = d; resolution = r }
             let rows =
                 IndexList.ofList [
@@ -560,7 +623,7 @@ let private local =
 
 /// The PRO3D_STAC_URL catalog, no time range.
 let private catalog : StacSearch.Filter =
-    { serverUrl = StacSearchModel.defaultServerUrl; from = None; until = None; bounds = ImageFilter.bounds ImageFilter.initial; incidence = Range1d(0.0, 180.0) }
+    { serverUrl = StacSearchModel.defaultServerUrl; from = None; until = None; bounds = ImageFilter.bounds ImageFilter.initial; incidence = Range1d(0.0, 180.0); otherTargets = false }
 
 /// Skips unless the PRO3D_STAC_URL catalog answers; signs the session in when it asks
 /// for that and PRO3D_STAC_USER / _PASSWORD are set, and says so when they are not --
@@ -636,11 +699,10 @@ let private catalogCoverage =
                 }
             let list (filter : StacSearch.Filter) =
                 match (StacSearch.listFor filter 100 scene).Result with
-                | Ok r -> r
+                | Ok r -> r.items, r.items.Length, r.listing
                 | Result.Error e -> failtestf "search failed: %s" e
             let items, matched, listing = list catalog
             Expect.isGreaterThan matched 0 "candidates for Didymos, by footprint or without"
-            Expect.equal matched items.Length "matched counts the listed candidates"
             if listing = WithoutFootprint then
                 Expect.isTrue (items |> Array.forall (fun i -> not i.hasFootprint)) "only footprint-less items"
             // a time range narrows the candidates, without the test naming catalog dates:
@@ -722,7 +784,7 @@ let private online =
                 let checkedCount = ref 0
                 let listedCount = ref 0
                 let report = function
-                    | StacSearch.Listed (candidates, _, _) -> listedCount.Value <- candidates.Length
+                    | StacSearch.Listed (candidates, _, _, _) -> listedCount.Value <- candidates.Length
                     | StacSearch.Checked _ -> checkedCount.Value <- checkedCount.Value + 1
                 let stale () = checkedCount.Value >= 1
                 match (StacSearch.run catalog 100 (scene (onSphere lon lat)) stale report).Result with
@@ -830,7 +892,7 @@ let private signIn =
             let row : StacCandidate =
                 { itemId = "a"; collection = "c"; title = "t"; time = DateTime(2000, 1, 1); instrument = "CAM"
                   assets = { mbi = "https://example.org/a.mbi.json"; image = "https://example.org/a.tif"; imageMetadata = None; overview = None }
-                  check = StacCheck.Checking; values = None }
+                  check = StacCheck.Checking; values = None; otherTarget = None }
             let connected =
                 let m = ProjectedImageListModel.initial
                 { m with stacSearch = { m.stacSearch with connection = Connected (Some "tester"); candidates = IndexList.single row } }
@@ -846,6 +908,8 @@ let private signIn =
             Expect.isTrue (StacSearch.isSpiceCoverage "HERA_AFC-1 at 2000-01-01 (frame F): SPICE has no position of HERA relative to X at 2000-01-01 (no SPK coverage?)") "no position"
             Expect.isTrue (StacSearch.isSpiceCoverage "SPICE cannot rotate F to J2000 at 2000-01-01") "no rotation"
             Expect.isFalse (StacSearch.isSpiceCoverage "the sidecar's SC_QUAT is zero") "a sidecar problem is not SPICE's"
+            Expect.isTrue (StacSearch.isSpiceCoverage "SPICE cannot place the image's target MARS relative to DIDYMOS at 2000-01-01") "an other target SPICE cannot place"
+            Expect.isFalse (StacSearch.isSpiceCoverage "the sidecar names no TARGET, so an image of another body cannot be placed") "no TARGET is the sidecar's problem"
         }
 
         test "a password never prints" {

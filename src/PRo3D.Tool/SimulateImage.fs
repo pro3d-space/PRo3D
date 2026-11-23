@@ -710,7 +710,7 @@ let private poseCamera (pose : ProjectorPose) (frame : string) (body : string) (
     |> Result.mapError (fun e -> sprintf "%s at %s (frame %s): %s" img.spiceName (img.mbi.obs_date.ToString "o") frame e)
     |> Result.map (fun p ->
         for w in p.warnings do Log.warn "[projection] %s" w
-        ({ view = p.view; proj = p.proj; full = p.full; distance = p.distance; near = p.near; far = p.far }
+        ({ view = p.view; proj = p.proj; full = p.full; distance = p.distance; near = p.near; far = p.far; target = p.target }
             : ProjectorCamera))
 
 /// The camera an existing observation was taken with, straight out of the viewer's own

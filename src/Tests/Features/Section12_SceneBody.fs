@@ -71,7 +71,7 @@ let tests =
             let candidate : PRo3D.ImageMapping.StacCandidate =
                 { itemId = "c"; collection = "x"; title = "c"; time = t.AddHours 2.0; instrument = "afc"
                   assets = { mbi = "m"; image = "i"; imageMetadata = None; overview = None }
-                  check = PRo3D.ImageMapping.StacCheck.Checking; values = None }
+                  check = PRo3D.ImageMapping.StacCheck.Checking; values = None; otherTarget = None }
             let m =
                 { model with
                     scene =

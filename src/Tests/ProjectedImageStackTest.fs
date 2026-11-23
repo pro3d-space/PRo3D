@@ -104,7 +104,7 @@ let tests () =
             let assets = { mbi = "http://127.0.0.1/x.mbi.json"; image = "http://127.0.0.1/x.png"; imageMetadata = None; overview = None }
             let candidate (id : string) =
                 { itemId = id; collection = "c"; title = id; time = DateTime(2027, 3, 21); instrument = "AFC1"
-                  assets = assets; check = StacCheck.Checking; values = None }
+                  assets = assets; check = StacCheck.Checking; values = None; otherTarget = None }
             let connected =
                 { mkModel [] with
                     stacSearch =

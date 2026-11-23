@@ -3091,7 +3091,8 @@ module ViewerApp =
                 | PRo3D.ImageMapping.StacSearchMessage.SetTimeFrom _
                 | PRo3D.ImageMapping.StacSearchMessage.SetTimeTo _
                 | PRo3D.ImageMapping.StacSearchMessage.SetIncidenceMin _
-                | PRo3D.ImageMapping.StacSearchMessage.SetIncidenceMax _ ->
+                | PRo3D.ImageMapping.StacSearchMessage.SetIncidenceMax _
+                | PRo3D.ImageMapping.StacSearchMessage.ToggleIncludeOtherTargets ->
                     // a changed filter searches the last point again; a filter that
                     // does not parse waits for the next pick, which reports it
                     match PRo3D.GIS.StacSearch.filterOf stacAfter gisApp.projectedImageList.filter with
