@@ -19,7 +19,7 @@ import * as readline from "readline";
  * 3. a click on Dimorphos finds frames by pointing (they have no footprints); their
  *    thumbnails come through PRo3D's own route;
  * 4. resting on a row projects its frame as a preview (not into the library); leaving it
- *    ends the preview; + adds it to the library and the stack; the stack panel's ✕,
+ *    ends the preview; + puts it on the stack (not into the library); the stack panel's ✕,
  *    clicked with the real mouse, leaves nothing projected;
  * 5. the catalog saw nothing unsigned after the sign-in, and only the probe before it.
  *
@@ -209,10 +209,12 @@ test("sign in to a protected catalog, search, hover and project", async ({ brows
     await expect.poll(async () => diffPng(idle, await render.screenshot()).changedFraction,
         { timeout: 30_000, intervals: [500] }).toBeLessThan(0.0005);
 
-    // --- +: library and stack, without downloading again ------------------------------
+    // --- +: the stack, not the library, without downloading again ---------------------
     await row.locator("i.plus.icon").click();
-    await expect.poll(() => gis.locator(imageRow).count(), { timeout: 60_000, intervals: [500] })
-        .toBeGreaterThan(libraryBefore);
+    // the stack panel's rows are the draggable ones
+    await expect.poll(() => gis.locator('div[draggable="true"]').count(), { timeout: 60_000, intervals: [500] })
+        .toBeGreaterThan(0);
+    expect(await gis.locator(imageRow).count(), "+ does not add to the library").toBe(libraryBefore);
     // the row now shows that its image is on the stack (the library's icon)
     await expect(row.locator("i.layer.group.icon")).toBeVisible({ timeout: 30_000 });
     await gis.mouse.move(0, 0);

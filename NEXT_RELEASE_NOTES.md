@@ -14,3 +14,5 @@ release folds them into `PRODUCT_RELEASE_NOTES.md`.
   and an empty list (docs/Build-Deploy-System.md).
 
 ## Pending
+
+- Image Search (STAC): **downloaded images are no longer added to the Image Library** — + puts the image on the projection stack and selects it, a click on a result's name selects it; the library keeps only the imported folder. Images on the stack or selected stay when the results are cleared; the bin removes them ([StacImageSearch.md](docs/StacImageSearch.md))

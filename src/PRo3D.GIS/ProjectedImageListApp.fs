@@ -24,21 +24,36 @@ module ProjectedImageListApp =
 
     // ---- STAC results and their images (docs/StacImageSearch.md) --------------------
 
-    /// The image a STAC result's download became, while it is still there: in the
-    /// library or a hover preview.
+    /// The image a STAC result's download became, while it is still there
+    /// (stacImages: a hover preview, or selected / on the stack).
     let stacImage (itemId : string) (m : ProjectedImageListModel) : Option<ProjectedImageModel> =
         m.stacSearch.fetched
         |> HashMap.tryFind itemId
         |> Option.bind (fun id -> ProjectedImageListModel.tryFind id m)
 
-    /// A hover preview becomes a library image, under the same id (hover and
-    /// `fetched` stay valid); a library image stays where it is.
-    let private promoteToLibrary (img : ProjectedImageModel) (m : ProjectedImageListModel) =
-        if HashMap.containsKey img.id m.stacPreviews then
+    /// The downloaded STAC images nothing holds any more go: not listed as a result,
+    /// not on the stack, not selected, not hovered (nor dragged) -- they cannot be
+    /// reached again. Their `fetched` entries go with them; their files stay in the
+    /// download cache, so hovering the same result again does not download it.
+    let pruneStacImages (m : ProjectedImageListModel) =
+        let listed = m.stacSearch.candidates |> IndexList.toArray |> Array.map (fun c -> c.itemId) |> HashSet.ofArray
+        let listedImages =
+            m.stacSearch.fetched
+            |> HashMap.toArray
+            |> Array.choose (fun (itemId, id) -> if HashSet.contains itemId listed then Some id else None)
+            |> HashSet.ofArray
+        let held (id : Guid) =
+            HashSet.contains id listedImages
+            || ProjectedImageListModel.isInStack id m
+            || m.selectedImage = Some id
+            || m.hoveredImage = Some id
+            || (m.stackDrag |> Option.exists (fun d -> d.image = id))
+        let gone = m.stacImages |> HashMap.filter (fun id _ -> not (held id))
+        if gone.IsEmpty then m
+        else
             { m with
-                stacPreviews = HashMap.remove img.id m.stacPreviews
-                images = m.images |> IndexList.add img }
-        else m
+                stacImages = m.stacImages |> HashMap.filter (fun id _ -> held id)
+                stacSearch = { m.stacSearch with fetched = m.stacSearch.fetched |> HashMap.filter (fun _ id -> not (HashMap.containsKey id gone)) } }
 
     /// The hovered STAC row is no longer hovered (left, or gone from the list). Its
     /// preview layer goes with it; a library row's hover is left alone.
@@ -53,58 +68,40 @@ module ProjectedImageListApp =
                 hoveredImage = if rowImage.IsSome && m.hoveredImage = rowImage then None else m.hoveredImage }
 
     /// After the results changed: a hovered row that is gone gets no mouseleave, and
-    /// the previews of results no longer listed cannot be hovered again -- they go
-    /// (their files stay in the download cache).
+    /// the images of results no longer listed go unless the stack or the selection
+    /// holds them (pruneStacImages).
     let private keepStacHoverValid (m : ProjectedImageListModel) =
         let listed = m.stacSearch.candidates |> IndexList.toArray |> Array.map (fun c -> c.itemId) |> HashSet.ofArray
         let m =
             match m.stacSearch.hovered with
             | Some itemId when not (HashSet.contains itemId listed) -> endStacHover m
             | _ -> m
-        let stale =
-            m.stacSearch.fetched
-            |> HashMap.filter (fun itemId id -> not (HashSet.contains itemId listed) && HashMap.containsKey id m.stacPreviews)
-        if stale.IsEmpty then m
-        else
-            let isStale (id : Guid) = stale |> HashMap.exists (fun _ s -> s = id)
-            { m with
-                stacPreviews = m.stacPreviews |> HashMap.filter (fun id _ -> not (isStale id))
-                hoveredImage = m.hoveredImage |> Option.filter (isStale >> not)
-                stacSearch = { m.stacSearch with fetched = m.stacSearch.fetched |> HashMap.filter (fun itemId _ -> not (HashMap.containsKey itemId stale)) } }
-
-    /// The hover previews go (the results they belong to went). Their files stay in
-    /// the download cache, so hovering the same result again does not download it.
-    let private dropStacPreviews (m : ProjectedImageListModel) =
-        let m = endStacHover m
-        let isPreview (id : Guid) = HashMap.containsKey id m.stacPreviews
-        { m with
-            stacPreviews = HashMap.empty
-            hoveredImage = m.hoveredImage |> Option.filter (isPreview >> not)
-            stacSearch = { m.stacSearch with fetched = m.stacSearch.fetched |> HashMap.filter (fun _ id -> not (isPreview id)) } }
+        pruneStacImages m
 
     /// The bin deletes the download cache: every image from it leaves the library,
     /// the stack, the selection and the previews -- a projection of deleted files
     /// would stay on screen until PRo3D is closed.
     let private dropStacImages (m : ProjectedImageListModel) =
-        let m = dropStacPreviews m
+        let m = endStacHover m
         let cache =
             let dir = Path.GetFullPath(PRo3D.GIS.StacSearch.cacheDirectory ())
             if dir.EndsWith(string Path.DirectorySeparatorChar) then dir else dir + string Path.DirectorySeparatorChar
         let fromCache (img : ProjectedImageModel) =
             try Path.GetFullPath(img.texture).StartsWith(cache, StringComparison.OrdinalIgnoreCase) with _ -> false
+        // library images from the cache: added by earlier versions, which put
+        // downloads into the library
         let gone =
             m.images |> IndexList.toArray |> Array.choose (fun img -> if fromCache img then Some img.id else None) |> HashSet.ofArray
-        if gone.IsEmpty then
-            { m with stacSearch = { m.stacSearch with fetched = HashMap.empty } }
-        else
-            let keep (id : Guid) = not (HashSet.contains id gone)
-            { m with
-                images = m.images |> IndexList.filter (fun img -> keep img.id)
-                stack = m.stack |> IndexList.filter keep
-                selectedImage = m.selectedImage |> Option.filter keep
-                hoveredImage = m.hoveredImage |> Option.filter keep
-                stackDrag = m.stackDrag |> Option.filter (fun d -> keep d.image)
-                stacSearch = { m.stacSearch with fetched = HashMap.empty } }
+            |> HashSet.union (m.stacImages |> HashMap.keys)
+        let keep (id : Guid) = not (HashSet.contains id gone)
+        { m with
+            images = if gone.IsEmpty then m.images else m.images |> IndexList.filter (fun img -> keep img.id)
+            stacImages = HashMap.empty
+            stack = m.stack |> IndexList.filter keep
+            selectedImage = m.selectedImage |> Option.filter keep
+            hoveredImage = m.hoveredImage |> Option.filter keep
+            stackDrag = m.stackDrag |> Option.filter (fun d -> keep d.image)
+            stacSearch = { m.stacSearch with fetched = HashMap.empty } }
 
     let rec update (m : ProjectedImageListModel) (msg : ProjectedImageListMessage) =
         match msg with
@@ -120,8 +117,9 @@ module ProjectedImageListApp =
             | SetServerUrl url ->
                 // another catalog: the sign-in was for the old one (the Viewer drops it)
                 // and its results: a click on one would go to the old catalog
-                let m = dropStacPreviews m
-                { m with stacSearch = { m.stacSearch with serverUrl = url; connection = Disconnected; candidates = IndexList.empty; query = None; status = StacSearchStatus.Idle; addWhenFetched = HashSet.empty; selectWhenFetched = None } }
+                // (the images selected or on the stack stay: their files are downloaded)
+                { m with stacSearch = { s with serverUrl = url; connection = Disconnected; candidates = IndexList.empty; query = None; status = StacSearchStatus.Idle; addWhenFetched = HashSet.empty; selectWhenFetched = None } }
+                |> keepStacHoverValid
             | Connect ->
                 match s.connection with
                 | Connected _ | Connecting | SigningIn _ -> m
@@ -132,8 +130,8 @@ module ProjectedImageListApp =
                     | StacSearchStatus.Searching | StacSearchStatus.Checking _ -> StacSearchStatus.Idle
                     | other -> other
                 // the results go too: their downloads would need the sign-in just dropped
-                let m = dropStacPreviews m
-                { m with stacSearch = { m.stacSearch with connection = Disconnected; status = status; candidates = IndexList.empty; query = None; addWhenFetched = HashSet.empty; selectWhenFetched = None } }
+                { m with stacSearch = { s with connection = Disconnected; status = status; candidates = IndexList.empty; query = None; addWhenFetched = HashSet.empty; selectWhenFetched = None } }
+                |> keepStacHoverValid
             | SignIn (user, _) ->
                 // the Viewer sends the attempt; the password is not kept here
                 { m with stacSearch = { s with connection = SigningIn { message = None; busy = true }; lastUser = user } }
@@ -219,24 +217,24 @@ module ProjectedImageListApp =
                     |> keepStacHoverValid
             | QueryListed _ | QueryChecked _ | QueryFinished _ ->
                 m
-            // + : on the stack (and selected). Already downloaded (a hover preview, or
-            // in the library): at once, no download.
+            // + : on the stack (and selected), not into the library. Already downloaded
+            // (a hover preview): at once, no download.
             | Fetch itemId ->
                 match stacImage itemId m with
                 | Some img ->
-                    let m = promoteToLibrary img m
                     update { m with selectedImage = Some img.id } (AddToStack img.id)
                 | None when not (StacSearchModel.isConnected s) -> m
                 | None ->
                     // the download itself is started by the Viewer, which owns the worker;
                     // one already running (a hover preview) is joined
                     { m with stacSearch = { s with downloading = s.downloading |> HashSet.add itemId; addWhenFetched = s.addWhenFetched |> HashSet.add itemId } }
-            // a click on the name: selected (in the library, not on the stack); again: deselected
+            // a click on the name: selected (not into the library, not on the stack);
+            // again: deselected
             | SelectCandidate itemId ->
                 match stacImage itemId m with
                 | Some img ->
-                    let m = promoteToLibrary img m
                     { m with selectedImage = if m.selectedImage = Some img.id then None else Some img.id }
+                    |> pruneStacImages
                 | None when not (StacSearchModel.isConnected s) -> m
                 | None ->
                     { m with stacSearch = { s with downloading = s.downloading |> HashSet.add itemId; selectWhenFetched = Some itemId } }
@@ -268,31 +266,33 @@ module ProjectedImageListApp =
                         { m with stacSearch = { m.stacSearch with status = StacSearchStatus.Failed (sprintf "download failed: %s" e) } }
                     else m
                 | Ok path ->
-                    // the same file once: an earlier download of it, in the library or previewed
+                    // the same file once: an earlier download of it (or the library, when
+                    // its folder was imported from the cache)
                     let existing =
                         match m.images |> IndexList.tryFind (fun _ img -> img.texture = path) with
                         | Some img -> Some img
-                        | None -> m.stacPreviews |> HashMap.toArray |> Array.tryPick (fun (_, img) -> if img.texture = path then Some img else None)
-                    // a new one is a hover preview until + or the name asks for it
+                        | None -> m.stacImages |> HashMap.toArray |> Array.tryPick (fun (_, img) -> if img.texture = path then Some img else None)
+                    // never into the library: a hover preview, selected (and on the stack)
+                    // when + or the name asked for it
                     let img, m =
                         match existing with
                         | Some img -> img, m
                         | None ->
                             let img = ProjectedImageApp.loadFile path
-                            img, { m with stacPreviews = m.stacPreviews |> HashMap.add img.id img }
+                            img, { m with stacImages = m.stacImages |> HashMap.add img.id img }
                     let m = { m with stacSearch = { m.stacSearch with fetched = m.stacSearch.fetched |> HashMap.add itemId img.id } }
-                    let m = if wantAdd || wantSelect then promoteToLibrary img m else m
                     let m = if wantAdd || wantSelect then { m with selectedImage = Some img.id } else m
                     let m = if wantAdd then update m (AddToStack img.id) else m
                     // its row still under the mouse: show it now
                     let m = if m.stacSearch.hovered = Some itemId then { m with hoveredImage = Some img.id } else m
-                    // a preview whose result is no longer listed is not kept
+                    // a preview whose result is no longer listed (and that nothing else
+                    // holds) is not kept
                     keepStacHoverValid m
             // the Viewer deletes the files; their images go from everywhere
             | ClearCache -> dropStacImages m
             | ClearResults ->
-                let m = dropStacPreviews m
-                { m with stacSearch = { m.stacSearch with candidates = IndexList.empty; query = None; status = StacSearchStatus.Idle } }
+                { m with stacSearch = { s with candidates = IndexList.empty; query = None; status = StacSearchStatus.Idle } }
+                |> keepStacHoverValid
             // a downloaded row previews its image like a library row; otherwise the
             // frustum only, until the Viewer's dwell timer sends PreviewDue
             | HoverCandidate (Some itemId) ->
@@ -362,9 +362,13 @@ module ProjectedImageListApp =
                 // and have fixed ranges, independent of the library
                 selectedImage = first
                 librarySort = None }
+            // downloaded STAC images the old stack or selection held
+            |> pruneStacImages
         | SelectImage id ->
-            // single selection; clicking the selected image again deselects it
+            // single selection; clicking the selected image again deselects it. The
+            // library, the stack and the Image Search rows all show this one selection.
             { m with selectedImage = if m.selectedImage = Some id then None else Some id }
+            |> pruneStacImages
         | TogglePreviewExpanded ->
             { m with previewExpanded = not m.previewExpanded }
         | TogglePropertiesExpanded ->
@@ -372,11 +376,16 @@ module ProjectedImageListApp =
         | ToggleLibraryExpanded ->
             { m with libraryExpanded = not m.libraryExpanded }
         | ImageMessage (id, imageMessage) ->
-            let images' =
-                m.images |> IndexList.map (fun img ->
-                    if img.id = id then ProjectedImageApp.update img imageMessage else img
-                )
-            { m with images = images' }
+            // a library image, else a downloaded STAC image (selected, so editable too)
+            match HashMap.tryFind id m.stacImages with
+            | Some img ->
+                { m with stacImages = m.stacImages |> HashMap.add id (ProjectedImageApp.update img imageMessage) }
+            | None ->
+                let images' =
+                    m.images |> IndexList.map (fun img ->
+                        if img.id = id then ProjectedImageApp.update img imageMessage else img
+                    )
+                { m with images = images' }
         | AddToStack id ->
             if ProjectedImageListModel.isInStack id m
                || m.stack.Count >= ProjectedImages.maxCount
@@ -391,6 +400,8 @@ module ProjectedImageListApp =
             { m with
                 stack = m.stack |> IndexList.filter ((<>) id)
                 hoveredImage = m.hoveredImage |> Option.filter ((<>) id) }
+            // a downloaded STAC image only the stack held goes
+            |> pruneStacImages
         | MoveInStack (id, position) ->
             { m with stack = ProjectedImageListModel.moveInStack id position m.stack }
         | StackDragStart id when ProjectedImageListModel.isInStack id m ->
@@ -444,12 +455,17 @@ module ProjectedImageListApp =
             let sorted = m.images |> IndexList.toArray |> byKey |> IndexList.ofArray
             { m with images = ProjectedImageListModel.replaceImages sorted m; librarySort = Some sort }
 
-    /// Adaptive counterpart of ProjectedImageListModel.tryFind. `id` is
-    /// NonAdaptive, so this is a plain lookup inside a single AVal.map rather
-    /// than a bind over every image's own aval.
-    let tryFindAdaptive (id : Guid) (m : AdaptiveProjectedImageListModel) =
-        m.images.Content
-        |> AVal.map (IndexList.tryFind (fun _ (img : AdaptiveProjectedImageModel) -> img.id = id))
+    /// Adaptive counterpart of ProjectedImageListModel.tryFind: a library image,
+    /// else a downloaded STAC image (stacImages). `id` is NonAdaptive, so the library
+    /// lookup is a plain search inside a single bind rather than a bind over every
+    /// image's own aval.
+    let tryFindAdaptive (id : Guid) (m : AdaptiveProjectedImageListModel) : aval<Option<AdaptiveProjectedImageModel>> =
+        adaptive {
+            let! images = m.images.Content
+            match images |> IndexList.tryFind (fun _ (img : AdaptiveProjectedImageModel) -> img.id = id) with
+            | Some img -> return Some img
+            | None -> return! AMap.tryFind id m.stacImages
+        }
 
     /// The catalog's sign-in dialog, over the whole window: the Viewer mounts it on
     /// its main page (ViewerGUI), since the GIS tab may be hidden when the Image
@@ -658,7 +674,6 @@ module ProjectedImageListApp =
             Incremental.div (AttributeMap.ofList [ attribute "style" $"border: 2px solid black; margin-top: 10px" ]) (
                 alist {
                     let! stack = m.stack.Content
-                    let! images = m.images.Content
                     let count = stack.Count
                     yield div [attribute "style" $"display: flex; font-weight: bold; border-bottom: 2px solid black; background: black; padding: 5px"] [
                         text (sprintf "Projection Stack (%d/%d)" count ProjectedImages.maxCount)
@@ -673,11 +688,11 @@ module ProjectedImageListApp =
                         for displayIdx in 0 .. entries.Length - 1 do
                             let id = entries.[displayIdx]
                             let stackPos = entries.Length - 1 - displayIdx // bottom-based
+                            // a library image or a downloaded STAC image
                             let name =
-                                images
-                                |> IndexList.tryFind (fun _ img -> img.id = id)
-                                |> Option.map (fun img -> img.texture |> AVal.map Path.GetFileName)
-                                |> Option.defaultValue (AVal.constant "(missing image)")
+                                tryFindAdaptive id m |> AVal.bind (function
+                                    | Some img -> img.texture |> AVal.map Path.GetFileName
+                                    | None -> AVal.constant "(missing image)")
                             yield div [
                                 yield attribute "style" $"display: flex; align-items: center; gap: 4px; padding: 3px 5px; border-bottom: 1px solid {borderColor}"
                                 yield onMouseEnter (fun _ -> HoverImage (Some id))
@@ -1294,7 +1309,7 @@ module ProjectedImageListApp =
                                     yield attribute "title" "in the projection stack: click to remove"
                                     yield onClick (fun _ -> RemoveFromStack imageId)
                                 | None ->
-                                    yield attribute "title" "Download and add to the projection stack and the Image Library. They are not saved with the scene."
+                                    yield attribute "title" "Download and add to the projection stack (not to the Image Library). Not saved with the scene."
                                     yield onClick (fun _ -> StacMessage (Fetch id))
                             }))
                             (alist {

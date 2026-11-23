@@ -19,11 +19,10 @@ open PRo3D.InstrumentVisualization
 
 module ProjectedImagesListAppHelper =
 
-    /// Look an image up by its stable id. `id` is NonAdaptive on the adaptive
-    /// model, so this stays a single AVal.map over the list content.
+    /// Look an image up by its stable id: a library image, else a downloaded STAC
+    /// image (ProjectedImageListApp.tryFindAdaptive).
     let tryFindById (id : Guid) (m : AdaptiveProjectedImageListModel) =
-        m.images.Content
-        |> AVal.map (IndexList.tryFind (fun _ (img : AdaptiveProjectedImageModel) -> img.id = id))
+        ProjectedImageListApp.tryFindAdaptive id m
 
     let getSelectedImage (m : AdaptiveProjectedImageListModel) =
         adaptive {

@@ -404,9 +404,9 @@ type StacSearchModel =
         /// item ids whose files are being downloaded (for +, a selection or a hover
         /// preview)
         downloading  : HashSet<string>
-        /// item id -> the image its download became: in the library (+, selected)
-        /// or a hover preview (ProjectedImageListModel.stacPreviews). An id whose
-        /// image has gone since (a re-import) is not found by tryFind.
+        /// item id -> the image its download became (ProjectedImageListModel.stacImages:
+        /// a hover preview, or selected / on the stack). An id whose image has gone
+        /// since (the bin) is not found by tryFind.
         fetched      : HashMap<string, Guid>
         /// items to put on the stack once their download finishes (+ clicked)
         addWhenFetched : HashSet<string>
@@ -843,12 +843,13 @@ type ProjectedImageListModel =
         /// Library, stack or STAC result entry under the mouse. Previewed on top of
         /// the stack and given a footprint; see ProjectedImageListModel.effectiveStack.
         hoveredImage         : Option<Guid>
-        /// Images downloaded only to preview a hovered STAC result: not in the
-        /// library, never saved. Found by tryFind like library images, so they
-        /// render the same; + or a click on the result's name moves one into
-        /// `images`. Read by rendering through Current only, hence NonAdaptive.
-        [<NonAdaptive>]
-        stacPreviews         : HashMap<Guid, ProjectedImageModel>
+        /// Images downloaded from the Image Search (STAC): hover previews, and those
+        /// selected or put on the stack (+ or a click on the result's name). Never in
+        /// the library (`images`), never saved. Found by tryFind like library images,
+        /// so they render, select and edit the same. Kept while their result is listed,
+        /// or while they are on the stack, selected or hovered
+        /// (ProjectedImageListApp.pruneStacImages).
+        stacImages           : HashMap<Guid, ProjectedImageModel>
         /// What is projected: the whole stack, the selected image or the stack's top.
         projectionMode       : ProjectionStackMode
         /// A stack row being dragged; its drop position is previewed by
@@ -914,11 +915,11 @@ module ProjectedImageListModel =
     let replaceImages (images : seq<ProjectedImageModel>) (m : ProjectedImageListModel) : IndexList<ProjectedImageModel> =
         IndexList.append m.images (IndexList.ofSeq images) |> IndexList.skip m.images.Count
 
-    /// A library image, else a STAC hover preview (stacPreviews).
+    /// A library image, else a downloaded STAC image (stacImages).
     let tryFind (id : Guid) (m : ProjectedImageListModel) =
         match m.images |> IndexList.tryFind (fun _ i -> i.id = id) with
         | Some i -> Some i
-        | None -> HashMap.tryFind id m.stacPreviews
+        | None -> HashMap.tryFind id m.stacImages
 
     let isInStack (id : Guid) (m : ProjectedImageListModel) =
         m.stack |> IndexList.exists (fun _ i -> i = id)
@@ -1022,7 +1023,7 @@ module ProjectedImageListModel =
         pendingStack = [];
         stack = IndexList.Empty;
         hoveredImage = None;
-        stacPreviews = HashMap.empty;
+        stacImages = HashMap.empty;
         projectionMode = ProjectionStackMode.FullStack;
         stackDrag = None;
         selectedImage = None;
@@ -1081,16 +1082,17 @@ type StacSearchMessage =
     | QueryChecked  of seq : int * itemId : string * Option<StacCheck> * Option<StacImageValues>
     /// All candidates checked (and those dropped as unresolvable), or the search failed.
     | QueryFinished of seq : int * Result<StacDropped, string>
-    /// Download a candidate's files and put it on top of the projection stack.
+    /// Download a candidate's files, select it and put it on top of the projection
+    /// stack (not into the library).
     /// The download is started by the Viewer (it owns the worker); this model
     /// only tracks that it is running.
     | Fetch         of itemId : string
-    /// Download finished: the local image path, or why it failed. Goes to the
-    /// library (and stack / selection) when + or the name asked for it, else it is
-    /// a hover preview (stacPreviews).
+    /// Download finished: the local image path, or why it failed. Becomes a
+    /// stacImages entry: selected (and on the stack) when + or the name asked for
+    /// it, else a hover preview.
     | FetchFinished of itemId : string * Result<string, string>
-    /// A click on a result's name: select its image (downloaded first if needed,
-    /// then in the library, not on the stack); the selected one again deselects.
+    /// A click on a result's name: select its image (downloaded first if needed;
+    /// not into the library, not on the stack); the selected one again deselects.
     | SelectCandidate of itemId : string
     /// The mouse rested on a result row (the Viewer's dwell timer): download its
     /// image to preview it, if the row is still hovered.
