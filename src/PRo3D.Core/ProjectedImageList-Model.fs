@@ -236,12 +236,13 @@ type StacCheck =
     | Unresolved of string
 
 /// What the image lists show of a catalog result, from its downloaded metadata --
-/// computed like a library image's (ImageFilter.valuesOf), so both lists agree.
+/// computed like a library image's (ImageFilter.valuesOfWith, with the surface's body
+/// as the fallback target, which a library import does not have).
 type StacImageValues =
     {
         /// INSTRUME (and camera system), as the library shows it
         instrument : string
-        /// distance to the target's centre, km (|TRG_POS|); 0 when unknown
+        /// distance to the target's centre, km: |TRG_POS|, else the SPICE range; 0 when unknown
         distanceKm : float
         /// ground resolution at the target's centre, m/px
         resolution : Option<float>

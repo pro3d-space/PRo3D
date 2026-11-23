@@ -490,7 +490,7 @@ module CooTransformation =
         let mutable lat = nan
         let mutable lon = nan
         let mutable rad = nan
-        let errorCode = CooTransformation.Xyz2LatLonRad(p.X, p.Y, p.Z, &&lat, &&lon, &&rad)
+        let errorCode = lock PRo3D.SPICE.CooTransformation.l (fun () -> CooTransformation.Xyz2LatLonRad(p.X, p.Y, p.Z, &&lat, &&lon, &&rad))
         if errorCode <> 0 then None
         else Some { latitude = lat; longitude = lon; altitude = 0.0; radian = rad }
 
