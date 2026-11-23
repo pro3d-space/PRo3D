@@ -693,19 +693,36 @@ module ProjectedImageListApp =
                                 tryFindAdaptive id m |> AVal.bind (function
                                     | Some img -> img.texture |> AVal.map Path.GetFileName
                                     | None -> AVal.constant "(missing image)")
-                            yield div [
-                                yield attribute "style" $"display: flex; align-items: center; gap: 4px; padding: 3px 5px; border-bottom: 1px solid {borderColor}"
-                                yield onMouseEnter (fun _ -> HoverImage (Some id))
-                                yield onMouseLeave (fun _ -> HoverImage None)
-                                yield! stackDragDrop id stackPos
-                            ] [
+                            // the selected image is highlighted, as in the library and the
+                            // Image Search list: all three show the one selectedImage
+                            let selected = m.selectedImage |> AVal.map (fun sel -> sel = Some id)
+                            let rowAttributes =
+                                AttributeMap.union
+                                    (AttributeMap.ofList [
+                                        yield onMouseEnter (fun _ -> HoverImage (Some id))
+                                        yield onMouseLeave (fun _ -> HoverImage None)
+                                        yield! stackDragDrop id stackPos ])
+                                    (amap {
+                                        let! selected = selected
+                                        let background = if selected then "background: rgba(33,133,208,0.6);" else ""
+                                        yield style $"display: flex; align-items: center; gap: 4px; padding: 3px 5px; border-bottom: 1px solid {borderColor}; {background}"
+                                     } |> AttributeMap.ofAMap)
+                            // the name selects (again: deselects); the icons only do their own
+                            let nameAttributes =
+                                amap {
+                                    let! selected = selected
+                                    yield style "flex: 1; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis"
+                                    yield attribute "title" (if selected then "click to deselect" else "click to select")
+                                    yield onClick (fun _ -> SelectImage id)
+                                } |> AttributeMap.ofAMap
+                            yield Incremental.div rowAttributes (AList.ofList [
                                 i [clazz "bars icon"; style "cursor: grab; opacity: 0.6"; attribute "title" "drag to reorder"] []
                                 i [clazz "arrow up icon"; style "cursor: pointer"; onClick (fun _ -> MoveInStack (id, stackPos + 1))] []
                                 i [clazz "arrow down icon"; style "cursor: pointer"; onClick (fun _ -> MoveInStack (id, stackPos - 1))] []
                                 i [clazz "remove icon"; style "cursor: pointer"; onClick (fun _ -> RemoveFromStack id)] []
                                 i [clazz "location arrow icon"; style "cursor: pointer"; onClick (fun _ -> FlyToImage id)] []
-                                Incremental.text name
-                            ]
+                                Incremental.div nameAttributes (AList.single (Incremental.text name))
+                            ])
                 })
 
         // ---- library filters --------------------------------------------------------

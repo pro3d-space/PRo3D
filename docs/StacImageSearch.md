@@ -40,7 +40,9 @@ the GIS tab under *Projected Images → Image Search (STAC)*.
    to **select** the image: it is downloaded if needed and shown under *Selected
    Image*, where its display settings can be changed as for a library image. It is
    **not added to the Image Library**, nor to the stack. The selected row is
-   highlighted blue, as in the library. A second click deselects it.
+   highlighted blue, as in the library; the same image's row in the Projection
+   Stack is highlighted too, and selecting it there highlights this row. A second
+   click deselects it.
 
    | column | meaning |
    |---|---|

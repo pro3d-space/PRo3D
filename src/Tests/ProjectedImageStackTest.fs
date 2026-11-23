@@ -265,6 +265,25 @@ let tests () =
         ]
 
         testList "stack actions" [
+            test "selecting a stack row selects that image, shared with the library and the Image Search" {
+                let a = mkImage "a" 1.0 DateTime.MinValue
+                let b = mkImage "b" 2.0 DateTime.MinValue
+                // b downloaded from the catalog: on the stack, not in the library
+                let m =
+                    { mkModel [a] with
+                        stacImages = HashMap.single b.id b
+                        stack = IndexList.ofList [a.id; b.id]
+                        stacSearch = { StacSearchModel.initial with fetched = HashMap.single "item-b" b.id } }
+                let m = ProjectedImageListApp.update m (SelectImage b.id)
+                Expect.equal m.selectedImage (Some b.id) "selected from the stack"
+                Expect.equal (ProjectedImageListApp.stacImage "item-b" m |> Option.map (fun i -> i.id)) m.selectedImage "the Image Search row's image is the selected one"
+                let m = ProjectedImageListApp.update m (SelectImage a.id)
+                Expect.equal m.selectedImage (Some a.id) "a library image selected from the stack"
+                Expect.isTrue (HashMap.containsKey b.id m.stacImages) "still on the stack: kept"
+                let m = ProjectedImageListApp.update m (SelectImage a.id)
+                Expect.isNone m.selectedImage "again: deselected"
+            }
+
             test "AddToStack appends on top, ignores duplicates and unknown ids" {
                 let a = mkImage "a" 1.0 DateTime.MinValue
                 let b = mkImage "b" 2.0 DateTime.MinValue

@@ -218,6 +218,13 @@ outlined in blue; the ☰ handle marks the rows as draggable). ↑ / ↓ move on
 step, ✕ removes. A removed image leaves the 3D view at once, also when its row was
 the one under the mouse (it used to stay projected as the hover preview).
 
+**Click a stack row's name to select** that image (again: deselect), as in the
+library: it is shown under *Selected Image* and projected alone in the
+*Selected* projection mode. The selection is one for all lists: the selected
+image is highlighted blue in the stack, in the library and, for an image
+downloaded by the [Image Search](StacImageSearch.md), in its result list,
+whichever list it was selected in.
+
 Feedback while reordering:
 
 - **Hovering a stack row** keeps that image at full strength and fades the
