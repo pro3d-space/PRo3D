@@ -830,6 +830,11 @@ type ProjectedImageListModel =
         /// the kernel defaults unless the scene changed them. Saved per scene, only
         /// the values that differ from the kernels (GisApp "instrumentFovs").
         instrumentFovs       : HashMap<string, InstrumentFov>
+        /// Set when the loaded frames kernel names an instrument's axes differently from
+        /// its instrument kernel's pixel layout (InstrumentProjection.layoutMismatches):
+        /// the warning the panel shows under its info bar. Not saved; checked whenever a
+        /// kernel is loaded.
+        frameKernelWarning   : Option<string>
     }
 
 module ProjectedImageListModel =
@@ -957,6 +962,7 @@ module ProjectedImageListModel =
         filter = ImageFilter.initial
         stacSearch = StacSearchModel.initial
         instrumentFovs = InstrumentFov.defaults
+        frameKernelWarning = None
     }
 
 type ImageMessage =
