@@ -152,19 +152,17 @@ make the answer smaller:
 | filter | sent to the server as | checked by PRo3D |
 |---|---|---|
 | **Date** | `datetime` interval (UTC), always: the selected dates, by default the whole range 2026-11-01 to today, so the footprint-less fallback checks that window and not the catalog's newest 1000 of any time | yes, while the filter is set |
-| **Distance** | `hera:target_distance` (AU), widened by 5 % on each side: the catalog's "observation target" and the metadata's `TRG_POS` need not be the same body (Didymos vs Dimorphos) | yes |
+| **Distance** | no: a catalog whose items lack `hera:target_distance` would then list nothing at all, whatever the range. PRo3D computes the distance itself (`TRG_POS`, else SPICE; see the Distance column above) | yes |
 | **Instrument** | not yet: the catalog's `instruments` spellings still need mapping to the metadata's `INSTRUME` names | yes |
 | **Phase Angle**, **Resolution** | no: the catalog has neither | yes |
 
 Consequences of filtering after download:
 
 - The catalog lists at most 1000 items per point, newest first, *before* PRo3D's
-  own check. Strict phase-angle or resolution filters can leave fewer results
-  than the catalog has; narrowing the Date range brings older ones in.
+  own check. Strict phase-angle, resolution or distance filters can leave fewer
+  results than the catalog has; narrowing the Date range brings older ones in.
 - Each listed item's metadata is downloaded once (cached), also when the filters
   then drop it.
-- An item the catalog has no `hera:target_distance` for is not listed while the
-  Distance filter is set.
 
 ## Sun incidence (disabled)
 

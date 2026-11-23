@@ -912,8 +912,12 @@ module StacSearch =
     let listFor (filter : Filter) (limit : int) (scene : Scene) : Task<Result<array<Item> * int * StacListing, string>> =
         task {
             let ll = lonLat scene.point
+            // The Distance filter is not sent: a catalog without hera:target_distance on
+            // its items (as for sidecars without TRG_POS) then lists nothing at all,
+            // whatever the range. PRo3D checks the distance itself (ImageFilter.valuesOfWith:
+            // TRG_POS, else SPICE).
             let q = { point = Some ll; target = Some scene.body; from = filter.from; until = filter.until
-                      distanceKm = filter.bounds.distance; limit = limit }
+                      distanceKm = None; limit = limit }
             let warnMore (matched : int) (listed : int) =
                 if matched > listed then
                     Log.warn "[STAC] the catalog matched %d items, only the newest %d are checked; narrow the time range" matched listed
