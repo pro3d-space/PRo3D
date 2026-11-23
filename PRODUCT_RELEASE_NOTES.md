@@ -1,3 +1,9 @@
+## 6.4.10
+Image Search downloads no longer go into the Image Library; Projection Stack rows can be selected.
+
+- Image Search (STAC): **downloaded images are no longer added to the Image Library** — + puts the image on the projection stack and selects it, a click on a result's name selects it; the library keeps only the imported folder. Images on the stack or selected stay when the results are cleared; the bin removes them ([StacImageSearch.md](docs/StacImageSearch.md))
+- Projected Images: **the Projection Stack's rows can be selected** — a click on a row's name selects the image (again: deselects); the selection is highlighted in the stack, the Image Library and the Image Search results alike, whichever list it was made in ([MultiImageProjection.md](docs/MultiImageProjection.md#4-build-the-stack))
+
 ## 6.4.9
 Image Search finds images listed for other targets too (Other targets checkbox).
 
