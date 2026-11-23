@@ -407,13 +407,21 @@ The image axes come from the instrument kernel's pixel layout
 (`InstrumentProjection.imageLayouts`, see
 [InstrumentFieldOfView.md](InstrumentFieldOfView.md#where-the-default-comes-from-the-instrument-kernels-pixel-layout)):
 the camera is the instrument frame with right/up taken from the detector's samples and
-lines, so no axis convention is guessed. `Spice` checks it against the spacecraft-based
-camera of the other orientation sources: more than 5° apart means the frames kernel
-names the instrument axes differently from the instrument kernel (a frames and
-instrument kernel that do not belong together, or the wrong frame name), and the
-projector fails with an error saying so rather than projecting a rotated image. An
-instrument without a layout entry falls back to the signed axis permutation nearest to
-the spacecraft-based camera.
+lines, so no axis convention is guessed (`InstrumentProjection.imageAxes`). The layout
+is drawn in the axes of the frames kernel the instrument kernel belongs to. A loaded
+frames kernel that names the instrument axes differently (another version) puts the layout camera far from the spacecraft-based camera of
+the other orientation sources; then — as for an instrument without a layout — `Spice`
+uses the relabelling of the instrument frame nearest to that camera and logs a warning
+once. The row flip is unaffected either way (a relabelling is a rotation, the flip a
+mirror). An instrument frame no relabelling brings within 5° of the spacecraft-based
+camera is an error (usually the wrong frame name). `simulate-image` chooses its axes the
+same way.
+
+The viewer checks this whenever a SPICE kernel is loaded (top bar, scene, command line):
+if the frames kernel names an instrument's axes differently from its instrument kernel, a
+notice says so and the *Projected Images* panel shows a yellow warning under its info bar
+for as long as that kernel stays loaded. Load a kernel set whose frames and instrument
+kernels belong together to clear it.
 
 Whether a sidecar's `SC_QUAT` is the spacecraft or the instrument attitude is a
 property of the delivery; comparing `MbiBased` with `Spice` on the same frame

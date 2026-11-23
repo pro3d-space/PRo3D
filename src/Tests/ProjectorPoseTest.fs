@@ -253,55 +253,68 @@ let private consistency =
         // Its camera axes must be the instrument frame's axes up to a signed permutation,
         // and that permutation must be the one nearest PRo3D's spacecraft-based camera
         // (the FK mounting is close to the nominal axis swap).
-        // SpiceInstrument: SPK position, the instrument's own frame (CK x FK), not aimed,
-        // image axes from the instrument kernel's layout. A frames kernel that names the
-        // instrument axes differently from that layout
-        // must fail loudly instead of rendering a rotated image.
-        test "SpiceInstrument: SPICE position, the IK layout in the instrument frame, or a kernel-mismatch error" {
+        // SpiceInstrument: SPK position, the instrument's own frame (CK x FK), not aimed.
+        // Image axes: the instrument kernel's layout where the loaded frames kernel names
+        // the axes the same way, else the relabelling nearest to the spacecraft-attitude
+        // camera (with a warning) -- either way a pure relabelling of the instrument frame,
+        // close to the spacecraft-attitude camera.
+        test "SpiceInstrument: SPICE position, the instrument frame relabelled -- the IK layout where the kernels agree" {
             withOpsKernel (fun () ->
                 match CooTransformation.getRotationTrafo "J2000" afc epoch with
                 | None -> skiptest (sprintf "the loaded kernels cannot orient %s (no frames kernel?)" afc)
                 | Some inst ->
-                match InstrumentProjection.resolve (spiceRequest ProjectorPose.SpiceInstrument) with
-                | Result.Error e ->
-                    Expect.stringContains e "do not match" "a mismatch between frames and instrument kernel is named as such"
-                    printfn "[projectorPose] SpiceInstrument refused the loaded kernels: %s" e
-                | Ok p ->
-                    let aimed = resolveOk (spiceRequest ProjectorPose.SpiceAimed)
-                    Expect.isLessThan (Vec.length (cameraPosition p - cameraPosition aimed)) 1e-6 "the SPICE position"
-                    let camToJ2000 = p.view.Backward.UpperLeftM33()
-                    let inInst = inst.Forward.UpperLeftM33() * camToJ2000
-                    let expected =
-                        match Map.tryFind afc InstrumentProjection.imageLayouts with
-                        | Some l -> fst (InstrumentProjection.layoutCamera l)
-                        | None -> failtest "AFC-1 has an image layout"
-                    for r in 0 .. 2 do
-                        for c in 0 .. 2 do
-                            Expect.floatClose Accuracy.high inInst.[r, c] expected.[r, c] (sprintf "camera = instrument frame x layout, [%d,%d]" r c)
-                    let ckCamera = resolveOk (spiceRequest (ProjectorPose.SidecarAttitudeSpicePosition (ckQuaternion ())))
-                    let fkAngle = rotationAngleDeg (rotationOf p) (rotationOf ckCamera)
-                    printfn "[projectorPose] %s frame is %.4f deg from the spacecraft-attitude camera" afc fkAngle
-                    Expect.isLessThan fkAngle 5.0 "the layout camera is close to the spacecraft-attitude camera")
+                let p = resolveOk (spiceRequest ProjectorPose.SpiceInstrument)
+                let aimed = resolveOk (spiceRequest ProjectorPose.SpiceAimed)
+                Expect.isLessThan (Vec.length (cameraPosition p - cameraPosition aimed)) 1e-6 "the SPICE position"
+                let inInst = inst.Forward.UpperLeftM33() * p.view.Backward.UpperLeftM33()
+                for c in 0 .. 2 do
+                    let largest = max (abs inInst.[0, c]) (max (abs inInst.[1, c]) (abs inInst.[2, c]))
+                    Expect.floatClose Accuracy.high largest 1.0 (sprintf "camera axis %d is an instrument axis" c)
+                let layout =
+                    match Map.tryFind afc InstrumentProjection.imageLayouts with
+                    | Some l -> fst (InstrumentProjection.layoutCamera l)
+                    | None -> failtest "AFC-1 has an image layout"
+                let isLayout = [ for r in 0 .. 2 do for c in 0 .. 2 -> abs (inInst.[r, c] - layout.[r, c]) ] |> List.forall (fun e -> e < 1e-9)
+                printfn "[projectorPose] SpiceInstrument %s: %s" afc
+                    (if isLayout then "the instrument kernel's layout" else sprintf "fallback relabelling (warnings: %A)" p.warnings)
+                let ckCamera = resolveOk (spiceRequest (ProjectorPose.SidecarAttitudeSpicePosition (ckQuaternion ())))
+                let fkAngle = rotationAngleDeg (rotationOf p) (rotationOf ckCamera)
+                printfn "[projectorPose] %s frame is %.4f deg from the spacecraft-attitude camera" afc fkAngle
+                Expect.isLessThan fkAngle 5.0 "close to the spacecraft-attitude camera")
         }
 
-        // simulate-image's planned-attitude camera composes the layout through its own
-        // mounting trafo: it must come out as exactly the layout camera, rows flipped.
-        test "simulate-image cameraAt: the IK layout camera in the instrument frame, flipped rows" {
+        // The kernel-load check the viewer warns with must agree with what imageAxes does:
+        // an instrument is listed exactly when imageAxes falls back from its layout.
+        test "layoutMismatches lists exactly the instruments imageAxes falls back for" {
             withOpsKernel (fun () ->
-                match CooTransformation.getRotationTrafo afc "J2000" epoch with
-                | None -> skiptest (sprintf "the loaded kernels cannot orient %s" afc)
-                | Some instToJ2000 ->
+                let listed = InstrumentProjection.layoutMismatches epoch |> Map.ofList
+                printfn "[projectorPose] layout mismatches: %A" listed
+                for KeyValue(instrument, layout) in InstrumentProjection.imageLayouts do
+                    match InstrumentProjection.imageAxes instrument layout.spacecraft epoch with
+                    | Result.Error e -> skiptest (sprintf "%s: %s" instrument e)
+                    | Ok (axes, _) ->
+                        let isLayout = axes = fst (InstrumentProjection.layoutCamera layout)
+                        Expect.equal (Map.containsKey instrument listed) (not isLayout)
+                            (sprintf "%s: listed as a mismatch iff imageAxes does not use the layout" instrument)
+                // a frames kernel of another version relabels the axes; it does not tilt them
+                for KeyValue(instrument, deg) in listed do
+                    Expect.isTrue (abs (deg - 90.0) < 1.0 || abs (deg - 180.0) < 1.0)
+                        (sprintf "%s: a mismatch is a 90 or 180 degree relabelling, was %.2f deg" instrument deg))
+        }
+
+        // simulate-image's planned-attitude camera chooses its axes like SpiceInstrument
+        // and carries the instrument's row flip in its projection.
+        test "simulate-image cameraAt: the SpiceInstrument orientation, flipped rows" {
+            withOpsKernel (fun () ->
                 match PRo3D.Tool.SimulateImageVerb.cameraAt "HERA" "J2000" "DIDYMOS" afc None 0.0 epoch with
                 | Result.Error e -> failtestf "cameraAt: %s" e
                 | Ok cam ->
-                    let inInst = instToJ2000.Backward.UpperLeftM33() * cam.view.Backward.UpperLeftM33()
-                    let expected =
-                        match Map.tryFind afc InstrumentProjection.imageLayouts with
-                        | Some l -> fst (InstrumentProjection.layoutCamera l)
-                        | None -> failtest "AFC-1 has an image layout"
+                    let spice = resolveOk { spiceRequest ProjectorPose.SpiceInstrument with target = "DIDYMOS"; origin = "DIDYMOS" }
+                    let a = cam.view.Backward.UpperLeftM33()
+                    let b = spice.view.Backward.UpperLeftM33()
                     for r in 0 .. 2 do
                         for c in 0 .. 2 do
-                            Expect.floatClose Accuracy.high inInst.[r, c] expected.[r, c] (sprintf "[%d,%d]" r c)
+                            Expect.floatClose Accuracy.medium a.[r, c] b.[r, c] (sprintf "[%d,%d]" r c)
                     Expect.isLessThan cam.proj.Forward.M11 0.0 "the projection carries the row flip")
         }
     ]

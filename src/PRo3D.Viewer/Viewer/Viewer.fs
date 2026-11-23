@@ -3239,6 +3239,50 @@ module ViewerApp =
             | _                                              -> None
         | _ -> None
 
+    /// The kernel state last checked by `withFrameKernelCheck` and its outcome. Process-wide
+    /// like the loaded kernels themselves (a new scene does not unload them).
+    let mutable private frameKernelChecked : Option<Option<CooTransformation.SPICEKernel> * bool> = None
+    let mutable private frameKernelWarningText : Option<string> = None
+
+    /// After a SPICE kernel load (top bar, scene, --scene/--defaultSpiceKernel at start):
+    /// does the frames kernel name each instrument's axes like its instrument kernel?
+    /// Where it does not, SPICE (instrument frame) falls back to PRo3D's spacecraft-based
+    /// axes for it (InstrumentProjection.imageAxes). The user is told once in a notice, and
+    /// the Projected Images panel keeps the warning while that kernel stays loaded.
+    /// Compared against the last CHECKED state rather than the previous model, so a kernel
+    /// loaded with the initial model is caught by the first update.
+    let private withFrameKernelCheck (m : Model) : Model =
+        let gis = m.scene.gisApp
+        let state = gis.spiceKernel, gis.spiceKernelLoadSuccess
+        let setWarning w (m : Model) =
+            if m.scene.gisApp.projectedImageList.frameKernelWarning = w then m
+            else m |> Optic.map _gisApp (fun g -> { g with projectedImageList = { g.projectedImageList with frameKernelWarning = w } })
+        if frameKernelChecked = Some state then
+            // same kernel; a new scene starts without the panel warning: put it back
+            setWarning frameKernelWarningText m
+        else
+            frameKernelChecked <- Some state
+            let warning =
+                // a failed load unloads nothing: whatever was loaded before still applies
+                if not gis.spiceKernelLoadSuccess then frameKernelWarningText
+                else
+                    PRo3D.SPICE.InstrumentProjection.resetAxisWarnings ()
+                    match PRo3D.SPICE.InstrumentProjection.layoutMismatches DateTime.UtcNow with
+                    | [] -> None
+                    | ms ->
+                        let names = ms |> List.map fst |> String.concat ", "
+                        let deg = ms |> List.fold (fun a (_, d) -> max a d) 0.0
+                        Some (sprintf "The loaded frames kernel names the axes of %s %.0f deg away from the instrument kernel's pixel layout (frames and instrument kernel of different versions?). SPICE (instrument frame) uses PRo3D's spacecraft-based axes for them instead; load a kernel set whose frames and instrument kernels belong together."
+                                  names deg)
+            let isNew = warning <> frameKernelWarningText || gis.spiceKernelLoadSuccess
+            frameKernelWarningText <- warning
+            let m = setWarning warning m
+            match warning with
+            | Some w when isNew ->
+                Log.warn "[SPICE] %s" w
+                m |> logScreen 12000 w
+            | _ -> m
+
     let updateInternal
         (runtime   : IRuntime)
         (signature : IFramebufferSignature)
@@ -3251,6 +3295,7 @@ module ViewerApp =
         match msg with
         | ViewerMessage msg ->
             updateViewer runtime signature sendQueue mailbox m msg
+            |> withFrameKernelCheck
         | AnewmationMessage msg ->
             //match msg with // Debugging Info
             //| Anewmation.AnimatorMessage.RealTimeTick ->

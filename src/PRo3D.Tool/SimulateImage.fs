@@ -526,18 +526,31 @@ let cameraAt (observer : string) (frame : string) (body : string) (instrument : 
             // so the instrument's real boresight offset (0.145 deg for AFC-1) is included
             // rather than idealised away; for ASPECT the two coincide, its channel frames
             // being a zero-offset TKFRAME of MILANI_SPACECRAFT.
-            // With an instrument-kernel layout (InstrumentProjection.imageLayouts) the
-            // image axes come from it directly; otherwise from the specialTrafos entry.
+            // The image axes in the instrument frame, chosen exactly as the viewer's SPICE
+            // source chooses them (InstrumentProjection.imageAxes); without them (no CK of
+            // the observer) the specialTrafos entry applied to the instrument frame.
             let mounting =
-                match Map.tryFind instrument InstrumentProjection.imageLayouts with
-                | Some layout ->
+                match InstrumentProjection.imageAxes instrument observer time with
+                | Ok (c, notes) ->
+                    for n in notes do Log.warn "[camera] %s" n
                     // viewTrafoOfBasis -x -y z has camera axes (-X, -Y, -Z) of the
-                    // instrument, i.e. maps instrument p to -p; the layout camera C needs
-                    // C^T p, so the mounting is -C^T (det -1 like every specialTrafos entry)
-                    let c = fst (InstrumentProjection.layoutCamera layout)
+                    // instrument, i.e. maps instrument p to -p; the camera C needs C^T p,
+                    // so the mounting is -C^T (det -1 like every specialTrafos entry)
                     let toCamera = M33d.FromRows(-c.C0, -c.C1, -c.C2)
                     Some (Trafo3d(M44d toCamera, M44d toCamera.Transposed))
-                | None -> Map.tryFind instrument InstrumentProjection.specialTrafos
+                | Result.Error e ->
+                    // specialTrafos describe a SPACECRAFT-attitude camera; on the instrument
+                    // frame they are only right for instruments without a layout (for AFC
+                    // they would roll the frame by 90 degrees), so a layout wins here
+                    match Map.tryFind instrument InstrumentProjection.imageLayouts with
+                    | Some layout ->
+                        Log.warn "[camera] %s -- using the instrument kernel's pixel layout unchecked" e
+                        let c = fst (InstrumentProjection.layoutCamera layout)
+                        let toCamera = M33d.FromRows(-c.C0, -c.C1, -c.C2)
+                        Some (Trafo3d(M44d toCamera, M44d toCamera.Transposed))
+                    | None ->
+                        Log.warn "[camera] %s -- using the specialTrafos mounting" e
+                        Map.tryFind instrument InstrumentProjection.specialTrafos
             let view =
                 match CooTransformation.getRotationTrafo instrument frame time, mounting with
                 | Some instrumentToBody, Some mounting ->

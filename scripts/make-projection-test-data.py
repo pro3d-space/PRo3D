@@ -121,7 +121,28 @@ def check_sidecars(folder):
     return bad
 
 
-def write_scene(template, out, opc, texture_label, texture_index, mbi, epoch_iso, kernel_root=None):
+def resolve_kernel(kernel, kernel_root):
+    """The concrete, versioned metakernel to render with, so the sidecars' SPICE_MK and the
+    scene name it rather than an alias. --kernel wins; otherwise <root>/mk/hera_plan.tm is
+    followed to the file its MK_IDENTIFIER names, when that file exists next to it."""
+    if kernel:
+        return os.path.abspath(kernel)
+    if not kernel_root:
+        return None
+    root = kernel_root if os.path.isdir(os.path.join(kernel_root, "mk")) else os.path.join(kernel_root, "kernels")
+    alias = os.path.join(root, "mk", "hera_plan.tm")
+    if not os.path.exists(alias):
+        return None
+    for line in open(alias, encoding="utf-8", errors="replace"):
+        if "MK_IDENTIFIER" in line and "=" in line:
+            ident = line.split("=", 1)[1].strip().strip("'\"")
+            concrete = os.path.join(root, "mk", ident + ".tm")
+            if os.path.exists(concrete):
+                return concrete
+    return alias
+
+
+def write_scene(template, out, opc, texture_label, texture_index, mbi, epoch_iso, kernel_root=None, kernel=None):
     """A scene with everything projection needs already set.
 
     From an empty PRo3D none of this is in place, and until it is, fly-to and projection
@@ -158,7 +179,9 @@ def write_scene(template, out, opc, texture_label, texture_index, mbi, epoch_iso
     d["gisApp"]["defaultObservationInfo"]["time"] = epoch_iso
     # the template names its meta-kernel by an absolute path; keep the file name, take
     # the tree the frames were rendered with
-    if kernel_root and d["gisApp"].get("spiceKernel"):
+    if kernel:
+        d["gisApp"]["spiceKernel"] = kernel
+    elif kernel_root and d["gisApp"].get("spiceKernel"):
         root = kernel_root if os.path.isdir(os.path.join(kernel_root, "mk")) else os.path.join(kernel_root, "kernels")
         d["gisApp"]["spiceKernel"] = os.path.join(root, "mk", d["gisApp"]["spiceKernel"].replace("\\", "/").split("/")[-1])
     # entities the loaded kernels cannot place cost a failing SPICE call per frame, and
@@ -192,6 +215,9 @@ def main():
                     help="texture layer for the unlit frames (default DRACO_2)")
     ap.add_argument("--kernel-root", default=None,
                     help="SPICE kernel tree; defaults to $PRO3D_SPICE_KERNELS")
+    ap.add_argument("--kernel", default=None,
+                    help="metakernel to render with; default: <kernel-root>/mk/hera_plan.tm "
+                         "followed to the versioned file its MK_IDENTIFIER names")
     ap.add_argument("--gain", default="4.492",
                     help="fixed gain for the lit frames, so a series is comparable")
     ap.add_argument("--scene-template", default=None,
@@ -218,6 +244,10 @@ def main():
               "--observer", "HERA", "--instrument", "HERA_AFC-1"]
     if a.kernel_root:
         common += ["--kernel-root", a.kernel_root]
+    kernel = resolve_kernel(a.kernel, a.kernel_root or os.environ.get("PRO3D_SPICE_KERNELS"))
+    if kernel:
+        common += ["--kernel", kernel]
+        print("metakernel %s" % kernel)
 
     if a.list_layers:
         # an unmatched name makes the tool print what the OPC declares
@@ -283,7 +313,7 @@ def main():
             write_scene(a.scene_template, out, a.opc, a.texture_layer, idx,
                         os.path.join(a.out, "AFC1_%s_%s.mbi.json" % (tag, best)),
                         "%sT%s.0000000Z" % (date, best_epoch),
-                        a.kernel_root or os.environ.get("PRO3D_SPICE_KERNELS"))
+                        a.kernel_root or os.environ.get("PRO3D_SPICE_KERNELS"), kernel)
             print("\nwrote %s (texture %s index %d, camera on the %s frame's axis)"
                   % (out, a.texture_layer, idx, best_epoch))
 

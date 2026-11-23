@@ -43,6 +43,26 @@ INSTRUMENTS = [
 ]
 
 
+def resolve_kernel(kernel, kernel_root):
+    """The concrete, versioned metakernel, so the sidecars' SPICE_MK names it rather than
+    an alias: --kernel, else <root>/mk/hera_plan.tm followed to its MK_IDENTIFIER file
+    (same as make-projection-test-data.py)."""
+    if kernel:
+        return os.path.abspath(kernel)
+    if not kernel_root:
+        return None
+    root = kernel_root if os.path.isdir(os.path.join(kernel_root, "mk")) else os.path.join(kernel_root, "kernels")
+    alias = os.path.join(root, "mk", "hera_plan.tm")
+    if not os.path.exists(alias):
+        return None
+    for line in open(alias, encoding="utf-8", errors="replace"):
+        if "MK_IDENTIFIER" in line and "=" in line:
+            concrete = os.path.join(root, "mk", line.split("=", 1)[1].strip().strip("'\"") + ".tm")
+            if os.path.exists(concrete):
+                return concrete
+    return alias
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--opc", required=True, help="Dimorphos OPC directory")
@@ -51,20 +71,30 @@ def main():
     ap.add_argument("--date", default="2027-03-21", help="observation date (default 2027-03-21)")
     ap.add_argument("--hours", default="14,17,20,23", help="UTC hours, comma separated (default 14,17,20,23)")
     ap.add_argument("--kernel-root", default=None, help="SPICE kernel tree (default $PRO3D_SPICE_KERNELS)")
+    ap.add_argument("--kernel", default=None,
+                    help="metakernel; default <kernel-root>/mk/hera_plan.tm followed to its versioned file")
+    ap.add_argument("--only", default=None,
+                    help="comma-separated folders to render (AFC, ASPECT, HSH); default all")
     ap.add_argument("--aim", default="DIMORPHOS", help="body to aim every instrument at (default DIMORPHOS); 'none' keeps the planned pointing")
     a = ap.parse_args()
 
+    kernel = resolve_kernel(a.kernel, a.kernel_root or os.environ.get("PRO3D_SPICE_KERNELS"))
+    only = None if not a.only else {x.strip().upper() for x in a.only.split(",")}
     failures = 0
     for hour in [int(h) for h in a.hours.split(",")]:
         time = f"{a.date}T{hour:02d}:00:00Z"
         stamp = a.date.replace("-", "") + f"_{hour:02d}0000"
         for folder, frame, stem, ext, extra in INSTRUMENTS:
+            if only is not None and folder.upper() not in only:
+                continue
             target = os.path.join(a.out, folder)
             os.makedirs(target, exist_ok=True)
             cmd = [a.tool, "simulate-image", "--opc", a.opc, "--time", time, "--instrument", frame,
                    "--out", os.path.join(target, f"{stem}_{stamp}{ext}")] + extra
             if a.kernel_root:
                 cmd += ["--kernel-root", a.kernel_root]
+            if kernel:
+                cmd += ["--kernel", kernel]
             if a.aim.lower() != "none":
                 cmd += ["--aim", a.aim]
             print(" ".join(cmd), flush=True)

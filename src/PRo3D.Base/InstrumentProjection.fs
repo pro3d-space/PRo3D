@@ -63,10 +63,10 @@ type ProjectorPose =
     /// misalignment and twist are all in -- and NOT aimed. Every other pose builds the
     /// instrument from the SPACECRAFT attitude plus the fixed axis swap of
     /// `specialTrafos` and never reads the instrument frame; `SpiceAimed` then turns
-    /// onto the target, hiding any misalignment. The image axes come from the
-    /// instrument's `imageLayouts` entry (the instrument kernel's pixel layout); an
-    /// instrument without one keeps PRo3D's established orientation, the 90-degree
-    /// relabelling of the instrument frame nearest to the spacecraft-based camera.
+    /// onto the target, hiding any misalignment. Image axes: `imageAxes` -- the
+    /// instrument kernel's pixel layout, or, where the loaded frames kernel names the
+    /// axes differently or there is no layout, the relabelling of the instrument frame
+    /// nearest to the spacecraft-attitude camera.
     | SpiceInstrument
 
 /// Everything needed to place one instrument image as a projector.
@@ -140,8 +140,10 @@ module InstrumentProjection =
     /// layout, which defines the frame axes against the detector's samples and lines.
     type ImageLayout =
         {
-            columns : V3d
-            rows    : V3d
+            columns    : V3d
+            rows       : V3d
+            /// the spacecraft the instrument is mounted on (key of `spacecraftFrames`)
+            spacecraft : string
         }
 
     /// The instrument kernels' pixel layout, per SPICE frame name. HERA's IKs: pixel
@@ -150,7 +152,7 @@ module InstrumentProjection =
     /// layout is confirmed against PRo3D's camera are listed (docs/InstrumentFieldOfView.md);
     /// the others keep `specialTrafos` and project unflipped by default.
     let imageLayouts : Map<string, ImageLayout> =
-        let hera = { columns = V3d.IOO; rows = -V3d.OIO }
+        let hera = { columns = V3d.IOO; rows = -V3d.OIO; spacecraft = "HERA" }
         Map.ofList [
             "HERA_AFC-1", hera
             "HERA_AFC-2", hera
@@ -317,6 +319,104 @@ module InstrumentProjection =
         let special = specialTrafos |> Map.tryFind instrument |> Option.defaultValue Trafo3d.Identity
         CameraView.viewTrafo view * special
 
+    /// The signed permutation nearest to `d` (column by column); may be singular.
+    let private nearestPermutation (d : M33d) : M33d =
+        let mutable p = M33d.Zero
+        for c in 0 .. 2 do
+            let mutable best = 0
+            for r in 1 .. 2 do
+                if abs d.[r, c] > abs d.[best, c] then best <- r
+            p.[best, c] <- float (sign d.[best, c])
+        p
+
+    /// Rotation angle (degrees) between the camera `p` and the camera `d`, both as
+    /// camera axes in instrument coordinates.
+    let private deviationDeg (p : M33d) (d : M33d) =
+        let tr = p.Transposed * d
+        Constant.DegreesPerRadian * acos (clamp -1.0 1.0 ((tr.M00 + tr.M11 + tr.M22 - 1.0) / 2.0))
+
+    let private warnedAxisFallback = System.Collections.Concurrent.ConcurrentDictionary<string, bool>()
+
+    /// Forget which instruments' axis fallback was already reported (`imageAxes`'s notes):
+    /// called when another kernel is loaded, so its mismatches are reported again.
+    let resetAxisWarnings () = warnedAxisFallback.Clear()
+
+    /// The image axes of `instrument` in its own SPICE frame: the camera's right, up and
+    /// towards-the-viewer as columns in instrument coordinates. Normally the instrument
+    /// kernel's pixel layout (`imageLayouts`). That layout is drawn in the axes of the
+    /// frames kernel the instrument kernel belongs to; a frames kernel that names the
+    /// instrument axes differently (a different version) puts it far from PRo3D's
+    /// spacecraft-attitude camera, and then -- as for instruments without a layout -- the
+    /// relabelling of the instrument axes nearest to that camera is used, with a warning
+    /// (once per instrument and kernel load, see `resetAxisWarnings`). The row flip is not
+    /// affected: a relabelling is a rotation, and whether rows are flipped stays
+    /// `defaultFlipRows`.
+    ///
+    /// Compares through the frames kernel's mounting (spacecraft frame -> instrument
+    /// frame), which needs no attitude data: `time` only has to be an epoch SPICE can
+    /// convert. The spacecraft is the layout's own; `spacecraft` is used for instruments
+    /// without a layout. Error: no spacecraft frame known, SPICE cannot relate the
+    /// instrument frame to it (no frames kernel), or no relabelling within 5 degrees of
+    /// the spacecraft-attitude camera (wrong instrument frame).
+    let imageAxes (instrument : string) (spacecraft : string) (time : DateTime) : Result<M33d * list<string>, string> =
+        lock spiceCallLock (fun () ->
+        let layout = Map.tryFind instrument imageLayouts
+        let spacecraft = layout |> Option.map (fun l -> l.spacecraft) |> Option.defaultValue spacecraft
+        match Map.tryFind spacecraft spacecraftFrames with
+        | None -> Result.Error (sprintf "no spacecraft frame known for %s (InstrumentProjection.spacecraftFrames)" spacecraft)
+        | Some scFrame ->
+        match CooTransformation.getRotationTrafo scFrame instrument time with
+        | None -> Result.Error (sprintf "SPICE cannot relate the instrument frame %s to %s at %s (frames kernel loaded?)" instrument scFrame (time.ToString "o"))
+        | Some scToInst ->
+            // PRo3D's spacecraft-attitude camera (identity attitude + specialTrafos): its
+            // axes in spacecraft coordinates, then in instrument coordinates. The attitude
+            // cancels: for any CK, (J2000 -> inst) * camToJ2000 is this same matrix.
+            let camSc = (attitudeView instrument M33d.Identity V3d.Zero).Backward.UpperLeftM33()
+            let d = scToInst.Forward.UpperLeftM33() * camSc
+            let layoutCam = layout |> Option.map (layoutCamera >> fst)
+            match layoutCam with
+            | Some c when deviationDeg c d <= 5.0 -> Ok (c, [])
+            | _ ->
+                let p = nearestPermutation d
+                let dev = deviationDeg p d
+                if abs (p.Determinant - 1.0) > 1e-9 || dev > 5.0 then
+                    Result.Error (sprintf "%s's frame is %.1f deg from any axis relabelling of PRo3D's %s camera -- wrong instrument frame?"
+                                      instrument dev spacecraft)
+                else
+                    let notes =
+                        match layoutCam with
+                        | Some c when warnedAxisFallback.TryAdd(instrument, true) ->
+                            [ sprintf "the loaded frames kernel names %s's axes %.0f deg away from its instrument kernel's pixel layout (a different frames kernel version?); using the axis relabelling nearest to the spacecraft-attitude camera"
+                                  instrument (deviationDeg c d) ]
+                        | _ -> []
+                    Ok (p, notes))
+
+    /// Instruments whose instrument-kernel layout the LOADED frames kernel names
+    /// differently, with the angle between the layout camera and PRo3D's spacecraft-attitude
+    /// camera: for these `imageAxes` falls back to the nearest relabelling. Checks the
+    /// frames kernel's mounting (spacecraft frame -> instrument frame), which needs no
+    /// attitude data, so `time` only has to be an epoch SPICE can convert. Instruments
+    /// SPICE cannot relate to their spacecraft (no frames kernel loaded) are not listed.
+    /// Meant to run once per loaded kernel set, to tell the user (Viewer:
+    /// `withFrameKernelCheck`).
+    let layoutMismatches (time : DateTime) : list<string * float> =
+        lock spiceCallLock (fun () ->
+            imageLayouts
+            |> Map.toList
+            |> List.choose (fun (instrument, layout) ->
+                match Map.tryFind layout.spacecraft spacecraftFrames with
+                | None -> None
+                | Some scFrame ->
+                match CooTransformation.getRotationTrafo scFrame instrument time with
+                | None -> None
+                | Some scToInst ->
+                    // the spacecraft-attitude camera for an identity attitude: camera axes in
+                    // spacecraft coordinates, then in instrument coordinates
+                    let camSc = (attitudeView instrument M33d.Identity V3d.Zero).Backward.UpperLeftM33()
+                    let d = scToInst.Forward.UpperLeftM33() * camSc
+                    let dev = deviationDeg (fst (layoutCamera layout)) d
+                    if dev > 5.0 then Some (instrument, dev) else None))
+
     /// The boresight (projector -Z, see specialTrafos) of a view trafo, in J2000.
     let private boresightOf (view : Trafo3d) : V3d =
         view.Backward.TransformDir(-V3d.OOI) |> Vec.normalize
@@ -407,45 +507,13 @@ module InstrumentProjection =
                         if not ((targetPos - location).Length > 0.0) then
                             Result.Error (sprintf "%s and %s coincide at %s" req.spacecraft target when')
                         else
-                        let scAttitude =
-                            Map.tryFind req.spacecraft spacecraftFrames
-                            |> Option.bind (fun scFrame -> CooTransformation.getRotationTrafo "J2000" scFrame req.time)
-                        match scAttitude, CooTransformation.getRotationTrafo "J2000" req.instrument req.time with
-                        | None, _ -> Result.Error (sprintf "SPICE has no attitude (CK) of %s at %s" req.spacecraft when')
-                        | _, None -> Result.Error (sprintf "SPICE cannot orient the instrument frame %s at %s (frames kernel loaded?)" req.instrument when')
-                        | Some sc, Some inst ->
-                            // the camera PRo3D has always built (spacecraft attitude + axis swap)
-                            let nominal = attitudeView req.instrument (sc.Forward.UpperLeftM33()) location
-                            let camToJ2000 = nominal.Backward.UpperLeftM33()          // columns: camera axes in J2000
-                            let instToJ2000 = inst.Forward.UpperLeftM33().Transposed  // columns: instrument axes in J2000
-                            let d = instToJ2000.Transposed * camToJ2000               // camera axes in instrument coords
-                            // The image axes in instrument terms: the instrument kernel's
-                            // layout where known, else the signed permutation nearest to
-                            // PRo3D's spacecraft-based camera.
-                            let p, source =
-                                match Map.tryFind req.instrument imageLayouts with
-                                | Some l -> fst (layoutCamera l), "the instrument kernel's pixel layout"
-                                | None ->
-                                    let mutable p = M33d.Zero
-                                    for c in 0 .. 2 do
-                                        let mutable best = 0
-                                        for r in 1 .. 2 do
-                                            if abs d.[r, c] > abs d.[best, c] then best <- r
-                                        p.[best, c] <- float (sign d.[best, c])
-                                    p, "any axis relabelling"
-                            let tr = p.Transposed * d
-                            let deviation = Constant.DegreesPerRadian * acos (clamp -1.0 1.0 ((tr.M00 + tr.M11 + tr.M22 - 1.0) / 2.0))
-                            // A layout camera far from the spacecraft-based one means the
-                            // frames kernel names the instrument axes differently from the
-                            // instrument kernel: a kernel set that does not belong together.
-                            if abs (p.Determinant - 1.0) > 1e-9 || deviation > 5.0 then
-                                Result.Error (sprintf "%s's frame at %s is %.1f deg from %s applied to PRo3D's %s camera -- frames and instrument kernels do not match, or wrong instrument frame"
-                                                  req.instrument when' deviation source req.spacecraft)
-                            else
-                                let cam = instToJ2000 * p
-                                let camToWorld = Trafo3d.FromBasis(cam.C0, cam.C1, cam.C2, location)
-                                // no warning on success: callers log warnings per image at warn level
-                                Ok (camToWorld.Inverse, location, []))
+                        match imageAxes req.instrument req.spacecraft req.time, CooTransformation.getRotationTrafo "J2000" req.instrument req.time with
+                        | Result.Error e, _ -> Result.Error e
+                        | _, None -> Result.Error (sprintf "SPICE cannot orient the instrument frame %s at %s (no CK of %s, or no frames kernel)" req.instrument when' req.spacecraft)
+                        | Ok (p, notes), Some inst ->
+                            let cam = inst.Forward.UpperLeftM33().Transposed * p   // camera axes in J2000
+                            let camToWorld = Trafo3d.FromBasis(cam.C0, cam.C1, cam.C2, location)
+                            Ok (camToWorld.Inverse, location, notes))
                 | SpiceAimed ->
                     spacecraftPos () |> Result.bind (fun location ->
                         let toTarget = targetPos - location
