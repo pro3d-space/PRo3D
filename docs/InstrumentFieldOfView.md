@@ -19,7 +19,7 @@ project, by SPICE frame name:
 | **H FOV (deg)** | full field of view along the image **width** |
 | **V FOV (deg)** | full field of view along the image **height** |
 | **flip** | mirror this instrument's images vertically -- see [Flipped rows](#flipped-rows) |
-| ↶ | back to the kernel value (the tooltip shows it), unflipped |
+| ↶ | back to the kernel value (the tooltip shows it) and the instrument's default flip |
 
 The change applies right away to every projected image of that instrument: the stack,
 the hover preview, the footprint and the Image Inspector.
@@ -58,14 +58,32 @@ How to tell: with *Lighting* on, compare the projected image's bright side with 
 rendered sun direction, or check where a companion body (Dimorphos) sits against its
 orbit. A flipped file correlates with the rendered shading only after flipping.
 
-It is **not** on by default: PRo3D's own simulated frames are top-down. Whether a
-delivery is bottom-up depends on the converter that wrote its image files, not on the
-instrument; check with the data producer.
+### Where the default comes from: the instrument kernel's pixel layout
+
+Each instrument kernel (IK) draws its detector in the instrument frame: for the HERA
+cameras, pixel (0,0) is in the **lower left** corner, samples run along +X, lines
+along −Y, and the boresight is +Z. A file that stores line 0 first therefore stores its
+rows bottom-up, and the camera PRo3D needs is right = +X, up = −Y with the rows flipped.
+
+`InstrumentProjection.imageLayouts` holds that layout per instrument (direction of
+increasing column and of increasing row, in the instrument frame); the camera's image
+axes and the row flip are both derived from it (`layoutCamera`), so they cannot
+disagree. The flip default is **on for the AFC cameras** (`HERA_AFC-1`, `HERA_AFC-2`) for
+that reason, and off for instruments without a layout entry — they keep the hand-written
+axis swap of `InstrumentProjection.specialTrafos` until a real frame confirms their IK
+layout (HSH and TIRI do not match their IK drawing with that swap).
+
+The viewer, `pro3d-tool simulate-image`, `sample-layers`, `sun-angles` and `unproject`
+all take this default, so a frame written by `simulate-image` (line 0 first, i.e. the
+instrument's own row order) and a real frame stored the same way project alike. The
+**flip** checkbox overrides it per scene, for a delivery whose files were re-ordered.
 
 ## Saved with the scene
 
-Only the instruments you changed (field of view, or flip) are saved, under the scene's
-`instrumentFovs` key (a flip as `"flipRows": true` in its entry). A
+Only the instruments you changed (field of view, or flip against the instrument's
+default) are saved, under the scene's `instrumentFovs` key, each entry with its
+`"flipRows"`. An entry without it (scenes from before the AFC default) takes the
+instrument's default. A
 scene where nothing was changed is saved exactly as before, and older PRo3D releases
 ignore the key. An instrument you did not change follows the kernel default of the PRo3D
 version that opens the scene, so a corrected default reaches old scenes too.
@@ -73,6 +91,6 @@ version that opens the scene, so a corrected default reaches old scenes too.
 ## Not covered
 
 - **Lens distortion** is not modelled; the pinhole frustum ignores it (#915).
-- **pro3d-tool** (`simulate-image`, `sample-layers`, `sun-angles`, `unproject`) always uses the
-  kernel defaults, unflipped.
-  Its renders are what the defaults describe.
+- **pro3d-tool** has no scene: it always uses the kernel field of view and the
+  instrument's default row flip (above), never a scene override. Their per-pixel
+  outputs are in the instrument's row order, pixel-aligned with the input frame.

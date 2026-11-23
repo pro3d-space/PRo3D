@@ -17,8 +17,9 @@ is no safe fallback: the sidecar's fields are self-consistent under the wrong
 convention, so nothing in the file reveals which reading was meant. See
 "Pointing" below for the evidence and for a correctly written reference sidecar.
 
-Note what this does **not** explain. With the default *Orientation Source*
-(**SPICE**) the images do land on the body — approximately — because that mode
+Note what this does **not** explain. With the *Orientation Source* that was
+the default then (**SPICE**, now *SPICE, aimed at target* / `SpiceAimed`) the
+images do land on the body — approximately — because that mode
 ignores the sidecar's attitude entirely and points the camera at the body
 centre with a fixed roll (`InstrumentProjection.getLookAt`). That is why the
 COP images currently look *nearly* right rather than absent, and it is a
@@ -182,7 +183,7 @@ pro3d-tool unproject --opc <Dimorphos OPC> --images <folder> --method mbi
 | 5 + 6 corrected | `no-hit` |
 | 5 + 6 + 7 corrected | hit at 8561.9 m range, 0.15° from the ground-truth boresight |
 
-The same image with `--method spice` hits at 8557.0 m even as delivered — that
+The same image with `--method spice-aimed` (`spice` at the time) hits at 8557.0 m even as delivered — that
 mode never reads the sidecar's attitude, which is exactly the point above.
 
 ### A reference sidecar

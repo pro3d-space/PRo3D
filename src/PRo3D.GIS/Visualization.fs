@@ -263,7 +263,8 @@ module Visualization =
     /// The projector pose an orientation source stands for.
     let projectorPose (method : ProjectionMethod) (mbi : Tiff_Mbi_Json.Mbi) : ProjectorPose =
         match method with
-        | ProjectionMethod.Spice -> ProjectorPose.SpiceAimed
+        | ProjectionMethod.Spice -> ProjectorPose.SpiceInstrument
+        | ProjectionMethod.SpiceAimed -> ProjectorPose.SpiceAimed
         | ProjectionMethod.MbiAttitudeSpiceRange -> ProjectorPose.SidecarAttitudeSpiceRange mbi.sc_quat
         | _ -> ProjectorPose.Sidecar (mbi.sc_quat, mbi.targetPos)
 
@@ -296,7 +297,7 @@ module Visualization =
                     boresight   = boresight
                     nearFar     = nearFar
                     fov         = setup |> Option.map (fun s -> s.fov.horizontal, s.fov.vertical)
-                    flipRows    = setup |> Option.exists (fun s -> s.flipRows)
+                    flipRows    = setup |> Option.map (fun s -> s.flipRows) |> Option.defaultValue (InstrumentProjection.defaultFlipRows spiceName)
                 }
         | _ ->
             Result.Error "no mbi sidecar"

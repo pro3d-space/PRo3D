@@ -65,7 +65,7 @@ module InstrumentFovApp =
                 text "flip"
             ]
             i [clazz "undo icon"; style "cursor: pointer; margin-left: 4px; opacity: 0.7"
-               attribute "title" ("Back to the " + kernelText instrument + ", unflipped"); onClick (fun _ -> Reset instrument)] []
+               attribute "title" ("Back to the " + kernelText instrument + (if PRo3D.SPICE.InstrumentProjection.defaultFlipRows instrument then ", flipped" else ", unflipped")); onClick (fun _ -> Reset instrument)] []
         ]
 
     /// Rows sorted by instrument name; FOV in degrees, horizontal = along the image width.

@@ -161,14 +161,32 @@ module LightingMode =
 
 /// Where a projected image's pose comes from (the *Orientation Source*); maps 1:1 to
 /// PRo3D.SPICE.ProjectorPose, see there.
-/// - Spice: position and attitude from SPICE (SPK + spacecraft CK), aimed at the target.
+/// - Spice: SPICE only -- SPK position and the instrument's own frame (CK x frames
+///   kernel), NOT aimed: the pointing SPICE predicts, FK mounting/misalignment included.
 /// - MbiBased: the sidecar's SC_QUAT attitude and TRG_POS.
 /// - MbiAttitudeSpiceRange: the sidecar's SC_QUAT attitude, target on the boresight at
 ///   the SPICE range (for sidecars without TRG_POS).
+/// - SpiceAimed: SPK position and spacecraft CK attitude (no frames kernel), then turned
+///   onto the target centre -- what "Spice" used to be. Lands every image on the body,
+///   and with that hides any pointing error.
 type ProjectionMethod =
     | Spice = 0
     | MbiBased = 1
     | MbiAttitudeSpiceRange = 2
+    | SpiceAimed = 3
+
+/// The *Orientation Source* dropdown: order and labels (the enum names are not for users).
+module OrientationSource =
+    let all =
+        [ ProjectionMethod.Spice; ProjectionMethod.SpiceAimed
+          ProjectionMethod.MbiAttitudeSpiceRange; ProjectionMethod.MbiBased ]
+    let label (m : ProjectionMethod) =
+        match m with
+        | ProjectionMethod.MbiAttitudeSpiceRange -> "MBI attitude, SPICE range"
+        | ProjectionMethod.MbiBased -> "MBI (SC_QUAT + TRG_POS)"
+        | ProjectionMethod.Spice -> "SPICE (instrument frame)"
+        | ProjectionMethod.SpiceAimed -> "SPICE, aimed at target"
+        | other -> string other
 
 /// What is projected (Projection Settings -> Projection). Saved with the scene as its
 /// number (GisApp "projectionStackMode"); a scene without it is FullStack.
@@ -981,12 +999,12 @@ module ProjectedImageListModel =
         cameraState = OrbitState.create V3d.Zero 0.0 0.0 (2.0 * (3389.5 * 1000.0))
         instrumentVisibility = InstrumentVisibilityMode.Off
         lightingMode = LightingMode.Off
-        // MbiAttitudeSpiceRange: the image's own attitude and roll (SC_QUAT) with the
-        // range from SPICE. Works for sidecars without TRG_POS
-        // and puts the target on the boresight, which Registration then refines. MbiBased
-        // is exact only where TRG_POS is; Spice ignores the image's pointing. Not persisted
-        // in a scene, so every session starts here.
-        projectionMethod = ProjectionMethod.MbiAttitudeSpiceRange
+        // Spice: SPK position and the instrument's own frame (CK x frames kernel), not
+        // aimed -- the pointing SPICE predicts, independent of the sidecar's SC_QUAT and
+        // TRG_POS. Needs CK and frames-kernel coverage of the epoch; MbiAttitudeSpiceRange
+        // / SpiceAimed for images without it. Not persisted in a scene, so every session
+        // starts here.
+        projectionMethod = ProjectionMethod.Spice
         useTransferFunction = true
         windingCorrection = false
         filter = ImageFilter.initial

@@ -239,10 +239,11 @@ a kernel that covers them makes them checkable.
 The pointing check needs an *Orientation Source* that works for these sidecars:
 
 - *MbiBased* needs the sidecar's `SC_QUAT` and `TRG_POS`;
-- *MbiAttitudeSpiceRange* (the default) needs `SC_QUAT` only, the range comes
+- *MbiAttitudeSpiceRange* needs `SC_QUAT` only, the range comes
   from SPICE;
-- *Spice* needs neither: position and attitude come from the kernels, which
-  must cover the epoch.
+- *Spice* (the default) and *SpiceAimed* need neither: position and attitude come from the
+  kernels, which must cover the epoch. *Spice* also needs the frames kernel and is
+  not aimed, so the image can miss the target; *SpiceAimed* always lands on it.
 
 The test *STAC catalog coverage* says whether a catalog has footprints for
 Didymos and Dimorphos, and which part is missing.

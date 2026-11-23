@@ -141,7 +141,7 @@ photograph that already shows the sun's light and shadows; shading it by the ter
 again would count them twice. The surface around the image is lit as usual.
 | **Apply Image Adjustments** | on (default): samples go through each image's *Range*, *Brightness/Contrast* and *False Colour* (Selected Image › Properties), which instrument data needs to be readable. Off: the image's own pixels, untouched — for RGB images, and for checking a projection against its source. While it is off, the selected image's Properties show a hint with a button to turn it on. (Formerly *Transfer Function*.) |
 | **Winding Correction** | off (default). Turn it on only when an image survives **only near the limb** of the body: that is an OPC whose triangles are wound inward, so the projector-facing test rejects exactly the terrain facing the projector. On: PRo3D estimates each OPC hierarchy's winding from its coarsest patch (loaded once, the first time something is projected) and corrects the inward ones. The estimate assumes a roughly convex body seen from orbit; it is not reliable for near-vertical terrain such as rover outcrops. Saved with the scene. |
-| **Orientation Source** | where the projector's position and attitude come from — `MbiAttitudeSpiceRange` (default), `MbiBased` or `Spice`; see [If an image does not land on the terrain](#if-an-image-does-not-land-on-the-terrain) |
+| **Orientation Source** | where the projector's position and attitude come from — *SPICE (instrument frame)* (`Spice`, default), *MBI attitude, SPICE range* (`MbiAttitudeSpiceRange`), *MBI* (`MbiBased`) or *SPICE, aimed at target* (`SpiceAimed`); see [If an image does not land on the terrain](#if-an-image-does-not-land-on-the-terrain) |
 | **Registration** | roll / pitch / yaw in degrees, turning the projector about its own position (a pointing correction); applies to every image of the stack |
 
 The **Instrument Settings** section below it holds each instrument's field of view, prefilled from
@@ -317,26 +317,37 @@ the projector's position and attitude come from:
 
 | mode | position | attitude (incl. roll) | target in the image |
 |---|---|---|---|
-| `Spice` | SPICE (spacecraft SPK) | SPICE (spacecraft CK), then turned onto the target | always dead centre |
-| `MbiBased` | the sidecar's `TRG_POS`, measured from its `TARGET` | the sidecar's `SC_QUAT` | wherever the sidecar's pointing puts it |
-| `MbiAttitudeSpiceRange` (default) | on the boresight, at the SPICE range to `TARGET` | the sidecar's `SC_QUAT` | always dead centre |
+| `MbiAttitudeSpiceRange` (*MBI attitude, SPICE range*) | on the boresight, at the SPICE range to `TARGET` | the sidecar's `SC_QUAT` | always dead centre |
+| `MbiBased` (*MBI*) | the sidecar's `TRG_POS`, measured from its `TARGET` | the sidecar's `SC_QUAT` | wherever the sidecar's pointing puts it |
+| `Spice` (default; *SPICE (instrument frame)*) | SPICE (spacecraft SPK) | SPICE: the instrument's own frame, spacecraft CK × frames kernel; not aimed | wherever SPICE's pointing puts it |
+| `SpiceAimed` (*SPICE, aimed at target*) | SPICE (spacecraft SPK) | SPICE (spacecraft CK, no frames kernel), then turned onto the target | always dead centre |
+
+The dropdown shows the labels in italics; the enum names are what logs use, and the
+`pro3d-tool --method` options are `mbi-spice-range`, `mbi`, `spice` and `spice-aimed`.
 
 - **`MbiBased`** is exact when the sidecar is, and faithfully wrong when it is
   not. It needs `TRG_POS`: an image whose `TRG_POS` is zero shows **no TRG_POS**
   in the library's distance column, and `MbiBased` does not project it. An all-zero
   `SC_QUAT` (no attitude) rules out both `MbiBased` and `MbiAttitudeSpiceRange`;
-  only `Spice` can place such an image. Both cases are logged with the reason.
-- **`Spice`** needs the spacecraft's SPK and CK at the image's epoch. Its turn
-  onto the target absorbs the ephemeris error between where SPICE puts the body
-  and where the camera actually pointed, so the image always lands on the body;
-  without a CK the roll is arbitrary (logged) and the Registration roll fixes it.
+  only `Spice` / `SpiceAimed` can place such an image. Both cases are logged with the reason.
+- **`Spice`** needs the spacecraft's SPK and CK and the frames kernel (FK) at the
+  image's epoch: it asks SPICE for the instrument's own frame, so the FK's mounting,
+  misalignment and twist are applied, and it is **not aimed** — the image lands
+  where SPICE's predicted pointing puts it, and a pointing or ephemeris error stays
+  visible. See [The frames kernel](#the-frames-kernel-instrument-mounting).
+- **`SpiceAimed`** (what `Spice` was before) needs the SPK and CK. It uses the
+  spacecraft attitude without the frames kernel, and its turn onto the target
+  absorbs the ephemeris error between where SPICE puts the body and where the
+  camera actually pointed, so the image always lands on the body — and every
+  pointing error is hidden; without a CK the roll is arbitrary (logged) and the
+  Registration roll fixes it.
 - **`MbiAttitudeSpiceRange`** is for sidecars without a usable `TRG_POS`, and
   for kernels whose spacecraft-to-target direction is worse than the measured
   attitude — typically before arrival, when the target's ephemeris is known to a
   few kilometres while the star-tracker attitude is good to arcseconds. It keeps
   the image's own roll; only the range comes from SPICE.
 
-Both "dead centre" modes assume the target's centre is on the boresight. When it
+The "dead centre" modes assume the target's centre is on the boresight. When it
 is not (the body sits off-centre in the frame), correct it with **Registration
 → Pitch / Yaw**: they turn the projector about its own position, moving the
 image across the body like a pointing offset — 1° moves the image by 1/2.75 of
@@ -384,8 +395,38 @@ is in the other images' metadata — see
 [COP-sidecar-issues.md](COP-sidecar-issues.md), which documents a delivery that
 got all three of the above wrong at once.
 
-Worked through with pictures, `Spice` and `MbiBased` side by side (from before
-`Spice` took its roll from the CK):
+### The frames kernel (instrument mounting)
+
+SPICE applies a frames kernel's instrument mounting (the instrument's fixed
+orientation relative to the spacecraft: nominal axis swap plus misalignment and
+twist) **only when asked for the instrument's own frame**. Every orientation
+source except `Spice` builds the camera from a *spacecraft* attitude — the spacecraft's
+CK frame, or the sidecar's `SC_QUAT` — plus PRo3D's fixed 90° axis swap
+for the instrument (`InstrumentProjection.specialTrafos`), and so never sees the
+FK. `Spice` asks for `pxform(<instrument>, J2000)`, i.e. CK × FK.
+
+The image axes come from the instrument kernel's pixel layout
+(`InstrumentProjection.imageLayouts`, see
+[InstrumentFieldOfView.md](InstrumentFieldOfView.md#where-the-default-comes-from-the-instrument-kernels-pixel-layout)):
+the camera is the instrument frame with right/up taken from the detector's samples and
+lines, so no axis convention is guessed. `Spice` checks it against the spacecraft-based
+camera of the other orientation sources: more than 5° apart means the frames kernel
+names the instrument axes differently from the instrument kernel (a frames and
+instrument kernel that do not belong together, or the wrong frame name), and the
+projector fails with an error saying so rather than projecting a rotated image. An
+instrument without a layout entry falls back to the signed axis permutation nearest to
+the spacecraft-based camera.
+
+Whether a sidecar's `SC_QUAT` is the spacecraft or the instrument attitude is a
+property of the delivery; comparing `MbiBased` with `Spice` on the same frame
+tells. An instrument whose spacecraft-based axis swap in PRo3D is not validated
+(e.g. TIRI) may fail this check with `Spice`; use `SpiceAimed` for it. To check a frames kernel against real frames, render with
+`pro3d-tool simulate-image --mbi <frame> --method spice` (CK × FK, not aimed) or
+`--method mbi-spice-position` (the sidecar's attitude at SPICE's position, not
+aimed) and compare with the frame ([Pro3DTool-SimulateImage.md](Pro3DTool-SimulateImage.md)).
+
+Worked through with pictures, the old `Spice` (now `SpiceAimed`) and `MbiBased`
+side by side (from before it took its roll from the CK):
 [ProjectionValidation.md](ProjectionValidation.md).
 
 ## Known limitation: surface transformations do not reach the projection

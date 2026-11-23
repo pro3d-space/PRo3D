@@ -321,8 +321,8 @@ export async function setUpProjection(
     await gis.locator(`text=${firstImage}`).first().waitFor({ timeout: 120_000 });
     await gis.locator("text=Projection Settings").first().click();
     await gis.waitForTimeout(1200);
-    // the enum case is MbiBased -- that is the literal the dropdown renders
-    await selectBeside(gis, "Orientation Source:", "MbiBased");
+    // MbiBased, by its dropdown label (OrientationSource.label in ProjectedImageList-Model.fs)
+    await selectBeside(gis, "Orientation Source:", "MBI (SC_QUAT + TRG_POS)");
     await toggleBeside(gis, "Transfer Function:");
     await gis.waitForTimeout(1500);
     return gis;

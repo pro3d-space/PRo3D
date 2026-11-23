@@ -19,7 +19,8 @@ open Aardvark.Base
 /// One saved instrument (GisApp "instrumentFovs"): only the instruments a scene changed
 /// from the kernel default (field of view, or flipped rows) are written, so a scene that
 /// never touched them looks as before and picks up corrected kernel values in later
-/// releases. `flipRows` is additive: absent = false, and older releases ignore it.
+/// releases. `flipRows` is always written; absent (older scenes) = the instrument's
+/// default (InstrumentProjection.defaultFlipRows), and older releases ignore it.
 type InstrumentFovJson =
     {
         instrument : string
@@ -32,8 +33,7 @@ type InstrumentFovJson =
             do! Json.write      "instrument" x.instrument
             do! Json.writeFloat "horizontal" x.horizontal
             do! Json.writeFloat "vertical"   x.vertical
-            if x.flipRows then
-                do! Json.write  "flipRows"   true
+            do! Json.write      "flipRows"   x.flipRows
         }
     static member FromJson (_ : InstrumentFovJson) =
         json {
@@ -42,7 +42,7 @@ type InstrumentFovJson =
             let! vertical   = Json.readFloat "vertical"
             let! (flipRows : Option<bool>) = Json.tryRead "flipRows"
             return { instrument = instrument; horizontal = horizontal; vertical = vertical
-                     flipRows = Option.defaultValue false flipRows }
+                     flipRows = flipRows |> Option.defaultValue (PRo3D.SPICE.InstrumentProjection.defaultFlipRows instrument) }
         }
 
 module InstrumentFovJson =

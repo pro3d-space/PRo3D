@@ -134,6 +134,20 @@ let private geometry =
             Expect.floatClose Accuracy.high (ndc flipped V3d.Zero).Z (ndc plain V3d.Zero).Z "depth unchanged"
         }
 
+        test "AFC layout: samples along +X, lines along -Y, boresight +Z -- a proper camera with flipped rows" {
+            match Map.tryFind afc InstrumentProjection.imageLayouts with
+            | None -> failtest "AFC-1 has an image layout"
+            | Some l ->
+                let c, flip = InstrumentProjection.layoutCamera l
+                Expect.isTrue flip "line 0 is the bottom of the image: rows flipped"
+                Expect.equal c.C0 V3d.IOO "image right = +X (samples)"
+                Expect.equal c.C1 -V3d.OIO "image up = -Y (lines)"
+                Expect.equal c.C2 -V3d.OOI "towards the viewer = -boresight"
+                Expect.floatClose Accuracy.high c.Determinant 1.0 "proper"
+            Expect.isTrue (InstrumentProjection.defaultFlipRows "HERA_AFC-2") "AFC-2 too"
+            Expect.isFalse (InstrumentProjection.defaultFlipRows "HERA_HSH") "no layout: unflipped"
+        }
+
         test "the scene's field of view replaces the kernel's" {
             let pose = onAxisSidecar 29.2
             let plain = resolveOk (request pose None)
@@ -233,6 +247,62 @@ let private consistency =
                 let p = resolveOk (spiceRequest (ProjectorPose.Sidecar (q, trgKm)))
                 Expect.isLessThan (Vec.length (p.location - spice.location)) 1e-6 "same projector position"
                 Expect.floatClose Accuracy.high p.distance spice.distance "same distance")
+        }
+
+        // SpiceInstrument: SPK position, the instrument's own frame (CK x FK), not aimed.
+        // Its camera axes must be the instrument frame's axes up to a signed permutation,
+        // and that permutation must be the one nearest PRo3D's spacecraft-based camera
+        // (the FK mounting is close to the nominal axis swap).
+        // SpiceInstrument: SPK position, the instrument's own frame (CK x FK), not aimed,
+        // image axes from the instrument kernel's layout. A frames kernel that names the
+        // instrument axes differently from that layout
+        // must fail loudly instead of rendering a rotated image.
+        test "SpiceInstrument: SPICE position, the IK layout in the instrument frame, or a kernel-mismatch error" {
+            withOpsKernel (fun () ->
+                match CooTransformation.getRotationTrafo "J2000" afc epoch with
+                | None -> skiptest (sprintf "the loaded kernels cannot orient %s (no frames kernel?)" afc)
+                | Some inst ->
+                match InstrumentProjection.resolve (spiceRequest ProjectorPose.SpiceInstrument) with
+                | Result.Error e ->
+                    Expect.stringContains e "do not match" "a mismatch between frames and instrument kernel is named as such"
+                    printfn "[projectorPose] SpiceInstrument refused the loaded kernels: %s" e
+                | Ok p ->
+                    let aimed = resolveOk (spiceRequest ProjectorPose.SpiceAimed)
+                    Expect.isLessThan (Vec.length (cameraPosition p - cameraPosition aimed)) 1e-6 "the SPICE position"
+                    let camToJ2000 = p.view.Backward.UpperLeftM33()
+                    let inInst = inst.Forward.UpperLeftM33() * camToJ2000
+                    let expected =
+                        match Map.tryFind afc InstrumentProjection.imageLayouts with
+                        | Some l -> fst (InstrumentProjection.layoutCamera l)
+                        | None -> failtest "AFC-1 has an image layout"
+                    for r in 0 .. 2 do
+                        for c in 0 .. 2 do
+                            Expect.floatClose Accuracy.high inInst.[r, c] expected.[r, c] (sprintf "camera = instrument frame x layout, [%d,%d]" r c)
+                    let ckCamera = resolveOk (spiceRequest (ProjectorPose.SidecarAttitudeSpicePosition (ckQuaternion ())))
+                    let fkAngle = rotationAngleDeg (rotationOf p) (rotationOf ckCamera)
+                    printfn "[projectorPose] %s frame is %.4f deg from the spacecraft-attitude camera" afc fkAngle
+                    Expect.isLessThan fkAngle 5.0 "the layout camera is close to the spacecraft-attitude camera")
+        }
+
+        // simulate-image's planned-attitude camera composes the layout through its own
+        // mounting trafo: it must come out as exactly the layout camera, rows flipped.
+        test "simulate-image cameraAt: the IK layout camera in the instrument frame, flipped rows" {
+            withOpsKernel (fun () ->
+                match CooTransformation.getRotationTrafo afc "J2000" epoch with
+                | None -> skiptest (sprintf "the loaded kernels cannot orient %s" afc)
+                | Some instToJ2000 ->
+                match PRo3D.Tool.SimulateImageVerb.cameraAt "HERA" "J2000" "DIDYMOS" afc None 0.0 epoch with
+                | Result.Error e -> failtestf "cameraAt: %s" e
+                | Ok cam ->
+                    let inInst = instToJ2000.Backward.UpperLeftM33() * cam.view.Backward.UpperLeftM33()
+                    let expected =
+                        match Map.tryFind afc InstrumentProjection.imageLayouts with
+                        | Some l -> fst (InstrumentProjection.layoutCamera l)
+                        | None -> failtest "AFC-1 has an image layout"
+                    for r in 0 .. 2 do
+                        for c in 0 .. 2 do
+                            Expect.floatClose Accuracy.high inInst.[r, c] expected.[r, c] (sprintf "[%d,%d]" r c)
+                    Expect.isLessThan cam.proj.Forward.M11 0.0 "the projection carries the row flip")
         }
     ]
 
