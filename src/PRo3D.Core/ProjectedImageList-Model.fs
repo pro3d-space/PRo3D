@@ -260,6 +260,10 @@ type StacCandidate =
         check      : StacCheck
         /// from the downloaded metadata; None until the candidate is checked
         values     : Option<StacImageValues>
+        /// Some: the catalog lists the item for another body (its targets, or "no
+        /// target" for an item naming none), found by pointing alone
+        /// (StacSearchModel.includeOtherTargets). None: listed for the scene body.
+        otherTarget : Option<string>
     }
 
 /// The sortable columns of the image lists (library and Image Search).
@@ -320,8 +324,8 @@ type StacSearchStatus =
     | Idle
     /// waiting for the server
     | Searching
-    /// the server found `matched` items; `checked` of them are checked so far
-    | Checking of matched : int * checked : int * StacListing
+    /// the server found `matched` items; `progress` of them are checked so far
+    | Checking of matched : int * progress : int * StacListing
     /// `matched` is how many items the server found, `kept` how many survive the
     /// local check that the point really projects into the image (and the
     /// shared filters); the list shows at most StacSearchModel.maxResults
@@ -388,6 +392,12 @@ type StacSearchModel =
         /// 0 = sun overhead, 90 = sun on the horizon.
         incidenceMin : float
         incidenceMax : float
+        /// also check the items the catalog lists for other bodies (or none), by
+        /// their pointing: an image of another target can still show this body
+        includeOtherTargets : bool
+        /// how many of the listed items are of other targets (includeOtherTargets);
+        /// the status line tells them apart from the footprint hits
+        otherTargetsListed : int
         query        : Option<StacQueryPoint>
         status       : StacSearchStatus
         candidates   : IndexList<StacCandidate>
@@ -486,6 +496,8 @@ module StacSearchModel =
             // daylight only
             incidenceMin = 0.0
             incidenceMax = 90.0
+            includeOtherTargets = true
+            otherTargetsListed = 0
             query        = None
             status       = Idle
             candidates   = IndexList.empty
@@ -1055,13 +1067,15 @@ type StacSearchMessage =
     | SetTimeTo       of string
     | SetIncidenceMin of float
     | SetIncidenceMax of float
+    /// StacSearchModel.includeOtherTargets on/off
+    | ToggleIncludeOtherTargets
     /// The viewer's STAC worker started searching this point. The Query*
     /// messages below carry the search's `seq` and are dropped once a newer
     /// search has started.
     | QueryStarted  of StacQueryPoint
     /// The server's answer, every candidate still Checking, and how many items
     /// it matched.
-    | QueryListed   of seq : int * array<StacCandidate> * matched : int * StacListing
+    | QueryListed   of seq : int * array<StacCandidate> * matched : int * StacListing * otherTargets : int
     /// One candidate checked. None: the point is not in that image (or hidden
     /// in it), so the candidate goes.
     | QueryChecked  of seq : int * itemId : string * Option<StacCheck> * Option<StacImageValues>

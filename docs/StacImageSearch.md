@@ -262,6 +262,47 @@ The pointing check needs an *Orientation Source* that works for these sidecars:
 The test *STAC catalog coverage* says whether a catalog has footprints for
 Didymos and Dimorphos, and which part is missing.
 
+# Images of other targets
+
+An image the catalog lists for another body can still show this one, e.g. a
+frame aimed at Didymos with Dimorphos next to it, or a model of a body that was
+never a target itself. **Other targets** (checkbox in the Image Search section,
+on by default) checks these images too. The footprint search cannot find
+them: a footprint is a lon/lat polygon on the image's *own* target, so this
+body's lon/lat says nothing about it.
+
+With the checkbox on, the search also asks for the items of the time range
+regardless of point and target (one more query; when no footprint contains the
+point, it is the same query as the fallback above, asked once). Those naming
+other bodies only, and those naming none but having a footprint (on an unknown
+body), are checked **by their pointing alone**, after the footprint hits and
+the footprint-less ones:
+
+- as for images without footprint, at most the newest 1000 of the time range,
+  sidecars downloaded first (cached afterwards): a narrow Date range is much
+  faster. The 1000 are of *all* items of the range, this body's own included, so
+  in a range full of this body's images few others may be left; the log warns
+  when the range holds more;
+- the check places the camera relative to this body through SPICE. The loaded
+  kernel must place the image's target (its sidecar `TARGET`) relative to this
+  body at the image's time; an image it cannot place is counted as *no SPICE
+  coverage*, not listed. (Images listed for this body are taken to be of it
+  when SPICE cannot place their target, e.g. a barycentre the kernels lack;
+  for another body that would put the camera in the wrong place.) A sidecar
+  without `TARGET` cannot be placed either: it is counted as *uncheckable*;
+- unresolved ones are counted (*uncheckable*), not listed in red;
+- the Distance and Res. columns (and the Distance, Resolution and Phase Angle
+  filters) stay the metadata's, i.e. measured to the image's *own* target, as in
+  the library; the range and pixel size *at the picked point* are in the tooltip.
+  For two bodies as close as Didymos and Dimorphos the difference is small, for
+  a planet and its moon it is not;
+- a result shows the catalog's target after its name (grey) and in its tooltip;
+  the status line's tooltip counts them apart (*… and N image(s) of other
+  targets by pointing*).
+
+Off, the search is what it was before: footprint hits for this body, or the
+footprint-less fallback.
+
 # Coordinates
 
 The footprints are **planetocentric, east-positive** lon/lat in the body-fixed

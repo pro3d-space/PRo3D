@@ -172,12 +172,15 @@ module ProjectedImageListApp =
             | SetIncidenceMax a ->
                 let a = clamp 0.0 180.0 a
                 { m with stacSearch = { s with incidenceMax = a; incidenceMin = min a s.incidenceMin } }
+            | ToggleIncludeOtherTargets ->
+                { m with stacSearch = { s with includeOtherTargets = not s.includeOtherTargets } }
             | QueryStarted q ->
-                { m with stacSearch = { s with query = Some q; status = StacSearchStatus.Searching } }
+                { m with stacSearch = { s with query = Some q; status = StacSearchStatus.Searching; otherTargetsListed = 0 } }
             // the Query* answers of a search that is no longer the current one are
             // dropped: a newer point is being searched already
-            | QueryListed (n, candidates, matched, listing) when s.query |> Option.exists (fun q -> q.seq = n) ->
-                { m with stacSearch = { s with status = StacSearchStatus.Checking (matched, 0, listing); candidates = IndexList.ofArray candidates } }
+            | QueryListed (n, candidates, matched, listing, others) when s.query |> Option.exists (fun q -> q.seq = n) ->
+                { m with stacSearch = { s with status = StacSearchStatus.Checking (matched, 0, listing); candidates = IndexList.ofArray candidates
+                                               otherTargetsListed = others } }
                 |> keepStacHoverValid
             | QueryChecked (n, itemId, check, values) when s.query |> Option.exists (fun q -> q.seq = n) ->
                 // choose keeps the other rows' indices, so only this row changes on screen
@@ -1145,7 +1148,7 @@ module ProjectedImageListApp =
                 }))
             /// the status line: a few words, and the whole story for its tooltip
             let status =
-                (s.query, s.status) ||> AVal.map2 (fun query status ->
+                (s.query, s.status, s.otherTargetsListed) |||> AVal.map3 (fun query status others ->
                     let at =
                         query |> Option.map (fun q -> sprintf "%.4f°E %.4f°N (%s)" q.lon q.lat q.body)
                     // the short line's optional parts
@@ -1157,34 +1160,47 @@ module ProjectedImageListApp =
                     let outside (dropped : StacDropped) =
                         (if dropped.outsideFilters > 0 then sprintf "; %d outside the filters" dropped.outsideFilters else "")
                         + (if dropped.outsideIncidence > 0 then sprintf "; %d outside the sun incidence range" dropped.outsideIncidence else "")
+                    // `matched` counts every item checked; `others` of them are of other
+                    // targets (checked last, by pointing)
+                    let ofOthers =
+                        if others > 0 then sprintf ", and %d image(s) of other targets by pointing" others else ""
+                    // the images checked by pointing alone that could not be checked:
+                    // counted, not listed (StacSearch.run)
+                    let unresolved (dropped : StacDropped) =
+                        match dropped.reason with
+                        | Some reason when dropped.count > 0 -> sprintf "; %d not checkable, e.g.: %s" dropped.count reason
+                        | _ -> ""
+                    let spice (dropped : StacDropped) =
+                        if dropped.noSpiceCoverage > 0 then
+                            sprintf "; %d not covered by the loaded SPICE kernel (load one that covers their time and bodies)" dropped.noSpiceCoverage
+                        else ""
+                    let byPointingTags (dropped : StacDropped) =
+                        [ dropped.noSpiceCoverage > 0, sprintf "%d no SPICE coverage" dropped.noSpiceCoverage
+                          dropped.count > 0, sprintf "%d uncheckable" dropped.count ]
                     match status, at with
                     | StacSearchStatus.Searching, Some at ->
                         "searching ...", sprintf "searching at %s ..." at
                     | StacSearchStatus.Checking (matched, n, ByFootprint), Some at ->
                         sprintf "checking %d/%d ..." n matched,
-                        sprintf "checking %d of %d footprint(s) at %s ..." n matched at
+                        sprintf "checking %d of %d footprint(s)%s at %s ..." n (matched - others) ofOthers at
                     | StacSearchStatus.Checking (matched, n, WithoutFootprint), Some at ->
                         sprintf "checking %d/%d by pointing ..." n matched,
-                        sprintf "no footprint at %s -- checking the pointing of %d of %d image(s) without footprint ..." at n matched
+                        sprintf "no footprint at %s -- checking the pointing of %d of %d image(s) without footprint%s ..." at n (matched - others) ofOthers
                     | StacSearchStatus.Found (matched, kept, ByFootprint, dropped), Some at ->
-                        sprintf "%d images%s" kept (tags [ dropped.unresolvedListed > 0, sprintf "%d red" dropped.unresolvedListed; dropped.outsideFilters > 0, sprintf "%d filtered" dropped.outsideFilters; dropped.outsideIncidence > 0, sprintf "%d off incidence" dropped.outsideIncidence; best (kept + dropped.unresolvedListed) ]),
-                        sprintf "%d image(s) at %s -- %d footprint(s) matched%s%s" kept at matched (outside dropped) (more (kept + dropped.unresolvedListed))
+                        sprintf "%d images%s" kept
+                            (tags ([ dropped.unresolvedListed > 0, sprintf "%d red" dropped.unresolvedListed ]
+                                   @ byPointingTags dropped
+                                   @ [ dropped.outsideFilters > 0, sprintf "%d filtered" dropped.outsideFilters
+                                       dropped.outsideIncidence > 0, sprintf "%d off incidence" dropped.outsideIncidence
+                                       best (kept + dropped.unresolvedListed) ])),
+                        sprintf "%d image(s) at %s -- %d footprint(s) matched%s%s%s%s%s" kept at (matched - others) ofOthers (outside dropped) (spice dropped) (unresolved dropped) (more (kept + dropped.unresolvedListed))
                     | StacSearchStatus.Found (matched, kept, WithoutFootprint, dropped), Some at ->
-                        let unresolved =
-                            match dropped.reason with
-                            | Some reason when dropped.count > 0 -> sprintf "; %d not checkable, e.g.: %s" dropped.count reason
-                            | _ -> ""
-                        let spice =
-                            if dropped.noSpiceCoverage > 0 then
-                                sprintf "; %d not covered by the loaded SPICE kernel (load one that covers their time)" dropped.noSpiceCoverage
-                            else ""
                         sprintf "%d images by pointing%s" kept
-                            (tags [ dropped.noSpiceCoverage > 0, sprintf "%d no SPICE coverage" dropped.noSpiceCoverage
-                                    dropped.count > 0, sprintf "%d uncheckable" dropped.count
-                                    dropped.outsideFilters > 0, sprintf "%d filtered" dropped.outsideFilters
-                                    dropped.outsideIncidence > 0, sprintf "%d off incidence" dropped.outsideIncidence
-                                    best (kept + dropped.unresolvedListed) ]),
-                        sprintf "%d image(s) at %s by pointing, of %d without footprint%s%s%s%s" kept at matched (outside dropped) spice unresolved (more (kept + dropped.unresolvedListed))
+                            (tags (byPointingTags dropped
+                                   @ [ dropped.outsideFilters > 0, sprintf "%d filtered" dropped.outsideFilters
+                                       dropped.outsideIncidence > 0, sprintf "%d off incidence" dropped.outsideIncidence
+                                       best (kept + dropped.unresolvedListed) ])),
+                        sprintf "%d image(s) at %s by pointing, of %d without footprint%s%s%s%s%s" kept at (matched - others) ofOthers (outside dropped) (spice dropped) (unresolved dropped) (more (kept + dropped.unresolvedListed))
                     | StacSearchStatus.Failed e, _ when e = PRo3D.GIS.StacSearch.noSpiceKernel -> "no SPICE kernel (hover)", e
                     | StacSearchStatus.Failed e, _ -> "error (hover)", sprintf "error: %s" e
                     | _ ->
@@ -1208,8 +1224,12 @@ module ProjectedImageListApp =
                 // one line: aardvark.media sends attribute values to the page as JavaScript
                 // string literals without escaping line breaks, and a newline in one breaks
                 // every later DOM update (the list stayed empty, the fold stuck)
+                let otherTarget =
+                    match c.otherTarget with
+                    | Some targets -> sprintf ". Catalog target: %s (another body; found by its pointing)" targets
+                    | None -> ""
                 let tooltip =
-                    (sprintf "%s. %s. %s%s" c.title c.instrument (formatFullDate c.time) atPoint)
+                    (sprintf "%s. %s. %s%s%s" c.title c.instrument (formatFullDate c.time) otherTarget atPoint)
                         .Replace('\r', ' ').Replace('\n', ' ')
                 let nameColor = match c.check with Unresolved _ -> "#e88" | _ -> "inherit"
                 let instrument, distance, resolution =
@@ -1250,7 +1270,13 @@ module ProjectedImageListApp =
                             yield attribute "title" (if selected then "click to deselect" else "click to select (downloads the image)")
                             yield onClick (fun _ -> StacMessage (SelectCandidate id))
                         }))
-                        (AList.single (text c.title))
+                        (AList.ofList [
+                            yield text c.title
+                            // the catalog's target, when it is another body
+                            match c.otherTarget with
+                            | Some targets -> yield span [style "color: #999; font-weight: normal"] [text (sprintf " · %s" targets)]
+                            | None -> ()
+                        ])
                     div [attribute "style" "display: flex; font-weight: bold"] [
                         div [cell wPreview true] [
                             // through PRo3D's own server, which has the sign-in (StacSearch.overviewPath)
@@ -1364,6 +1390,9 @@ module ProjectedImageListApp =
                                 text "°"
                             ]
                         ]
+                    PRo3D.Core.UI.rowWithTip "Other targets:"
+                        "Also check the images the catalog lists for another body (or for none), by their pointing alone. An image of another target can still show this one, e.g. a moon next to its primary. Footprints cannot find them (a footprint lies on the image's own target), so up to the newest 1000 images in the Date range are downloaded (sidecars only) and checked after the footprint hits; a narrower Date range is faster. Needs a SPICE kernel that places both bodies; images it cannot place are counted, not listed. Results show the catalog's target after their name."
+                        [ GuiEx.iconCheckBox s.includeOtherTargets (StacMessage ToggleIncludeOtherTargets) ]
                 ]
                 div [attribute "style" "display: flex; align-items: center; gap: 6px; padding: 2px 5px; color: #bbb; font-size: 0.85em"] [
                     // one line; the details are in the tooltip

@@ -21,6 +21,9 @@ type ProjectorCamera =
         distance : float
         near     : float
         far      : float
+        /// the body the camera is placed relative to: the image's target, or the
+        /// origin body when SPICE could not place the target (ResolvedProjector.target)
+        target   : string
     }
 
 type ResolvedImage =
@@ -137,6 +140,7 @@ module InstrumentObservation =
                 distance = p.distance
                 near = p.near
                 far = p.far
+                target = p.target
             }
 
     /// projectorCameraWith at the kernels' instrument values (the tools).

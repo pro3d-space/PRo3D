@@ -69,6 +69,9 @@ module StacSearch =
             bounds    : ImageFilter.Bounds
             /// sun incidence at the picked point, degrees, inclusive
             incidence : Range1d
+            /// also check the items listed for other bodies, by pointing
+            /// (StacSearchModel.includeOtherTargets)
+            otherTargets : bool
         }
 
     /// Whether an image's sun incidence at the picked point passes the filter. An
@@ -126,7 +129,7 @@ module StacSearch =
             Some (ImageFilter.timeOfKey f.time.lower.value), Some (ImageFilter.timeOfKey f.time.upper.value)
         if s.incidenceMin > s.incidenceMax then Result.Error "the incidence range ends before it starts"
         else Ok { serverUrl = s.serverUrl; from = from; until = until; bounds = bounds
-                  incidence = Range1d(s.incidenceMin, s.incidenceMax) }
+                  incidence = Range1d(s.incidenceMin, s.incidenceMax); otherTargets = s.includeOtherTargets }
 
     /// The items worth checking by pointing alone when no footprint contains the
     /// point: those without a footprint (one with a footprint would have been found
@@ -136,6 +139,23 @@ module StacSearch =
         && (match item.targets with
             | None -> true
             | Some targets -> Array.contains (body.ToLowerInvariant()) targets)
+
+    /// The items the footprint search for `body` cannot find, and the footprint-less
+    /// fallback does not take: those naming other bodies only, and those naming none
+    /// but having a footprint (a lon/lat polygon on an unknown body). An image of
+    /// another target can still show this body (a moon next to its primary), so with
+    /// Filter.otherTargets they are checked by their pointing alone. Disjoint from
+    /// the footprint hits (which name the body) and from isWithoutFootprintFor.
+    let isOtherTargetFor (body : string) (item : Item) =
+        match item.targets with
+        | Some targets -> not (Array.contains (body.ToLowerInvariant()) targets)
+        | None -> item.hasFootprint
+
+    /// How an other-target item names its targets, for the result's tooltip.
+    let otherTargetLabel (item : Item) =
+        match item.targets with
+        | Some targets when targets.Length > 0 -> String.concat ", " targets
+        | _ -> "no target named"
 
     /// Planetocentric east longitude and latitude, degrees, of a body-fixed position.
     /// Longitude in (-180, 180], as GeoJSON wants it.
@@ -741,7 +761,13 @@ module StacSearch =
     /// Error: the pointing did not resolve --
     /// no sidecar, no size, an instrument without a frustum, or no SPICE coverage,
     /// in which case the image would not project either.
-    let metrics (scene : Scene) (imagePath : string) : Result<Option<StacMetrics>, string> =
+    ///
+    /// `requireTarget`: an error, too, when SPICE cannot place the image's target
+    /// relative to the scene body. The projection then assumes the image is of the
+    /// scene body (a warning), which is close enough for a barycentre, but places
+    /// the camera of an image of another body wrongly -- for an other-target item
+    /// (isOtherTargetFor) the check would then say nothing.
+    let metricsWith (requireTarget : bool) (scene : Scene) (imagePath : string) : Result<Option<StacMetrics>, string> =
         let metadata = InstrumentMetadata.tryParseMetadataForImagePath imagePath
         match metadata with
         | None, _ -> Result.Error "no usable mbi sidecar"
@@ -755,8 +781,19 @@ module StacSearch =
                 let size = V2i(tif.image_width, tif.image_height)
                 let resolved : ResolvedImage =
                     { path = imagePath; metadata = metadata; mbi = mbi; spiceName = spiceName; size = Some size }
+                // the target the projection was asked for (resolveProjectorWith)
+                let wanted = mbi.target |> Option.defaultValue scene.body
+                let sameBody (a : string) (b : string) = String.Equals(a.Trim(), b.Trim(), StringComparison.OrdinalIgnoreCase)
                 match InstrumentObservation.projectorCameraWith scene.instruments None scene.frame scene.body scene.projectionMethod resolved with
                 | Result.Error e -> Result.Error e
+                // without TARGET the projection takes the image to be of the scene body,
+                // while the catalog says it is of another: its TRG_POS would be read from
+                // the wrong body
+                | Ok _ when requireTarget && mbi.target.IsNone ->
+                    Result.Error "the sidecar names no TARGET, so an image of another body cannot be placed"
+                | Ok cam when requireTarget && not (sameBody cam.target wanted) ->
+                    Result.Error (sprintf "SPICE cannot place the image's target %s relative to %s at %s"
+                                      wanted scene.body (mbi.obs_date.ToString "o"))
                 | Ok cam ->
                     let inside (p : V2d) =
                         p.X >= -0.5 - edgeTolerancePx && p.Y >= -0.5 - edgeTolerancePx
@@ -802,7 +839,11 @@ module StacSearch =
                         })
                     | _ -> Ok None
 
-    let private candidateOf (item : Item) (check : StacCheck) : StacCandidate =
+    /// metricsWith for an item listed for the scene body: an image of a target SPICE
+    /// cannot place is taken to be of the scene body (see metricsWith).
+    let metrics (scene : Scene) (imagePath : string) = metricsWith false scene imagePath
+
+    let private candidateOf (otherTarget : Option<string>) (item : Item) (check : StacCheck) : StacCandidate =
         item.assets.overview |> Option.iter (registerOverview item.id)
         {
             itemId     = item.id
@@ -813,6 +854,7 @@ module StacSearch =
             assets     = item.assets
             check      = check
             values     = None
+            otherTarget = otherTarget
         }
 
     /// Resolved images first, finest pixels first; then unresolved ones and the ones
@@ -857,9 +899,10 @@ module StacSearch =
 
     /// How a search is getting on, reported as it goes.
     type Progress =
-        /// the server's answer: every candidate still Checking, the match count, and
-        /// whether the footprints found them
-        | Listed  of array<StacCandidate> * matched : int * StacListing
+        /// the server's answer: every candidate still Checking, how many are checked
+        /// (all of them), whether the footprints found them, and how many of them are
+        /// of other targets (Listing.others, last in the list)
+        | Listed  of array<StacCandidate> * matched : int * StacListing * otherTargets : int
         /// one candidate checked; None when the point is not (visibly) in the image.
         /// With the metadata values the image lists show, once the sidecars are there.
         | Checked of itemId : string * Option<StacCheck> * Option<StacImageValues>
@@ -884,6 +927,8 @@ module StacSearch =
     /// the time fixes these, unlike a sidecar without attitude.
     let isSpiceCoverage (error : string) =
         error.Contains "SPICE has no position" || error.Contains "SPICE cannot rotate"
+        // metricsWith: an other target that SPICE cannot place relative to the body
+        || error.Contains "SPICE cannot place"
 
     /// Said before searching when no kernel is loaded: every check would fail.
     [<Literal>]
@@ -905,11 +950,24 @@ module StacSearch =
     /// the hover preview (docs/StacImageSearch.md).
     let previewDwellMs = 300
 
+    /// The server's items for a point (listFor).
+    type Listing =
+        {
+            /// listed for the scene body: the footprint hits, or the footprint-less ones
+            items   : array<Item>
+            /// listed for other bodies (isOtherTargetFor), checked by pointing alone;
+            /// empty unless Filter.otherTargets
+            others  : array<Item>
+            /// how `items` came about
+            listing : StacListing
+        }
+
     /// The server's items for the point: those whose footprint contains it; when
     /// there are none, the ones without any footprint (catalogs that have not
-    /// computed footprints yet, e.g. for a newly visited body). The count is of the
-    /// items listed, i.e. checked.
-    let listFor (filter : Filter) (limit : int) (scene : Scene) : Task<Result<array<Item> * int * StacListing, string>> =
+    /// computed footprints yet, e.g. for a newly visited body). With
+    /// Filter.otherTargets also the items listed for other bodies
+    /// (isOtherTargetFor), checked by pointing after the others.
+    let listFor (filter : Filter) (limit : int) (scene : Scene) : Task<Result<Listing, string>> =
         task {
             let ll = lonLat scene.point
             // The Distance filter is not sent: a catalog without hera:target_distance on
@@ -921,20 +979,44 @@ module StacSearch =
             let warnMore (matched : int) (listed : int) =
                 if matched > listed then
                     Log.warn "[STAC] the catalog matched %d items, only the newest %d are checked; narrow the time range" matched listed
+            // the time range alone, without point and target: the footprint-less
+            // fallback (such items often name no target either) and the other targets
+            // are both in it, so one query serves both
+            let everything () =
+                task {
+                    match! search filter.serverUrl { q with point = None; target = None } with
+                    | Result.Error e -> return Result.Error e
+                    | Ok (items, matched) ->
+                        if matched > items.Length then
+                            Log.warn "[STAC] the catalog has %d items in the time range, only the newest %d are looked at for images without footprint or of other targets; narrow the time range" matched items.Length
+                        return Ok items
+                }
+            // not those listed already: a server that ignores the target filter would
+            // otherwise have an item in both lists, checked and counted twice
+            let othersOf (listed : array<Item>) (all : array<Item>) =
+                if not filter.otherTargets then [||]
+                else
+                    let ids = System.Collections.Generic.HashSet<string>(listed |> Array.map (fun i -> i.id))
+                    all |> Array.filter (fun i -> isOtherTargetFor scene.body i && not (ids.Contains i.id))
             match! search filter.serverUrl q with
             | Result.Error e -> return Result.Error e
             | Ok (items, matched) when items.Length > 0 ->
                 warnMore matched items.Length
-                return Ok (items, items.Length, ByFootprint)
+                if not filter.otherTargets then
+                    return Ok { items = items; others = [||]; listing = ByFootprint }
+                else
+                    match! everything () with
+                    | Result.Error e ->
+                        // the footprint hits are still worth showing
+                        Log.warn "[STAC] listing the items of other targets failed: %s" e
+                        return Ok { items = items; others = [||]; listing = ByFootprint }
+                    | Ok all -> return Ok { items = items; others = othersOf items all; listing = ByFootprint }
             | Ok _ ->
-                // without the target filter: such items often name no target either
-                let q = { q with point = None; target = None }
-                match! search filter.serverUrl q with
+                match! everything () with
                 | Result.Error e -> return Result.Error e
-                | Ok (items, matched) ->
-                    warnMore matched items.Length
-                    let items = items |> Array.filter (isWithoutFootprintFor scene.body)
-                    return Ok (items, items.Length, WithoutFootprint)
+                | Ok all ->
+                    let items = all |> Array.filter (isWithoutFootprintFor scene.body)
+                    return Ok { items = items; others = othersOf items all; listing = WithoutFootprint }
         }
 
     /// Search one point: ask the server, then check its hits against the images'
@@ -942,21 +1024,29 @@ module StacSearch =
     /// Ok None: abandoned because `isStale` said a newer point is waiting.
     ///
     /// Footprint hits whose pointing does not resolve are listed (in red): the
-    /// footprint says they show the point. Footprint-less items are only listed
-    /// when their pointing shows the point; unresolvable ones are just counted.
+    /// footprint says they show the point. Footprint-less items and those of other
+    /// targets are only listed when their pointing shows the point; unresolvable
+    /// ones are just counted.
     ///
     /// The sidecars download in parallel, the checks run one at a time, in the
-    /// server's order. A check casts no rays (see `metrics`), so it loads no KdTrees.
+    /// server's order, the other targets last. A check casts no rays (see
+    /// `metrics`), so it loads no KdTrees.
     let run (filter : Filter) (limit : int) (scene : Scene)
             (isStale : unit -> bool) (report : Progress -> unit) : Task<Result<Option<StacDropped>, string>> =
         task {
             match! listFor filter limit scene with
             | Result.Error e -> return Result.Error e
-            | Ok (items, matched, listing) ->
+            | Ok l ->
+                let listing = l.listing
+                let items = Array.append l.items l.others
+                let isOther (i : int) = i >= l.items.Length
                 if isStale () then
                     return Ok None
                 else
-                    report (Listed (items |> Array.map (fun item -> candidateOf item StacCheck.Checking), matched, listing))
+                    let candidates =
+                        items |> Array.mapi (fun i item ->
+                            candidateOf (if isOther i then Some (otherTargetLabel item) else None) item StacCheck.Checking)
+                    report (Listed (candidates, items.Length, listing, l.others.Length))
                     // the sidecars of the next `downloadAhead` items download while
                     // the current one is checked
                     let downloads : array<Option<Task<Result<unit, string>>>> = Array.create items.Length None
@@ -971,6 +1061,9 @@ module StacSearch =
                             abandoned <- true
                         else
                             let item = items.[i]
+                            // nothing but the pointing says it shows the point: an
+                            // unresolved one is counted, not listed (in red)
+                            let byPointing = isOther i || listing = WithoutFootprint
                             start i
                             start (i + downloadAhead)
                             let! files =
@@ -1000,9 +1093,9 @@ module StacSearch =
                                     | Ok () when not passesFilters -> Ok None
                                     | Ok () ->
                                         let r = ref (Ok None)
-                                        checkScope (fun () -> r.Value <- metrics scene (localImagePath item.id item.assets))
+                                        checkScope (fun () -> r.Value <- metricsWith (isOther i) scene (localImagePath item.id item.assets))
                                         r.Value
-                                match resolved, listing with
+                                match resolved, byPointing with
                                 | _ when not passesFilters ->
                                     dropped <- { dropped with outsideFilters = dropped.outsideFilters + 1 }
                                     None
@@ -1011,11 +1104,11 @@ module StacSearch =
                                     None
                                 | Ok (Some m), _ -> Some (Resolved m)
                                 | Ok None, _ -> None
-                                | Result.Error e, ByFootprint -> Some (Unresolved e)
-                                | Result.Error e, WithoutFootprint when isSpiceCoverage e ->
+                                | Result.Error e, false -> Some (Unresolved e)
+                                | Result.Error e, true when isSpiceCoverage e ->
                                     dropped <- { dropped with noSpiceCoverage = dropped.noSpiceCoverage + 1 }
                                     None
-                                | Result.Error e, WithoutFootprint ->
+                                | Result.Error e, true ->
                                     dropped <- { dropped with count = dropped.count + 1; reason = dropped.reason |> Option.orElse (Some e) }
                                     None
                             report (Checked (item.id, check, shown))
@@ -1030,7 +1123,7 @@ module StacSearch =
             let listed = ref ([||], 0, ByFootprint)
             let checks = System.Collections.Generic.Dictionary<string, Option<StacCheck> * Option<StacImageValues>>()
             let report = function
-                | Listed (candidates, matched, listing) -> listed.Value <- (candidates, matched, listing)
+                | Listed (candidates, matched, listing, _) -> listed.Value <- (candidates, matched, listing)
                 | Checked (id, check, values) -> checks.[id] <- (check, values)
             match! run filter limit scene (fun () -> false) report with
             | Result.Error e -> return Result.Error e
@@ -1134,7 +1227,7 @@ module StacSearch =
                                 // a newer point waiting, or a cancel, makes this search stale
                                 let isStale () = lock gate (fun () -> Option.isSome pending || cancelled)
                                 let report = function
-                                    | Listed (candidates, matched, listing) -> post (QueryListed (s, candidates, matched, listing))
+                                    | Listed (candidates, matched, listing, others) -> post (QueryListed (s, candidates, matched, listing, others))
                                     | Checked (id, check, values) -> post (QueryChecked (s, id, check, values))
                                 match! runSearch filter scene isStale report with
                                 | Ok (Some dropped) ->

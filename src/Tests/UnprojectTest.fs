@@ -33,7 +33,7 @@ module private Synthetic =
         let frustum = Frustum.perspective 30.0 near far (float size.X / float size.Y)
         let view = CameraView.lookAt (V3d(0.0, 0.0, 100.0)) V3d.Zero V3d.OIO |> CameraView.viewTrafo
         let proj = Frustum.projTrafo frustum
-        { view = view; proj = proj; full = view * proj; distance = 100.0; near = near; far = far }
+        { view = view; proj = proj; full = view * proj; distance = 100.0; near = near; far = far; target = "X" }
 
 let private addressingTests =
     let image = InstrumentObservation.PixelConvention.Image
