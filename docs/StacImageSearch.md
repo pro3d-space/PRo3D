@@ -37,14 +37,17 @@ the GIS tab under *Projected Images → Image Search (STAC)*.
 
    The list has the Image Library's columns, so both read the same. Above each
    row is the product name (red when its pointing could not be resolved). Click it
-   to **select** the image: it is downloaded if needed, added to the library (not to
-   the stack), and shown under *Selected Image*. The selected row is highlighted
-   blue, as in the library. A second click deselects it.
+   to **select** the image: it is downloaded if needed and shown under *Selected
+   Image*, where its display settings can be changed as for a library image. It is
+   **not added to the Image Library**, nor to the stack. The selected row is
+   highlighted blue, as in the library; the same image's row in the Projection
+   Stack is highlighted too, and selecting it there highlights this row. A second
+   click deselects it.
 
    | column | meaning |
    |---|---|
    | Preview | the catalog's overview image |
-   | Add | **+**: download the image, add it to the library, select it and put it on top of the projection stack. Once the image is on the stack, the cell shows the stack icon, as in the library; click it to take the image off the stack |
+   | Add | **+**: download the image, select it and put it on top of the projection stack (not into the Image Library). Once the image is on the stack, the cell shows the stack icon, as in the library; click it to take the image off the stack |
    | Go to | the arrow flies to the image's camera (once the row is checked: it needs the downloaded metadata) and moves the scene time to the image's; the clock only sets the GIS time to the image's observation time (the catalog's, no download needed), the camera stays |
    | **Instr.** | instrument, from the image's metadata (the catalog's name before the check) |
    | **Distance** | distance to the target's centre, from the metadata (`TRG_POS`); for a sidecar without it, the spacecraft–target range from SPICE at the observation time, to its `TARGET` or, when SPICE cannot place that (e.g. a barycenter the kernels lack), to the surface's body, as the projection does (the loaded kernel must cover it). The library computes it the same way, except that it has no surface body to fall back to, so there such an image shows *no TRG_POS*. The Distance filter compares this value |
@@ -70,20 +73,24 @@ the GIS tab under *Projected Images → Image Search (STAC)*.
    ([MultiImageProjection.md](MultiImageProjection.md), *Projection Settings*).
 
 5. **Add** (the row's + cell): its files are downloaded to a folder of its own under
-   `%TEMP%\PRo3D\stac\`, the image is added to the library, selected, and put
-   on top of the projection stack. An image already downloaded (previewed or
-   selected) is not downloaded again. Added images are **not saved with the
-   scene**: they are not in the library's imported folder, so reopening the
-   scene leaves them out of the stack.
+   `%TEMP%\PRo3D\stac\`, the image is selected and put on top of the
+   projection stack. It is **not added to the Image Library**: the library holds
+   the imported folder only. An image already downloaded (previewed or selected)
+   is not downloaded again. A downloaded image stays available while its result
+   is listed, or while it is on the stack or selected: clearing the results,
+   disconnecting or a new search keeps the images on the stack and the selected
+   one. Added images are **not saved with the scene**: they are not in the
+   library's imported folder, so reopening the scene leaves them out of the
+   stack.
 
 Rows in red have no usable pointing. The message says why, e.g. the sidecar
 carries no attitude. Such an image would not project either; the status line
 counts them apart from the images found.
 
 The **eraser** clears the results and their previews, and stops a running
-search. The **bin** deletes the downloaded files (`%TEMP%\PRo3D\stac`) and
-removes the images downloaded from the catalog from the library, the stack and
-the selection. The next search downloads what it needs again. Nothing else
+search; images on the stack or selected stay. The **bin** deletes the
+downloaded files (`%TEMP%\PRo3D\stac`) and removes the images downloaded from
+the catalog from the stack and the selection. The next search downloads what it needs again. Nothing else
 ever removes the files.
 
 Downloads: one file is downloaded once, however many searches and clicks ask
@@ -317,8 +324,8 @@ Mars and therefore west-positive with the default kernels.
 
 - The client only calls `<server>/search` and the asset links. Use an https
   URL that answers directly; a redirect to plain http is refused.
-- Nothing of the search is saved with the scene, including the images added
-  from it to the library and the stack. Downloaded files stay in the temp
+- Nothing of the search is saved with the scene, including the images put on
+  the stack from it. Downloaded images never enter the Image Library. Downloaded files stay in the temp
   folder until it is cleaned.
 
 # Testing

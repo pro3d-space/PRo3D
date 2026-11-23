@@ -14,7 +14,8 @@ import * as path from "path";
  *    no filters of its own); with the Image Search tool, a ctrl+click on the body
  *    searches the catalog; the status line reports images found *by pointing* (the
  *    footprint-less fallback) within the time range;
- * 2. the best row's Add cell downloads the image, adds it to the library and the stack;
+ * 2. the best row's Add cell downloads the image and puts it on the stack (not into the
+ *    library);
  * 3. the render changes where the image is projected.
  *
  * Nothing about the catalog or the scene is in the repo: it needs
@@ -149,14 +150,16 @@ test("STAC search with the Image Search tool finds images by pointing and projec
     expect(kept, `images found at the cursor: ${last}`).toBeGreaterThan(0);
     await gis.screenshot({ path: path.join(shots, "2-results.png"), fullPage: true });
 
-    // --- click the best row: download, library, stack, render ---------------------------
-    // the Add cell of the first result row (the image list's columns: Preview | Add | Fly | ...)
-    const rows = gis.locator('div[title="download and add to the projection stack"]');
+    // --- click the best row: download, stack (not the library), render ------------------
+    // the Add cell (+) of the first result row (the image list's columns: Preview | Add | Fly | ...)
+    const rows = gis.locator("[data-stac-item] i.plus.icon");
     await expect(rows.first()).toBeVisible();
     const libraryBefore = await gis.locator(imageRow).count();
     await rows.first().click();
-    await expect.poll(() => gis.locator(imageRow).count(), { timeout: 10 * 60_000, intervals: [2000] })
-        .toBeGreaterThan(libraryBefore);
+    // the stack panel's rows are the draggable ones
+    await expect.poll(() => gis.locator('div[draggable="true"]').count(), { timeout: 10 * 60_000, intervals: [2000] })
+        .toBeGreaterThan(0);
+    expect(await gis.locator(imageRow).count(), "a download is not added to the library").toBe(libraryBefore);
     expect(await status(gis), "the download must not fail").not.toMatch(/^error/);
 
     await render.bringToFront();

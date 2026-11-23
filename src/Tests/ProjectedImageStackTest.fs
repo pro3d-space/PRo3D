@@ -115,7 +115,7 @@ let tests () =
             // a download finished for a file already previewed: no loadFile, no disk
             let withPreview (m : ProjectedImageListModel) =
                 let img = mkImage "C:/cache/x/x.png" 1.0 DateTime.MinValue
-                { m with stacPreviews = HashMap.single img.id img }, img
+                { m with stacImages = HashMap.single img.id img }, img
 
             test "a preview is found by tryFind, so it renders like a library image" {
                 let m, img = withPreview connected
@@ -142,14 +142,15 @@ let tests () =
                 Expect.isEmpty (m.stacSearch.downloading |> HashSet.toList) "no download"
             }
 
-            test "+ on a previewed row moves it to the library and stack, no download" {
+            test "+ on a previewed row puts it on the stack, selected, not into the library, no download" {
                 let m, img = withPreview connected
                 let m = { m with stacSearch = { m.stacSearch with fetched = HashMap.single "x" img.id } }
                 let m = m |> stac (Fetch "x")
                 Expect.isEmpty (m.stacSearch.downloading |> HashSet.toList) "nothing downloaded"
-                Expect.equal (m.images |> IndexList.toList |> List.map (fun i -> i.id)) [img.id] "in the library, same id"
-                Expect.isTrue (HashMap.isEmpty m.stacPreviews) "no longer a preview"
+                Expect.isEmpty (m.images |> IndexList.toList) "not in the library"
+                Expect.isTrue (HashMap.containsKey img.id m.stacImages) "kept as a STAC image, same id"
                 Expect.equal (stackIds m) [img.id] "on the stack"
+                Expect.equal m.selectedImage (Some img.id) "selected"
             }
 
             test "+ while downloading: library and stack when it finishes" {
@@ -159,15 +160,17 @@ let tests () =
                 let m = m |> stac (FetchFinished ("x", Ok img.texture))
                 Expect.equal (stackIds m) [img.id] "on the stack"
                 Expect.equal m.selectedImage (Some img.id) "selected"
+                Expect.isEmpty (m.images |> IndexList.toList) "not in the library"
                 Expect.isEmpty (m.stacSearch.addWhenFetched |> HashSet.toList) "request done"
             }
 
-            test "a click on the name selects (library, not stack); again deselects" {
+            test "a click on the name selects (not library, not stack); again deselects" {
                 let m = connected |> stac (SelectCandidate "x")
                 let m, img = withPreview m
                 let m = m |> stac (FetchFinished ("x", Ok img.texture))
                 Expect.equal m.selectedImage (Some img.id) "selected"
-                Expect.equal (m.images |> IndexList.toList |> List.map (fun i -> i.id)) [img.id] "in the library"
+                Expect.isEmpty (m.images |> IndexList.toList) "not in the library"
+                Expect.equal (ProjectedImageListModel.tryFind img.id m |> Option.map (fun i -> i.id)) (Some img.id) "found for the Selected Image panel"
                 Expect.isEmpty (stackIds m) "not on the stack"
                 let m = m |> stac (SelectCandidate "x")
                 Expect.isNone m.selectedImage "deselected"
@@ -194,15 +197,58 @@ let tests () =
                 Expect.isNone m.hoveredImage "hover gone"
             }
 
+            test "the bin removes downloaded images that are only on the stack" {
+                let m, img = withPreview connected
+                let m = { m with stacSearch = { m.stacSearch with fetched = HashMap.single "x" img.id } }
+                let m = m |> stac (Fetch "x")
+                Expect.equal (stackIds m) [img.id] "on the stack"
+                let m = m |> stac ClearCache
+                Expect.isEmpty (stackIds m) "off the stack"
+                Expect.isNone m.selectedImage "selection gone"
+                Expect.isTrue (HashMap.isEmpty m.stacImages) "no STAC image left"
+            }
+
+            test "clearing the results keeps the images on the stack or selected, drops the rest" {
+                let m, img = withPreview connected
+                let other = mkImage "C:/cache/y/y.png" 1.0 DateTime.MinValue
+                let m =
+                    { m with
+                        stacImages = m.stacImages |> HashMap.add other.id other
+                        stacSearch = { m.stacSearch with fetched = HashMap.ofList ["x", img.id; "y", other.id] } }
+                let m = m |> stac (Fetch "x") |> stac ClearResults
+                Expect.equal (stackIds m) [img.id] "still on the stack"
+                Expect.equal m.selectedImage (Some img.id) "still selected"
+                Expect.isTrue (HashMap.containsKey img.id m.stacImages) "kept"
+                Expect.isFalse (HashMap.containsKey other.id m.stacImages) "the unheld preview goes"
+            }
+
+            test "a STAC image whose result is gone goes once the stack and the selection let go" {
+                let m, img = withPreview connected
+                let m = { m with stacSearch = { m.stacSearch with fetched = HashMap.single "x" img.id } }
+                let m = m |> stac (Fetch "x") |> stac ClearResults
+                let m = ProjectedImageListApp.update m (RemoveFromStack img.id)
+                Expect.isTrue (HashMap.containsKey img.id m.stacImages) "still selected: kept"
+                let m = ProjectedImageListApp.update m (SelectImage img.id)
+                Expect.isNone m.selectedImage "deselected"
+                Expect.isTrue (HashMap.isEmpty m.stacImages) "nothing holds it: gone"
+                Expect.isTrue (HashMap.isEmpty m.stacSearch.fetched) "and forgotten"
+            }
+
+            test "the Selected Image panel's edits apply to a STAC image" {
+                let m, img = withPreview connected
+                let m = ProjectedImageListApp.update m (ImageMessage (img.id, SetColorMap ColorMap.Viridis))
+                Expect.equal (HashMap.tryFind img.id m.stacImages |> Option.map (fun i -> i.colorMap)) (Some ColorMap.Viridis) "colour map changed"
+            }
+
             test "a preview download that finishes after its result left the list is not kept" {
                 let m = connected |> stac (HoverCandidate (Some "x")) |> stac (PreviewDue "x")
                 let m = { m with stacSearch = { m.stacSearch with candidates = IndexList.ofList [candidate "y"] } }
                 let m, img = withPreview m
-                let m = { m with stacPreviews = HashMap.empty }
+                let m = { m with stacImages = HashMap.empty }
                 // no loadFile for a missing file: seed it as a library-free existing preview
-                let m = { m with stacPreviews = HashMap.single img.id img }
+                let m = { m with stacImages = HashMap.single img.id img }
                 let m = m |> stac (FetchFinished ("x", Ok img.texture))
-                Expect.isTrue (HashMap.isEmpty m.stacPreviews) "orphan preview dropped"
+                Expect.isTrue (HashMap.isEmpty m.stacImages) "orphan preview dropped"
                 Expect.isFalse (HashMap.containsKey "x" m.stacSearch.fetched) "and forgotten"
                 Expect.isNone m.hoveredImage "nothing previewed"
             }
@@ -219,6 +265,25 @@ let tests () =
         ]
 
         testList "stack actions" [
+            test "selecting a stack row selects that image, shared with the library and the Image Search" {
+                let a = mkImage "a" 1.0 DateTime.MinValue
+                let b = mkImage "b" 2.0 DateTime.MinValue
+                // b downloaded from the catalog: on the stack, not in the library
+                let m =
+                    { mkModel [a] with
+                        stacImages = HashMap.single b.id b
+                        stack = IndexList.ofList [a.id; b.id]
+                        stacSearch = { StacSearchModel.initial with fetched = HashMap.single "item-b" b.id } }
+                let m = ProjectedImageListApp.update m (SelectImage b.id)
+                Expect.equal m.selectedImage (Some b.id) "selected from the stack"
+                Expect.equal (ProjectedImageListApp.stacImage "item-b" m |> Option.map (fun i -> i.id)) m.selectedImage "the Image Search row's image is the selected one"
+                let m = ProjectedImageListApp.update m (SelectImage a.id)
+                Expect.equal m.selectedImage (Some a.id) "a library image selected from the stack"
+                Expect.isTrue (HashMap.containsKey b.id m.stacImages) "still on the stack: kept"
+                let m = ProjectedImageListApp.update m (SelectImage a.id)
+                Expect.isNone m.selectedImage "again: deselected"
+            }
+
             test "AddToStack appends on top, ignores duplicates and unknown ids" {
                 let a = mkImage "a" 1.0 DateTime.MinValue
                 let b = mkImage "b" 2.0 DateTime.MinValue
