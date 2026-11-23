@@ -47,7 +47,7 @@ the GIS tab under *Projected Images → Image Search (STAC)*.
    | Add | **+**: download the image, add it to the library, select it and put it on top of the projection stack. Once the image is on the stack, the cell shows the stack icon, as in the library; click it to take the image off the stack |
    | Go to | the arrow flies to the image's camera (once the row is checked: it needs the downloaded metadata) and moves the scene time to the image's; the clock only sets the GIS time to the image's observation time (the catalog's, no download needed), the camera stays |
    | **Instr.** | instrument, from the image's metadata (the catalog's name before the check) |
-   | **Distance** | distance to the target's centre, from the metadata (`TRG_POS`); for a sidecar without it, the spacecraft–target range from SPICE at the observation time (the loaded kernel must cover it) — as in the library and the Distance filter |
+   | **Distance** | distance to the target's centre, from the metadata (`TRG_POS`); for a sidecar without it, the spacecraft–target range from SPICE at the observation time, to its `TARGET` or, when SPICE cannot place that (e.g. a barycenter the kernels lack), to the surface's body, as the projection does (the loaded kernel must cover it) — as in the library and the Distance filter |
    | **Date (UTC)** | observation time, to the minute (the full time in the tooltip) |
    | **Res.** | resolution: ground size of one pixel at the target's centre, from the metadata — as in the library and the Resolution filter |
 

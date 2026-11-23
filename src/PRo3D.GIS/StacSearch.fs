@@ -980,7 +980,7 @@ module StacSearch =
                                 | Ok () ->
                                     localImagePath item.id item.assets
                                     |> InstrumentMetadata.tryParseMetadataForImagePath
-                                    |> ImageFilter.valuesOf
+                                    |> ImageFilter.valuesOfWith (Some scene.body)
                                     |> Some
                                 | Result.Error _ -> None
                             let passesFilters =

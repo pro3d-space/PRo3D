@@ -736,7 +736,9 @@ module ImageFilter =
             time       : DateTime
         }
 
-    let valuesOf ((mbi, tif) : PRo3D.Core.InstrumentMetadata.ParsedMetadata) : Values =
+    /// `valuesOf`, with the body that stands in for a TARGET SPICE cannot place (the
+    /// surface's body, as for the projection), when the caller knows it.
+    let valuesOfWith (fallbackBody : Option<string>) ((mbi, tif) : PRo3D.Core.InstrumentMetadata.ParsedMetadata) : Values =
         // |TRG_POS|; a sidecar without it (zero) gets the range from SPICE at the
         // observation time, as the SPICE orientation sources place the camera -- else
         // the Distance shows 0 and Resolution none, and an active Resolution filter
@@ -745,8 +747,8 @@ module ImageFilter =
             match mbi with
             | Some mbi when mbi.targetPos.Length > 0.0 -> mbi.targetPos.Length
             | Some mbi ->
-                mbi.target
-                |> Option.bind (fun target -> PRo3D.SPICE.InstrumentProjection.trySpiceDistanceKm mbi.instrument target mbi.obs_date)
+                let targets = Option.toList mbi.target @ Option.toList fallbackBody
+                PRo3D.SPICE.InstrumentProjection.trySpiceDistanceKm mbi.instrument targets mbi.obs_date
                 |> Option.defaultValue 0.0
             | None -> 0.0
         // curated: instrument, plus the camera system when the statistics sidecar
@@ -768,6 +770,11 @@ module ImageFilter =
             phaseAngle = mbi |> Option.bind (fun mbi -> ProjectedImageModel.phaseAngleOf mbi.sunPos mbi.targetPos)
             time       = match mbi with Some mbi -> mbi.obs_date | None -> DateTime.MinValue
         }
+
+    /// The values of an image from its metadata alone (no surface body known: a TARGET
+    /// SPICE cannot place leaves the distance unknown).
+    let valuesOf (metadata : PRo3D.Core.InstrumentMetadata.ParsedMetadata) : Values =
+        valuesOfWith None metadata
 
     /// `passes` for metadata values.
     let passesValues (b : Bounds) (v : Values) =
