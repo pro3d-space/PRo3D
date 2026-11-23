@@ -308,12 +308,13 @@ let run (o : SunAnglesOptions) : int =
     let methodValue =
         match (if isNull o.method then "mbi" else o.method).ToLowerInvariant() with
         | "spice" -> Some ProjectionMethod.Spice
+        | "spice-aimed" -> Some ProjectionMethod.SpiceAimed
         | "mbi"   -> Some ProjectionMethod.MbiBased
         | "mbi-spice-range" -> Some ProjectionMethod.MbiAttitudeSpiceRange
         | _       -> None
 
     match methodValue with
-    | None -> Log.error "unknown --method '%s' (expected spice, mbi or mbi-spice-range)" o.method; 1
+    | None -> Log.error "unknown --method '%s' (expected spice, spice-aimed, mbi or mbi-spice-range)" o.method; 1
     | Some methodValue ->
 
     if not (Directory.Exists o.opc) then Log.error "OPC directory not found: %s" o.opc; 1

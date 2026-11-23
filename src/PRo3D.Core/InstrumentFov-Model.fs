@@ -31,7 +31,8 @@ module InstrumentFov =
         { Numeric.init with min = 0.001; max = 179.0; step = 0.001; format = "{0:0.0000}"; value = v }
 
     let create (instrument : string) (fov : InstrumentProjection.Fov) : InstrumentFov =
-        { instrument = instrument; horizontal = degrees fov.horizontal; vertical = degrees fov.vertical; flipRows = false }
+        { instrument = instrument; horizontal = degrees fov.horizontal; vertical = degrees fov.vertical
+          flipRows = InstrumentProjection.defaultFlipRows instrument }
 
     let toFov (f : InstrumentFov) : InstrumentProjection.Fov =
         { horizontal = f.horizontal.value; vertical = f.vertical.value }
@@ -43,14 +44,15 @@ module InstrumentFov =
     let kernelDefault (instrument : string) : Option<InstrumentProjection.Fov> =
         Map.tryFind instrument InstrumentProjection.defaultFovs
 
-    /// Differs from the kernel default (or has none), or is flipped: what a scene saves.
+    /// Differs from the kernel default (or has none), or from the instrument's default
+    /// row flip (InstrumentProjection.defaultFlipRows): what a scene saves.
     let isOverride (f : InstrumentFov) =
-        f.flipRows ||
+        f.flipRows <> InstrumentProjection.defaultFlipRows f.instrument ||
         match kernelDefault f.instrument with
         | Some d -> d <> toFov f
         | None -> true
 
-    /// Every instrument with a kernel default, at that default, unflipped.
+    /// Every instrument with a kernel default, at that default and its default row flip.
     let defaults : HashMap<string, InstrumentFov> =
         InstrumentProjection.defaultFovs
         |> Map.toList
@@ -74,5 +76,5 @@ type InstrumentFovMessage =
     | SetHorizontal of instrument : string * Numeric.Action
     | SetVertical   of instrument : string * Numeric.Action
     | ToggleFlipRows of instrument : string
-    /// Back to the kernel value, unflipped.
+    /// Back to the kernel value and the instrument's default row flip.
     | Reset         of instrument : string

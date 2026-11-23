@@ -106,6 +106,7 @@ module private Fixtures =
             project = null
             projectShader = null
             shadowBias = 0.002
+            method = null
         }
 
     /// A scratch copy: --forcekdtreerebuild rewrites .aakd files in place, and the test data
@@ -325,8 +326,24 @@ let private simulateImageTests =
         }
     ]
 
+/// `simulate-image --method`: the pure parsing, no GPU, no SPICE.
+let private methodTests =
+    testList "simulate-image --method" [
+        test "parses the camera sources and rejects anything else" {
+            let ok s = match SimulateImageVerb.parseMbiCameraMethod s with Ok m -> Some m | Result.Error _ -> None
+            Expect.equal (ok null) (Some (SimulateImageVerb.Viewer ProjectionMethod.MbiBased)) "default mbi"
+            Expect.equal (ok "MBI-SPICE-POSITION") (Some SimulateImageVerb.SpicePosition) "case-insensitive"
+            Expect.equal (ok "mbi-spice-range") (Some (SimulateImageVerb.Viewer ProjectionMethod.MbiAttitudeSpiceRange)) "range"
+            Expect.equal (ok "spice") (Some (SimulateImageVerb.Viewer ProjectionMethod.Spice)) "spice = SPK + CK x FK, unaimed"
+            Expect.equal (ok "spice-instrument") (Some (SimulateImageVerb.Viewer ProjectionMethod.Spice)) "alias"
+            Expect.equal (ok "spice-aimed") (Some (SimulateImageVerb.Viewer ProjectionMethod.SpiceAimed)) "the old spice"
+            Expect.isNone (ok "boresight") "unknown"
+        }
+    ]
+
 let tests () =
     testList "pro3d-tool" [
+        methodTests
         kdTreeTests
         sunAngleTests
         simulateImageTests

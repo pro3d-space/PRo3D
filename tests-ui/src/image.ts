@@ -197,6 +197,17 @@ const squareSymmetries: Array<(u: number, v: number) => [number, number]> = [
  * Compared over the source's signal pixels (DN above `signal`) inside the same
  * central window `bodyCoverage` uses, clear of the legend and the HUD text.
  */
+/** The PNG upside down: a frame stored in an instrument's row order (AFC: line 0 =
+ *  bottom, per its instrument kernel) as it looks on screen. */
+export function flipRowsPng(png: Buffer): Buffer {
+    const p = PNG.sync.read(png);
+    const row = p.width * 4;
+    const out = new PNG({ width: p.width, height: p.height });
+    for (let y = 0; y < p.height; y++)
+        p.data.copy(out.data, (p.height - 1 - y) * row, y * row, (y + 1) * row);
+    return PNG.sync.write(out);
+}
+
 export function registration(
     source: Buffer,
     render: Buffer,
