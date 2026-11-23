@@ -52,12 +52,25 @@ module ProjectedImageListApp =
                 stacSearch = { s with hovered = None }
                 hoveredImage = if rowImage.IsSome && m.hoveredImage = rowImage then None else m.hoveredImage }
 
-    /// After the results changed: a hovered row that is gone gets no mouseleave.
+    /// After the results changed: a hovered row that is gone gets no mouseleave, and
+    /// the previews of results no longer listed cannot be hovered again -- they go
+    /// (their files stay in the download cache).
     let private keepStacHoverValid (m : ProjectedImageListModel) =
-        match m.stacSearch.hovered with
-        | Some itemId when not (m.stacSearch.candidates |> IndexList.exists (fun _ c -> c.itemId = itemId)) ->
-            endStacHover m
-        | _ -> m
+        let listed = m.stacSearch.candidates |> IndexList.toArray |> Array.map (fun c -> c.itemId) |> HashSet.ofArray
+        let m =
+            match m.stacSearch.hovered with
+            | Some itemId when not (HashSet.contains itemId listed) -> endStacHover m
+            | _ -> m
+        let stale =
+            m.stacSearch.fetched
+            |> HashMap.filter (fun itemId id -> not (HashSet.contains itemId listed) && HashMap.containsKey id m.stacPreviews)
+        if stale.IsEmpty then m
+        else
+            let isStale (id : Guid) = stale |> HashMap.exists (fun _ s -> s = id)
+            { m with
+                stacPreviews = m.stacPreviews |> HashMap.filter (fun id _ -> not (isStale id))
+                hoveredImage = m.hoveredImage |> Option.filter (isStale >> not)
+                stacSearch = { m.stacSearch with fetched = m.stacSearch.fetched |> HashMap.filter (fun itemId _ -> not (HashMap.containsKey itemId stale)) } }
 
     /// The hover previews go (the results they belong to went). Their files stay in
     /// the download cache, so hovering the same result again does not download it.
@@ -265,7 +278,9 @@ module ProjectedImageListApp =
                     let m = if wantAdd || wantSelect then { m with selectedImage = Some img.id } else m
                     let m = if wantAdd then update m (AddToStack img.id) else m
                     // its row still under the mouse: show it now
-                    if m.stacSearch.hovered = Some itemId then { m with hoveredImage = Some img.id } else m
+                    let m = if m.stacSearch.hovered = Some itemId then { m with hoveredImage = Some img.id } else m
+                    // a preview whose result is no longer listed is not kept
+                    keepStacHoverValid m
             // the Viewer deletes the files; their images go from everywhere
             | ClearCache -> dropStacImages m
             | ClearResults ->
@@ -1207,6 +1222,8 @@ module ProjectedImageListApp =
                 div [
                     attribute "style" "border-bottom: 1px solid black;"
                     attribute "title" tooltip
+                    // the row's identity for UI tests: its titles change with the state
+                    attribute "data-stac-item" id
                     // the frustum and footprint of the hovered row; once downloaded (after
                     // resting on it, or + / the name), the projected image too
                     onMouseEnter (fun _ -> StacMessage (HoverCandidate (Some id)))

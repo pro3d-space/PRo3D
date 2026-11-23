@@ -129,7 +129,7 @@ sections:
 
 | setting | what it does |
 |---|---|
-| **Projection** | what is projected, one button per mode (each with a tooltip). **Full Stack** (default): every image of the stack, the higher one winning where they overlap; a hovered image is previewed on top. **Selected**: only the selected image, whether on the stack or not. **First in Stack**: only the stack's top image; while a stack row is dragged, the top the drop would give. In both one-image modes, a hovered row (library, stack or Image Search) shows that image alone while hovered. The stack itself is kept in every mode. Saved with the scene (key `projectionStackMode`; older scenes: Full Stack) |
+| **Projection** | what is projected, one button per mode (each with a tooltip). **Full Stack** (default): every image of the stack, the higher one winning where they overlap; a hovered image is previewed on top. **Selected**: only the selected image, whether on the stack or not (importing a folder, also when a scene opens, selects its first image, so that one is projected until you select another). **First in Stack**: only the stack's top image; while a stack row is dragged, the top the drop would give. In both one-image modes, a hovered row (library, stack or Image Search) shows that image alone while hovered. The stack itself is kept in every mode. Saved with the scene (key `projectionStackMode`; older scenes: Full Stack) |
 | **Image Opacity** | blends the projected stack over the surface texture (formerly labelled *Visualization*) |
 | **Visibility** | *RelativeCount* shows the coverage view (see 6.) |
 

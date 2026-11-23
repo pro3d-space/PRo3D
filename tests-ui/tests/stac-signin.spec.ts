@@ -176,10 +176,13 @@ test("sign in to a protected catalog, search, hover and project", async ({ brows
     expect(Number(/^(\d+) images/.exec(last)?.[1] ?? "0"), `frames showing the point: ${last}`).toBeGreaterThan(0);
 
     // thumbnails: through PRo3D's route, loaded (the browser itself has no sign-in)
-    // a result row: the one with a selectable name line (ProjectedImageListApp, stacPanel)
-    const rows = gis.locator('div:has(> div[title="click to select (downloads the image)"])');
+    // a result row, by its item id: the name line's title changes when it is selected
+    const rows = gis.locator("div[data-stac-item]");
     await expect(rows.first()).toBeVisible();
-    const thumb = rows.first().locator("img");
+    const item = (await rows.first().getAttribute("data-stac-item")) ?? "";
+    const row = gis.locator(`div[data-stac-item=${JSON.stringify(item)}]`);
+    await expect(row).toBeVisible();
+    const thumb = row.locator("img");
     expect(await thumb.getAttribute("src")).toMatch(/^\/stac-overview\/[0-9a-f]+$/);
     await expect.poll(() => thumb.evaluate((i) => (i as HTMLImageElement).naturalWidth), { timeout: 30_000 }).toBeGreaterThan(0);
     await gis.screenshot({ path: path.join(shots, "3-results.png"), fullPage: true });
@@ -190,7 +193,7 @@ test("sign in to a protected catalog, search, hover and project", async ({ brows
     await gis.mouse.move(0, 0);
     const idle = await settled(render, "3b-idle.png");
     const libraryBefore = await gis.locator(imageRow).count();
-    await rows.first().locator(previewCell).hover();
+    await row.locator(previewCell).hover();
     let hoverChange = 0;
     await expect.poll(async () => {
         const hovered = await render.screenshot();
@@ -207,11 +210,11 @@ test("sign in to a protected catalog, search, hover and project", async ({ brows
         { timeout: 30_000, intervals: [500] }).toBeLessThan(0.0005);
 
     // --- +: library and stack, without downloading again ------------------------------
-    await rows.first().locator("i.plus.icon").click();
+    await row.locator("i.plus.icon").click();
     await expect.poll(() => gis.locator(imageRow).count(), { timeout: 60_000, intervals: [500] })
         .toBeGreaterThan(libraryBefore);
     // the row now shows that its image is on the stack (the library's icon)
-    await expect(rows.first().locator("i.layer.group.icon")).toBeVisible({ timeout: 30_000 });
+    await expect(row.locator("i.layer.group.icon")).toBeVisible({ timeout: 30_000 });
     await gis.mouse.move(0, 0);
     await render.bringToFront();
     const after = await settled(render, "5-projected.png");

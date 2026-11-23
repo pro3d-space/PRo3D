@@ -252,7 +252,12 @@ module GisAppJson =
                     { ProjectedImageListModel.initial with
                         lightingMode = lightingMode
                         windingCorrection = Option.defaultValue false windingCorrection
-                        projectionMode = projectionStackMode |> Option.map enum<ProjectionStackMode> |> Option.defaultValue ProjectionStackMode.FullStack
+                        // a value this release does not know (a newer scene): the full stack
+                        projectionMode =
+                            projectionStackMode
+                            |> Option.map enum<ProjectionStackMode>
+                            |> Option.filter (fun m -> Enum.IsDefined(typeof<ProjectionStackMode>, m))
+                            |> Option.defaultValue ProjectionStackMode.FullStack
                         imageDirectory = imageDirectory
                         pendingStack = Option.defaultValue [] stackFiles
                         instrumentFovs = InstrumentFov.withOverrides fovs }

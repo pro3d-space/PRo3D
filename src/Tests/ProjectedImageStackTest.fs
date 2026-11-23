@@ -194,6 +194,19 @@ let tests () =
                 Expect.isNone m.hoveredImage "hover gone"
             }
 
+            test "a preview download that finishes after its result left the list is not kept" {
+                let m = connected |> stac (HoverCandidate (Some "x")) |> stac (PreviewDue "x")
+                let m = { m with stacSearch = { m.stacSearch with candidates = IndexList.ofList [candidate "y"] } }
+                let m, img = withPreview m
+                let m = { m with stacPreviews = HashMap.empty }
+                // no loadFile for a missing file: seed it as a library-free existing preview
+                let m = { m with stacPreviews = HashMap.single img.id img }
+                let m = m |> stac (FetchFinished ("x", Ok img.texture))
+                Expect.isTrue (HashMap.isEmpty m.stacPreviews) "orphan preview dropped"
+                Expect.isFalse (HashMap.containsKey "x" m.stacSearch.fetched) "and forgotten"
+                Expect.isNone m.hoveredImage "nothing previewed"
+            }
+
             test "clearing the results ends a hovered row's preview" {
                 let m, img = withPreview connected
                 let m = { m with stacSearch = { m.stacSearch with fetched = HashMap.single "x" img.id } }
