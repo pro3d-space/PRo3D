@@ -324,8 +324,8 @@ type StacSearchStatus =
     | Idle
     /// waiting for the server
     | Searching
-    /// the server found `matched` items; `checked` of them are checked so far
-    | Checking of matched : int * checked : int * StacListing
+    /// the server found `matched` items; `progress` of them are checked so far
+    | Checking of matched : int * progress : int * StacListing
     /// `matched` is how many items the server found, `kept` how many survive the
     /// local check that the point really projects into the image (and the
     /// shared filters); the list shows at most StacSearchModel.maxResults
