@@ -131,6 +131,20 @@ let tests =
             Expect.isFalse restoredOld.projectedImageList.windingCorrection "old scenes: off"
         }
 
+        test "TC-12.3 projection mode survives save/load and defaults to the full stack" {
+            let m = GisApp.initial None
+            let top = { m with projectedImageList = { m.projectedImageList with projectionMode = PRo3D.ImageMapping.ProjectionStackMode.FirstInStack } }
+            let serialized = top |> Json.serialize |> Json.formatWith JsonFormattingOptions.SingleLine
+            let restored : GisApp = serialized |> Json.parse |> Json.deserialize
+            Expect.equal restored.projectedImageList.projectionMode PRo3D.ImageMapping.ProjectionStackMode.FirstInStack "survives save/load"
+
+            // a scene from before the field existed projects the whole stack
+            let old = Text.RegularExpressions.Regex.Replace(serialized, ",?\\s*\"projectionStackMode\"\\s*:\\s*\\d+", "")
+            Expect.isFalse (old.Contains "projectionStackMode") "the field is gone from the old scene"
+            let restoredOld : GisApp = old |> Json.parse |> Json.deserialize
+            Expect.equal restoredOld.projectedImageList.projectionMode PRo3D.ImageMapping.ProjectionStackMode.FullStack "old scenes: full stack"
+        }
+
         test "TC-12.3 projected-image folder survives save/load; absent when never chosen" {
             let m = GisApp.initial None
             let unset = m |> Json.serialize |> Json.formatWith JsonFormattingOptions.SingleLine

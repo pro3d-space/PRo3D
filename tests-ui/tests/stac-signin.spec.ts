@@ -18,7 +18,9 @@ import * as readline from "readline";
  * 2. a wrong password keeps the dialog open with a message; the right one connects;
  * 3. a click on Dimorphos finds frames by pointing (they have no footprints); their
  *    thumbnails come through PRo3D's own route;
- * 4. hovering a row draws its frustum; clicking it projects the frame;
+ * 4. resting on a row projects its frame as a preview (not into the library); leaving it
+ *    ends the preview; + adds it to the library and the stack; the stack panel's ✕,
+ *    clicked with the real mouse, leaves nothing projected;
  * 5. the catalog saw nothing unsigned after the sign-in, and only the probe before it.
  *
  *   PRO3D_TEST_DATA   PRo3D.Resources.TestData checkout (the frames, the OPC, the scene)
@@ -31,6 +33,8 @@ const password = "not-a-secret";
 /** the tool strip button, by its tooltip (ViewerGUI.ToolStrip) */
 const toolTitle = "Image search - click the surface, or hold Ctrl and move over it, to find catalog images of that point (GIS tab: Image Search)";
 const shots = path.join(__dirname, "..", "artifacts", "stac-signin");
+/** inside a result row, away from its clickable name and + cell */
+const previewCell = "img";
 
 type Logged = { method: string; path: string; status: number; signed: boolean };
 
@@ -172,33 +176,64 @@ test("sign in to a protected catalog, search, hover and project", async ({ brows
     expect(Number(/^(\d+) images/.exec(last)?.[1] ?? "0"), `frames showing the point: ${last}`).toBeGreaterThan(0);
 
     // thumbnails: through PRo3D's route, loaded (the browser itself has no sign-in)
-    const rows = gis.locator('div[title^="click: download and project"]');
+    // a result row, by its item id: the name line's title changes when it is selected
+    const rows = gis.locator("div[data-stac-item]");
     await expect(rows.first()).toBeVisible();
-    const thumb = rows.first().locator("img");
+    const item = (await rows.first().getAttribute("data-stac-item")) ?? "";
+    const row = gis.locator(`div[data-stac-item=${JSON.stringify(item)}]`);
+    await expect(row).toBeVisible();
+    const thumb = row.locator("img");
     expect(await thumb.getAttribute("src")).toMatch(/^\/stac-overview\/[0-9a-f]+$/);
     await expect.poll(() => thumb.evaluate((i) => (i as HTMLImageElement).naturalWidth), { timeout: 30_000 }).toBeGreaterThan(0);
     await gis.screenshot({ path: path.join(shots, "3-results.png"), fullPage: true });
 
-    // --- hover: the frustum and footprint ----------------------------------------------
-    await rows.first().hover();
-    await render.waitForTimeout(1500);
-    const hovered = await render.screenshot();
-    fs.writeFileSync(path.join(shots, "4-hover.png"), hovered);
-    const hoverChange = diffPng(before, hovered).changedFraction;
-    console.log(`[stac-signin] hover changed the render by ${(hoverChange * 100).toFixed(2)} %`);
-    expect(hoverChange, "the hovered frame's frustum and footprint show").toBeGreaterThan(0.0005);
-
-    // --- click: download (signed in), library, projection ------------------------------
+    // --- hover: frustum and footprint at once, after a rest the projected image -------
+    // (downloaded signed in, previewed: neither in the library nor on the stack)
+    // the view after the search, before any hover: the reference for "nothing previewed"
+    await gis.mouse.move(0, 0);
+    const idle = await settled(render, "3b-idle.png");
     const libraryBefore = await gis.locator(imageRow).count();
-    await rows.first().click();
-    await expect.poll(() => gis.locator(imageRow).count(), { timeout: 5 * 60_000, intervals: [1000] })
+    await row.locator(previewCell).hover();
+    let hoverChange = 0;
+    await expect.poll(async () => {
+        const hovered = await render.screenshot();
+        hoverChange = diffPng(idle, hovered).changedFraction;
+        if (hoverChange > 0.005) fs.writeFileSync(path.join(shots, "4-hover-projected.png"), hovered);
+        return hoverChange;
+    }, { timeout: 5 * 60_000, intervals: [1000] }).toBeGreaterThan(0.005);
+    console.log(`[stac-signin] the hover preview changed the render by ${(hoverChange * 100).toFixed(1)} %`);
+    expect(await gis.locator(imageRow).count(), "a preview is not added to the library").toBe(libraryBefore);
+
+    // --- leaving the row ends the preview ---------------------------------------------
+    await gis.mouse.move(0, 0);
+    await expect.poll(async () => diffPng(idle, await render.screenshot()).changedFraction,
+        { timeout: 30_000, intervals: [500] }).toBeLessThan(0.0005);
+
+    // --- +: library and stack, without downloading again ------------------------------
+    await row.locator("i.plus.icon").click();
+    await expect.poll(() => gis.locator(imageRow).count(), { timeout: 60_000, intervals: [500] })
         .toBeGreaterThan(libraryBefore);
+    // the row now shows that its image is on the stack (the library's icon)
+    await expect(row.locator("i.layer.group.icon")).toBeVisible({ timeout: 30_000 });
     await gis.mouse.move(0, 0);
     await render.bringToFront();
     const after = await settled(render, "5-projected.png");
     const changed = diffPng(before, after).changedFraction;
     console.log(`[stac-signin] projection changed the render by ${(changed * 100).toFixed(1)} %`);
     expect(changed, "the projected frame shows on the body").toBeGreaterThan(0.005);
+
+    // --- ✕ in the stack panel, with the real mouse on the row ---------------------------
+    // The row vanishes under the mouse and gets no mouseleave: the image used to stay
+    // projected as the hover preview, on an empty stack, until PRo3D was restarted.
+    const stackRow = gis.locator('div[draggable="true"]').first();
+    if (!(await stackRow.isVisible())) await gis.locator("text=Projected Images").last().click();
+    await expect(stackRow).toBeVisible({ timeout: 30_000 });
+    await stackRow.locator("i.remove.icon").click();
+    await expect(gis.locator('div[draggable="true"]')).toHaveCount(0, { timeout: 30_000 });
+    // the mouse stays where it clicked, inside the panel
+    await expect.poll(async () => diffPng(idle, await render.screenshot()).changedFraction,
+        { timeout: 30_000, intervals: [500] }).toBeLessThan(0.0005);
+    fs.writeFileSync(path.join(shots, "6-removed.png"), await render.screenshot());
 
     // --- where the credentials went ---------------------------------------------------
     const beforeSignIn = catalog.requests.slice(0, signedInAt);

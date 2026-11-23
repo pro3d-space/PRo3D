@@ -38,9 +38,10 @@ module StacSearch =
             /// observation time range, UTC, inclusive; None = open
             from   : Option<DateTime>
             until  : Option<DateTime>
-            /// distance to the target, km, inclusive (the shared Distance filter);
-            /// None = any. Sent as hera:target_distance (AU), widened by
-            /// `distanceTolerance`: a pre-selection only, the exact check is PRo3D's.
+            /// distance to the target, km, inclusive; None = any. Sent as
+            /// hera:target_distance (AU), widened by `distanceTolerance`. The Image
+            /// Search (listFor) leaves it None: items without that property would never
+            /// be listed. The Distance filter is PRo3D's own check after download.
             distanceKm : Option<float * float>
             limit  : int
         }
@@ -291,8 +292,8 @@ module StacSearch =
                 | Some interval -> w.WriteString("datetime", interval)
                 | None -> ()
                 w.WriteNumber("limit", q.limit)
-                // CQL2 conditions, and-ed: the target, and the distance range (in AU,
-                // widened by distanceTolerance -- a pre-selection, see Query)
+                // CQL2 conditions, and-ed: the target, and the distance range when set
+                // (in AU, widened by distanceTolerance; listFor does not set it, see Query)
                 let targetClause (target : string) () =
                     w.WriteStartObject()
                     w.WriteString("op", "a_contains")
@@ -901,6 +902,10 @@ module StacSearch =
     /// newer point leaves at most these behind (they finish into the cache).
     let downloadAhead = 16
 
+    /// How long the mouse rests on a result row before its image is downloaded for
+    /// the hover preview (docs/StacImageSearch.md).
+    let previewDwellMs = 300
+
     /// The server's items for the point: those whose footprint contains it; when
     /// there are none, the ones without any footprint (catalogs that have not
     /// computed footprints yet, e.g. for a newly visited body). The count is of the
@@ -908,8 +913,12 @@ module StacSearch =
     let listFor (filter : Filter) (limit : int) (scene : Scene) : Task<Result<array<Item> * int * StacListing, string>> =
         task {
             let ll = lonLat scene.point
+            // The Distance filter is not sent: a catalog without hera:target_distance on
+            // its items (as for sidecars without TRG_POS) then lists nothing at all,
+            // whatever the range. PRo3D checks the distance itself (ImageFilter.valuesOfWith:
+            // TRG_POS, else SPICE).
             let q = { point = Some ll; target = Some scene.body; from = filter.from; until = filter.until
-                      distanceKm = filter.bounds.distance; limit = limit }
+                      distanceKm = None; limit = limit }
             let warnMore (matched : int) (listed : int) =
                 if matched > listed then
                     Log.warn "[STAC] the catalog matched %d items, only the newest %d are checked; narrow the time range" matched listed
@@ -976,7 +985,7 @@ module StacSearch =
                                 | Ok () ->
                                     localImagePath item.id item.assets
                                     |> InstrumentMetadata.tryParseMetadataForImagePath
-                                    |> ImageFilter.valuesOf
+                                    |> ImageFilter.valuesOfWith (Some scene.body)
                                     |> Some
                                 | Result.Error _ -> None
                             let passesFilters =
@@ -1191,6 +1200,16 @@ module StacSearch =
                             with e -> return Result.Error e.Message
                         }
                     post (FetchFinished (itemId, result))
+                } :> Task) |> ignore
+
+        /// The mouse entered a result row whose image is not downloaded: after a short
+        /// rest, PreviewDue asks for it (the model drops it if the row is no longer
+        /// hovered), so sweeping over the list downloads nothing.
+        member _.PreviewAfter(itemId : string) =
+            Task.Run(fun () ->
+                task {
+                    do! Task.Delay previewDwellMs
+                    post (PreviewDue itemId)
                 } :> Task) |> ignore
 
         /// Ask the catalog, with this sign-in or none, off the update thread. On

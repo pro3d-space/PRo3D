@@ -59,7 +59,7 @@ columns are the same as the Image Search's (docs/StacImageSearch.md):
 | Add | add to / remove from the projection stack |
 | Go to | the arrow flies to the image's camera (and sets the time); the clock only sets the GIS time to the image's observation time, the camera stays |
 | **Instr.** | instrument, from the metadata |
-| **Distance** | distance to the target's centre (red *no TRG_POS* when the metadata has none) |
+| **Distance** | distance to the target's centre: `TRG_POS`, or for a sidecar without it the spacecraft–target range from SPICE at the observation time (red *no TRG_POS* when neither is known, e.g. no kernel loaded at import) |
 | **Date (UTC)** | observation time, to the minute (the full time in the tooltip) |
 | **Res.** | resolution: ground size of one pixel at the target's centre |
 
@@ -129,6 +129,7 @@ sections:
 
 | setting | what it does |
 |---|---|
+| **Projection** | what is projected, one button per mode (each with a tooltip). **Full Stack** (default): every image of the stack, the higher one winning where they overlap; a hovered image is previewed on top. **Selected**: only the selected image, whether on the stack or not (importing a folder, also when a scene opens, selects its first image, so that one is projected until you select another). **First in Stack**: only the stack's top image; while a stack row is dragged, the top the drop would give. In both one-image modes, a hovered row (library, stack or Image Search) shows that image alone while hovered. The stack itself is kept in every mode. Saved with the scene (key `projectionStackMode`; older scenes: Full Stack) |
 | **Image Opacity** | blends the projected stack over the surface texture (formerly labelled *Visualization*) |
 | **Visibility** | *RelativeCount* shows the coverage view (see 6.) |
 
@@ -205,7 +206,7 @@ AFC-1 frames here were taken from 6.7–8.4 km; at 5.5° that is a footprint
 **Selecting** a row (a click on its name; a second click deselects it, one image
 at a time) is a different thing: it shows that image's 2D
 preview and display settings under *Selected Image* and makes its min/max and colour map drive the whole stack's legend. On
-its own it projects nothing.
+its own it projects nothing, unless *Projection Settings → Projection* is *Selected*.
 
 ## 4. Build the stack
 
@@ -214,7 +215,8 @@ The **+** in a row adds the image to the top of the **projection stack**
 indicator. **Drag a row onto another** to reorder: the dragged image takes the
 target's position and the images in between shift by one (the drop target is
 outlined in blue; the ☰ handle marks the rows as draggable). ↑ / ↓ move one
-step, ✕ removes.
+step, ✕ removes. A removed image leaves the 3D view at once, also when its row was
+the one under the mouse (it used to stay projected as the hover preview).
 
 Feedback while reordering:
 

@@ -48,6 +48,16 @@ let private init () =
 
 let tests () =
     testSequenced <| testList "spice" [
+        // CSPICE is not thread-safe: PRo3D's wrappers and the PRo3D.SPICE package's
+        // F# helpers (which files opening PRo3D.Extensions.FSharp bind to) must share
+        // one lock, or a STAC search and rendering enter CSPICE together and it dies
+        // with SPICE(BADSUBSCRIPT) in trcpkg
+        test "one lock for all SPICE calls: ours is the package's" {
+            Expect.isTrue
+                (obj.ReferenceEquals(PRo3D.SPICE.CooTransformation.l, PRo3D.Extensions.FSharp.CooTransformation.l))
+                "PRo3D.SPICE.CooTransformation.l must be the package's lock object"
+        }
+
         test "InitDeInit" {
             let i = init()
             i.Dispose()
