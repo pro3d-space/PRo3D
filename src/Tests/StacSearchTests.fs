@@ -191,8 +191,10 @@ let private offline =
             match StacSearch.filterOf s dated with
             | Ok f -> Expect.equal f.from (Some t0) "Date set: its start goes to the server"
             | Result.Error e -> failtestf "a date range must make a filter: %s" e
-            // SUN INCIDENCE (disabled, see docs/StacImageSearch.md)
-            // Expect.isError (StacSearch.filterOf { s with incidenceMin = 80.0; incidenceMax = 20.0 }) "incidence range reversed"
+            Expect.isError (StacSearch.filterOf { s with incidenceMin = 80.0; incidenceMax = 20.0 } ImageFilter.initial) "incidence range reversed"
+            match StacSearch.filterOf { s with incidenceMin = 55.0; incidenceMax = 80.0 } ImageFilter.initial with
+            | Ok f -> Expect.equal f.incidence (Range1d(55.0, 80.0)) "the incidence range goes into the filter"
+            | Result.Error e -> failtestf "an incidence range must make a filter: %s" e
         }
 
         test "a distance range goes to the server in AU, widened, and-ed with the target" {
@@ -346,7 +348,7 @@ let private aScene (lonDeg : float) : StacSearch.Scene =
     }
 
 let private aFilter : StacSearch.Filter =
-    { serverUrl = "https://example.org/api"; from = None; until = None; bounds = ImageFilter.bounds ImageFilter.initial }
+    { serverUrl = "https://example.org/api"; from = None; until = None; bounds = ImageFilter.bounds ImageFilter.initial; incidence = Range1d(0.0, 180.0) }
 
 /// Waits (polling) until `cond` holds, failing after `ms`.
 let private waitFor (ms : int) (what : string) (cond : unit -> bool) =
@@ -558,7 +560,7 @@ let private local =
 
 /// The PRO3D_STAC_URL catalog, no time range.
 let private catalog : StacSearch.Filter =
-    { serverUrl = StacSearchModel.defaultServerUrl; from = None; until = None; bounds = ImageFilter.bounds ImageFilter.initial }
+    { serverUrl = StacSearchModel.defaultServerUrl; from = None; until = None; bounds = ImageFilter.bounds ImageFilter.initial; incidence = Range1d(0.0, 180.0) }
 
 /// Skips unless the PRO3D_STAC_URL catalog answers; signs the session in when it asks
 /// for that and PRO3D_STAC_USER / _PASSWORD are set, and says so when they are not --

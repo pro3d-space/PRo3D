@@ -14,6 +14,7 @@ release folds them into `PRODUCT_RELEASE_NOTES.md`.
   and an empty list (docs/Build-Deploy-System.md).
 
 ## Pending
+- Image Search (STAC): **the sun incidence filter is back**, now without ray casts — keep only the images whose sun incidence at the picked point (against the picked surface normal, sun position from the sidecar) lies in a range, default 0°–90° (daylight); each result's incidence is in its tooltip, images dropped by it are counted in the status line (*off incidence*) ([StacImageSearch.md](docs/StacImageSearch.md#sun-incidence))
 - Projected images: **no longer shaded twice under the sun**: `SunDirect` and `SunShadow` leave a projected image unshaded, like the headlight, since the photograph already shows the sun's light and shadows; the surface around it is lit as before (docs/GisView.md, docs/MultiImageProjection.md)
 - Projected images: **removing the last image from the projection stack no longer leaves it projected**. Removing a stack row under the mouse kept it as the hover preview through new searches and OPC reloads, until PRo3D was restarted (docs/MultiImageProjection.md)
 - Projected images: **Projection Settings → Projection** chooses what is projected: the *Full Stack* (as before), only the *Selected* image, or only the *First in Stack*. A hovered image shows alone in the one-image modes. Saved with the scene (docs/MultiImageProjection.md)

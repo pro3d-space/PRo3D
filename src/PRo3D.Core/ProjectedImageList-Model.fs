@@ -300,8 +300,11 @@ type StacDropped =
         /// the first reason, as an example
         reason           : Option<string>
         /// outside the panel's shared filters (ImageFilter), checked on the downloaded
-        /// metadata. (Was the sun incidence filter, disabled for now.)
+        /// metadata
         outsideFilters   : int
+        /// outside the sun incidence range at the picked point
+        /// (StacSearchModel.incidenceMin/Max)
+        outsideIncidence : int
         /// listed in red: the footprint matched, the pointing did not resolve
         unresolvedListed : int
         /// not checkable because the loaded SPICE kernel does not cover the image's
@@ -311,7 +314,7 @@ type StacDropped =
     }
 
 module StacDropped =
-    let none = { count = 0; reason = None; outsideFilters = 0; unresolvedListed = 0; noSpiceCoverage = 0 }
+    let none = { count = 0; reason = None; outsideFilters = 0; outsideIncidence = 0; unresolvedListed = 0; noSpiceCoverage = 0 }
 
 type StacSearchStatus =
     | Idle

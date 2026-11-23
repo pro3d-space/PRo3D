@@ -163,11 +163,15 @@ module ProjectedImageListApp =
                 { m with stacSearch = { s with timeFrom = t } }
             | SetTimeTo t ->
                 { m with stacSearch = { s with timeTo = t } }
-            // SUN INCIDENCE (disabled, see docs/StacImageSearch.md): no row sends these
-            | SetIncidenceMin _ -> m
-                // { m with stacSearch = { s with incidenceMin = clamp 0.0 180.0 a } }
-            | SetIncidenceMax _ -> m
-                // { m with stacSearch = { s with incidenceMax = clamp 0.0 180.0 a } }
+            // the ends stay ordered (the other one moves along): a reversed range
+            // would not make a filter (StacSearch.filterOf), and the rerun on change
+            // would be skipped without a word while the old results stay listed
+            | SetIncidenceMin a ->
+                let a = clamp 0.0 180.0 a
+                { m with stacSearch = { s with incidenceMin = a; incidenceMax = max a s.incidenceMax } }
+            | SetIncidenceMax a ->
+                let a = clamp 0.0 180.0 a
+                { m with stacSearch = { s with incidenceMax = a; incidenceMin = min a s.incidenceMin } }
             | QueryStarted q ->
                 { m with stacSearch = { s with query = Some q; status = StacSearchStatus.Searching } }
             // the Query* answers of a search that is no longer the current one are
@@ -1136,7 +1140,7 @@ module ProjectedImageListApp =
                     yield style (inputStyle "64px")
                     yield onChange (fun t ->
                         match Double.TryParse(t, Globalization.NumberStyles.Float, Globalization.CultureInfo.InvariantCulture) with
-                        | true, a -> StacMessage (msg a)
+                        | true, a when Double.IsFinite a -> StacMessage (msg a)
                         | _ -> Nop)
                 }))
             /// the status line: a few words, and the whole story for its tooltip
@@ -1151,7 +1155,8 @@ module ProjectedImageListApp =
                     let more kept =
                         if kept > StacSearchModel.maxResults then sprintf " (the best %d shown)" StacSearchModel.maxResults else ""
                     let outside (dropped : StacDropped) =
-                        if dropped.outsideFilters > 0 then sprintf "; %d outside the filters" dropped.outsideFilters else ""
+                        (if dropped.outsideFilters > 0 then sprintf "; %d outside the filters" dropped.outsideFilters else "")
+                        + (if dropped.outsideIncidence > 0 then sprintf "; %d outside the sun incidence range" dropped.outsideIncidence else "")
                     match status, at with
                     | StacSearchStatus.Searching, Some at ->
                         "searching ...", sprintf "searching at %s ..." at
@@ -1162,7 +1167,7 @@ module ProjectedImageListApp =
                         sprintf "checking %d/%d by pointing ..." n matched,
                         sprintf "no footprint at %s -- checking the pointing of %d of %d image(s) without footprint ..." at n matched
                     | StacSearchStatus.Found (matched, kept, ByFootprint, dropped), Some at ->
-                        sprintf "%d images%s" kept (tags [ dropped.unresolvedListed > 0, sprintf "%d red" dropped.unresolvedListed; dropped.outsideFilters > 0, sprintf "%d filtered" dropped.outsideFilters; best (kept + dropped.unresolvedListed) ]),
+                        sprintf "%d images%s" kept (tags [ dropped.unresolvedListed > 0, sprintf "%d red" dropped.unresolvedListed; dropped.outsideFilters > 0, sprintf "%d filtered" dropped.outsideFilters; dropped.outsideIncidence > 0, sprintf "%d off incidence" dropped.outsideIncidence; best (kept + dropped.unresolvedListed) ]),
                         sprintf "%d image(s) at %s -- %d footprint(s) matched%s%s" kept at matched (outside dropped) (more (kept + dropped.unresolvedListed))
                     | StacSearchStatus.Found (matched, kept, WithoutFootprint, dropped), Some at ->
                         let unresolved =
@@ -1177,6 +1182,7 @@ module ProjectedImageListApp =
                             (tags [ dropped.noSpiceCoverage > 0, sprintf "%d no SPICE coverage" dropped.noSpiceCoverage
                                     dropped.count > 0, sprintf "%d uncheckable" dropped.count
                                     dropped.outsideFilters > 0, sprintf "%d filtered" dropped.outsideFilters
+                                    dropped.outsideIncidence > 0, sprintf "%d off incidence" dropped.outsideIncidence
                                     best (kept + dropped.unresolvedListed) ]),
                         sprintf "%d image(s) at %s by pointing, of %d without footprint%s%s%s%s" kept at matched (outside dropped) spice unresolved (more (kept + dropped.unresolvedListed))
                     | StacSearchStatus.Failed e, _ when e = PRo3D.GIS.StacSearch.noSpiceKernel -> "no SPICE kernel (hover)", e
@@ -1193,7 +1199,10 @@ module ProjectedImageListApp =
                 let atPoint =
                     match c.check with
                     | Resolved v ->
-                        sprintf ". Measured at the picked point: range %s, pixel %s" (formatLength v.rangeM) (formatLength v.pixelSizeM)
+                        let incidence =
+                            v.pointIncidenceDeg |> Option.map (sprintf "%.0f°") |> Option.defaultValue "unknown"
+                        sprintf ". Measured at the picked point: range %s, pixel %s, sun incidence %s"
+                            (formatLength v.rangeM) (formatLength v.pixelSizeM) incidence
                     | Unresolved e -> sprintf ". Pointing not resolved: %s" (e.TrimEnd([|'.'; ' '|]))
                     | StacCheck.Checking -> ""
                 // one line: aardvark.media sends attribute values to the page as JavaScript
@@ -1284,8 +1293,6 @@ module ProjectedImageListApp =
                         div [cell wDistance true] [text distance]
                         div [cell wDate true; attribute "title" (formatFullDate c.time)] [text (formatListDate c.time)]
                         div [cell wResolution false] [text resolution]
-                        // SUN INCIDENCE (disabled, see docs/StacImageSearch.md): the inc. column
-                        // div [cell 40 false] [text ((v.pointIncidenceDeg |> Option.map (sprintf "%.0f°") |> Option.defaultValue "-") + mark)]
                     ]
                 ]
             div [] [
@@ -1347,17 +1354,16 @@ module ProjectedImageListApp =
                     //             dateInput s.timeTo SetTimeTo
                     //         ]
                     //     ]
-                    // SUN INCIDENCE (disabled, see docs/StacImageSearch.md)
-                    // PRo3D.Core.UI.rowWithTip "Sun incidence:"
-                    //     "Sun incidence at the picked point, degrees: 0 = sun overhead, 90 = sun on the horizon, above 90 = night. Low (0-40) for albedo and colour, high (55-80) for relief: long shadows. Images whose sidecar has no sun position are kept."
-                    //     [
-                    //         div [style "display: flex; align-items: center; gap: 6px"] [
-                    //             degreeInput s.incidenceMin SetIncidenceMin
-                    //             text "° to"
-                    //             degreeInput s.incidenceMax SetIncidenceMax
-                    //             text "°"
-                    //         ]
-                    //     ]
+                    PRo3D.Core.UI.rowWithTip "Sun incidence:"
+                        "Sun incidence at the picked point, degrees: 0 = sun overhead, 90 = sun on the horizon, above 90 = night. Low (0-40) for albedo and colour, high (55-80) for relief: long shadows. Measured against the picked surface's normal, no ray cast. Images whose sidecar has no sun position are kept, and so are all images when the picked point has no surface normal. Raising one end past the other moves the other along. Each result's incidence is in its tooltip."
+                        [
+                            div [style "display: flex; align-items: center; gap: 6px"] [
+                                degreeInput s.incidenceMin SetIncidenceMin
+                                text "° to"
+                                degreeInput s.incidenceMax SetIncidenceMax
+                                text "°"
+                            ]
+                        ]
                 ]
                 div [attribute "style" "display: flex; align-items: center; gap: 6px; padding: 2px 5px; color: #bbb; font-size: 0.85em"] [
                     // one line; the details are in the tooltip
