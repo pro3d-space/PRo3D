@@ -615,3 +615,14 @@ module InstrumentProjection =
 
     let instrument2CameraSource (fitsName : string) =
         Map.tryFind fitsName instrumentCameraSource |> Option.defaultValue "HERA"
+
+    /// The distance from the spacecraft carrying `fitsName` to `target` at `time`, in km,
+    /// from SPICE: the image lists' Distance (and so the Resolution) for a sidecar
+    /// without TRG_POS. None when SPICE cannot place both (no kernel, no coverage).
+    let trySpiceDistanceKm (fitsName : string) (target : string) (time : DateTime) : Option<float> =
+        try
+            lock spiceCallLock (fun () ->
+                relativePosition target (instrument2CameraSource fitsName) time
+                |> Option.map (fun p -> p.Length / 1000.0)
+                |> Option.filter (fun d -> Double.IsFinite d && d > 0.0))
+        with _ -> None

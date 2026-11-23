@@ -59,7 +59,7 @@ columns are the same as the Image Search's (docs/StacImageSearch.md):
 | Add | add to / remove from the projection stack |
 | Go to | the arrow flies to the image's camera (and sets the time); the clock only sets the GIS time to the image's observation time, the camera stays |
 | **Instr.** | instrument, from the metadata |
-| **Distance** | distance to the target's centre (red *no TRG_POS* when the metadata has none) |
+| **Distance** | distance to the target's centre: `TRG_POS`, or for a sidecar without it the spacecraft–target range from SPICE at the observation time (red *no TRG_POS* when neither is known, e.g. no kernel loaded at import) |
 | **Date (UTC)** | observation time, to the minute (the full time in the tooltip) |
 | **Res.** | resolution: ground size of one pixel at the target's centre |
 

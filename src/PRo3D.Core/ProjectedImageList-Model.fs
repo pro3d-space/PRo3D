@@ -737,9 +737,17 @@ module ImageFilter =
         }
 
     let valuesOf ((mbi, tif) : PRo3D.Core.InstrumentMetadata.ParsedMetadata) : Values =
+        // |TRG_POS|; a sidecar without it (zero) gets the range from SPICE at the
+        // observation time, as the SPICE orientation sources place the camera -- else
+        // the Distance shows 0 and Resolution none, and an active Resolution filter
+        // hides every such image
         let distance =
             match mbi with
-            | Some mbi -> mbi.targetPos.Length
+            | Some mbi when mbi.targetPos.Length > 0.0 -> mbi.targetPos.Length
+            | Some mbi ->
+                mbi.target
+                |> Option.bind (fun target -> PRo3D.SPICE.InstrumentProjection.trySpiceDistanceKm mbi.instrument target mbi.obs_date)
+                |> Option.defaultValue 0.0
             | None -> 0.0
         // curated: instrument, plus the camera system when the statistics sidecar
         // declares one and it adds information
