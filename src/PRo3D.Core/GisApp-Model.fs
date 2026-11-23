@@ -296,7 +296,7 @@ type GisApp with
             let stackFiles = ProjectedImageListModel.stackFileNames x.projectedImageList
             if not stackFiles.IsEmpty then
                 do! Json.write "projectedImagesStack" stackFiles
-            // new key, written only when an instrument differs from its kernel default or is flipped
+            // new key, written only when an instrument differs from its kernel default or its default row flip
             let fovOverrides =
                 x.projectedImageList.instrumentFovs
                 |> HashMap.toList

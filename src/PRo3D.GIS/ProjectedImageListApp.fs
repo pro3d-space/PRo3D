@@ -1621,6 +1621,19 @@ module ProjectedImageListApp =
                     text " is set for the image projection"
                 ]
 
+                // the loaded frames kernel and the instrument kernel disagree on an
+                // instrument's axes (set by the Viewer when a kernel is loaded)
+                Incremental.div AttributeMap.empty (alist {
+                    let! w = m.frameKernelWarning
+                    match w with
+                    | Some w ->
+                        yield div [clazz "ui small warning message"; style "margin: 4px 0; padding: 6px 8px; color: #573a08"] [
+                            i [clazz "exclamation triangle icon"] []
+                            text w
+                        ]
+                    | None -> ()
+                })
+
                 accordion "Projection Settings" "settings" false (style "margin-top: 6px") [
                     Html.table [
                         // the whole stack, or one image at a time
