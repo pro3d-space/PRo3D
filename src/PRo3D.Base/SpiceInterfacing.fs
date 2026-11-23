@@ -10,7 +10,15 @@ open PRo3D.Extensions.FSharp.CooTransformation
 
 module CooTransformation =
 
-    let l = new obj()
+    /// THE lock for every call into the native SPICE library (CSPICE is not
+    /// thread-safe). It is the PRo3D.SPICE package's own lock, not one of ours: the
+    /// package's F# helpers (PRo3D.Extensions.FSharp.CooTransformation.getRelState /
+    /// getRotationTrafo) lock that object, and any file that opens
+    /// PRo3D.Extensions.FSharp binds to them (InstrumentProjection did: the projector,
+    /// imageAxes). With a lock of our own, those and this module's calls ran in
+    /// parallel -- a STAC search on its worker against rendering -- and CSPICE died
+    /// with SPICE(BADSUBSCRIPT) in trcpkg. One object serializes both.
+    let l : obj = PRo3D.Extensions.FSharp.CooTransformation.l
 
     let getRelState (pcTargetBody : string) (pcSupportBody : string) (pcObserverBody : string) 
                     (pcObserverDateTime : DateTime) (pcOutputReferenceFrame : string) =
