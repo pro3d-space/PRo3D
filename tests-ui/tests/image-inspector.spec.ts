@@ -1,6 +1,6 @@
 import { test, expect, Page } from "@playwright/test";
-import { launchPro3d, Pro3d, config, imageRow, surfaceShadersReady, firstImage } from "../src/pro3d";
-import { diffPng, litFraction, streamLive, registration } from "../src/image";
+import { launchPro3d, Pro3d, config, imageRow, loaderGone, surfaceShadersReady, firstImage } from "../src/pro3d";
+import { diffPng, litFraction, registration } from "../src/image";
 import { PNG } from "pngjs";
 import * as fs from "fs";
 import * as path from "path";
@@ -32,7 +32,7 @@ test.afterAll(async () => {
 async function stable(page: Page, shoot: () => Promise<Buffer>, name: string): Promise<Buffer> {
     const started = Date.now();
     let shot = await shoot();
-    while ((!streamLive(shot) || litFraction(shot) < 0.003) && Date.now() - started < 600_000) {
+    while ((!(await loaderGone(page)) || litFraction(shot) < 0.003) && Date.now() - started < 600_000) {
         await page.waitForTimeout(3000);
         shot = await shoot();
     }

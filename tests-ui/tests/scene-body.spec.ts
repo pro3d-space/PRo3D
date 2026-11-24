@@ -1,6 +1,6 @@
 import { test, expect, Page, Browser } from "@playwright/test";
-import { launchPro3d, Pro3d, fixture, derivedScene as deriveScene } from "../src/pro3d";
-import { diffPng, litFraction, streamLive } from "../src/image";
+import { launchPro3d, Pro3d, fixture, loaderGone, derivedScene as deriveScene } from "../src/pro3d";
+import { diffPng, litFraction } from "../src/image";
 import { overlayPlanet } from "../src/viewer";
 import * as fs from "fs";
 import * as path from "path";
@@ -35,7 +35,7 @@ test.describe.configure({ mode: "serial" });
 async function settled(page: Page, name: string): Promise<Buffer> {
     const started = Date.now();
     let shot = await page.screenshot();
-    while ((!streamLive(shot) || litFraction(shot) < 0.003) && Date.now() - started < 600_000) {
+    while ((!(await loaderGone(page)) || litFraction(shot) < 0.003) && Date.now() - started < 600_000) {
         await page.waitForTimeout(3000);
         shot = await page.screenshot();
     }

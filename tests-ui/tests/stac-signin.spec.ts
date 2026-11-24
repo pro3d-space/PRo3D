@@ -1,8 +1,8 @@
 import { test, expect, Page } from "@playwright/test";
 import { spawn, ChildProcess } from "child_process";
-import { launchPro3d, Pro3d, fixture, imageRow, surfaceShadersReady, testData } from "../src/pro3d";
+import { launchPro3d, Pro3d, fixture, imageRow, loaderGone, surfaceShadersReady, testData } from "../src/pro3d";
 import { clickTool, pick, tool } from "../src/drawing";
-import { diffPng, litFraction, streamLive } from "../src/image";
+import { diffPng, litFraction } from "../src/image";
 import * as fs from "fs";
 import * as path from "path";
 import * as readline from "readline";
@@ -87,7 +87,7 @@ async function settled(render: Page, name: string): Promise<Buffer> {
     const shoot = () => render.screenshot();
     const started = Date.now();
     let shot = await shoot();
-    while ((!streamLive(shot) || litFraction(shot) < 0.003) && Date.now() - started < 300_000) {
+    while ((!(await loaderGone(render)) || litFraction(shot) < 0.003) && Date.now() - started < 300_000) {
         await render.waitForTimeout(2000);
         shot = await shoot();
     }

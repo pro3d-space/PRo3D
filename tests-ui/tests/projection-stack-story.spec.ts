@@ -1,6 +1,6 @@
 import { test, expect, BrowserContext, ElementHandle, Frame, Page } from "@playwright/test";
-import { config, derivedScene, fixture, launchPro3d, Pro3d, surfaceShadersReady } from "../src/pro3d";
-import { diffPng, litFraction, streamLive } from "../src/image";
+import { config, derivedScene, fixture, launchPro3d, loaderGone, Pro3d, surfaceShadersReady } from "../src/pro3d";
+import { diffPng, litFraction } from "../src/image";
 import { Video } from "../src/video";
 import * as fs from "fs";
 import * as os from "os";
@@ -182,7 +182,7 @@ async function frameOf(main: Page, page: string): Promise<Frame> {
 async function surfaceVisible(ui: Ui) {
     await expect.poll(async () => {
         const s = await viewShot(ui);
-        return streamLive(s) && litFraction(s) > 0.003;
+        return (await loaderGone(ui.render)) && litFraction(s) > 0.003;
     }, { timeout: 600_000, intervals: [3000] }).toBe(true);
 }
 

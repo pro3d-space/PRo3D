@@ -1,6 +1,6 @@
 import { expect, Page, BrowserContext } from "@playwright/test";
-import { Pro3d, derivedScene, launchPro3d, surfaceShadersReady } from "./pro3d";
-import { diffPng, litFraction, streamLive } from "./image";
+import { Pro3d, derivedScene, launchPro3d, loaderGone, surfaceShadersReady } from "./pro3d";
+import { diffPng, litFraction } from "./image";
 import * as fs from "fs";
 
 /**
@@ -64,13 +64,9 @@ function drawingSetup(d: any, edit: (d: any) => void) {
 /**
  * Fraction of the frame taken by the AARDVARK loading banner's yellow-green.
  *
- * The shared gate (`streamLive` + `litFraction`) does not reject that splash here.
- * `litFraction` measures the centre of the frame, which is exactly where the bright banner
- * sits. And `streamLive` samples three corners expecting the splash to be pure black, but
- * the render div's own CSS background is #222222 (Viewer.fs:2530) = 34, over its threshold
- * of 15, so it reports "live" as soon as the DOM exists. An unloaded view therefore scored
- * as lit and stable, and the test read a model that had not finished loading. Rejecting the
- * splash by its own colour is what makes "the surface is up" mean that.
+ * Belt and braces next to `loaderGone`, the primary gate: `litFraction` measures the
+ * centre of the frame, which is exactly where a bright banner would sit, so a splash
+ * there scores as lit. Rejecting it by its own colour keeps "the surface is up" honest.
  */
 export function splashFraction(buf: Buffer): number {
     const { PNG } = require("pngjs");
@@ -95,10 +91,10 @@ export async function settled(
     save: (name: string, png: Buffer) => void
 ): Promise<Buffer> {
     const started = Date.now();
-    const loading = (b: Buffer) =>
-        !streamLive(b) || litFraction(b) < 0.003 || splashFraction(b) > 0.002;
+    const loading = async (b: Buffer) =>
+        !(await loaderGone(page)) || litFraction(b) < 0.003 || splashFraction(b) > 0.002;
     let shot = await page.screenshot();
-    while (loading(shot) && Date.now() - started < 420_000) {
+    while ((await loading(shot)) && Date.now() - started < 420_000) {
         await page.waitForTimeout(3000);
         shot = await page.screenshot();
     }

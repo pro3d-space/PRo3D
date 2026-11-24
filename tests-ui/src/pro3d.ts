@@ -3,7 +3,7 @@ import * as http from "http";
 import * as net from "net";
 import * as path from "path";
 import * as fs from "fs";
-import type { Page } from "@playwright/test";
+import type { Frame, Page } from "@playwright/test";
 
 // Local test data + binaries; override via environment for other machines.
 // The tests are inherently machine-local (real GPU, big OPC data sets) and are
@@ -243,4 +243,16 @@ export async function launchPro3d(
  */
 export async function surfaceShadersReady(page: Page, timeoutMs = 270_000): Promise<void> {
     await page.waitForSelector('[data-surface-shaders="ready"]', { state: "attached", timeout: timeoutMs });
+}
+
+/**
+ * Whether the render control has dropped its boot screen, i.e. a first frame has
+ * arrived and faded in. Aardvark.UI builds that screen as a `div.loader` inside
+ * the control and removes it in `Renderer.fadeIn` (it puts it back if the
+ * connection drops), so its absence is the signal - PRo3D's own splash is styled
+ * to match the viewer background and cannot be told from a render by pixels
+ * (see docs/LoadingScreen.md).
+ */
+export async function loaderGone(page: Page | Frame): Promise<boolean> {
+    return page.evaluate(() => !document.querySelector("div.aardvark > div.loader"));
 }

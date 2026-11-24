@@ -152,6 +152,9 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </EmbeddedResource>
     <EmbeddedResource Include="resources\semui-overrides.css" />
+    <EmbeddedResource Include="resources\pro3d-loader.css" />
+    <EmbeddedResource Include="resources\pro3d-loader.svg" />
+    <EmbeddedResource Include="resources\pro3d-loader.js" />
     <EmbeddedResource Include="resources\ElementQueries.js" />
     <EmbeddedResource Include="resources\ResizeSensor.js" />
     <EmbeddedResource Include="resources\fonts.css" />
