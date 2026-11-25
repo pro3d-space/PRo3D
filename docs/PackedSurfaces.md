@@ -1,68 +1,78 @@
-# Packed Surfaces (*.opc, *.zip)
+# Packed OPCs (*.opc)
 
-A surface — the folder with the `.opcx`, its metadata and one or more OPCs — can be packed into a single **uncompressed (stored) zip** and loaded directly, without unpacking. The surface name is the file name without extension.
+An OPC (a folder holding `Images/` and `Patches/`) can be packed into a single **uncompressed (stored) zip** and loaded directly, without unpacking. OPCs are immutable, so the processing pipeline can serve them packed and ready: hierarchy cache and KdTrees included, nothing left for PRo3D to compute or write.
+
+The **surface stays a plain folder.** Its sidecars, the `.opcx`, its `.json` and `metadata/`, describe all OPCs in the folder and are never packed. Only each OPC is:
 
 ```
-MSLM-3329-...-20230925.opc            <- surface name "MSLM-3329-...-20230925"
-└── MSLM-3329-...-20230925/           <- optional folder (as produced by zipping the surface folder)
-    ├── MSLM-3329-...-20230925.opcx
-    ├── MSLM-3329-...-20230925.opcx.json
-    ├── metadata/...
-    └── MSLM-3329-...-20230925_000_000/
-        ├── Images/...
-        └── Patches/
-            ├── patchhierarchy.xml
-            ├── hierarchy.cache         <- required
-            └── <root patch>/*.aakd     <- KdTrees, required for picking
+MSLM-3329-...-20230925\                     surface folder, imported as before
+├── MSLM-3329-...-20230925.opcx             sidecar for all OPCs of the surface
+├── MSLM-3329-...-20230925.opcx.json        sidecar
+├── metadata\...                            sidecar
+├── MSLM-3329-...-20230925_000_000.opc      one stored zip per OPC, in place of the folder
+│   ├── Images\...                          the OPC's content at the top level of the zip
+│   └── Patches\
+│       ├── patchhierarchy.xml
+│       ├── hierarchy.cache                 required
+│       └── <patch>\*.aakd, *-0.cache       KdTrees, required for picking
+└── MSLM-3329-...-20230925_000_001\         plain and packed OPCs may be mixed
 ```
 
-The surface content may also sit directly at the top level of the zip (no surrounding folder).
+The archive's name is the OPC folder's name plus `.opc`. `.opcz` and `.zip` load as well.
 
 ## Loading
 
-- **Surfaces ▸ Import packed surfaces (\*.opc, \*.zip)** — pick one or more archives.
-- **Surfaces ▸ Import OPCs** — choosing a folder also discovers the archives in it and below it. Zips that contain no OPC are skipped.
-- **Drag & drop** surface folders or archives onto the 3D view.
-- The remote API `/api/importOpc` and `PRo3D.Snapshots --opc` / `--opcs` accept archive paths as well.
+Import the **surface folder** as for unpacked surfaces:
 
-Problems (a compressed archive, a missing `hierarchy.cache`, missing KdTrees, a name clash, see below) are shown in the viewer's feedback line and logged.
+- **Surfaces ▸ Import OPCs**: choose the surface folder, or a folder above it; discovery finds the surfaces below.
+- **Drag & drop** surface folders onto the 3D view.
+- The remote API `/api/importOpc` and `PRo3D.Snapshots --opc` / `--opcs` take surface folders as well.
 
-Saved scenes store the surface's path *inside* the archive (`<dir>\<Name>\<Name>`); loading the scene opens the archive again. Keep the archive where it was, as for unpacked surfaces.
+OPCs are always imported through their surface folder, packed or not. A single `.opc` chosen or dropped on its own is not loaded; the message asks for the folder it lies in.
 
-## Packing
+Problems are shown in the viewer's feedback line and logged:
 
-The archive must be **stored** — entries may not be compressed. Random access into compressed entries is not possible, and textures need it.
+- **Refused:** an archive that is compressed, has no `hierarchy.cache`, or clashes with a folder (see below). The OPC is left out and the rest of the surface loads; a surface left with no OPC is not imported.
+- **Warning:** an archive without KdTrees loads, but picking is off for that OPC.
+
+Saved scenes store the surface folder and its OPC paths as usual. Loading the scene opens the archives again.
+
+## Preparing and packing
+
+Archives are read-only, so everything PRo3D would otherwise write must be built **before** packing:
 
 ```powershell
-# 7-Zip
-7z a -tzip -mx0 Gale.opc .\Gale\
-# PowerShell 7 (writes stored entries)
-Compress-Archive -Path .\Gale -DestinationPath Gale.zip -CompressionLevel NoCompression
+# 1. hierarchy.cache and KdTrees (*.aakd, lazy KdTree cache) for every OPC of the surface
+pro3d-tool kdtree "<surface folder>"
+
+# 2. pack each OPC folder's content, stored, as <Opc>.opc next to it; then remove the folder
+cd "<surface folder>\<Opc>"
+7z a -tzip -mx0 "..\<Opc>.opc" Images Patches
 ```
 
-`Compress-Archive` only writes `.zip`; rename the result to `.opc` to mark it as a packed surface (both extensions load).
+`pro3d-tool kdtree` writes `Patches/hierarchy.cache` if it is missing, with the same serializer the viewer reads it with, and builds the KdTrees. See [Pro3DTool-KdTree.md](Pro3DTool-KdTree.md) and [KdTrees.md](KdTrees.md).
 
-Build everything PRo3D would otherwise write **before** packing, because archives are read-only:
-
-- `Patches/hierarchy.cache` — written the first time PRo3D loads the unpacked OPC.
-- KdTrees (`*.aakd`) — `pro3d-tool kdtree "<surface folder>"`, see [Pro3DTool-KdTree.md](Pro3DTool-KdTree.md) and [KdTrees.md](KdTrees.md). An archive without KdTrees loads, but picking is disabled and a warning is shown.
+Pack the **content** of the OPC folder (`Images`, `Patches`), not the folder itself: the entries must sit at the top level of the zip. Entries must be **stored** (`-mx0`), because textures need random access, which compressed entries do not give. Do not leave the unpacked OPC folder next to its archive (see Limitations).
 
 ## Read-only
 
-PRo3D never writes into an archive or next to it. In particular:
+PRo3D never writes into an archive or next to it:
 
-- the lazy KdTree cache is not written; a packed `*-0.cache` is used if present,
-- **Rebuild KdTrees** and **make surface relative** (copying the surface next to the scene) do nothing for packed surfaces and log a warning.
+- a packed `hierarchy.cache` that cannot be read is an error, it is not rebuilt;
+- the lazy KdTree cache is not written; a packed `*-0.cache` is used if present;
+- **Rebuild KdTrees** skips packed OPCs and logs a warning.
+
+**Make surface relative** copies the surface folder next to the scene, archives included.
 
 ## Limitations
 
-These come from how Aardvark.Data.Opc (`Prinziple`) maps archives and are checked when an archive is opened:
+These come from how Aardvark.Data.Opc (`Prinziple`) maps archives, and are checked when an archive is opened:
 
-- **An archive and an unpacked folder of the same name cannot sit side by side** (`Gale.opc` next to `Gale\`). Once the archive is open, every read below `Gale\` is answered from the archive. Keep one of them. The same applies to folders whose name *starts* with the archive name (`Gale2\` next to `Gale.opc`) and to two archives whose names are prefixes of each other.
-- Only one of `Name.opc`, `Name.opcz`, `Name.zip` may exist in a folder.
-- The archive file stays open, and therefore locked on Windows, until PRo3D exits.
+- **An archive and a folder of the same name cannot sit side by side** (`X_000_000.opc` next to `X_000_000\`). Prinziple reads that folder before the archive; it is where Prinziple would write. Keep one of them. The same applies to folders whose name *starts* with the OPC name (`X_000_000_old\`).
+- Only one of `X.opc`, `X.opcz`, `X.zip` may exist.
+- An archive file stays open, and therefore locked on Windows, until PRo3D exits.
 - Lookups in an archive are linear in its number of entries; very large archives (tens of thousands of entries) load slower than the unpacked folder.
 
 ## Implementation
 
-`src/PRo3D.Core/Surface/SurfaceArchive.fs` opens an archive, checks its layout (OPC folders = folders holding `Patches/patchhierarchy.xml` and `Images/`, all in one folder), refuses compressed entries and name clashes, and registers it with `Prinziple` at `<dir>\<Name>`. All OPC reads then go through Prinziple. Tests: `src/Tests/SurfaceArchiveTests.fs` (layout rules, discovery, loading a real OPC, and a render that must match the unpacked folder pixel for pixel).
+`src/PRo3D.Core/Surface/OpcArchive.fs` checks an archive's entries (`Patches/patchhierarchy.xml` and `Images/` at the top level, all stored, `hierarchy.cache` present), refuses clashes, and registers it with `Prinziple` at the OPC path; all reads of the OPC then go through Prinziple. Because Prinziple matches that path by plain string prefix, OPCs are read through the exact registered form (`OpcArchive.prepare` / `normalize`). Tests: `src/Tests/OpcArchiveTests.fs` (layout and rejection rules, import, a real OPC's hierarchy and KdTrees, and a render that must match the unpacked folder pixel for pixel).

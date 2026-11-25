@@ -232,8 +232,8 @@ module KdTrees =
             mode
             |> ViewerModality.matchy (h.kdTreeAggZero_FileAbsPath) (h.kdTreeAggZero2d_FileAbsPath)
 
-        // surface archives are read-only: never write KdTrees or their cache into or next to them
-        let readOnly = PRo3D.Core.Surface.SurfaceArchive.isInArchive h.opcPaths.Opc_DirAbsPath
+        // OPC archives are read-only: never write KdTrees or their cache into or next to them
+        let readOnly = PRo3D.Core.Surface.OpcArchive.isInArchive h.opcPaths.Opc_DirAbsPath
         let surpressFileConstruction = surpressFileConstruction || readOnly
 
         if surpressFileConstruction && forceRebuild then
@@ -372,7 +372,7 @@ module KdTrees =
                     let trees = kdTrees |> Array.map Option.get |> Array.toList // safe because check above
 
                     if readOnly then
-                        Log.line "[KdTrees] %s lies in a read-only surface archive, the LazyKdTree cache is not written." cacheFile
+                        Log.line "[KdTrees] %s lies in a read-only OPC archive, the LazyKdTree cache is not written." cacheFile
                     else
                         try
                             trees |> save cacheFile b |> ignore

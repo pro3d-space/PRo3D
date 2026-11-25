@@ -421,9 +421,6 @@ module Gui =
         let jsImportOPCDialog =
             "top.aardvark.dialog.showOpenDialog({tile: 'Select directory to discover OPCs and import', filters: [{ name: 'OPC (directories)'}], properties: ['openDirectory', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
            
-        let jsImportPackedSurfaceDialog =
-            "top.aardvark.dialog.showOpenDialog({title: 'Select packed surfaces to import', filters: [{ name: 'Packed surface (*.opc, *.zip)', extensions: ['opc', 'zip']}], properties: ['openFile', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
-
         let jsImportOBJDialog =
             "top.aardvark.dialog.showOpenDialog({tile: 'Select *.obj files to import', filters: [{ name: 'OBJ (*.obj)', extensions: ['obj']}], properties: ['openFile', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
         
@@ -446,12 +443,6 @@ module Gui =
                         clientEvent "onclick" (jsImportOPCDialog)
                     ] [
                         text "Import OPCs"
-                    ]
-                    div [ clazz "ui inverted item";
-                        Dialogs.onChooseFiles ImportDiscoveredSurfacesThreads;
-                        clientEvent "onclick" (jsImportPackedSurfaceDialog)
-                    ] [
-                        text "Import packed surfaces (*.opc, *.zip)"
                     ]
                     //div [ clazz "ui inverted item"; 
                     //    Dialogs.onChooseFiles (curry ViewerAction.ImportObject MeshLoaderType.Assimp);
@@ -2207,7 +2198,7 @@ module Gui =
                         Incremental.div (AttributeMap.ofList [style "background:#000;"]) (
                             alist {
                                 yield viewRenderView runtime renderViewportSizeId m
-                                // dropping surface folders or packed surfaces onto the render view imports them
+                                // dropping surface folders (with plain or packed OPCs) onto the render view imports them
                                 yield
                                     onBoot "attachSurfaceDrop('__ID__');" (
                                         div [ style "display:none"; Dialogs.onChooseFiles ImportDiscoveredSurfacesThreads ] []

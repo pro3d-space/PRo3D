@@ -92,7 +92,7 @@ function startBusyIndicator(id, thresholdMs) {
 
 // --- dropping surfaces ---------------------------------------------------------------
 //
-// Dropping surface folders or packed surfaces (*.opc, *.zip) onto a page imports them. The
+// Dropping surface folders (their OPCs plain or packed as *.opc) onto a page imports them. The
 // paths are sent as an 'onchoose' event, the same event the "Import OPCs" dialog sends,
 // so Dialogs.onChooseFiles on the element with this id receives them. Without this
 // handler Electron would navigate the page to the dropped file. See docs/PackedSurfaces.md.

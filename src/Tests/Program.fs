@@ -93,7 +93,7 @@ let allTests (parameters : TestUtils.TestParameters) : Test =
         OpcSidecarTests.tests()
 
         // surfaces packed into stored zip archives; the real-OPC cases self-skip without the test data
-        SurfaceArchiveTests.tests()
+        OpcArchiveTests.tests()
 
         // Kernel-swap count matters: the native DeInit does not fully clear CSPICE's
         // binary-kernel (DAF) state, so handles go stale after repeated metakernel swaps

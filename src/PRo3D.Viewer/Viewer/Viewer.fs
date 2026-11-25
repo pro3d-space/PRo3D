@@ -96,7 +96,7 @@ module UserFeedback =
             }
         { m with scene = { m.scene with feedbackThreads = ThreadPool.add fb.id worker m.scene.feedbackThreads }}
 
-    /// shows problems found while importing surfaces, e.g. surface archives that cannot be loaded;
+    /// shows problems found while importing surfaces, e.g. OPC archives that cannot be loaded;
     /// delayed like the other import messages so "Importing OPCs..." does not hide it (#898)
     let queueSurfaceProblems (problems : list<string>) m =
         match problems with
@@ -1793,7 +1793,7 @@ module ViewerApp =
             | [] -> m
             | paths ->
                 let surfaces, problems =
-                    SurfaceUtils.mkFromPaths m.scene.config.importTriangleSize.value paths paths
+                    SurfaceUtils.mkFromPaths m.scene.config.importTriangleSize.value paths
 
                 let m = SceneLoader.import' runtime signature (IndexList.ofList surfaces) m
                 m
@@ -1806,15 +1806,16 @@ module ViewerApp =
             | [] -> m
             | paths ->
                 //"Import OPCs..." |> UpdateUserFeedback |> ViewerAction |> mailbox.Post
-                // folders, and surface archives (*.opc, *.zip) chosen directly
-                let selectedPaths =
-                    paths |> List.filter (fun p -> Directory.Exists p || SurfaceArchive.isArchiveFile p)
+                // a packed OPC (*.opc) chosen or dropped on its own is reported: OPCs are imported through their surface folder
                 let surfacePaths =
-                    selectedPaths
-                    |> List.collect Files.superDiscoveryMultipleSurfaceFolder
+                    paths
+                    |> List.collect (fun p ->
+                        if OpcArchive.isArchiveFile p then [p]
+                        else Files.superDiscoveryMultipleSurfaceFolder p
+                    )
 
                 let surfaces, problems =
-                    SurfaceUtils.mkFromPaths m.scene.config.importTriangleSize.value selectedPaths surfacePaths
+                    SurfaceUtils.mkFromPaths m.scene.config.importTriangleSize.value surfacePaths
                 let surfaces = surfaces |> IndexList.ofList
 
                     

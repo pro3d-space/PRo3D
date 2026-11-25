@@ -15,3 +15,4 @@ release folds them into `PRODUCT_RELEASE_NOTES.md`.
 
 ## Pending
 
+- Surfaces: **OPCs can be shipped packed, one stored zip per OPC.** In a surface folder, `<Opc>.opc` (or `.opcz`, `.zip`) holding the OPC's `Images` and `Patches` loads in place of the OPC folder, read-only and without unpacking; the `.opcx` and `metadata` stay beside it. Import the surface folder as usual, through *Import OPCs* or by dropping it onto the 3D view. The hierarchy cache must be packed with each OPC, and KdTrees should be, or picking is off (#322, docs/PackedSurfaces.md)

@@ -103,7 +103,7 @@ type OpcRenderer(runtime : IRuntime, signature : IFramebufferSignature, opcs : l
             let path = Path.GetFullPath o.path
             if not (Directory.Exists path) then
                 raise (DirectoryNotFoundException(sprintf "no OPC directory at %s" path))
-            if not (Files.isSurfaceFolder path || Files.isZippedOpcFolder path) then
+            if not (Files.isSurfaceFolder path) then
                 invalidArg (nameof opcs) (sprintf "%s is not an OPC directory (a folder holding OPC hierarchies)" path)
             // the import applies a <opc>.trafo beside the directory over preTransform
             // (SceneLoader.addLegacyTrafos): with a trafo given as well, which one wins

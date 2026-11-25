@@ -35,7 +35,7 @@ module Files =
        
        /// <summary>
        /// checks if "path" is a valid opc folder containing "images" or "Images", "patches" or "Patches", and patchhierarchy.xml
-       /// (on disk or inside a registered surface archive)
+       /// (on disk, or an OPC archive registered at "path", see OpcArchive)
        /// </summary>
        let isOpcFolder' (quiet : bool) (path : string) =
            let isOpcFolder =
@@ -64,26 +64,24 @@ module Files =
        /// </summary>        
        //let isSurfaceFolder (path : string) =
        //    Directory.GetDirectories(path) |> Seq.forall isOpcFolder
-       let isSurfaceFolder (path : string) =
-            SurfaceArchive.directoryExists path &&
-            Prinziple.getDirectories path |> Array.exists isOpcFolder
+       /// <summary>
+       /// checks if "path" is an OPC packed into an archive "path.opc" (or .opcz, .zip), see OpcArchive
+       /// </summary>
+       let isOpcArchive (path : string) =
+           OpcArchive.archiveFilesOf path |> List.exists OpcArchive.isOpcArchiveFile
 
        /// <summary>
-       /// checks if the surface folder "path" exists, on disk or inside a surface archive. A path inside
-       /// a surface archive that is not opened yet (e.g. stored in a scene) opens the archive.
+       /// checks if "path" is an OPC: a folder, or packed into an archive
        /// </summary>
-       let surfaceFolderExists (path : string) =
-           match SurfaceArchive.tryOpenForPath path with
-           | Some (Result.Ok _) -> SurfaceArchive.directoryExists path
-           | Some (Result.Error e) ->
-               Log.warn "[Surface.Files] %s" (SurfaceArchive.ArchiveError.message e)
-               false
-           | None ->
-               match SurfaceArchive.tryFindCapturingRoot path with
-               | Some root when not (SurfaceArchive.isInArchive path) ->
-                   Log.error "[Surface.Files] %s cannot be read while the surface archive %s is loaded (same name prefix)." path root
-                   false
-               | _ -> SurfaceArchive.directoryExists path
+       let isOpc (path : string) = isOpcFolder path || isOpcArchive path
+
+       /// <summary>
+       /// checks if "path" is a valid surface folder i.e. contains at least one opc folder or OPC archive
+       /// </summary>
+       let isSurfaceFolder (path : string) =
+            Directory.Exists path &&
+                (Directory.EnumerateDirectories path |> Seq.exists isOpcFolder ||
+                 Directory.EnumerateFiles path |> Seq.exists OpcArchive.isOpcArchiveFile)
 
        /// returns all subdirectories of path for which function p returns true
        let discover (p : string -> bool) path : list<string> =
@@ -100,12 +98,6 @@ module Files =
        let discoverOpcs path = 
          discover isOpcFolder path
 
-       /// <summary>
-       /// should open zip and call isOPCFolder
-       /// </summary>        
-       let isZippedOpcFolder (path : string) = 
-         File.Exists(Path.ChangeExtension(path, "zip"))
-
        let whyEscaping (path : string) = 
          path
          //path.Replace(@"\", @"\\\\")
@@ -114,17 +106,8 @@ module Files =
        let private retrieve (f :string -> string) (path : string) : list<string> =
            if path = String.Empty then failwith "encountered empty opc path"
 
-           if isOpcFolder path then
+           if isOpc path then
                [whyEscaping path]
-           elif isZippedOpcFolder path then                
-               [(whyEscaping path).Replace(".zip", "")]
-           elif SurfaceArchive.isInArchive path then
-               // directories listed from an archive carry a trailing separator
-               Prinziple.getDirectories path
-                 |> Array.map (fun a -> a.TrimEnd(Path.DirectorySeparatorChar))
-                 |> Array.filter isOpcFolder
-                 |> Array.map f
-                 |> Array.toList
            elif Directory.Exists path then
                let opcDirs =
                  Directory.GetDirectories(path)
@@ -133,19 +116,22 @@ module Files =
                    |> Seq.map f
                    |> Seq.toList            
 
-               let zipped =
+               // OPC archives <Opc>.opc stand in for the OPC folder <Opc>; a folder of the same
+               // name as well is a clash, reported when the archive is opened
+               let packed =
                  Directory.GetFiles(path)
-                   |> Seq.map (fun a -> whyEscaping a)
-                   |> Seq.filter isZippedOpcFolder
-                   |> Seq.map (fun a -> a.Replace(".zip", ""))
+                   |> Seq.filter OpcArchive.isOpcArchiveFile
+                   |> Seq.map (OpcArchive.opcPathOf >> whyEscaping)
+                   |> Seq.filter (fun a -> not (Directory.Exists a))
+                   |> Seq.distinct
                    |> Seq.map f
-                   |> Seq.toList            
+                   |> Seq.toList
 
-               opcDirs @ zipped
+               opcDirs @ packed
            else []
 
        let toDiscoverFolder path = 
-        if path |> isOpcFolder || path |> isZippedOpcFolder then
+        if path |> isOpc then
           OpcFolder path
         else
           Directory path
@@ -164,22 +150,15 @@ module Files =
           input, opcs
         | OpcFolder p -> input,[p]
 
-       /// returns the surface folders and surface archive files (*.opc, *.zip) in and below "input"
+       /// returns the surface folders in and below "input"
        let rec superDiscoveryMultipleSurfaceFolder (input : string) : list<string> =
-        if SurfaceArchive.isArchiveFile input || isSurfaceFolder input then
+        if isSurfaceFolder input then
             [input]
         elif Directory.Exists input then
-            let archives =
-                input
-                    |> Directory.EnumerateFiles
-                    |> Seq.filter SurfaceArchive.isArchiveFile
-                    |> Seq.toList
-            let folders =
-                input
-                    |> Directory.EnumerateDirectories
-                    |> Seq.toList
-                    |> List.collect superDiscoveryMultipleSurfaceFolder
-            archives @ folders
+            input
+                |> Directory.EnumerateDirectories
+                |> Seq.toList
+                |> List.collect superDiscoveryMultipleSurfaceFolder
         else
             []
 
@@ -318,10 +297,7 @@ module Files =
 
                            // copy data
                            match s with
-                               |Leaf.Surfaces sf when SurfaceArchive.isInArchive sf.importPath ->
-                                   Log.warn "[Surface.Files] %s is a packed surface archive and cannot be copied next to the scene." sf.name
-                                   surfaceModel
-                               |Leaf.Surfaces sf ->
+                               |Leaf.Surfaces sf -> 
                                    let targetDir = Path.Combine(targetSurfaceDir, sf.name)
                                    PRo3D.Base.Copy.copyAll sf.importPath targetDir true
 
