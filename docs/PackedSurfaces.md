@@ -39,20 +39,18 @@ Saved scenes store the surface folder and its OPC paths as usual. Loading the sc
 
 ## Preparing and packing
 
-Archives are read-only, so everything PRo3D would otherwise write must be built **before** packing:
+Archives are read-only, so everything PRo3D would otherwise write must be packed with each OPC: the hierarchy cache and the KdTrees. `pro3d-tool pack` does all of it and leaves the source untouched:
 
 ```powershell
-# 1. hierarchy.cache and KdTrees (*.aakd, lazy KdTree cache) for every OPC of the surface
-pro3d-tool kdtree "<surface folder>"
-
-# 2. pack each OPC folder's content, stored, as <Opc>.opc next to it; then remove the folder
-cd "<surface folder>\<Opc>"
-7z a -tzip -mx0 "..\<Opc>.opc" Images Patches
+pro3d-tool pack --out "<output directory>" "<surface folder>"
 ```
 
-`pro3d-tool kdtree` writes `Patches/hierarchy.cache` if it is missing, with the same serializer the viewer reads it with, and builds the KdTrees. See [Pro3DTool-KdTree.md](Pro3DTool-KdTree.md) and [KdTrees.md](KdTrees.md).
+It writes `<output directory>\<surface name>` with the sidecars copied and one verified `<Opc>.opc` per OPC. An OPC without hierarchy cache or KdTrees is completed in a staging copy first. See [Pro3DTool-Pack.md](Pro3DTool-Pack.md).
 
-Pack the **content** of the OPC folder (`Images`, `Patches`), not the folder itself: the entries must sit at the top level of the zip. Entries must be **stored** (`-mx0`), because textures need random access, which compressed entries do not give. Do not leave the unpacked OPC folder next to its archive (see Limitations).
+By hand, the equivalent is to run `pro3d-tool kdtree "<surface folder>"` (see [Pro3DTool-KdTree.md](Pro3DTool-KdTree.md)), then, inside each OPC folder, `7z a -tzip -mx0 "..\<Opc>.opc" *`. Then remove the folder. Three rules apply to a hand-made archive:
+- Pack the **content** of the OPC folder, not the folder itself: the entries must sit at the top level of the zip.
+- Entries must be **stored** (`-mx0`), because textures need random access, which compressed entries do not give.
+- Do not leave the unpacked OPC folder next to its archive (see Limitations).
 
 ## Read-only
 

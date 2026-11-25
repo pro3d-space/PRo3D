@@ -1,6 +1,6 @@
 # Plan: load packed OPCs, one stored zip per OPC (`<Opc>.opc`)
 
-Status: **loader implemented** on `features/322-load-opc-as-an-uncompressed-zip`; `pro3d-tool pack` next. User docs: [docs/PackedSurfaces.md](../docs/PackedSurfaces.md).
+Status: **loader and `pro3d-tool pack` implemented** on `features/322-load-opc-as-an-uncompressed-zip`. User docs: [docs/PackedSurfaces.md](../docs/PackedSurfaces.md).
 
 ## Context
 
@@ -51,11 +51,13 @@ These would need an aardvark.data PR, a release and a Paket bump:
   - Imported in the viewer through `/api/importOpc`: the hierarchy loaded from the packed cache and the KdTrees from the packed lazy cache. The 3D view is pixel-identical to the same surface unpacked, and nothing was written into the surface folder.
 - Still to do by hand in the Electron viewer: drag & drop, picking on a packed OPC, and save/reload of a scene.
 
-## Next
+## `pro3d-tool pack`
 
-`pro3d-tool pack <surface folder> --out <dir>`:
-- runs the kdtree step on the plain surface;
-- writes the output surface: sidecars copied, one stored `<Opc>.opc` per OPC;
-- verifies each archive with `OpcArchive.tryOpen`.
+`pro3d-tool pack --out <dir> <surface folder>` ([docs/Pro3DTool-Pack.md](../docs/Pro3DTool-Pack.md), `src/PRo3D.Tool/Pack.fs`):
+- writes `<dir>\<surface name>`: the sidecars copied, one stored `<Opc>.opc` per OPC, archives already packed copied, and `<surface name>.trafo`;
+- an OPC lacking its hierarchy cache, KdTrees or lazy KdTree cache is completed in a staging copy with the kdtree step; the source is never written;
+- verifies each archive: `OpcArchive.tryOpen`, entry checksums, hierarchy and a KdTree per patch from the archive, nothing written.
 
-It never writes into the source.
+Fixed along the way: `KdTrees.saveKdTree` left the `.aakd` file open until finalization, which blocked deleting the staging copy.
+
+Verified: 3 tests in the `pack` list. MSL case packed from the original on H: (no KdTrees, built in staging); the source's file list (paths, sizes, times) is unchanged. In the viewer the result renders pixel-identical to the plain surface, the lazy KdTree cache loads from the archive, and nothing is written into the output.

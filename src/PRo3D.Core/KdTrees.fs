@@ -193,7 +193,10 @@ module KdTrees =
 
     let saveKdTree (kdTree : KdIntersectionTree) path =
         Log.startTimed "saving kd tree"
-        use b = new BinaryWritingCoder(Prinziple.openWrite path)
+        // the coder does not close the stream it is given: without this the file stays open
+        // until the stream is finalized, and cannot be moved or deleted meanwhile
+        use stream = Prinziple.openWrite path
+        use b = new BinaryWritingCoder(stream)
         b.CodeT(ref kdTree)
         Log.stop()
 

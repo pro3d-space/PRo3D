@@ -14,6 +14,7 @@ let logo = """
 Command line tools for PRo3D data.
 
   kdtree          validate OPC directories and generate KdTrees
+  pack            pack each OPC of a surface into a stored zip <Opc>.opc
   sun-angles      render per-pixel illumination geometry for instrument images
   unproject       convert image pixel coordinates to body-fixed surface coordinates
   simulate-image  render a simulated instrument image of a body at a SPICE time
@@ -32,6 +33,7 @@ Example: pro3d-tool kdtree --forcekdtreerebuild "K:\PRo3D Data\SAIIL_02_01-v3-op
 let private verbs : Type[] =
     [|
         typeof<KdTreeOptions>
+        typeof<PackOptions>
         typeof<SunAnglesOptions>
         typeof<UnprojectOptions>
         typeof<SimulateImageOptions>
@@ -43,6 +45,7 @@ let private verbs : Type[] =
 let private dispatch (parsed : obj) : int =
     match parsed with
     | :? KdTreeOptions as o -> KdTree.run o
+    | :? PackOptions as o -> Pack.run o
     | :? SunAnglesOptions as o -> SunAnglesVerb.run o
     | :? UnprojectOptions as o -> UnprojectVerb.run o
     | :? SimulateImageOptions as o -> SimulateImageVerb.run o

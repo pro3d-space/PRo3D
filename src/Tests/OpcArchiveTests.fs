@@ -406,6 +406,87 @@ let renderTests () =
         }
     ]
 
+/// `pro3d-tool pack`: a surface folder in, a copy with each OPC packed out; the source is
+/// never written, and an OPC lacking KdTrees is completed in a staging copy.
+let packTests () =
+    let copyDirectory (source : string) (target : string) =
+        for d in Directory.GetDirectories(source, "*", SearchOption.AllDirectories) do
+            Directory.CreateDirectory(Path.Combine(target, Path.GetRelativePath(source, d))) |> ignore
+        Directory.CreateDirectory target |> ignore
+        for f in Directory.GetFiles(source, "*", SearchOption.AllDirectories) do
+            File.Copy(f, Path.Combine(target, Path.GetRelativePath(source, f)))
+
+    /// a copy of Didymos_ASPECT to pack from, without the files `drop` selects
+    let source (drop : string -> bool) =
+        match didymos with
+        | None -> skiptest "Didymos_ASPECT test data not found"
+        | Some folder ->
+            let surface = Path.Combine(tempDir (), "Didymos_ASPECT")
+            copyDirectory folder surface
+            for f in Directory.GetFiles(surface, "*", SearchOption.AllDirectories) do
+                if drop f then File.Delete f
+            surface
+
+    let isKdTree (f : string) =
+        f.EndsWith(".aakd", StringComparison.OrdinalIgnoreCase) || f.EndsWith("-0.cache", StringComparison.OrdinalIgnoreCase)
+
+    let packAndLoad (surface : string) =
+        let before = ofFolder surface
+        let out = tempDir ()
+        let target =
+            match PRo3D.Tool.Pack.pack surface out with
+            | Result.Ok t -> t
+            | Result.Error e -> failtestf "pack failed: %s" e
+        Expect.equal (ofFolder surface) before "the source is not written"
+        Expect.equal target (Path.Combine(out, "Didymos_ASPECT")) "written to <out>\<surface name>"
+        Expect.isEmpty (Directory.GetDirectories out |> Array.filter (fun d -> d <> target)) "no staging folder left"
+        Expect.isEmpty (Directory.GetDirectories target) "no OPC folder in the output"
+
+        let sidecars = Directory.GetFiles surface |> Array.map Path.GetFileName |> Array.sort
+        let opcs = Directory.GetDirectories surface |> Array.map (fun d -> Path.GetFileName d + ".opc") |> Array.sort
+        Expect.equal (Directory.GetFiles target |> Array.map Path.GetFileName |> Array.sort) (Array.append sidecars opcs |> Array.sort) "sidecars and one archive per OPC"
+
+        let surfaces, problems = SurfaceUtils.mkFromPaths 0.0 [ target ]
+        Expect.isEmpty problems "the packed surface imports without problems"
+        let s = surfaces |> List.exactlyOne
+        for opcPath in s.opcPaths do
+            Expect.isTrue (OpcArchive.isInArchive opcPath) "the OPC is read from its archive"
+        target
+
+    testList "pack" [
+        test "packs a complete surface, sidecars beside one stored archive per OPC" {
+            source (fun _ -> false) |> packAndLoad |> ignore
+        }
+
+        test "completes an OPC without KdTrees in a staging copy and leaves the source without them" {
+            let surface = source isKdTree
+            Expect.isNonEmpty (Directory.GetDirectories surface |> Array.collect (fun o -> PRo3D.Tool.Pack.missing o |> List.toArray)) "the source lacks KdTrees"
+            let target = packAndLoad surface
+            Expect.isEmpty (Directory.GetFiles(surface, "*.aakd", SearchOption.AllDirectories)) "no KdTree written into the source"
+            for a in Directory.GetFiles(target, "*.opc") do
+                use z = new ZipFile(a)
+                let names = [ for i in 0 .. int z.Count - 1 -> z.EntryByIndex(i).Name ]
+                Expect.isTrue (names |> List.exists (fun n -> n.EndsWith ".aakd")) "KdTrees packed"
+                Expect.isTrue (names |> List.exists (fun n -> n.EndsWith "-0.cache")) "lazy KdTree cache packed"
+                Expect.isTrue (names |> List.contains "Patches/hierarchy.cache") "hierarchy cache packed"
+        }
+
+        test "refuses an existing output, an output inside the source, and an OPC folder" {
+            let surface = source (fun _ -> false)
+            let out = tempDir ()
+            Directory.CreateDirectory(Path.Combine(out, "Didymos_ASPECT")) |> ignore
+            let expectError what r =
+                match r with
+                | Result.Error _ -> ()
+                | Result.Ok t -> failtestf "expected %s to be refused, it wrote %s" what t
+            PRo3D.Tool.Pack.pack surface out |> expectError "an existing output"
+            PRo3D.Tool.Pack.pack surface (Path.Combine(surface, "out")) |> expectError "an output inside the source"
+            match Directory.GetDirectories surface |> Array.tryHead with
+            | Some opc -> PRo3D.Tool.Pack.pack opc (tempDir ()) |> expectError "an OPC folder"
+            | None -> failtest "Didymos_ASPECT has an OPC folder"
+        }
+    ]
+
 let tests () =
     testList "opc archives" [
         layoutTests ()
@@ -413,4 +494,5 @@ let tests () =
         importTests ()
         realOpcTests ()
         renderTests ()
+        packTests ()
     ]

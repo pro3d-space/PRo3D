@@ -16,3 +16,4 @@ release folds them into `PRODUCT_RELEASE_NOTES.md`.
 ## Pending
 
 - Surfaces: **OPCs can be shipped packed, one stored zip per OPC.** In a surface folder, `<Opc>.opc` (or `.opcz`, `.zip`) holding the OPC's `Images` and `Patches` loads in place of the OPC folder, read-only and without unpacking; the `.opcx` and `metadata` stay beside it. Import the surface folder as usual, through *Import OPCs* or by dropping it onto the 3D view. The hierarchy cache must be packed with each OPC, and KdTrees should be, or picking is off (#322, docs/PackedSurfaces.md)
+- pro3d-tool: **new `pack` verb writes a copy of a surface with each OPC packed into a stored `<Opc>.opc`**, hierarchy cache and KdTrees included (built in a staging copy where missing), and checks every archive the way the viewer loads it. The source is never written (#322, docs/Pro3DTool-Pack.md)
