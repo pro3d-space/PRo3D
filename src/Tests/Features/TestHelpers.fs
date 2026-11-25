@@ -213,6 +213,10 @@ module Draw =
     let run (refSystem : ReferenceSystem) (model : DrawingModel) (act : DrawingAction) =
         DrawingApp.update refSystem drawConfig None bc view false model act
 
+    /// `run`, also returning the annotation the action finished, if any
+    let runFinishing (refSystem : ReferenceSystem) (model : DrawingModel) (act : DrawingAction) =
+        DrawingApp.updateFinishing refSystem drawConfig None bc view false model act
+
     /// choose a geometry and start drawing — selecting a tool, then enabling draw
     let startTool (refSystem : ReferenceSystem) (geom : Geometry) =
         DrawingModel.initialdrawing

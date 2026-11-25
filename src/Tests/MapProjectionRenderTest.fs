@@ -90,6 +90,7 @@ let private renderAt (runtime : IRuntime) (opc : string) (kind : MapProjectionKi
                 kind          = AVal.constant kind
                 viewProj      = AVal.constant viewProj
                 maxColatitude = AVal.constant Projection.defaultMaxColatitude
+                unitsPerPixel = AVal.constant 1.0
                 radiusRange   = AVal.constant (Projection.radiusRange maxR)
             }
         let surface : MapSg.MapSurface =
@@ -186,6 +187,7 @@ let private renderAnnotations (runtime : IRuntime) (kind : MapProjectionKind) (s
                 kind          = AVal.constant kind
                 viewProj      = AVal.constant viewProj
                 maxColatitude = AVal.constant Projection.defaultMaxColatitude
+                unitsPerPixel = AVal.constant 1.0
                 radiusRange   = AVal.constant (Projection.radiusRange 100.0)
             }
         let inputs =

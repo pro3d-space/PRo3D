@@ -8,6 +8,7 @@
 module PRo3D.Tests.Section12_SceneBody
 
 open System
+open System.IO
 open System.Collections.Concurrent
 open System.Threading
 
@@ -183,5 +184,45 @@ let tests =
             let before = m.navigation.camera.view
             let m = update m (ViewerAction.GisAppMessage (GisAppAction.ObservationInfoMessage (ObservationInfoAction.SetTarget (Some (EntitySpiceName "DIMORPHOS")))))
             Expect.equal m.navigation.camera.view.Location before.Location "no look-at from the body at itself"
+        }
+
+        test "TC-12.3 a scene whose projected-image folder is gone tells the user and keeps the path" {
+            let m, _ = Head.make ()
+            let missing = @"Z:\no\such\image\folder"
+            let gis = m.scene.gisApp
+            let m =
+                { m with
+                    scene = { m.scene with gisApp = { gis with projectedImageList = { gis.projectedImageList with imageDirectory = Some missing; pendingStack = [ "a.png"; "b.png" ] } } } }
+            let m = SceneLoader.updateGisApp m
+            Expect.equal (PRo3D.ImageMapping.ProjectedImageListModel.stackFileNames m.scene.gisApp.projectedImageList) [ "a.png"; "b.png" ] "stack kept for the next save"
+            match m.layout.dialog with
+            | LayoutDialog.Notice ("Projected Images", message, _) -> Expect.stringContains message missing "names the folder"
+            | other -> failtestf "expected a notice, got %A" other
+            Expect.equal m.scene.gisApp.projectedImageList.imageDirectory (Some missing) "kept for the next save"
+            Expect.equal m.scene.gisApp.projectedImageList.images.Count 0 "nothing loaded"
+        }
+
+        test "TC-12.3 a scene with its projected-image folder re-imports it without a notice" {
+            let m, _ = Head.make ()
+            let dir = Path.Combine(Path.GetTempPath(), "pro3d-projimg-" + string (Guid.NewGuid()))
+            Directory.CreateDirectory dir |> ignore
+            try
+                let gis = m.scene.gisApp
+                let m =
+                    { m with
+                        scene = { m.scene with gisApp = { gis with projectedImageList = { gis.projectedImageList with imageDirectory = Some dir } } } }
+                let m = SceneLoader.updateGisApp m
+                Expect.equal m.layout.dialog LayoutDialog.None "no notice"
+                Expect.equal m.scene.gisApp.projectedImageList.imageDirectory (Some dir) "folder kept"
+
+                // a stack entry whose file is no longer in the folder is reported
+                let gis = m.scene.gisApp
+                let m = { m with scene = { m.scene with gisApp = { gis with projectedImageList = { gis.projectedImageList with pendingStack = [ "gone.png" ] } } } }
+                let m = SceneLoader.updateGisApp m
+                match m.layout.dialog with
+                | LayoutDialog.Notice ("Projected Images", message, _) -> Expect.stringContains message "gone.png" "names the image"
+                | other -> failtestf "expected a notice, got %A" other
+            finally
+                Directory.Delete(dir, true)
         }
     ]

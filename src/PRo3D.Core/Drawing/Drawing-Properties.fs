@@ -32,6 +32,11 @@ module AnnotationProperties =
     | SetShowFill     of bool
     | ChangeFillColor of ColorPicker.Action
     | SetFillAlpha    of Numeric.Action
+    /// label points of a geological map (#843); empty clears
+    | SetGeoUnit      of string
+    /// 1-4, None clears (#887)
+    | SetConfidence   of Option<int>
+    | SetComment      of string
         
     let update (referenceSystem : ReferenceSystem) (model : Annotation) (act : Action) =
         match act with
@@ -88,11 +93,82 @@ module AnnotationProperties =
             { model with fillColor = ColorPicker.update model.fillColor a }
         | SetFillAlpha a ->
             { model with fillAlpha = Numeric.update model.fillAlpha a }
+        | SetGeoUnit u ->
+            let u = u.Trim()
+            { model with geoUnit = if String.IsNullOrEmpty u then None else Some u }
+        | SetConfidence c ->
+            { model with metadata = { model.metadata with confidence = c |> Option.bind AnnotationMetadata.validConfidence } }
+        | SetComment c ->
+            { model with metadata = { model.metadata with comment = c } }
 
 
     let fillTooltip      = "Fill the interior. Closed geometries only"
     let fillColorTooltip = "Fill colour, defaults to the outline colour"
     let fillAlphaTooltip = "Fill opacity, 0 to 1"
+    let geoUnitTooltip   = "Geological map: the unit code this point assigns to the map unit it lies in (points only)"
+
+    let private geoUnitText (model : AdaptiveAnnotation) =
+        model.geoUnit |> AVal.map (Option.defaultValue "")
+
+    let confidenceTooltip = "Confidence from the identification criteria, 1 (lowest) to 4 (highest). Keys 1-4 in the 3D view rate the selected annotations"
+    let commentTooltip    = "Free notes. C in the 3D view opens a comment dialog next to the selected annotation"
+
+    /// "-", 1, 2, 3, 4 as a button group; the current rating highlighted (#887)
+    let confidenceButtons (model : AdaptiveAnnotation) =
+        let current = model.metadata |> AVal.map (fun m -> m.confidence)
+        let button (value : Option<int>) (label : string) =
+            let attributes =
+                AttributeMap.ofAMap (amap {
+                    let! c = current
+                    yield clazz (if c = value then "ui mini primary button" else "ui mini button")
+                    yield onClick (fun _ -> SetConfidence value)
+                })
+            Incremental.div attributes (AList.single (text label))
+        div [ clazz "ui mini buttons" ] [
+            yield button None "-"
+            for i in AnnotationMetadata.minConfidence .. AnnotationMetadata.maxConfidence do
+                yield button (Some i) (string i)
+        ]
+
+    let private commentText (model : AdaptiveAnnotation) =
+        model.metadata |> AVal.map (fun m -> m.comment)
+
+    /// multi-line, unlike a SemUi text box, which drops the line breaks the comment dialog
+    /// allows; sent on change (when the field is left)
+    let private commentBox (model : AdaptiveAnnotation) =
+        let box =
+            commentText model |> AVal.map (fun c ->
+                // the plain element; Aardvark.UI.Primitives, opened above, has its own textarea
+                Aardvark.UI.Static.textarea [
+                    attribute "rows" "3"
+                    style "width:100%; resize:vertical; font-family:inherit"
+                    onChange (fun s -> SetComment (s.TrimEnd()))
+                ] c)
+        Incremental.div AttributeMap.empty (AList.ofAValSingle box)
+
+    let private shapeModelText (model : AdaptiveAnnotation) =
+        model.metadata |> AVal.map (fun m ->
+            match m.shapeModel with
+            | Some sm ->
+                match sm.credit with
+                | Some c -> sprintf "%s. %s" (AnnotationMetadata.describeShapeModel sm) c
+                | None -> AnnotationMetadata.describeShapeModel sm
+            | None -> "not recorded")
+
+    let private projectedImagesText (model : AdaptiveAnnotation) =
+        model.metadata |> AVal.map (fun m ->
+            match m.projectedImagesUsed with
+            | [] -> "none"
+            | images -> images |> List.map (fun i -> sprintf "%s (%s, %s)" i.image i.instrument i.time) |> String.concat "; ")
+
+    /// Confidence, comment, shape model and projected images (#887)
+    let metadataRows (model : AdaptiveAnnotation) =
+        [
+            Html.row "Confidence:"   [confidenceButtons model |> UI.wrapToolTip DataPosition.Bottom confidenceTooltip]
+            Html.row "Comment:"      [commentBox model |> UI.wrapToolTip DataPosition.Bottom commentTooltip]
+            Html.row "Shape Model:"  [Incremental.text (shapeModelText model)]
+            Html.row "Images Used:"  [Incremental.text (projectedImagesText model)]
+        ]
 
     let view (paletteFile : string) (model : AdaptiveAnnotation) =
 
@@ -112,9 +188,11 @@ module AnnotationProperties =
                 Html.row "Fill:"        [GuiEx.iconCheckBoxSet model.showFill SetShowFill |> UI.wrapToolTip DataPosition.Bottom fillTooltip ]
                 Html.row "Fill Color:"  [ColorPicker.viewAdvanced ColorPicker.defaultPalette paletteFile "pro3dFill" true model.fillColor |> UI.map ChangeFillColor |> UI.wrapToolTip DataPosition.Bottom fillColorTooltip ]
                 Html.row "Fill Alpha:"  [Numeric.view' [InputBox] model.fillAlpha |> UI.map SetFillAlpha |> UI.wrapToolTip DataPosition.Bottom fillAlphaTooltip ]
+                Html.row "Geo Unit:"    [Html.SemUi.textBox (geoUnitText model) SetGeoUnit |> UI.wrapToolTip DataPosition.Bottom geoUnitTooltip ]
                 Html.row "Dip Angle:"   [Numeric.view' [InputBox] model.manualDipAngle |> UI.map SetManualDippingAngle]
                 Html.row "Dip Azimuth:" [Numeric.view' [InputBox] model.manualDipAzimuth |> UI.map SetManualDippingAzimuth]
                 Html.row "Cross Section:" [button [clazz "ui button tiny"; onClick (fun _ -> CreateCrossSection)] [text "Create"]]
+                yield! metadataRows model
             ]
 
         )
@@ -151,7 +229,20 @@ module AnnotationProperties =
             | AdaptiveSome a -> Some a
             | AdaptiveNone -> None
 
-    let viewResults (model : AdaptiveAnnotation) (up:aval<V3d>) =   
+    /// Label and tooltip of the per-point-height rows: the quantity depends on the body
+    /// (docs/HeightReference.md), so both follow the planet.
+    let private heightRow (planet : aval<Planet>) (label : string -> string) (explain : string -> string) content =
+        UI.rowWithTipA
+            (planet |> AVal.map (fun p -> label (CooTransformation.HeightReference.noun p)))
+            (planet |> AVal.map (fun p ->
+                explain (CooTransformation.HeightReference.noun p) + " "
+                + CooTransformation.HeightReference.description p))
+            content
+
+    /// Measurements that use the reference system's up as "vertical".
+    let private upTip = CooTransformation.HeightReference.upNote
+
+    let viewResults (model : AdaptiveAnnotation) (up:aval<V3d>) (planet : aval<Planet>) =
         
         let results           = AVal.map AdaptiveOption.toOption model.results
         let height            = AVal.bindOption results Double.NaN (fun a -> a.height)
@@ -182,17 +273,33 @@ module AnnotationProperties =
                 //    ]
 
                 yield Html.row "PrintPosition:"         [button [clazz "ui button tiny"; onClick (fun _ -> PrintPosition )] [i [clazz "ui icon print"] []]]
-                yield Html.row "Height:"                [Incremental.text (height  |> AVal.map  (fun d -> sprintf "%.4f m" (d)))]
-                yield Html.row "HeightDelta:"           [Incremental.text (heightD |> AVal.map  (fun d -> sprintf "%.4f m" (d)))]
-                yield Html.row "Avg Altitude:"          [Incremental.text (alt     |> AVal.map  (fun d -> sprintf "%.4f m" (d)))]
+                yield heightRow planet (sprintf "Max - min %s:")
+                        (sprintf "Max - min %s of the points.")
+                        [Incremental.text (height  |> AVal.map  (fun d -> sprintf "%.4f m" (d)))]
+                yield heightRow planet (sprintf "Last - first %s:")
+                        (sprintf "|last - first| %s.")
+                        [Incremental.text (heightD |> AVal.map  (fun d -> sprintf "%.4f m" (d)))]
+                yield heightRow planet (sprintf "Avg %s:")
+                        (sprintf "Mean %s of the points.")
+                        [Incremental.text (alt     |> AVal.map  (fun d -> sprintf "%.4f m" (d)))]
                 yield Html.row "Length:"                [Incremental.text (length  |> AVal.map  (fun d -> sprintf "%.4f m" (d)))]
                 yield Html.row "WayLength:"             [Incremental.text (wLength |> AVal.map  (fun d -> sprintf "%.4f m" (d)))]
                 yield Html.row "Bearing:"               [Incremental.text (bearing |> AVal.map  (fun d -> sprintf "%.4f deg" (d)))]
-                yield Html.row "Slope:"                 [Incremental.text (slope   |> AVal.map  (fun d -> sprintf "%.4f deg" (d)))]
-                yield Html.row "Vertical Distance:"     [Incremental.text (vertDist  |> AVal.map  (fun d -> sprintf "%.4f m" (d)))]
-                yield Html.row "Horizontal Distance:"   [Incremental.text (horDist   |> AVal.map  (fun d -> sprintf "%.4f m" (d)))]
-                yield Html.row "True Thickness:"        [Incremental.text (trueThickness |> AVal.map  (fun d -> sprintf "%.4f m" (d)))]
-                yield Html.row "Vertical Thickness:"    [Incremental.text (verticalThickness |> AVal.map  (fun d -> sprintf "%.4f m" (d)))]
+                yield UI.rowWithTip "Slope:"
+                        ("First to last point, from horizontal. " + upTip)
+                        [Incremental.text (slope   |> AVal.map  (fun d -> sprintf "%.4f deg" (d)))]
+                yield UI.rowWithTip "Vertical Distance:"
+                        ("First to last point, along up. " + upTip)
+                        [Incremental.text (vertDist  |> AVal.map  (fun d -> sprintf "%.4f m" (d)))]
+                yield UI.rowWithTip "Horizontal Distance:"
+                        ("First to last point, across up. " + upTip)
+                        [Incremental.text (horDist   |> AVal.map  (fun d -> sprintf "%.4f m" (d)))]
+                yield UI.rowWithTip "True Thickness:"
+                        "Distance to the fitted plane."
+                        [Incremental.text (trueThickness |> AVal.map  (fun d -> sprintf "%.4f m" (d)))]
+                yield UI.rowWithTip "Vertical Thickness:"
+                        ("Distance to the fitted plane along up. " + upTip)
+                        [Incremental.text (verticalThickness |> AVal.map  (fun d -> sprintf "%.4f m" (d)))]
                 yield Html.row "Area:"                  [Incremental.text (area |> AVal.map  (fun d -> sprintf "%.4f m\xB2" (d)))]
             ]
         )

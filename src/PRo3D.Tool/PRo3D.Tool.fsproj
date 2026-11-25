@@ -8,7 +8,7 @@
     <ToolCommandName>pro3d-tool</ToolCommandName>
     <PackageId>PRo3D.Tool</PackageId>
     <RootNamespace>PRo3D.Tool</RootNamespace>
-    <Description>Command line tools for PRo3D data: OPC validation and KdTree generation, per-pixel illumination geometry, unprojecting image pixel coordinates onto a shape model, simulated instrument images, and assembling several instruments' images onto a shape model.</Description>
+    <Description>Command line tools for PRo3D data: OPC validation and KdTree generation, per-pixel illumination geometry, unprojecting image pixel coordinates onto a shape model, simulated instrument images, assembling several instruments' images onto a shape model, and rendering scene bookmarks or OPCs from given cameras as the PRo3D viewer shows them.</Description>
     <PackageOutputPath>..\..\bin\</PackageOutputPath>
     <Authors>PRo3D.Space contributors</Authors>
     <Owners>pro3d-space</Owners>
@@ -37,12 +37,15 @@
     <Compile Include="SimulateShaders.fs" />
     <Compile Include="SimulateImage.fs" />
     <Compile Include="SampleLayers.fs" />
+    <Compile Include="RenderBookmarks.fs" />
+    <Compile Include="RenderView.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\PRo3D.Base\PRo3D.Base.fsproj" />
     <ProjectReference Include="..\PRo3D.Core\PRo3D.Core.fsproj" />
     <ProjectReference Include="..\PRo3D.GIS\PRo3D.GIS.fsproj" />
+    <ProjectReference Include="..\PRo3D.SceneRender\PRo3D.SceneRender.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

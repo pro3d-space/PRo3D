@@ -21,6 +21,57 @@ type SamplingUnit =
 | cm = 2
 | mm = 3
 
+/// Which directions the 4 profiles through an ellipse follow (supporting profiles, #833).
+type EllipseProfileMode =
+/// N-S, NE-SW, E-W, NW-SE at the ellipse centre
+| Compass   = 0
+/// major axis, +45 deg, minor axis, +135 deg (clockwise seen from above)
+| MajorAxis = 1
+
+/// How the profiles of a polyline are placed along it (supporting profiles, #833).
+type LineamentProfileMode =
+/// one profile every `spacing` metres
+| BySpacing = 0
+/// `count` profiles, equally spaced over the whole polyline
+| ByCount   = 1
+
+/// Settings of the supporting-profile generator (#833). Session state, like the drawing tool.
+[<ModelType>]
+type SupportingProfileSettings = {
+    lineamentMode : LineamentProfileMode
+    /// m between polyline profiles (BySpacing)
+    spacing     : NumericInput
+    /// profiles per polyline (ByCount)
+    count       : NumericInput
+    /// a profile at the polyline's first point
+    atStart     : bool
+    /// a profile at the polyline's last point
+    atEnd       : bool
+    /// m, total length of a polyline profile, centred on the line
+    length      : NumericInput
+    ellipseMode : EllipseProfileMode
+    /// outcome of the last generation, shown under the button
+    message     : Option<string>
+    /// toolbar: generate profiles for every polyline as soon as it is finished
+    autoLineament : bool
+    /// toolbar: generate profiles for every ellipse as soon as it is finished
+    autoCrater    : bool
+}
+
+module SupportingProfileSettings =
+    let initial = {
+        lineamentMode = LineamentProfileMode.BySpacing
+        spacing     = { value = 10.0; min = 0.01; max = 100000.0; step = 1.0; format = "{0:0.00}" }
+        count       = { value = 5.0; min = 1.0; max = 1000.0; step = 1.0; format = "{0:0}" }
+        atStart     = true
+        atEnd       = true
+        length      = { value = 20.0; min = 0.01; max = 100000.0; step = 1.0; format = "{0:0.00}" }
+        ellipseMode = EllipseProfileMode.Compass
+        message     = None
+        autoLineament = false
+        autoCrater    = false
+    }
+
 // Delta for the annotations collection — stores only what changed per undoable operation.
 // LeafAdded/LeafRemoved carry just the leaf and the group path, which is sufficient to reverse the operation.
 // SnapshotDelta stores a full GroupsModel before/after for rare bulk operations (RemoveGroup, Clear).
@@ -52,7 +103,25 @@ type VertexGrab = {
     /// between makes the sequence order-independent, and "drop only after you have moved it" is
     /// what the gesture means anyway.
     movedSinceGrab : bool
+
+    /// True for a point being *added* (#639): Ctrl+click on a segment of the annotation. The
+    /// point does not exist in the annotation yet - it is inserted only on the drop, at
+    /// `pointIndex`, splitting the segment between points[pointIndex - 1] and points[pointIndex]
+    /// (for a ring's closing segment `pointIndex` is the point count: it is appended).
+    /// `original` is where the segment was clicked. Cancelling forgets it, as for a move.
+    inserting : bool
 }
+
+/// How a batch of annotations (e.g. everything a selection rectangle touches) is combined with
+/// the current selection. See docs/AnnotationBoxSelection.md.
+[<RequireQualifiedAccess>]
+type SelectionMode =
+    /// the batch becomes the whole selection; an empty batch clears it
+    | Replace
+    /// the batch is added to the selection
+    | Add
+    /// each annotation of the batch flips between selected and not selected
+    | Toggle
 
 type DrawingAction =
 | SetSemantic         of Semantic
@@ -77,11 +146,24 @@ type DrawingAction =
 | ClearWorking
 | ClearSelection
 | Clear
+/// Delete every selected annotation (selectedLeaves ∪ singleSelectLeaf) as one undo step.
+/// Bound to the Delete key in the main render view.
+| DeleteSelectedAnnotations
+/// Combine these annotations with the multi-selection (box selection, click on empty space).
+/// Not undoable, like every other selection change.
+| SelectAnnotations of SelectionMode * list<Guid>
 | LegacySaveVersioned
 | LegacyLoadVersioned
 // vertex editing (Interactions.EditAnnotation)
 | GrabVertex             of Guid * int
 | MoveVertex             of Guid * int * V3d * (V3d -> Option<V3d>)
+/// A Ctrl+click on the line of the annotation being edited (#639), in the click's camera:
+/// view-projection, viewport size in pixels, cursor in normalized device coordinates. Near a terrain sample
+/// (DrawingApp.sampleSnapPixels) the sample becomes a control point where it is; elsewhere a
+/// new point is picked up on the nearest segment (VertexGrab.inserting).
+| ClickSegment           of Guid * Trafo3d * V2d * V2d
+/// Drop the point a ClickSegment picked up: insert it at the index, re-sample its two segments.
+| InsertVertex           of Guid * int * V3d * (V3d -> Option<V3d>)
 | ArmVertexGrab
 | CancelVertexEdit
 | Finish
@@ -109,11 +191,25 @@ type DrawingAction =
 | ApplyCutStroke         of Option<V3d -> Option<V3d>>
 | DnsColorLegendMessage  of FalseColorLegendApp.Action
 | ColorByCategoryMessage of ColorByCategoryAction
+| GeologicalMapMessage   of GeologicalMapAction
 | ExportAsAnnotations    of string
 | AddAnnotations         of list<string>
 | PickAnnotation         of SceneHit * Guid
 | PickDirectly           of Guid
 | ExportAsAttitude       of string
+// supporting profiles (#833)
+| SetProfileSpacing      of Numeric.Action
+| SetLineamentMode       of LineamentProfileMode
+| SetProfileCount        of Numeric.Action
+| SetProfileAtStart      of bool
+| SetProfileAtEnd        of bool
+| SetProfileLength       of Numeric.Action
+| SetProfileEllipseMode  of EllipseProfileMode
+| SetAutoLineamentProfiles of bool
+| SetAutoCraterProfiles  of bool
+/// Generate profiles from the single-selected polyline or ellipse. Raycast enrichment as in
+/// UnionSelectedAnnotations: the UI sends None, the viewer re-dispatches with the sky ray.
+| GenerateSupportingProfiles of Option<V3d -> Option<V3d>>
 
 [<ModelType>]
 type AutomaticGeoJsonExport = 
@@ -175,10 +271,15 @@ type DrawingModel = {
     /// to the annotations themselves
     colorByCategory : ColorByCategoryModel
 
+    /// geological maps over annotation groups (#843); persisted with the annotations
+    geologicalMaps  : GeologicalMapsModel
+
     // test laura
     haltonPoints   : list<V3d>
 
     automaticGeoJsonExport : AutomaticGeoJsonExport
+
+    supportingProfiles : SupportingProfileSettings
 }
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]    
@@ -233,8 +334,12 @@ module DrawingModel =
 
         colorByCategory = ColorByCategoryModel.initial
 
+        geologicalMaps  = GeologicalMapsModel.initial
+
         // test laura
         haltonPoints = []
 
         automaticGeoJsonExport = { enabled = false; lastGeoJsonPathXyz = None }
+
+        supportingProfiles = SupportingProfileSettings.initial
     }

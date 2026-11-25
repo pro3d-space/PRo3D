@@ -23,6 +23,7 @@ Start at [../AGENTS.md](../AGENTS.md) for build/dependency/project-structure bas
 | GIS entities / SPICE observation setup | [DOMAIN.md](DOMAIN.md#gis) |
 | Verify a change (Expecto unit tests, Playwright UI/rendering tests) | [TESTING.md](TESTING.md) |
 | Drive the real app's UI in a test / take verified screenshots | [TESTING.md](TESTING.md) + [../tests-ui/README.md](../tests-ui/README.md) |
+| Record a captioned screen video of a UI story | [TESTING.md](TESTING.md#story-videos-screen-recordings-with-pointer-and-captions) + [../docs/dev/StoryVideo.md](../docs/dev/StoryVideo.md) |
 | Drive PRo3D from the command line | [AUTOMATION.md](AUTOMATION.md#command-line) |
 | Control PRo3D remotely (HTTP API) | [AUTOMATION.md](AUTOMATION.md#remote-api) |
 | Headless / batch rendering (snapshots) | [AUTOMATION.md](AUTOMATION.md#snapshots--headless-rendering) |

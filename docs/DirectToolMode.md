@@ -20,6 +20,32 @@ it disarms the tool and gives the left button back to the orbit controller.
 State: `Model.directToolMode`. Never persisted (interaction state, not scene
 state). Toggled by `ViewerAction.ToggleDirectToolMode`.
 
+## The modifier key
+
+"Ctrl" in this page means the tool modifier, `Model.ctrlFlag`, set by the
+`Keyboard.Modifier` pattern (`Viewer-Utils.fs`):
+
+| Platform | Keys that count |
+|---|---|
+| Windows, Linux | **Ctrl** (left or right) |
+| macOS | **Ctrl** and **Cmd** (left or right) |
+
+On macOS Ctrl+click is a right-click, so **Cmd** is the key to use there.
+
+**Alt / Option is not a modifier.** It used to be one, undocumented: Alt armed
+every tool, Alt+S saved the scene, Alt+Z undid, and in Direct Tool Mode Alt
+disarmed the tool and orbited the camera, which made box selection's Alt toggle
+impossible. Alt is now only read where a feature asks for it, from the mouse
+event (box selection's toggle).
+
+**Losing focus releases the modifier.** When the render control loses keyboard
+focus (Cmd+Tab, Alt+Tab, a click into a panel), it sends the key-ups for Ctrl and
+Shift itself. A key-up that happens in another window never reaches PRo3D, and a
+stuck `ctrlFlag` freezes the camera and arms every tool.
+
+The Windows key is deliberately not a modifier on Windows: it opens the Start
+menu, and its key-up would be lost.
+
 ## Arming model
 
 Whether the active tool "owns the left click right now" is a single predicate:
@@ -44,6 +70,7 @@ There is **no stored arm state**. `toolArmed` together with the active
 |---|---|
 | place a point (`AddPointAdv`), cut-stroke point, coordinate cross, rover, … | `surfacePicking` (interaction ≠ Pick*) **&&** `toolArmed` **&&** left button — `ViewerUtils`, feeds `matchPickingInteraction` |
 | select an annotation / grab or drop a control point | `allowAnnotationPicking` = `toolArmed` **&&** interaction ∈ {`PickAnnotation`, `EditAnnotation`, `DrawLog`} — gates the annotation pick target |
+| start a box selection rectangle | `BoxSelectStart`: left button **&&** interaction = `PickAnnotation` **&&** `toolArmed` — see [AnnotationBoxSelection.md](AnnotationBoxSelection.md) |
 | draw the control-point handles | `allowVertexEditing` = interaction is `EditAnnotation` (no `toolArmed`, so handles stay visible while you reach for Ctrl) |
 
 `Model.ctrlFlag` / `Model.directToolMode` are the only inputs the handlers touch:

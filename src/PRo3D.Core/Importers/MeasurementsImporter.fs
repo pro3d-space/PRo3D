@@ -155,6 +155,9 @@ module MeasurementsImporter =
             showFill         = false
             fillColor        = { c = color }
             fillAlpha        = Annotation.initialFillAlpha
+            geoUnit          = None
+            profileOf        = None
+            metadata         = AnnotationMetadata.empty
             thickness        = style.thickness
             results          = None
             dnsResults       = None

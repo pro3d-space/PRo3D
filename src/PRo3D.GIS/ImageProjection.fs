@@ -33,6 +33,13 @@ module ImageProjection =
             member x.ProjectedStackTrafos : Arr<N<32>, M44f> = uniform?ProjectedStackTrafos
             member x.ProjectedStackMinMax : Arr<N<32>, V2f> = uniform?ProjectedStackMinMax
             member x.ProjectedStackCount : int = uniform?ProjectedStackCount
+            /// layer i samples slot ProjectedStackSlices.[i] of the stack texture
+            /// array: images keep their slot, so reordering changes only this
+            member x.ProjectedStackSlices : Arr<N<32>, int> = uniform?ProjectedStackSlices
+            /// layer in focus (hovered / dragged), -1: none; every other layer's
+            /// opacity is scaled by ProjectedStackFade
+            member x.ProjectedStackFocus : int = uniform?ProjectedStackFocus
+            member x.ProjectedStackFade : float32 = uniform?ProjectedStackFade
             /// InstrumentVisibilityMode.RelativeCount: tint fragments by how
             /// many stack layers cover them (projectedStackCoverage)
             member x.ProjectedStackCoverageEnabled : bool = uniform?ProjectedStackCoverageEnabled
@@ -134,11 +141,23 @@ module ImageProjection =
         let stableImageProjectionStack (v : Vertex) =
             fragment {
                 let mutable color = v.c
-                let mutable covered = false
+                // the topmost layer covering the fragment ...
+                let mutable topIndex = -1
+                let mutable topColor = V3f.Zero
+                // ... and, while one layer is in focus (hovered / dragged), that
+                // layer if it covers the fragment further down: the layers above
+                // it are drawn semi-transparent (ProjectedStackFade) over it, so
+                // the focused image shows through them
+                let focus = uniform.ProjectedStackFocus
+                let mutable focusCovered = false
+                let mutable focusColor = V3f.Zero
                 let count = uniform.ProjectedStackCount
                 for j in 0 .. count - 1 do
                     let i = count - 1 - j
-                    if not covered then
+                    // no focus: the first cover ends the walk (one sample, as before);
+                    // below the top only the focused layer itself is of interest
+                    let wanted = topIndex < 0 || (i = focus && not focusCovered)
+                    if wanted then
                         let ndc = uniform.ProjectedStackTrafos.[i] * v.localPos
                         let p = ndc.XYZ / ndc.W
                         let tc = V3f(0.5f, 0.5f, 0.5f) + V3f(0.5f, 0.5f, 0.5f) * p
@@ -147,7 +166,7 @@ module ImageProjection =
                         let inRange = Vec.allGreaterOrEqual tc V3f.OOO && Vec.allSmallerOrEqual tc V3f.III
                         let normal = uniform.ProjectedStackTrafos.[i].TransformDir(v.localNormalNumericallyUnstable) |> Vec.normalize
                         if inRange && normal.Z < 0.0f then
-                            let sample = projectedStackTexture.Sample(V2f(tc.X, tc.Y), i)
+                            let sample = projectedStackTexture.Sample(V2f(tc.X, tc.Y), uniform.ProjectedStackSlices.[i])
                             let value = sample.X
                             let minMax = uniform.ProjectedStackMinMax.[i]
                             // per-layer remap, inlined rather than shared with
@@ -163,14 +182,26 @@ module ImageProjection =
                                 if uniform.StackDataType = 2 then normalizedFloat else normalizedInt16
                             let mapped =
                                 if not uniform.ProjectedUseTransferFunction then
-                                    V4f(sample.XYZ, 1.0f)
+                                    sample.XYZ
                                 elif uniform.StackUseFalseColor then
-                                    stackColormapSampler.Sample(V2f(normalized, 0.0f))
+                                    stackColormapSampler.Sample(V2f(normalized, 0.0f)).XYZ
                                 else
-                                    V4f(normalized, normalized, normalized, 1.0f)
-                            let a = clamp 0.0f 1.0f uniform.ProjectedImageOpacity
-                            color <- V4f(mapped.XYZ * a + (1.0f - a) * v.c.XYZ, 1.0f)
-                            covered <- true
+                                    V3f(normalized, normalized, normalized)
+                            if topIndex < 0 then
+                                topIndex <- i
+                                topColor <- mapped
+                            if i = focus then
+                                focusCovered <- true
+                                focusColor <- mapped
+                if topIndex >= 0 then
+                    let layered =
+                        if focus < 0 || topIndex = focus then topColor
+                        else
+                            let below = if focusCovered then focusColor else v.c.XYZ
+                            let f = clamp 0.0f 1.0f uniform.ProjectedStackFade
+                            topColor * f + below * (1.0f - f)
+                    let a = clamp 0.0f 1.0f uniform.ProjectedImageOpacity
+                    color <- V4f(layered * a + (1.0f - a) * v.c.XYZ, 1.0f)
                 return { v with c = color }
             }
 

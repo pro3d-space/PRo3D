@@ -167,6 +167,18 @@ module ReferenceSystemApp =
                     | Some sc -> (project sc).ToString("0.00")
                     | None    -> "conversion failed (set planet)")
 
+            // tryGetHeight, not the lat/lon/alt above: without a body it is the
+            // coordinate along up, which lat/lon/alt cannot give
+            let heightText =
+                adaptive {
+                    let! pos = model.origin
+                    let! planet = model.planet
+                    let! up = model.up.value
+                    match CooTransformation.tryGetHeight pos up planet with
+                    | Some h -> return h.ToString("0.00")
+                    | None   -> return "conversion failed (set planet)"
+                }
+
             let conventionLabel =
                 model.planet |> AVal.map (fun p ->
                     match CooTransformation.getConvention p with
@@ -184,8 +196,14 @@ module ReferenceSystemApp =
                     Html.row "N-Offset:"    [Numeric.view' [InputBox] model.noffset |> UI.map SetNOffset ]
                     Html.row "Longitude:"   [Incremental.text (formatCoo (fun x -> x.longitude))]
                     Html.row "Latitude:"    [Incremental.text (formatCoo (fun x -> x.latitude))]
-                    Html.row "Altitude:"    [Incremental.text (formatCoo (fun x -> x.altitude))]
-                    Html.row "Convention:"  [Incremental.text conventionLabel]
+                    UI.rowWithTipA
+                        (model.planet |> AVal.map (fun p -> CooTransformation.HeightReference.label p + ":"))
+                        (model.planet |> AVal.map CooTransformation.HeightReference.description)
+                        [Incremental.text heightText]
+                    UI.rowWithTipA
+                        (AVal.constant "Convention:")
+                        (model.planet |> AVal.map CooTransformation.HeightReference.description)
+                        [Incremental.text conventionLabel]
                     Html.row "Visible:"     [GuiEx.iconCheckBox model.isVisible ToggleVisible ]
                     Html.row "Textsize:"    [Numeric.view' [NumericInputType.InputBox] model.textsize |> UI.map SetTextsize ]  
                     Html.row "Textcolor:"   [ColorPicker.view model.textcolor |> UI.map SetTextColor ]

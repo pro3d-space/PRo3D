@@ -28,6 +28,7 @@ module Tests =
             annotations     = GroupsModel.initial
             dnsColorLegend  = FalseColorsModel.initDnSLegend
             colorByCategory = cbc
+            geologicalMaps  = GeologicalMapsModel.initial
         }
 
     let private roundTrip (x : Annotations) : Annotations =

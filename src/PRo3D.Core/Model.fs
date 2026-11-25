@@ -27,6 +27,8 @@ type Interactions =
     /// draw a polyline stroke on the terrain that cuts the selected annotation
     | CutAnnotation         = 21
     | EditAnnotation        = 22 // move the control points of the selected annotation
+    /// give map units of the active geological map the active legend unit (#843)
+    | AssignUnit            = 23
 
 
 module Interactions =

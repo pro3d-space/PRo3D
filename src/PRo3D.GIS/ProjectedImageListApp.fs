@@ -45,23 +45,33 @@ module ProjectedImageListApp =
         | SetRoll r -> { m with boresightAdjustment = { m.boresightAdjustment with roll = Numeric.update m.boresightAdjustment.roll r } }
         | SetPitch r -> { m with boresightAdjustment = { m.boresightAdjustment with pitch = Numeric.update m.boresightAdjustment.pitch r } }
         | SetYaw r -> { m with boresightAdjustment = { m.boresightAdjustment with yaw = Numeric.update m.boresightAdjustment.yaw r } }
+        | LoadImagesDir directory when not (Directory.Exists directory) ->
+            // e.g. a scene saved on another machine: keep the current library
+            // (and the scene's path, so saving does not drop it)
+            Log.warn "[ProjectedImages] image directory not found: %s" directory
+            m
         | LoadImagesDir directory -> 
             let imageExts = [".tif";".tiff";".jpg";".jpeg";".png";".exr"]
-            let images' = 
-                Directory.EnumerateFiles(directory) 
+            let loaded =
+                Directory.EnumerateFiles(directory)
                 |> Seq.filter (fun p ->
                     let e = (Path.GetExtension p).ToLowerInvariant()
                     List.contains e imageExts
                 )
-                |> Seq.map (fun path -> 
+                |> Seq.map (fun path ->
                     ProjectedImageApp.loadFile(path)
-                ) |> IndexList.ofSeq
+                )
+            // fresh indices, so no library row keeps an id of the previous import
+            let images' = ProjectedImageListModel.replaceImages loaded m
             let first = images' |> IndexList.tryFirst |> Option.map (fun i -> i.id)
 
             // a fresh library invalidates every id the old one handed out
             { m with
                 images = images'
+                imageDirectory = Some directory
+                pendingStack = []
                 stack = IndexList.Empty
+                stackDrag = None
                 hoveredImage = None
                 editImages = HashSet.empty
                 selectedImage = first }
@@ -85,12 +95,25 @@ module ProjectedImageListApp =
         | RemoveFromStack id ->
             { m with stack = m.stack |> IndexList.filter ((<>) id) }
         | MoveInStack (id, position) ->
-            match m.stack |> IndexList.tryFindIndex id with
+            { m with stack = ProjectedImageListModel.moveInStack id position m.stack }
+        | StackDragStart id when ProjectedImageListModel.isInStack id m ->
+            // mouse events pause during a native drag: hold the dragged image as
+            // the hovered one, for its footprint and frustum
+            { m with stackDrag = Some { image = id; target = None }; hoveredImage = Some id }
+        | StackDragStart _ -> m
+        | StackDragOver position ->
+            match m.stackDrag with
+            | Some d -> { m with stackDrag = Some { d with target = Some position } }
             | None -> m
-            | Some idx ->
-                let without = m.stack |> IndexList.remove idx
-                let position = position |> max 0 |> min without.Count
-                { m with stack = without |> IndexList.insertAt position id }
+        | StackDrop (id, position) ->
+            { m with
+                stack = ProjectedImageListModel.moveInStack id position m.stack
+                stackDrag = None
+                hoveredImage = None }
+        | StackDragEnd ->
+            match m.stackDrag with
+            | Some _ -> { m with stackDrag = None; hoveredImage = None }
+            | None -> m
         | HoverImage id ->
             { m with hoveredImage = id }
         | FlyToImage _ ->
@@ -99,10 +122,12 @@ module ProjectedImageListApp =
         // Sorting permutes the library only. selectedImage/editImages/stack are
         // keyed by Guid, so none of them needs remapping any more -- this used
         // to be ~30 lines of index bookkeeping per sort, via a partial Seq.head.
+        // Fresh indices (replaceImages): sortBy reuses the old ones, which left
+        // every row with the id of the image that used to be there.
         | SortEntriesByDistance ->
-            { m with images = m.images |> IndexList.sortBy (fun p -> p.distance) }
+            { m with images = ProjectedImageListModel.replaceImages (m.images |> IndexList.sortBy (fun p -> p.distance)) m }
         | SortEntriesByDate ->
-            { m with images = m.images |> IndexList.sortBy (fun p -> p.time) }
+            { m with images = ProjectedImageListModel.replaceImages (m.images |> IndexList.sortBy (fun p -> p.time)) m }
 
     /// Adaptive counterpart of ProjectedImageListModel.tryFind. `id` is
     /// NonAdaptive, so this is a plain lookup inside a single AVal.map rather
@@ -159,10 +184,61 @@ module ProjectedImageListApp =
         let isInStack (id : Guid) =
             m.stack.Content |> AVal.map (IndexList.exists (fun _ i -> i = id))
 
+        /// HTML5 drag & drop on a stack row. The dragged row carries its Guid in
+        /// the DataTransfer; dropping it onto another row moves it to that
+        /// row's position (moveInStack: the rows in between shift by one).
+        ///
+        /// While dragging, entering a row previews the drop in 3D (StackDragOver
+        /// -> effectiveStack) -- sent only when the target row changes, since
+        /// dragover fires continuously and dragenter fires for every child icon.
+        /// The panel itself keeps the committed order until the drop: rebuilding
+        /// it mid-drag would replace the row the browser is dragging.
+        /// window.__pro3dStackDrag marks a drag that started here, so foreign
+        /// drags (files) are ignored, and lets dragend tell a cancel from a drop.
+        let stackDragDrop (id : Guid) (stackPos : int) : list<Attribute<ProjectedImageListMessage>> =
+            // works whether the handler sees the native or a jQuery-wrapped event
+            let ev = "var e=(event.originalEvent||event);"
+            let highlight = "e.currentTarget.style.boxShadow='inset 0 0 0 2px #2185d0';"
+            let clear = "e.currentTarget.style.boxShadow='';"
+            // only for drags that started in this panel
+            let ours (body : string) = "if(window.__pro3dStackDrag){" + body + "}"
+            [
+                attribute "draggable" "true"
+                clientEvent "ondragstart" (
+                    ev + $"e.dataTransfer.setData('text/plain','{id}'); e.dataTransfer.effectAllowed='move';"
+                    + "window.__pro3dStackDrag=true; window.__pro3dStackTarget=null; e.currentTarget.style.opacity='0.4';"
+                    + "aardvark.processEvent('__ID__','stackdragstart');")
+                clientEvent "ondragenter" (
+                    ev + ours ("e.preventDefault();" + highlight
+                    + $"if(window.__pro3dStackTarget!=={stackPos}){{window.__pro3dStackTarget={stackPos}; aardvark.processEvent('__ID__','stackdragover');}}"))
+                clientEvent "ondragover" (ev + ours ("e.preventDefault(); e.dataTransfer.dropEffect='move';" + highlight))
+                clientEvent "ondragleave" (ev + clear)
+                clientEvent "ondrop" (
+                    ev + ours ("e.preventDefault();" + clear + "window.__pro3dStackDrag=false;"
+                    + "aardvark.processEvent('__ID__','stackdrop',e.dataTransfer.getData('text/plain'));"))
+                clientEvent "ondragend" (
+                    ev + "e.currentTarget.style.opacity='';"
+                    + "if(window.__pro3dStackDrag){window.__pro3dStackDrag=false; aardvark.processEvent('__ID__','stackdragend');}")
+                onEvent' "stackdragstart" [] (fun _ -> Seq.singleton (StackDragStart id))
+                onEvent' "stackdragover" [] (fun _ -> Seq.singleton (StackDragOver stackPos))
+                onEvent' "stackdragend" [] (fun _ -> Seq.singleton StackDragEnd)
+                onEvent' "stackdrop" [] (fun args ->
+                    // processEvent JSON-encodes its arguments, hence the quotes;
+                    // a drop onto itself still ends the drag (moving to its own
+                    // position is a no-op)
+                    match args with
+                    | [ s ] ->
+                        match Guid.TryParse (s.Trim('"')) with
+                        | true, src -> Seq.singleton (StackDrop (src, stackPos))
+                        | _ -> Seq.singleton StackDragEnd
+                    | _ -> Seq.singleton StackDragEnd
+                )
+            ]
+
         /// The projection stack panel: draw order bottom -> top, displayed top
-        /// first (what you see on the surface wins at the top). Minimal
-        /// controls -- add/remove from the library, reorder with arrows; drag
-        /// & drop can replace the arrows later without touching the model.
+        /// first (what you see on the surface wins at the top). Reorder by
+        /// dragging a row onto another (stackDragDrop) or with the arrows;
+        /// add/remove from the library.
         let stackPanel =
             Incremental.div (AttributeMap.ofList [ attribute "style" $"border: 2px solid black; margin-top: 10px" ]) (
                 alist {
@@ -188,10 +264,12 @@ module ProjectedImageListApp =
                                 |> Option.map (fun img -> img.texture |> AVal.map Path.GetFileName)
                                 |> Option.defaultValue (AVal.constant "(missing image)")
                             yield div [
-                                attribute "style" $"display: flex; align-items: center; gap: 4px; padding: 3px 5px; border-bottom: 1px solid {borderColor}"
-                                onMouseEnter (fun _ -> HoverImage (Some id))
-                                onMouseLeave (fun _ -> HoverImage None)
+                                yield attribute "style" $"display: flex; align-items: center; gap: 4px; padding: 3px 5px; border-bottom: 1px solid {borderColor}"
+                                yield onMouseEnter (fun _ -> HoverImage (Some id))
+                                yield onMouseLeave (fun _ -> HoverImage None)
+                                yield! stackDragDrop id stackPos
                             ] [
+                                i [clazz "bars icon"; style "cursor: grab; opacity: 0.6"; attribute "title" "drag to reorder"] []
                                 i [clazz "arrow up icon"; style "cursor: pointer"; onClick (fun _ -> MoveInStack (id, stackPos + 1))] []
                                 i [clazz "arrow down icon"; style "cursor: pointer"; onClick (fun _ -> MoveInStack (id, stackPos - 1))] []
                                 i [clazz "remove icon"; style "cursor: pointer"; onClick (fun _ -> RemoveFromStack id)] []

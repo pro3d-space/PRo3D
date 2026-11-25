@@ -289,6 +289,7 @@ module TestViewer =
                             stackProjections = stackProjections
                             stackCoverageEnabled = AVal.constant true
                             hoveredProjection = AVal.constant None
+                            stackFocus = AVal.constant (-1, 1.0f)
                             windingCorrection = AVal.constant false
                             sunDirection = sunLight
                             sunLightEnabled = sunLightEnabled
@@ -331,6 +332,8 @@ module TestViewer =
             |> Sg.uniform "ProjectedStackCount" (projectionCount |> AVal.map (min PRo3D.ImageMapping.ProjectedImages.maxCount))
             |> Sg.uniform' "ProjectedStackTrafos" projectorTrafos
             |> Sg.uniform' "ProjectedStackCoverageEnabled" true
+            |> Sg.uniform' "ProjectedStackFocus" -1
+            |> Sg.uniform' "ProjectedStackFade" 1.0f
             // projected texture
             |> Sg.texture "ProjectedTexture" projectedTexture
             |> Sg.applyProjectedImage getProjectionTrafo

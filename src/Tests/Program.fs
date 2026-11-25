@@ -28,6 +28,9 @@ let featureTests () : Test =
         PRo3D.Tests.Section19_UndoRedoGroupColor.tests
         PRo3D.Tests.Section20_BooleanOperations.tests
         PRo3D.Tests.Section21_OutcropTraces.tests
+        PRo3D.Tests.Section22_SupportingProfiles.tests
+        PRo3D.Tests.Section23_AnnotationMetadata.tests
+        PRo3D.Tests.Section24_BoxSelection.tests
     ]
 
 let allTests (parameters : TestUtils.TestParameters) : Test =
@@ -38,6 +41,7 @@ let allTests (parameters : TestUtils.TestParameters) : Test =
     // whole suite; per-list testSequenced is not enough, lists still interleave.
     testSequenced <| testList "all tests" [
         // kernel-independent tests (use only the default SPICE kernels)
+        BrokenAnnotationSaveTest.tests()
         GeoJsonRework.Tests.tests()
         AnnotationExportTest.tests()
         EllipseExportTest.tests()
@@ -56,20 +60,31 @@ let allTests (parameters : TestUtils.TestParameters) : Test =
         MapProjectionShaderTest.tests()
         MapProjectionAnnotationFixture.tests()
         PRo3D.Tests.SurfaceEffectSwitchTest.tests()
+        // pro3d-tool render-bookmarks (#871); the rendering part self-skips without GPU/data
+        PRo3D.Tests.SceneRenderTests.tests()
+        // pro3d-tool render-view (#878); the rendering part self-skips without GPU/data
+        PRo3D.Tests.RenderViewTests.tests()
         // map projection view (#772): Dimorphos OPC rendered headless; self-skips without GPU/data
         MapProjectionRenderTest.tests()
+        FillRenderTest.tests()
         PolygonFillTests.tests()
+        FillVolumeTests.tests()
         RegionOpsTests.tests()
+        ContactTopologyTests.tests()
+        MapShellTests.tests()
+        GeologicalMapPersistenceTests.tests()
         RegionFixtureTests.tests()
         AnnotationRegionOpsTests.tests()
         AdaptiveNestingTests.tests()
         VertexEditingTests.tests()
+        GeologicalMapDrawingTests.tests()
 
         // requires the (non-public) HERA kernels; self-skips without them
         HeraSpiceTests.tests()
 
         // resolves its fixtures from PRO3D_TEST_DATA / --testdatasource; self-skips
         SbmtImportAlignmentTest.tests parameters
+        PolygonCsvImportTests.tests()
 
         ProjectedImageMetadataTest.tests()
         ProjectedImageStackTest.tests()
@@ -100,6 +115,9 @@ let allTests (parameters : TestUtils.TestParameters) : Test =
         // unproject: the pixel addressing and table cases need no data; the shape-model
         // cross-check reuses the same kernel tracking and self-skips without kernels.
         UnprojectTest.tests()
+
+        // LoD frustum cull: pure math on a camera/box taken from a real scene.
+        LodCullTest.tests()
 
         // sample-layers: band readers and discovery need nothing; the shape-model case
         // uses a made-up camera, so it needs the Dimorphos OPC but no kernels or GPU.
@@ -305,6 +323,20 @@ let main args =
         | Some _ -> printfn "[bench-map] GL runtime created on the main thread"
         | None -> printfn "[bench-map] WARNING: no GL runtime"
         exit (PRo3D.Tests.MapProjectionBenchmark.run ())
+
+    // the geological map showcase (#843): Dimorphos, needs PRO3D_TEST_DATA and a GL context
+    match args |> Array.tryFindIndex ((=) "--make-geomap-showcase") with
+    | Some i ->
+        let outDir =
+            match args |> Array.tryItem (i + 1) with
+            | Some d when not (d.StartsWith "--") -> d
+            | _ ->
+                match TestUtils.Roots.testData None with
+                | Some root -> System.IO.Path.Combine(root, "cases", "geologicalMap")
+                | None -> failwith "set PRO3D_TEST_DATA or pass an output directory"
+        PRo3D.Tests.GeologicalMapShowcase.build outDir |> ignore
+        exit 0
+    | None -> ()
 
     match args |> Array.tryFindIndex ((=) "--make-footprint-scene") with
     | Some i ->

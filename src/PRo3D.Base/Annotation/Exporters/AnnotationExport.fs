@@ -87,6 +87,16 @@ module AnnotationExport =
     [<Literal>]
     let LatLonAltSourceColumn = "latLonAltSource"
 
+    /// What `alt` means, per `latLonAltSource` token: written into GeoJSON exports and
+    /// shown as the tooltip of the geographic options, so file and UI say the same.
+    /// None without a body: lat/lon/alt are empty then, so there is nothing to define.
+    let altDefinition (planet : Planet) =
+        match CooTransformation.getConvention planet with
+        | CooTransformation.NonPlanetary -> None
+        | _ ->
+            Some ("alt by latLonAltSource: spice_* = " + CooTransformation.HeightReference.description planet
+                  + " aara_file = radius from centre (m).")
+
     /// Which routine `CooTransformation.tryGetLatLonAlt` runs for this body.
     let private spiceSourceToken (planet : Planet) =
         match CooTransformation.getConvention planet with
@@ -176,10 +186,12 @@ module AnnotationExport =
             |> IndexList.toList
             |> List.mapi (fun segmentIndex segment ->
                 let length = Calculations.getSegmentDistance segment
-                [ yield segment.startPoint
-                  yield! (segment.points |> IndexList.toList)
-                  yield segment.endPoint ]
-                |> List.map (fun p ->
+                let ps =
+                    [ yield segment.startPoint
+                      yield! (segment.points |> IndexList.toList)
+                      yield segment.endPoint ]
+                let ps = if Annotation.isReversedClosingSegment a.points a.segments.Count segmentIndex segment.startPoint segment.endPoint then List.rev ps else ps
+                ps |> List.map (fun p ->
                     { position = p; segmentIndex = Some segmentIndex; segmentLength = Some length }))
             |> List.concat
         else
@@ -486,7 +498,12 @@ module AnnotationExport =
         elif a.segments.Count > 0 then
             a.segments
             |> IndexList.toList
-            |> List.map (fun s -> s.startPoint, s.endPoint, Calculations.getSegmentDistance s)
+            |> List.mapi (fun i s ->
+                // a ring's closing segment is stored first -> last (#821): exported last -> first,
+                // in drawing order, like its point rows
+                if Annotation.isReversedClosingSegment a.points a.segments.Count i s.startPoint s.endPoint
+                then s.endPoint, s.startPoint, Calculations.getSegmentDistance s
+                else s.startPoint, s.endPoint, Calculations.getSegmentDistance s)
         else
             a.points
             |> IndexList.toList
@@ -590,10 +607,45 @@ module AnnotationExport =
             match format with
             | ExportFormat.GeoJson ->
                 let body =
-                    if wantsGeographic settings.coordinates then Some (string planet) else None
+                    if wantsGeographic settings.coordinates then
+                        Some (string planet, altDefinition planet)
+                    else None
                 ExportWriters.writeGeoJson path body records
             | _ ->
                 ExportWriters.writeCsv path (schemaFor settings records) records
+
+    // ---- the profiles file beside a Craters export (#833) ---------------------------
+
+    /// `<stem>_profiles.csv` next to the main file.
+    let profilesPath (path : string) =
+        let dir = IO.Path.GetDirectoryName path
+        let stem = IO.Path.GetFileNameWithoutExtension path
+        IO.Path.Combine((if isNull dir then "" else dir), stem + "_profiles.csv")
+
+    /// The profiles file is laid out like the *Profile* preset, one row per point, but
+    /// takes the main export's coordinate settings so both files agree on lat/lon. The
+    /// main file has one row per annotation, so *Surface properties* applies to this one.
+    let profilesSettings (main : AnnotationExportSettings) =
+        { AnnotationExportSettings.applyPreset ExportPreset.Profile main with
+            scope                   = ExportScope.All
+            coordinates             = main.coordinates
+            longitude               = main.longitude
+            signedLongitude         = main.signedLongitude
+            latLonAltSource         = main.latLonAltSource
+            sampleSurfaceProperties = main.sampleSurfaceProperties }
+
+    /// The profiles generated from `parents`, found among `candidates`: grouped by parent in
+    /// the order of `parents`, then by profile index. Profiles of other annotations, and ones
+    /// whose parent is gone, are left out.
+    let profilesOf (parents : list<Annotation>) (candidates : list<Annotation>) =
+        let order = parents |> List.mapi (fun i a -> a.key, i) |> HashMap.ofList
+        candidates
+        |> List.choose (fun a ->
+            a.profileOf
+            |> Option.bind (fun link ->
+                order |> HashMap.tryFind link.parent |> Option.map (fun i -> (i, link.index), a)))
+        |> List.sortBy fst
+        |> List.map snd
 
     /// `writeWith` without columns of its own.
     let write settings sampler groupPath planet (up : V3d) path annotations =

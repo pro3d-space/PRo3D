@@ -1,3 +1,15 @@
+## 0.6.1
+- fix — `render-view`: an OPC given a `trafo` lost its cast shadows or got coarse ones. The shadow map's bounds applied the trafo twice, so they covered the wrong region: Didymos placed 1.15 km from Dimorphos widened them to about twice the size, and an OPC moved by kilometres was outside them and cast no shadows at all. OPCs without a trafo were not affected
+- The shadow bias of `render-view` and `render-bookmarks` comes from the scene's viewer configuration (*Shadow Bias (texels)*, default 1.5 as in 0.6.0); `render-view` uses the default
+
+## 0.6.0
+- `render-bookmarks` — new verb: opens a `.pro3d` scene headlessly and renders its plain bookmarks to PNG as the viewer shows them. Select by name, `*` / `?` wildcards or GUID; a JSON job file can hold several passes; writes a `renders.json` manifest. `--lod-level n` fixes the OPC level of detail to depth `n`. See docs/Pro3DTool-RenderBookmarks.md
+- `render-view` — new verb: renders OPCs without a scene file, each placed by a 4×4 transformation, from explicitly given cameras (location, forward, up, horizontal field of view), optionally lit by a given sun position with or without cast shadows. Input is a JSON job; the tool itself uses no SPICE. Validated against comet-toolbox, simulate-image and a ray-cast of the kernels' DSK. See docs/Pro3DTool-RenderView.md
+- Both verbs are built on the new `PRo3D.SceneRender` library, which can also be used in-process. pro3d-tool now references the viewer, so the package is larger (about 86 MB)
+- fix — HERA AFC-1/AFC-2 now use the instrument kernel's 5.5° field of view (was a hardcoded 5.5307°, 0.56% too wide; #801). This affects every verb that builds an AFC camera: `simulate-image` draws the body 1.1% larger in area than before, and `sun-angles`, `unproject` and `sample-layers` map AFC pixels 0.56% closer to the image centre. AFC frames simulated by earlier versions were rendered with the old value
+- fix — sun shadows in `render-view` and `render-bookmarks` (the viewer's shadow pass) no longer speckle sunlit surfaces with acne: the shadow bias now scales with the shadow map's texel size instead of a fixed 3 cm
+- fix — `unproject` and the occlusion test of `sample-layers` missed triangles with edges below about 3.2e-4 file units, i.e. facets finer than about 30 cm in a shape model in kilometres (such as the 5 cm DART Dimorphos patch). See docs/KdTrees.md
+
 ## 0.5.0
 First release on NuGet since 0.2.0: 0.3.0 and 0.4.0 below were never published, so this is the first package containing `unproject`, `simulate-image` and the `kdtree` fixes.
 

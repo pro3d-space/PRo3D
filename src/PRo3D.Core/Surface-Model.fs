@@ -725,6 +725,8 @@ type Surface = {
 
     highlightSelected : bool
     highlightAlways   : bool
+    /// false draws the surface untextured: a uniform grey that only the lighting shades
+    textureEnabled    : bool
 }
 
 module Surface =
@@ -836,6 +838,7 @@ module Surface =
 
                     highlightSelected     = true
                     highlightAlways       = false
+                    textureEnabled        = true
                 }
         }
 
@@ -900,6 +903,7 @@ module Surface =
 
             let! highlightSel         = Json.tryRead "highlightSelected"
             let! highlightAl          = Json.tryRead "highlightAlways"
+            let! textureEnabled       = Json.tryRead "textureEnabled"
 
             return
                 {
@@ -944,6 +948,7 @@ module Surface =
 
                     highlightSelected     = match highlightSel        with |Some v -> v |None -> true
                     highlightAlways       = match highlightAl         with |Some v -> v |None -> false
+                    textureEnabled        = textureEnabled |> Option.defaultValue true
                 }
         }
 
@@ -1016,6 +1021,7 @@ type Surface with
 
             do! Json.write "highlightSelected"     x.highlightSelected
             do! Json.write "highlightAlways"       x.highlightAlways
+            do! Json.write "textureEnabled"        x.textureEnabled
         }
 
 type Picking =

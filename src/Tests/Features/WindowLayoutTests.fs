@@ -298,7 +298,7 @@ let private libraryTests =
                 Expect.isTrue (File.Exists (LayoutLibrary.currentPath dir + ".corrupt")) "kept aside"
                 Expect.isFalse (File.Exists (LayoutLibrary.currentPath dir)) "moved away"
                 match m.dialog with
-                | LayoutDialog.Notice (message, LayoutDialog.None) -> Expect.stringContains message "could not be read" "the user is told at start"
+                | LayoutDialog.Notice (_, message, LayoutDialog.None) -> Expect.stringContains message "could not be read" "the user is told at start"
                 | other -> failtestf "expected a notice, got %A" other
                 Expect.equal (LayoutApp.initial dir).dialog LayoutDialog.None "and only once"
 
@@ -496,6 +496,21 @@ let private sidecarTests =
             )
         }
 
+        test "the scene layout prompt waits behind every queued notice" {
+            Fixture.withLayoutDir (fun dir ->
+                let scene = Path.Combine(dir, "s.pro3d")
+                Fixture.ok (SceneLayoutSidecar.tryWrite scene (LayoutOps.sanitize DashboardModes.core.layout)) "write"
+                let m =
+                    LayoutApp.initial dir
+                    |> LayoutApp.notify "first" "a"
+                    |> LayoutApp.notify "second" "b"
+                let offered, _ = LayoutApp.sceneOpened dir scene m
+                match offered.dialog with
+                | LayoutDialog.Notice ("first", _, LayoutDialog.Notice ("second", _, LayoutDialog.SceneLayout _)) -> ()
+                | other -> failtestf "expected both notices, then the prompt; got %A" other
+            )
+        }
+
         test "ignoring changes nothing" {
             Fixture.withLayoutDir (fun dir ->
                 let scene = Path.Combine(dir, "s.pro3d")
@@ -606,6 +621,24 @@ let private viewerTests =
         }
     ]
 
+// the on-screen feedback text (shortFeedback): one text, one timer per message
+let private feedbackTests =
+    testList "user feedback" [
+        test "a message is not cleared by an earlier message's timer" {
+            let model, update = Head.make ()
+            let a = UserFeedback.create 3000 "first"
+            let b = UserFeedback.create 3000 "second"
+            let m = model |> UserFeedback.queueFeedback a |> UserFeedback.queueFeedback b
+            // what the workers show; the second message is on screen
+            let m = update m (ViewerAction.UpdateUserFeedback b.text)
+            let m = update m (ViewerAction.ThreadsDone a.id)
+            Expect.equal m.scene.userFeedback "second" "the first timer leaves the second message"
+            let m = update m (ViewerAction.ThreadsDone b.id)
+            Expect.equal m.scene.userFeedback "" "the last timer clears it"
+            Expect.equal (Head.feedbackCount m) 0 "no timer left"
+        }
+    ]
+
 let tests () =
     testList "Window layouts" [
         sanitizeTests
@@ -616,4 +649,5 @@ let tests () =
         sidecarTests
         sceneTests
         viewerTests
+        feedbackTests
     ]

@@ -284,6 +284,7 @@ let renderTests () =
                     kind          = AVal.constant kind
                     viewProj      = AVal.constant viewProj
                     maxColatitude = AVal.constant Projection.defaultMaxColatitude
+                    unitsPerPixel = AVal.constant 1.0
                     radiusRange   = AVal.constant (Projection.radiusRange (MapSg.maxRadius hierarchies))
                 }
             let surface : MapSg.MapSurface =

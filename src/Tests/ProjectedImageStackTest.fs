@@ -281,6 +281,7 @@ let tests () =
                             AVal.constant [| ({ trafo = Some Trafo3d.Identity; minMax = V2f.OI; texturePath = "a"; channel = 0 } : Sg.ProjectedStackLayer) |]
                         stackCoverageEnabled = AVal.constant true
                         hoveredProjection = AVal.constant (Some Trafo3d.Identity)
+                        stackFocus = AVal.constant (-1, 1.0f)
                         windingCorrection = AVal.constant false
                         sunDirection = AVal.constant (Some V3d.OOI)
                         sunLightEnabled = AVal.constant true

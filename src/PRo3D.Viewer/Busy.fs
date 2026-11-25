@@ -61,7 +61,9 @@ module Busy =
     /// Work on a background worker, which does not block the UI but does leave what is on
     /// screen out of date until it finishes. Used by the hover preview pick, whose cold
     /// patch loads are what make the 3D cursor lag behind the mouse.
-    let scopeBackground (opName : string) (f : unit -> 'a) : 'a = enter inBackground opName f
+    let scopeBackground (opName : string) (f : unit -> 'a) : 'a =
+        // the slot keeps one label for the pill; Activity counts every one (docs/Activity.md)
+        PRo3D.Base.Activity.track opName (fun () -> enter inBackground opName f)
 
     /// `{"busy":true,"op":"picking","ms":1234}`. Hand-written on purpose: this must not
     /// depend on a serializer, and four lines of JavaScript are the only consumer. `name`

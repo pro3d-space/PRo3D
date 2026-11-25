@@ -2,6 +2,7 @@ import { test, expect, Page } from "@playwright/test";
 import { fixture } from "../src/pro3d";
 import { overlayPlanet } from "../src/viewer";
 import { drawingScene, drawSkyLine, openDrawingViewer, selectByOption, settled } from "../src/drawing";
+import { clickInExportWindow, exportDimmer as dimmer, menu, parseCsv, stubSaveDialog } from "../src/export";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -29,9 +30,6 @@ const writeDocShots = process.env.PRO3D_DOC_SHOTS === "1";
 /** Per-vertex layers of the fixture OPC: `surface_` columns that must be filled on every row. */
 const EXPECTED_LAYERS = ["Elevation", "Gravity", "Slope"];
 
-/** Panel of the export window (AnnotationExportApp). */
-const dimmer = ".annotation-export-dimmer";
-
 test.setTimeout(30 * 60_000);
 
 /** Saves into artifacts/, and into docs/images as well under PRO3D_DOC_SHOTS=1.
@@ -44,91 +42,6 @@ function save(name: string, png: Buffer) {
         fs.mkdirSync(docImages, { recursive: true });
         fs.writeFileSync(path.join(docImages, `multiAttributeProfile-${name}`), png);
     }
-}
-
-/** The Electron save dialog cannot be driven from Chromium, so it is stubbed to answer
- *  with `filePath` -- the same shape the import specs use for showOpenDialog. */
-async function stubSaveDialog(main: Page, filePath: string) {
-    await main.evaluate((p) => {
-        const w = window as any;
-        w.aardvark = w.aardvark ?? {};
-        w.aardvark.dialog = { showSaveDialog: (_o: unknown) => Promise.resolve({ filePath: p }) };
-    }, filePath.replace(/\\/g, "/"));
-}
-
-/** Opens a top-menu dropdown and clicks one of its items. */
-async function menu(main: Page, dropdown: string, item: string) {
-    const r = await main.evaluate(
-        ({ d, i }) => {
-            const dd = Array.from(document.querySelectorAll(".ui.dropdown.item")).find((e) =>
-                (e.textContent ?? "").startsWith(d)
-            ) as HTMLElement | null;
-            if (!dd) return `no ${d} dropdown`;
-            dd.click();
-            const entry = Array.from(dd.querySelectorAll(".item")).find(
-                (e) => (e.textContent ?? "").trim() === i
-            ) as HTMLElement | null;
-            if (!entry) return `no ${i} item`;
-            entry.click();
-            return "clicked";
-        },
-        { d: dropdown, i: item }
-    );
-    expect(r, `${dropdown} -> ${item}`).toBe("clicked");
-}
-
-/** Clicks the element in the export window whose label is `label`: an accordion title
- *  (a `.title` holding a span with that text) or a checkbox (an <i> icon followed by its
- *  <span> label, AnnotationExportApp.checkBox). Returns what happened, for the assertion. */
-async function clickInExportWindow(main: Page, kind: "accordion" | "checkbox", label: string) {
-    return main.evaluate(
-        ({ d, k, l }) => {
-            const spans = Array.from(document.querySelectorAll(`${d} span`)).filter(
-                (s) => (s.textContent ?? "").trim() === l
-            );
-            const target =
-                k === "accordion"
-                    ? (spans.map((s) => s.closest(".title")).find((t) => t) as HTMLElement | null)
-                    : (spans[0]?.previousElementSibling as HTMLElement | null);
-            if (!target) return `no ${l} ${k}`;
-            target.click();
-            return "clicked";
-        },
-        { d: dimmer, k: kind, l: label }
-    );
-}
-
-/** Rows of a CSV, honouring quoted cells (a comma in an annotation's text is quoted). */
-function parseCsv(text: string): string[][] {
-    const rows: string[][] = [];
-    let row: string[] = [];
-    let cell = "";
-    let quoted = false;
-    for (let i = 0; i < text.length; i++) {
-        const c = text[i];
-        if (quoted) {
-            if (c === '"' && text[i + 1] === '"') {
-                cell += '"';
-                i++;
-            } else if (c === '"') quoted = false;
-            else cell += c;
-        } else if (c === '"') quoted = true;
-        else if (c === ",") {
-            row.push(cell);
-            cell = "";
-        } else if (c === "\n" || c === "\r") {
-            if (c === "\r" && text[i + 1] === "\n") i++;
-            row.push(cell);
-            rows.push(row);
-            row = [];
-            cell = "";
-        } else cell += c;
-    }
-    if (cell !== "" || row.length > 0) {
-        row.push(cell);
-        rows.push(row);
-    }
-    return rows;
 }
 
 test("a sky-projected line exports as a multi-attribute profile CSV", async ({ browser }) => {

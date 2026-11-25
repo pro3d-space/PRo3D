@@ -35,7 +35,7 @@ The rest of the panel depends on the kind of attribute:
 | --- | --- | --- | --- |
 | **categorical** (discrete) | Annotation type, Semantic, Surface | one color picker per category, *reset colors* | **none** |
 | **cyclic** | Bearing, Dip azimuth, Strike azimuth, Long-axis azimuth | *show legend* and *interval* | hue wheel strip over one period, banded into sectors |
-| **numeric** (continuous) | Slope, Length, Way length, Height, Height delta, Avg altitude, Area, Line thickness, Dip angle, Semi-major axis, Semi-minor axis | the standard false-color ramp properties (*show legend*, min, max, interval, colors, invert) plus *fit range to data* | false-color bar |
+| **numeric** (continuous) | Slope, Length, Way length, Height range, Height delta, Avg height ([what height means](HeightReference.md)), Area, Line thickness, Dip angle, Semi-major axis, Semi-minor axis | the standard false-color ramp properties (*show legend*, min, max, interval, colors, invert) plus *fit range to data* | false-color bar |
 
 Categorical attributes deliberately have no on-screen legend: the panel already lists every
 category next to its color, and there is no *show legend* toggle to switch one off with.

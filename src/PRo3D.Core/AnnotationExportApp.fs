@@ -81,6 +81,7 @@ module AnnotationExportApp =
         | ToggleSampledPoints        -> custom { model with useSampledPoints = not model.useSampledPoints }
         | ToggleSurfaceProperties    -> custom { model with sampleSurfaceProperties = not model.sampleSurfaceProperties }
         | ToggleEllipseStatistics    -> custom { model with ellipseStatistics = not model.ellipseStatistics }
+        | ToggleWithProfiles         -> custom { model with withProfiles = not model.withProfiles }
 
         // Key is always exported (see AnnotationExportModel.toSettings), so its
         // checkbox is inert rather than lying about the output.
@@ -150,6 +151,14 @@ module AnnotationExportApp =
             span [ style "line-height:1.2" ] [ text label ]
         ]
 
+    /// `checkBox` with a tooltip on the label; plain when `tip` is empty.
+    let private checkBoxWithTip (label : string) (tip : string) (isSet : aval<bool>) (action : 'msg) =
+        div [ style "display:flex; align-items:center; gap:6px; padding:2px 0" ] [
+            GuiEx.iconCheckBox isSet action
+            span [ yield style "line-height:1.2"
+                   if tip <> "" && UI.enabletoolTips then yield attribute "title" tip ] [ text label ]
+        ]
+
     let private sectionHeader (title : string) =
         div [ clazz "ui tiny inverted header"; style "margin:10px 0 4px 0" ] [ text title ]
 
@@ -190,8 +199,9 @@ module AnnotationExportApp =
         div [] [
             yield sectionHeader title
             for field in fields do
-                yield checkBox
+                yield checkBoxWithTip
                         (AnnotationFields.label field)
+                        (AnnotationFields.description field)
                         (model.annotationFields |> ASet.contains field)
                         (ToggleAnnotationField field)
         ]
@@ -221,8 +231,9 @@ module AnnotationExportApp =
     /// show it at all, so there is no granularity check here.
     let private pointAttributeFields (model : AdaptiveAnnotationExportModel) =
         [ for field in AnnotationFields.allPointFields do
-            yield checkBox
+            yield checkBoxWithTip
                     (AnnotationFields.pointLabel field)
+                    (AnnotationFields.pointDescription field)
                     (model.pointFields |> ASet.contains field)
                     (TogglePointField field)
 
@@ -316,6 +327,7 @@ module AnnotationExportApp =
                     let! format = model.format
                     let! granularity = model.granularity
                     let! coordinates = model.coordinates
+                    let! withProfiles = model.withProfiles
                     if AnnotationExportSettings.isContinuous format then
                         let! target = state.target
                         yield div [ clazz "ui small message" ] [
@@ -362,6 +374,17 @@ module AnnotationExportApp =
                                     yield Html.row "Ellipse statistics:" [
                                         checkBox "surface area and layer statistics inside each ellipse (reads the OPC, slower)"
                                             model.ellipseStatistics ToggleEllipseStatistics ]
+                                    // CSV only: the second file is a per-point table
+                                    if format = ExportFormat.Csv then
+                                        yield Html.row "Generated profiles:" [
+                                            checkBox "also write <file>_profiles.csv with the profiles generated from these annotations"
+                                                model.withProfiles ToggleWithProfiles ]
+                                        // the main file has no points to sample at; the
+                                        // profiles file does, like a Profile export
+                                        if withProfiles then
+                                            yield Html.row "Profile surface properties:" [
+                                                checkBox "Surface properties in <file>_profiles.csv (re-picks every point, slower)"
+                                                    model.sampleSurfaceProperties ToggleSurfaceProperties ]
                                 if AnnotationExport.wantsGeographic coordinates
                                    && granularity <> ExportGranularity.PerSegment then
                                     yield Html.row "Lat/Lon/Alt Source:" [
@@ -370,11 +393,7 @@ module AnnotationExportApp =
                                             AnnotationExportSettings.latLonAltSourceLabel
                                             model.latLonAltSource SetLatLonAltSource ]
                                     |> UI.wrapToolTip DataPosition.Bottom
-                                        "This information is stored in the exported file. \"File (.aara)\" \
-                                         is only available if the OPC data contains an .aara file. A \
-                                         per-annotation export samples at the bounding-box centre, which \
-                                         may lie off the surface — where it does, the row falls back to \
-                                         SPICE and the latLonAltSource column records that."
+                                        "SPICE: alt = spheroid height (radius on Dimorphos). File (.aara): alt = radius; needs .aara data, falls back to SPICE off the surface. Recorded per row in latLonAltSource."
                             ]
                             granularityHint model
                         ]
@@ -392,7 +411,8 @@ module AnnotationExportApp =
                                 [ annotationFieldSection model Identity "Identity"
                                   annotationFieldSection model Measurements "Measurements"
                                   annotationFieldSection model Ellipse "Ellipse"
-                                  annotationFieldSection model DipAndStrike "Dip and strike" ]
+                                  annotationFieldSection model DipAndStrike "Dip and strike"
+                                  annotationFieldSection model Profile "Generated profile" ]
 
                         if granularity = ExportGranularity.PerPoint then
                             yield

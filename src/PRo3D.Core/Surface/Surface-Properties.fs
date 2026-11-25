@@ -50,6 +50,7 @@ module SurfaceProperties =
         | SetFilterDistance of Numeric.Action
         | ToggleHighlightSelected
         | ToggleHighlightAlways
+        | ToggleTextureEnabled
         | PrintIdToConsole
 
     let update (model : Surface) (act : Action) =
@@ -125,6 +126,8 @@ module SurfaceProperties =
             { model with highlightSelected = not model.highlightSelected }
         | ToggleHighlightAlways ->
             { model with highlightAlways = not model.highlightAlways }
+        | ToggleTextureEnabled ->
+            { model with textureEnabled = not model.textureEnabled }
         | PrintIdToConsole ->
             Log.line "\nname: %s"(model.name)
             Log.line "id  : %s"(model.guid.ToString())
@@ -204,6 +207,11 @@ module SurfaceProperties =
                 yield Html.row "Cull Faces:"        [Html.SemUi.dropDown model.cullMode SetCullMode]
 
                 yield Html.row "OPCx Info path:"    [div [style "max-width: 200px"] [Incremental.text (model.opcxPath |> AVal.map (function None -> "none" | Some p -> p))]]
+                yield Html.row "Texture:"           [
+                    GuiEx.iconCheckBox model.textureEnabled ToggleTextureEnabled
+                    |> UI.wrapToolTip DataPosition.Bottom
+                        "Off draws the surface in plain grey, shaded only by the lighting (sun lighting if on, else a light at the camera) - to compare geometry without the texture."
+                ]
                 yield Html.row "Primary Texture:"   [UI.dropDown'' model.textureLayers model.primaryTexture  (fun x -> SetPrimaryTexture x) (fun x -> x.label)]
                 
                 let tfToName (tf : ColorMaps.TF) =

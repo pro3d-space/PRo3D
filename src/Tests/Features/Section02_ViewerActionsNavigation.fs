@@ -68,6 +68,18 @@ module private Nav =
             (act             : Navigation.Action) =
         runOn refSystem switchToArcball pick ctrlFlag model act
 
+    /// Navigation.update with a realistic 1280x800 window. `ViewConfigModel.initial`
+    /// has a 1x1 window, which turns every pixel of drag into a whole window
+    /// width - fine for "does it move at all", useless for gesture-sized steps.
+    let runSized (refSystem : ReferenceSystem)
+                 (scheme    : Navigation.MouseScheme)
+                 (model     : NavigationModel)
+                 (act       : Navigation.Action) =
+        let sized =
+            { viewConfig with
+                frustumModel = { viewConfig.frustumModel with windowSize = V2i(1280, 800) } }
+        Navigation.update sized refSystem navConf userPrefs false None model act scheme
+
     /// A navigation model with the camera at a known pose.
     let modelLookingAt (location : V3d) (target : V3d) =
         let view = CameraView.lookAt location target V3d.OOI
@@ -424,6 +436,165 @@ let tests =
             Expect.floatClose Accuracy.low (Vec.distance (Vec.cross frame.east frame.north) frame.up) 0.0
                 "east x north should give up"
             Expect.isSome frame.polarAxis "a planetary frame has a pole to guard against"
+        }
+
+        // TC-2.5 MapView pan: a rigid translation of the view
+
+        test "TC-2.5 a Shift+right drag in MapView pans without turning the camera" {
+            let entered, _ =
+                Nav.run false None false Nav.aboveMars
+                    (Navigation.Action.SetNavigationMode NavigationMode.MapView)
+            let before = entered.camera.view
+            Expect.isLessThan (Vec.length (MapViewController.panOffset before |> Option.defaultValue V2d.II)) 1e-6
+                "precondition: entering MapView starts centred"
+            let step m msg = fst (Nav.runSized Nav.refSystem Navigation.MouseScheme.full m (Navigation.Action.MapViewControllerAction msg))
+            let after =
+                [ MapViewController.Message.ShiftDown (MouseButtons.Right, V2i(100, 100))
+                  MapViewController.Message.Move (V2i(160, 130))
+                  MapViewController.Message.Up MouseButtons.Right ]
+                |> List.fold step entered
+            Expect.isGreaterThan (Vec.distance after.camera.view.Location before.Location) 1.0
+                "a pan should move the camera"
+            Expect.isGreaterThan (Vec.dot after.camera.view.Forward before.Forward) (1.0 - 1e-9)
+                "a pan must not turn the camera"
+            Expect.isGreaterThan (Vec.dot after.camera.view.Up before.Up) (1.0 - 1e-9)
+                "a pan keeps north up"
+            Expect.isFalse after.camera.pan "releasing the button ends the pan"
+            match MapViewController.panOffset after.camera.view with
+            | None -> failtest "the body centre should stay in front of the camera"
+            | Some o ->
+                // Dragged right and down: the body centre follows the cursor.
+                Expect.isGreaterThan o.X 0.0 "the body centre should move right on screen"
+                Expect.isLessThan o.Y 0.0 "the body centre should move down on screen"
+        }
+
+        test "TC-2.5 a MapView pan survives an orbit and the per-frame re-aim" {
+            let entered, _ =
+                Nav.run false None false Nav.aboveMars
+                    (Navigation.Action.SetNavigationMode NavigationMode.MapView)
+            let step m msg = fst (Nav.runSized Nav.refSystem Navigation.MouseScheme.full m (Navigation.Action.MapViewControllerAction msg))
+            let panned =
+                [ MapViewController.Message.Down (MouseButtons.Middle, V2i(100, 100))
+                  MapViewController.Message.Move (V2i(150, 100))
+                  MapViewController.Message.Up MouseButtons.Middle ]
+                |> List.fold step entered
+            let offsetOf (nav : NavigationModel) =
+                match MapViewController.panOffset nav.camera.view with
+                | Some o -> o
+                | None   -> failtest "the body centre should stay in front of the camera"
+            let o0 = offsetOf panned
+            Expect.isGreaterThan o0.Length 1.0 "precondition: middle-drag pans"
+            let orbited =
+                [ MapViewController.Message.Down (MouseButtons.Left, V2i(100, 100))
+                  MapViewController.Message.Move (V2i(130, 120))
+                  MapViewController.Message.Up MouseButtons.Left
+                  MapViewController.Message.StepTime ]
+                |> List.fold step panned
+            Expect.isGreaterThan (Vec.distance orbited.camera.view.Location panned.camera.view.Location) 1.0
+                "precondition: the drag orbits"
+            Expect.isLessThan (Vec.distance (offsetOf orbited) o0) (1e-6 * o0.Length)
+                "orbiting must keep the pan"
+        }
+
+        test "TC-2.5 Shift+right pans in direct tool mode too, Shift+left stays with the tool" {
+            let entered, _ =
+                Nav.run false None false Nav.aboveMars
+                    (Navigation.Action.SetNavigationMode NavigationMode.MapView)
+            let scheme = { Navigation.MouseScheme.full with directToolMode = true }
+            let step m msg =
+                fst (Nav.runSized Nav.refSystem scheme m (Navigation.Action.MapViewControllerAction msg))
+            let drag button =
+                [ MapViewController.Message.ShiftDown (button, V2i(100, 100))
+                  MapViewController.Message.Move (V2i(160, 100))
+                  MapViewController.Message.Up button ]
+                |> List.fold step entered
+            Expect.isLessThan
+                (Vec.distance (drag MouseButtons.Left).camera.view.Location entered.camera.view.Location) 1e-6
+                "Shift+left belongs to the tool in direct tool mode"
+            let panned = drag MouseButtons.Right
+            Expect.isGreaterThan (Vec.distance panned.camera.view.Location entered.camera.view.Location) 1.0
+                "Shift+right pans in direct tool mode as well"
+            Expect.isGreaterThan (Vec.dot panned.camera.view.Forward entered.camera.view.Forward) (1.0 - 1e-9)
+                "and pans without turning"
+            Expect.isFalse panned.camera.pan
+                "the right release, remapped to Left in direct tool mode, must end the pan"
+        }
+
+        test "TC-2.5 starting a pan from the centred view hints at R, later pans do not" {
+            let entered, _ =
+                Nav.run false None false Nav.aboveMars
+                    (Navigation.Action.SetNavigationMode NavigationMode.MapView)
+            let run m msg = Nav.runSized Nav.refSystem Navigation.MouseScheme.full m (Navigation.Action.MapViewControllerAction msg)
+            let pan m =
+                let pressed, hint = run m (MapViewController.Message.ShiftDown (MouseButtons.Right, V2i(100, 100)))
+                let moved, _      = run pressed (MapViewController.Message.Move (V2i(160, 130)))
+                let released, _   = run moved (MapViewController.Message.Up MouseButtons.Right)
+                released, hint
+            let panned, firstHint = pan entered
+            Expect.equal firstHint (Some MapViewController.panHint) "the first pan says that R resets it"
+            let _, secondHint = pan panned
+            Expect.isNone secondHint "panning an already panned view stays quiet"
+            let reset, _ = run panned (MapViewController.Message.KeyDown Keys.R)
+            let _, afterReset = pan reset
+            Expect.equal afterReset (Some MapViewController.panHint) "after R the next pan hints again"
+        }
+
+        test "TC-2.5 R recentres a panned MapView: straight down, north up, same distance" {
+            let entered, _ =
+                Nav.run false None false Nav.aboveMars
+                    (Navigation.Action.SetNavigationMode NavigationMode.MapView)
+            let step m msg = fst (Nav.runSized Nav.refSystem Navigation.MouseScheme.full m (Navigation.Action.MapViewControllerAction msg))
+            let panned =
+                [ MapViewController.Message.Down (MouseButtons.Middle, V2i(100, 100))
+                  MapViewController.Message.Move (V2i(170, 140))
+                  MapViewController.Message.Up MouseButtons.Middle ]
+                |> List.fold step entered
+            Expect.isGreaterThan (MapViewController.panOffset panned.camera.view |> Option.defaultValue V2d.Zero).Length 1.0
+                "precondition: the view is panned"
+            let reset =
+                [ MapViewController.Message.KeyDown Keys.R
+                  MapViewController.Message.KeyUp Keys.R ]
+                |> List.fold step panned
+            let view = reset.camera.view
+            Expect.isGreaterThan (Vec.dot view.Forward (Vec.normalize (-view.Location))) (1.0 - 1e-9)
+                "after R the camera looks straight at the body centre"
+            Expect.floatClose Accuracy.medium view.Location.Length entered.camera.view.Location.Length
+                "R keeps the distance (the un-panned position), so the body does not jump in size"
+            Expect.isGreaterThan (Vec.dot view.Up entered.camera.view.Up) (1.0 - 1e-6)
+                "and north is up again"
+        }
+
+        test "TC-2.5 the pole guard holds for a panned MapView" {
+            // With a pan, the view direction and the direction to the centre differ.
+            // The north-up frame degenerates when the *view direction* reaches the
+            // pole, so that is what must be guarded - a guard on the direction to the
+            // centre let a southward pan carry the view straight through the pole.
+            let run m act = Nav.runOn Nav.dimorphosRefSystem false None false m act
+            let lat = 85.0 * Constant.RadiansPerDegree
+            let location = V3d(cos lat, 0.0, sin lat) * (Nav.dimorphosRadius + Nav.dimorphosAltitude)
+            let entered = fst (run (Nav.modelLookingAt location V3d.Zero) (Navigation.Action.SetNavigationMode NavigationMode.MapView))
+            let centred = entered.camera.view
+            // Move the camera ~8 degrees (as seen from it) towards the equator,
+            // without turning it: the view direction is now nearer the pole than
+            // the direction to the centre.
+            let pannedView = centred.WithLocation(centred.Location - centred.Up * 80.0)
+            let start = { entered with camera = { entered.camera with view = pannedView } }
+            let step m msg = fst (Nav.runSized Nav.dimorphosRefSystem Navigation.MouseScheme.full m (Navigation.Action.MapViewControllerAction msg))
+            // The camera starts at longitude 0, looking towards -X. A view that
+            // went over the pole looks towards +X - a single orbit step can jump
+            // across, so the closest approach alone would not show it.
+            let views (dy : int) =
+                let moves = [ for i in 1 .. 200 -> MapViewController.Message.Move (V2i(100, 100 + i * dy)) ]
+                (MapViewController.Message.Down (MouseButtons.Left, V2i(100, 100)) :: moves)
+                |> List.scan step start
+                |> List.map (fun m -> Vec.normalize m.camera.view.Forward)
+            let all = views 10 @ views -10
+            let closest = all |> List.map (fun f -> abs f.Z) |> List.max
+            Expect.isGreaterThan closest 0.99 "precondition: one of the drags heads for the pole"
+            Expect.isLessThanOrEqual closest (0.999 + 1e-9)
+                "the view direction must never pass the pole guard's threshold"
+            Expect.isTrue (all |> List.forall (fun f -> f.X < 0.0))
+                "the view direction must never cross over the pole"
         }
 
         // TC-2.6 Navigation axis lock (navigation gizmo edge click)

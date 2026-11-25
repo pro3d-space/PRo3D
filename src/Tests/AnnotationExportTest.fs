@@ -397,6 +397,42 @@ let tests () =
         // to altitude 0 put every point on the body centre and groundDistance stayed 0.
         // tryGroundStep measures each step on the sphere through it instead. All pure F#
         // (the Spherical convention needs no SPICE), so these always run.
+        // #866: what the shown "altitude" is. Pure F# paths only (local frames, Dimorphos),
+        // so these run without SPICE.
+        testList "height reference (#866)" [
+            test "a local frame measures along the reference up, sign included" {
+                let p = V3d(3.0, 4.0, -5.0)
+                Expect.equal (CooTransformation.tryGetHeight p V3d.ZAxis Planet.None) (Some -5.0)
+                    "below the origin is negative - the old |p * up| folded it to +5"
+                Expect.equal (CooTransformation.tryGetHeight p (-V3d.ZAxis) Planet.JPL) (Some 5.0)
+                    "JPL's up is -Z"
+                Expect.equal (CooTransformation.tryGetAltitude p (V3d(0.0, 0.0, 2.0)) Planet.ENU) (Some -5.0)
+                    "up need not be normalised, and both entry points agree"
+                Expect.floatClose Accuracy.high
+                    (CooTransformation.tryGetHeight p (V3d(1.0, 1.0, 0.0)) Planet.None |> Option.defaultValue nan)
+                    (7.0 / sqrt 2.0) "a tilted up is a projection, not a component-wise product"
+                Expect.isNone (CooTransformation.tryGetHeight p V3d.Zero Planet.None) "no up, no height"
+            }
+
+            test "on Dimorphos the value is the radius and is labelled so" {
+                let p = V3d(30.0, 40.0, 0.0)
+                Expect.equal (CooTransformation.tryGetHeight p V3d.ZAxis Planet.Dimorphos) (Some 50.0)
+                    "reclat: distance from the centre"
+                Expect.equal (CooTransformation.HeightReference.label Planet.Dimorphos) "Radius from centre" "label"
+                Expect.equal (CooTransformation.HeightReference.noun Planet.Dimorphos) "radius" "noun"
+            }
+
+            test "no label calls PRo3D's value an elevation" {
+                for planet in Enum.GetValues(typeof<Planet>) |> Seq.cast<Planet> do
+                    let l = CooTransformation.HeightReference.label planet
+                    Expect.isFalse (l.ToLowerInvariant().Contains "elevation") (sprintf "%A: %s" planet l)
+                    if CooTransformation.getConvention planet <> CooTransformation.NonPlanetary then
+                        Expect.stringContains (CooTransformation.HeightReference.description planet)
+                            "not an elevation" (sprintf "%A tooltip says it is geometric" planet)
+                Expect.equal (CooTransformation.HeightReference.label Planet.Mars) "Height above spheroid" "Mars"
+            }
+        ]
+
         testList "ground distance on a Spherical-convention body (#830)" [
             let at (r : float) (lat : float) (lon : float) =
                 let la, lo = lat * Constant.RadiansPerDegree, lon * Constant.RadiansPerDegree

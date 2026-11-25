@@ -128,8 +128,11 @@ default**. The readout is the *Under Cursor* accordion in the **Config** panel, 
 *Screenshots*, and shows the surface, the patch and every per-vertex layer under the mouse.
 
 Below the cartesian position it also shows the picked point as SPICE **latitude /
-longitude / altitude**, in the same raw convention as the *Coordinate System* panel (see
-[spice.md](spice.md) for which convention applies to which body). These three rows appear
+longitude** and a height labelled for what it is (*Height above spheroid*, *Radius from centre*, ...),
+in the same raw convention as the *Coordinate System* panel - see
+[HeightReference.md](HeightReference.md). Hovering a value shows what it means; for the
+layers (`Elevation`, `Potential`, `Gravity`, ...) the tooltip notes they are the data
+producer's values, not PRo3D's. These three rows appear
 only when the conversion succeeds: they are omitted for non-planetary reference frames
 (`Planet.None`, `.JPL`, `.ENU`), when the native call reports an error, and when it returns
 a non-finite value. Nothing else in the read-out depends on them, so an unset or

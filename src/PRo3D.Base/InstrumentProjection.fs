@@ -60,9 +60,13 @@ module InstrumentProjection =
     /// away the target is -- hence `instruments` takes them as parameters.
     let private fovs =
         Map.ofList [
-            // name, (vertical fov in degrees, aspect = width / height)
-            "HERA_AFC-1",         (5.5306897076421, 1.0)
-            "HERA_AFC-2",         (5.5306897076421, 1.0)
+            // name, (fov in degrees as Frustum.perspective takes it, i.e. horizontal;
+            //        aspect = width / height)
+            // hera_afc_v06.ti: INS-91110 / INS-91120 FOV_REF_ANGLE = FOV_CROSS_ANGLE = 2.75
+            // degrees, half-angles of a square field -> 5.5 x 5.5 degrees (getfov agrees).
+            // Was 5.5306897, 0.56% too wide (#801).
+            "HERA_AFC-1",         (5.5,             1.0)
+            "HERA_AFC-2",         (5.5,             1.0)
             "HERA_HSH",           (15.23999,        409.0 / 217.0)
             // hera_milani_aspect_v02.ti: INS-9102120 (NIR1) FOV_REF_ANGLE/FOV_CROSS_ANGLE
             // are half-angles of 3.35/2.7 degrees -> full FOV 6.7 x 5.4 degrees.

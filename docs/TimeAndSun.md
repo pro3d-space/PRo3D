@@ -121,6 +121,8 @@ continuously, or step by 0.01 or less.
 - Shadows use one global shadow map for all surfaces, sized for small bodies. On a
   planet-sized scene a single 4096² map has too little resolution to be useful.
 - Only OPC surfaces cast shadows — not OBJ surfaces, annotations or scene objects.
+- The shadow depth bias is set in *Viewer configuration → Shadow Bias (texels)*; see
+  [GisView.md](GisView.md#sun-illumination-and-cast-shadows).
 
 The figures and every number on this page come from `tests-ui/src/probe-suntime.ts`;
 run it with `PRO3D_SUN_INERTIAL=1` to reproduce the J2000 case.

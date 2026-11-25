@@ -65,7 +65,29 @@ module LodDecider =
 
         true
 
-module FootprintSg = 
+/// Fixes the OPC level of detail for testing and batch rendering, in place of the
+/// viewer's distance-based refinement (docs/Pro3DTool-RenderBookmarks.md).
+///
+/// OPC patch levels count depth from the root patch: level 0 is the root, each
+/// refinement adds one. With `Some n`, every hierarchy is refined to exactly level n
+/// everywhere, in view or not (shallower branches end at their leaves); `None` keeps
+/// the viewer's decider. The decider reads this with its token, so changing it
+/// re-filters the patch trees without rebuilding the scene graph.
+///
+/// Process-wide: it applies to every OPC scene graph in the process. Deep levels load
+/// the whole hierarchy at that resolution, in view or not.
+module LodOverride =
+
+    let fixedLevel : cval<Option<int>> = cval None
+
+    /// `decider` unless a fixed level is set.
+    let wrap (decider : Aardvark.GeoSpatial.Opc.PatchLod.LodDecider) : Aardvark.GeoSpatial.Opc.PatchLod.LodDecider =
+        fun self view proj patch lodParams isActive ->
+            match fixedLevel.GetValue self with
+            | Some level -> patch.level < level
+            | None -> decider self view proj patch lodParams isActive
+
+module FootprintSg =
     open Aardvark.SceneGraph.Sg
     
     type FootprintApplicator(vp : aval<M44d>, child : ISg)  =
@@ -267,9 +289,8 @@ module Sg =
             let viewProj = viewTrafo * proj
 
             let globalBBModelSpace = renderPatch.info.LocalBoundingBox.Transformed(model)
-            let cornersNdc = globalBBModelSpace.ComputeCorners() |> Array.map viewProj.TransformPosProj
-            let boundsNdc = Box3d(cornersNdc)
-            if Box3d(-V3d.IIO, V3d.III).Intersects(boundsNdc) then
+            // plane test, no divide by w (corners behind the camera flip in NDC); GL variant, matches Frustum.projTrafo
+            if ViewProjection.intersects globalBBModelSpace viewProj then
                 let campPos = viewTrafo.Backward.C3.XYZ
                 let bb      = renderPatch.info.GlobalBoundingBox.Transformed(lodParams.trafo) 
                 let closest = bb.GetClosestPointOn(campPos)
@@ -305,9 +326,8 @@ module Sg =
             let viewProj = view * proj
 
             let globalBBModelSpace = renderPatch.info.LocalBoundingBox.Transformed(model)
-            let cornersNdc = globalBBModelSpace.ComputeCorners() |> Array.map viewProj.TransformPosProj
-            let boundsNdc = Box3d(cornersNdc)
-            if Box3d(-V3d.IIO, V3d.III).Intersects(boundsNdc) then
+            // plane test, no divide by w (corners behind the camera flip in NDC); GL variant, matches Frustum.projTrafo
+            if ViewProjection.intersects globalBBModelSpace viewProj then
                 // if we have a potential hit, also use the hold hacky one, if both (the new one and the old one) agree on going deeper, let's do it
                 // the situation is rather complex since many special cases (huge bounding boxes, inhomogenous point densities etc)
                 let legacyDecider = lodDeciderMars preTrafo self viewTrafo projTrafo renderPatch lodParams isActive
@@ -462,7 +482,7 @@ module Sg =
         //let lodDeciderMars = lodDeciderMars scene.preTransform
         //let lodDeciderMars = marsArea scene.preTransform
         //let lodDeciderMars = reworkedLoD scene.preTransform intersect
-        let lodDeciderMars = cleanedOldLegacyLoD  scene.preTransform
+        let lodDeciderMars = LodOverride.wrap (cleanedOldLegacyLoD scene.preTransform)
 
         // Shadow mapping's per-patch light matrix (StableModelViewProjTexture) lives in
         // projectionUniformMap, fed through the ProjectedImages record. A previous

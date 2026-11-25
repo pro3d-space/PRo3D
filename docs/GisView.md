@@ -170,6 +170,10 @@ Caveats:
   4096² map has too little resolution to be useful — the feature targets small-body
   scenes (asteroids, moons).
 - Only OPC surfaces cast shadows (not OBJ surfaces, annotations or scene objects).
+- The shadow depth bias is a viewer setting, *Viewer configuration → Shadow Bias (texels)*
+  (default 1.5, saved with the scene). It is measured in shadow-map texels, so it scales with
+  the scene's extent. Raise it if sunlit terrain shows speckled self-shadowing (acne); lower
+  it if shadows start visibly away from the relief that casts them.
 - Switching `SunDirect` on changes the look compared to older PRo3D versions: shading
   now uses the terrain normal and Lommel-Seeliger photometry instead of a
   Lambert-on-sphere-normal approximation.
