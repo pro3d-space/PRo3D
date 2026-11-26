@@ -389,9 +389,16 @@ module Sg =
 
         let patchHierarchies = 
             scene.patchHierarchies
-            |> Seq.map Prinziple.register
-            |> Seq.map (fun x -> 
-                PatchHierarchy.load Serialization.binarySerializer.Pickle Serialization.binarySerializer.UnPickle (OpcPaths x)
+            // opens the archive of a packed OPC (OpcArchive), also on scene load; a rejected one is logged and left out
+            |> Seq.choose OpcArchive.prepare
+            |> Seq.map (fun x ->
+                // PatchHierarchy.load rewrites an unreadable hierarchy.cache, which must not happen in a read-only OPC archive
+                let pickle =
+                    if OpcArchive.isInArchive x then
+                        fun _ -> failwithf "[Surface.Sg] the hierarchy.cache of %s is unreadable and is not rewritten in a read-only OPC archive." x
+                    else
+                        Serialization.binarySerializer.Pickle
+                PatchHierarchy.load pickle Serialization.binarySerializer.UnPickle (OpcPaths x)
             )
             |> Seq.toArray
 

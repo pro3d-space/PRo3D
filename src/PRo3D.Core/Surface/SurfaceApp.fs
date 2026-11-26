@@ -107,6 +107,54 @@ module SurfaceUtils =
             textureEnabled        = true
         }
 
+    /// Opens the OPC archives of a surface (OpcArchive) and leaves out the OPCs whose archive is
+    /// rejected. Returns the surface, None if none of its OPCs is left, and the problems to report.
+    /// A surface with packed OPCs gets its paths in the form the archives are registered under
+    /// (OpcArchive.normalize), also stored in the scene; plain surfaces keep their paths as given.
+    let openArchives (s : Surface) : Option<Surface> * list<string> =
+        let s =
+            if s.opcPaths |> List.exists OpcArchive.hasArchive then
+                let importPath = OpcArchive.normalize s.importPath
+                { s with importPath = importPath; opcPaths = s.opcNames |> Files.expandNamesToPaths importPath }
+            else s
+        let results =
+            s.opcPaths |> List.map (fun opcPath ->
+                if OpcArchive.hasArchive opcPath then
+                    match OpcArchive.tryOpen opcPath with
+                    | Result.Ok a -> Some opcPath, a.warnings
+                    | Result.Error e -> None, [ OpcArchive.ArchiveError.message e ]
+                else
+                    Some opcPath, []
+            )
+        let problems = results |> List.collect snd
+        if results |> List.forall (fst >> Option.isSome) then
+            Some s, problems
+        else
+            match results |> List.choose fst with
+            | [] -> None, problems @ [ $"{s.name}: none of its OPCs can be loaded." ]
+            | kept -> Some { s with opcPaths = kept; opcNames = kept |> List.map Path.GetFileName }, problems
+
+    /// Creates OPC surfaces from surface folders, whose OPCs may be folders or archives
+    /// (`<Opc>.opc`, see OpcArchive). Returns the surfaces and the problems to report to the user.
+    /// OPCs always lie in a surface folder: a single archive file chosen on its own is reported,
+    /// not loaded (a plain OPC folder chosen on its own is not a surface folder either).
+    let mkFromPaths (maxTriangleSize : float) (paths : list<string>) : list<Surface> * list<string> =
+        let results =
+            paths |> List.map (fun p ->
+                if OpcArchive.isOpcArchiveFile p then
+                    None, [ $"{Path.GetFileName p} is a single packed OPC. Import the folder it lies in instead." ]
+                elif OpcArchive.isArchiveFile p then
+                    None, [ $"{Path.GetFileName p} is no packed OPC." ]
+                elif Files.isSurfaceFolder p then
+                    mk SurfaceType.SurfaceOPC MeshLoaderType.Unkown maxTriangleSize p |> openArchives
+                else
+                    None, []
+            )
+
+        let messages = results |> List.collect snd
+        messages |> List.iter (Log.warn "[SurfaceUtils] %s")
+        (results |> List.choose fst), messages
+
     module ObjectFiles =        
         open Aardvark.Geometry
         open Aardvark.Data.Wavefront
@@ -934,7 +982,12 @@ module SurfaceApp =
                 else                
                     let path = Files.getSurfaceFolder sf scenePath
                     match path with
-                    | Some p ->          
+                    | Some p ->
+                        // packed OPCs are files, not folders, so the loop below skips them
+                        match sf.opcPaths |> List.filter OpcArchive.hasArchive with
+                        | [] -> ()
+                        | packed ->
+                            Log.warn "[RebuildKdTrees] %s: %d OPC(s) are read-only archives and are skipped. Build their KdTrees before packing them." sf.name packed.Length
                         Log.startTimed "[RebuildKdTrees] loading patch hierarchy"
                         let hs =
                             Directory.EnumerateDirectories(p) |> Seq.toArray |> Array.choose (fun p ->

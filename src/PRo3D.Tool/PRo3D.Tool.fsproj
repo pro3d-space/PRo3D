@@ -31,6 +31,7 @@
     <Compile Include="Cli.fs" />
     <Compile Include="Spice.fs" />
     <Compile Include="KdTree.fs" />
+    <Compile Include="Pack.fs" />
     <Compile Include="SunAngles.fs" />
     <Compile Include="MbiSidecar.fs" />
     <Compile Include="Unproject.fs" />

@@ -28,6 +28,12 @@ Key types:
 
 Surfaces are organized hierarchically through the shared groups mechanism, so much of "surface management" is really `GroupsApp`.
 
+**Packed OPCs** (`src/PRo3D.Core/Surface/OpcArchive.fs`, [docs/PackedSurfaces.md](../docs/PackedSurfaces.md)): an OPC of a surface can be a stored (uncompressed) zip `<surface>\<Opc>.opc` (or `.opcz`, `.zip`) with `Images/` and `Patches/` at its top level, in place of the folder `<surface>\<Opc>`. The surface stays a plain folder: its sidecars (`.opcx`, `.opcx.json`, `metadata/`) describe all its OPCs and are never packed. A surface may mix plain and packed OPCs. `OpcArchive.tryOpen` registers the archive with Prinziple (Aardvark.Data.Opc) at the OPC path, so `Surface.opcPaths` and scenes hold ordinary OPC paths. Rules for code touching OPC data:
+- Before loading an OPC, call `OpcArchive.prepare opcPath` and read through the path it returns (`Surface.Sg.createPlainSceneGraph`, `RemoteApi` already do; it also reopens archives on scene load). Prinziple matches registered paths by plain string prefix, so the OPC must be read through exactly the registered form (`OpcArchive.normalize`: full path, 8.3 names expanded); `SurfaceUtils.mkFromPaths` stores the surface folder in that form.
+- Read files *inside* an OPC through `Prinziple.*` (`fileExists`, `directoryExists`, `getDirectories`, `openRead`), never `File`/`Directory`, which miss archive content. Surface-level files (sidecars) are plain files.
+- Discovery: `Files.isOpc` / `Files.isSurfaceFolder` / `Files.getOPCNames` count `<Opc>.opc` files as OPCs (`OpcArchive.isOpcArchiveFile` reads the zip's entry list, cached).
+- Archives are read-only: check `OpcArchive.isInArchive` before writing caches or KdTrees (`KdTrees.loadKdTrees'` and `PatchHierarchy.load` in `Surface.Sg` already do). Prinziple would write into a folder `<surface>\<Opc>` next to the archive and read it before the archive; `tryOpen` therefore refuses an archive next to a folder of that name (or name prefix).
+
 ---
 
 ## Groups (the shared hierarchy)

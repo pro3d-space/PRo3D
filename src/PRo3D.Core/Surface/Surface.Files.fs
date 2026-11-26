@@ -35,16 +35,17 @@ module Files =
        
        /// <summary>
        /// checks if "path" is a valid opc folder containing "images" or "Images", "patches" or "Patches", and patchhierarchy.xml
+       /// (on disk, or an OPC archive registered at "path", see OpcArchive)
        /// </summary>
-       let isOpcFolder' (quiet : bool) (path : string) = 
+       let isOpcFolder' (quiet : bool) (path : string) =
            let isOpcFolder =
-               let imagesProbingPaths = 
+               let imagesProbingPaths =
                     OpcPaths.Images_DirNames |> List.map (fun imageSuffix -> Path.combine [path; imageSuffix])
                let patchesProbingPaths =
                     OpcPaths.Patches_DirNames|> List.map (fun patchSuffix -> Path.combine [path; patchSuffix])
 
-               let imagesPath = imagesProbingPaths |> List.tryFind Directory.Exists
-               let patchesPath = patchesProbingPaths |> List.tryFind Directory.Exists
+               let imagesPath = imagesProbingPaths |> List.tryFind Prinziple.directoryExists
+               let patchesPath = patchesProbingPaths |> List.tryFind Prinziple.directoryExists
                let patchHierarchyXmlPath = 
                     patchesPath 
                     |> Option.map (fun patchPath -> Path.Combine(patchPath, OpcPaths.PatchHierarchy_FileName))
@@ -63,14 +64,24 @@ module Files =
        /// </summary>        
        //let isSurfaceFolder (path : string) =
        //    Directory.GetDirectories(path) |> Seq.forall isOpcFolder
+       /// <summary>
+       /// checks if "path" is an OPC packed into an archive "path.opc" (or .opcz, .zip), see OpcArchive
+       /// </summary>
+       let isOpcArchive (path : string) =
+           OpcArchive.archiveFilesOf path |> List.exists OpcArchive.isOpcArchiveFile
+
+       /// <summary>
+       /// checks if "path" is an OPC: a folder, or packed into an archive
+       /// </summary>
+       let isOpc (path : string) = isOpcFolder path || isOpcArchive path
+
+       /// <summary>
+       /// checks if "path" is a valid surface folder i.e. contains at least one opc folder or OPC archive
+       /// </summary>
        let isSurfaceFolder (path : string) =
-            let subdirs = Directory.GetDirectories(path)
-            let containsOpcDir =
-                match subdirs.IsEmptyOrNull() with
-                | true -> false
-                | _ -> subdirs |> Seq.map (fun (x : string) -> isOpcFolder x)
-                               |> Seq.reduce (fun x y -> x || y)
-            containsOpcDir
+            Directory.Exists path &&
+                (Directory.EnumerateDirectories path |> Seq.exists isOpcFolder ||
+                 Directory.EnumerateFiles path |> Seq.exists OpcArchive.isOpcArchiveFile)
 
        /// returns all subdirectories of path for which function p returns true
        let discover (p : string -> bool) path : list<string> =
@@ -87,12 +98,6 @@ module Files =
        let discoverOpcs path = 
          discover isOpcFolder path
 
-       /// <summary>
-       /// should open zip and call isOPCFolder
-       /// </summary>        
-       let isZippedOpcFolder (path : string) = 
-         File.Exists(Path.ChangeExtension(path, "zip"))
-
        let whyEscaping (path : string) = 
          path
          //path.Replace(@"\", @"\\\\")
@@ -101,31 +106,32 @@ module Files =
        let private retrieve (f :string -> string) (path : string) : list<string> =
            if path = String.Empty then failwith "encountered empty opc path"
 
-           if isOpcFolder path then
+           if isOpc path then
                [whyEscaping path]
-           elif isZippedOpcFolder path then                
-               [(whyEscaping path).Replace(".zip", "")]
            elif Directory.Exists path then
-               let opcDirs = 
+               let opcDirs =
                  Directory.GetDirectories(path)
                    |> Seq.map (fun a -> whyEscaping a)
                    |> Seq.filter isOpcFolder
                    |> Seq.map f
                    |> Seq.toList            
 
-               let zipped =
+               // OPC archives <Opc>.opc stand in for the OPC folder <Opc>; a folder of the same
+               // name as well is a clash, reported when the archive is opened
+               let packed =
                  Directory.GetFiles(path)
-                   |> Seq.map (fun a -> whyEscaping a)
-                   |> Seq.filter isZippedOpcFolder
-                   |> Seq.map (fun a -> a.Replace(".zip", ""))
+                   |> Seq.filter OpcArchive.isOpcArchiveFile
+                   |> Seq.map (OpcArchive.opcPathOf >> whyEscaping)
+                   |> Seq.filter (fun a -> not (Directory.Exists a))
+                   |> Seq.distinct
                    |> Seq.map f
-                   |> Seq.toList            
+                   |> Seq.toList
 
-               opcDirs @ zipped
+               opcDirs @ packed
            else []
 
        let toDiscoverFolder path = 
-        if path |> isOpcFolder || path |> isZippedOpcFolder then
+        if path |> isOpc then
           OpcFolder path
         else
           Directory path
@@ -144,19 +150,17 @@ module Files =
           input, opcs
         | OpcFolder p -> input,[p]
 
+       /// returns the surface folders in and below "input"
        let rec superDiscoveryMultipleSurfaceFolder (input : string) : list<string> =
-        let isSurfFolder = input |> isSurfaceFolder
-        let res = 
-            match isSurfFolder with
-                | true -> [input]
-                | _-> 
-                    let res = 
-                        input 
-                            |> Directory.EnumerateDirectories 
-                            |> Seq.toList 
-                            |> List.map(fun x -> superDiscoveryMultipleSurfaceFolder x ) |> List.concat
-                    res
-        res
+        if isSurfaceFolder input then
+            [input]
+        elif Directory.Exists input then
+            input
+                |> Directory.EnumerateDirectories
+                |> Seq.toList
+                |> List.collect superDiscoveryMultipleSurfaceFolder
+        else
+            []
 
        /// <summary>
        /// returns all valid OPCs in "path"

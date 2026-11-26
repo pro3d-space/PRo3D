@@ -12,6 +12,7 @@ dotnet tool install PRo3D.Tool --global
 | Verb | Purpose |
 |---|---|
 | `kdtree` | Validates OPC directories and generates KdTrees. No GPU or SPICE kernels needed. |
+| `pack` | Writes a copy of a surface with each OPC packed into a stored zip `<Opc>.opc`, for PRo3D to load read-only. The source is never written. |
 | `sun-angles` | Writes per-pixel incidence, emission and phase angles for instrument images as float32 TIFFs in radians. Requires SPICE kernels and a GPU. |
 | `sample-layers` | Assembles instrument observations (AFC, ASPECT, HyperScout) onto the vertices of a body: per vertex and image the pixel, incidence/emission/phase and every band's value, plus OPC attribute layers, as CSV keyed by vertex id. Requires SPICE kernels and OPC kd-trees; no GPU. |
 | `unproject` | Converts image pixel coordinates to body-fixed surface coordinates on a shape model. Requires SPICE kernels; no GPU. |
@@ -21,6 +22,7 @@ dotnet tool install PRo3D.Tool --global
 
 ```
 pro3d-tool kdtree --help
+pro3d-tool pack --help
 pro3d-tool sun-angles --help
 pro3d-tool unproject --help
 pro3d-tool simulate-image --help
@@ -45,6 +47,7 @@ Set `PRO3D_SPICE_KERNELS` to that clone or to its `kernels` subdirectory, or pas
 
 - [pro3d-tool](https://github.com/pro3d-space/PRo3D/blob/main/docs/Pro3DTool.md) — install, test data, SPICE setup, migration from `opc-tool`
 - [`kdtree`](https://github.com/pro3d-space/PRo3D/blob/main/docs/Pro3DTool-KdTree.md)
+- [`pack`](https://github.com/pro3d-space/PRo3D/blob/main/docs/Pro3DTool-Pack.md)
 - [`sun-angles`](https://github.com/pro3d-space/PRo3D/blob/main/docs/Pro3DTool-SunAngles.md)
 - [`unproject`](https://github.com/pro3d-space/PRo3D/blob/main/docs/Pro3DTool-Unproject.md)
 - [`simulate-image`](https://github.com/pro3d-space/PRo3D/blob/main/docs/Pro3DTool-SimulateImage.md)

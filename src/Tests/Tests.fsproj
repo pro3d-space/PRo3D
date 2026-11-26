@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
@@ -105,6 +105,7 @@
     <Compile Include="SceneRenderTests.fs" />
     <Compile Include="RenderViewTests.fs" />
     <Compile Include="MapProjectionRenderTest.fs" />
+    <Compile Include="OpcArchiveTests.fs" />
     <Compile Include="FillRenderTest.fs" />
     <Compile Include="SlowProfileExportTest.fs" />
     <Compile Include="BoulderStatisticsExportTest.fs" />

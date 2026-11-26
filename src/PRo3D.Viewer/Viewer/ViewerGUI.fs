@@ -2198,6 +2198,11 @@ module Gui =
                         Incremental.div (AttributeMap.ofList [style "background:#000;"]) (
                             alist {
                                 yield viewRenderView runtime renderViewportSizeId m
+                                // dropping surface folders (with plain or packed OPCs) onto the render view imports them
+                                yield
+                                    onBoot "attachSurfaceDrop('__ID__');" (
+                                        div [ style "display:none"; Dialogs.onChooseFiles ImportDiscoveredSurfacesThreads ] []
+                                    ) |> UI.map ViewerMessage
                                 yield textOverlays m.scene.referenceSystem m.navigation.camera.view
                                 yield textOverlaysUserFeedback m.scene
                                 yield dnsColorLegend m
@@ -2413,6 +2418,9 @@ module Gui =
                         body [ ctrlShortcut ] [
                             TopMenu.getTopMenu m
                             |> UI.map ViewerMessage
+                            onBoot "attachSurfaceDrop('__ID__');" (
+                                div [ style "display:none"; Dialogs.onChooseFiles ImportDiscoveredSurfacesThreads ] []
+                            ) |> UI.map ViewerMessage
                             div [clazz "dockingMainDings"] [
                                 GoldenLayout.view
                                     [ style "width:100%; height:100%"

@@ -35,6 +35,17 @@ type KdTreeOptions =
         surfaceDirectory : string
     }
 
+/// Options for the `pack` verb, see docs/Pro3DTool-Pack.md.
+[<Verb("pack", HelpText = "Write a copy of a surface folder with each OPC packed into a stored zip <Opc>.opc, hierarchy cache and KdTrees included, for PRo3D to load read-only. The source is never written.")>]
+type PackOptions =
+    {
+        [<Option("out", Required = true, HelpText = "Output directory; the packed surface is written to <out>/<surface name>, which must not exist yet")>]
+        out : string
+
+        [<Value(0, MetaName = "surface", HelpText = "Surface directory: the folder holding the OPC folders and their sidecars (.opcx, metadata)", Required = true)>]
+        surfaceDirectory : string
+    }
+
 /// Options for the `sun-angles` verb.
 ///
 /// Defaults for the string options are applied in code rather than through the attribute,

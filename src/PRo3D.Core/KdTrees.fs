@@ -193,7 +193,10 @@ module KdTrees =
 
     let saveKdTree (kdTree : KdIntersectionTree) path =
         Log.startTimed "saving kd tree"
-        use b = new BinaryWritingCoder(Prinziple.openWrite path)
+        // the coder does not close the stream it is given: without this the file stays open
+        // until the stream is finalized, and cannot be moved or deleted meanwhile
+        use stream = Prinziple.openWrite path
+        use b = new BinaryWritingCoder(stream)
         b.CodeT(ref kdTree)
         Log.stop()
 
@@ -231,6 +234,10 @@ module KdTrees =
         let masterKdPath =
             mode
             |> ViewerModality.matchy (h.kdTreeAggZero_FileAbsPath) (h.kdTreeAggZero2d_FileAbsPath)
+
+        // OPC archives are read-only: never write KdTrees or their cache into or next to them
+        let readOnly = PRo3D.Core.Surface.OpcArchive.isInArchive h.opcPaths.Opc_DirAbsPath
+        let surpressFileConstruction = surpressFileConstruction || readOnly
 
         if surpressFileConstruction && forceRebuild then
             Log.warn "[KdTrees] forced recreation, but surpressFileConstruction is true. The build will not have any effect."
@@ -367,13 +374,16 @@ module KdTrees =
                 else
                     let trees = kdTrees |> Array.map Option.get |> Array.toList // safe because check above
 
-                    try
-                        trees |> save cacheFile b |> ignore
-                    with e -> 
-                        Log.warn "[KdTrees] could not save LazyKdTree to %s" cacheFile
-                        Log.warn "the exception is: %A" e.Message
-                        Log.warn "Maybe this is a readonly file system? We often see this with NTFS disks and macs. I will continue without the kdtree cache, but"
-                        Log.warn "be aware that reloading the surface requires re-creation of the LazyKdTree"
+                    if readOnly then
+                        Log.line "[KdTrees] %s lies in a read-only OPC archive, the LazyKdTree cache is not written." cacheFile
+                    else
+                        try
+                            trees |> save cacheFile b |> ignore
+                        with e ->
+                            Log.warn "[KdTrees] could not save LazyKdTree to %s" cacheFile
+                            Log.warn "the exception is: %A" e.Message
+                            Log.warn "Maybe this is a readonly file system? We often see this with NTFS disks and macs. I will continue without the kdtree cache, but"
+                            Log.warn "be aware that reloading the surface requires re-creation of the LazyKdTree"
 
                     if load then
                         trees |> HashMap.ofList

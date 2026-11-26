@@ -308,7 +308,7 @@ module RemoteApi =
 
                 let patchHierarchies = 
                     cutoutSurface.opcPaths.GetValue()
-                    |> Seq.map Prinziple.register
+                    |> Seq.choose PRo3D.Core.Surface.OpcArchive.prepare // packed OPCs
                     |> Seq.map (fun x -> 
                         PatchHierarchy.load 
                             PRo3D.Base.Serialization.binarySerializer.Pickle 
