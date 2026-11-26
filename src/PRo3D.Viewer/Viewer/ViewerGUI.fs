@@ -706,6 +706,25 @@ module Gui =
             | [p] -> ViewerAction.GisAppMessage (GisAppAction.SetSpiceKernel p)
             | _ -> ViewerAction.Nop
 
+        /// Keeps every list of the main (top-left) menu inside the window: on hover, each submenu
+        /// on the path from the hovered element up to the menu root gets a max-height of the
+        /// space left below where it opens (below the root button for the root's own menu,
+        /// top-aligned with its item for nested ones) and the class `pro3d-menu-scroll`, which makes it
+        /// scroll with an always-visible scrollbar when it is longer (semui-overrides.css).
+        /// Only leaf menus are capped: scrolling a menu that holds further submenus or popups
+        /// (the root menu, Scene with its Recent popup, Layout with Reopen Panel) would clip them, since
+        /// `overflow` other than `visible` clips absolutely positioned children. Those menus are short.
+        let private fitMenusToWindow =
+            "var root = this; var it = event.target.closest('.dropdown.item'); " +
+            "while (it && root.contains(it)) { " +
+            "var m = it.querySelector(':scope > .menu'); " +
+            "if (m && !m.querySelector('.dropdown, .popup')) { " +
+            "var r = it.getBoundingClientRect(); " +
+            "var top = it === root ? r.bottom : r.top; " +
+            "m.style.maxHeight = Math.max(120, window.innerHeight - top - 8) + 'px'; " +
+            "m.classList.add('pro3d-menu-scroll'); } " +
+            "it = it.parentElement && it.parentElement.closest('.dropdown.item'); }"
+
         let menu (m : AdaptiveModel) =
             let subMenu name menuItems =
                 div [ clazz "ui dropdown item"] [
@@ -726,7 +745,7 @@ module Gui =
                 // menu
                 div [ clazz "ui top menu"; style "z-index: 10000; padding:0px; margin:0px"] [
                     onBoot "$('#__ID__').dropdown('on', 'hover');" (
-                        div [ clazz "ui dropdown item"; style "padding:0px 5px"] [
+                        div [ clazz "ui dropdown item"; style "padding:0px 5px"; clientEvent "onmouseover" fitMenusToWindow ] [
                             i [clazz "large sidebar icon"; style "margin:0px 2px"] []
                             
                             div [ clazz "ui menu"] [

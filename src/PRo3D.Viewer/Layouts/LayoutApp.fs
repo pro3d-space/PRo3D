@@ -274,6 +274,7 @@ module LayoutApp =
                     item [ attribute "data-test" "layout-save-as"; onClick (fun _ -> LayoutAction.OpenDialog LayoutDialog.SaveAs) ] "Save Current Layout As..."
                     item [ attribute "data-test" "layout-manage"; onClick (fun _ -> LayoutAction.OpenDialog LayoutDialog.Manage) ] "Manage My Layouts..."
                     div [ clazz "divider" ] []
+                    // capped to the window like every other main-menu list (TopMenu.fitMenusToWindow)
                     subMenu "Reopen Panel" (
                         Incremental.div (AttributeMap.ofList [ clazz "menu"; attribute "data-test" "layout-reopen" ]) closed
                     )

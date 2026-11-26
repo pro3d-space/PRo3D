@@ -111,6 +111,37 @@
     color: var(--topbar-text-dim) !important;
 }
 
+/* Main-menu lists capped to the window (TopMenu.fitMenusToWindow, docs/MainMenu.md).
+   The explicit ::-webkit-scrollbar styling makes Chromium draw a permanent scrollbar instead of
+   macOS's overlay one, which stays hidden until you scroll - so a long list shows it scrolls.
+   Chromium ignores ::-webkit-scrollbar as soon as a standard scrollbar-color/-width applies, and
+   Fomantic (aardvark.media) sets `body .ui { scrollbar-color: ...; scrollbar-width: thin }`
+   (scrollbar-color inherits into the menus), so both are reset to `auto` here. */
+.pro3d-topbar .ui.menu .ui.dropdown .menu.pro3d-menu-scroll {
+    overflow-x: hidden;
+    overflow-y: auto;
+    scrollbar-color: auto;
+    scrollbar-width: auto;
+}
+
+.pro3d-topbar .menu.pro3d-menu-scroll::-webkit-scrollbar {
+    width: 10px;
+}
+
+.pro3d-topbar .menu.pro3d-menu-scroll::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.pro3d-topbar .menu.pro3d-menu-scroll::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.35);
+    border: 2px solid var(--topbar-bg-raised);
+    border-radius: 5px;
+}
+
+.pro3d-topbar .menu.pro3d-menu-scroll::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.55);
+}
+
 /* the recent-scenes popup of the Scene menu */
 .pro3d-topbar .ui.popup {
     background: var(--topbar-bg-raised);

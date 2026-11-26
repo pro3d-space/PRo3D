@@ -20,7 +20,7 @@ opens that scene.
 | *My Layouts* | your saved layouts; click one to apply it |
 | *Save Current Layout As...* | store the current arrangement under a name |
 | *Manage My Layouts...* | load, rename or delete saved layouts |
-| *Reopen Panel* | bring back a panel you closed; it is added as a tab to the largest stack without the main view |
+| *Reopen Panel* | bring back a panel you closed; it is added as a tab to the largest stack without the main view. The list never grows past the bottom of the window: when many panels are closed it scrolls |
 
 The top bar shows the active layout, e.g. `Layout: M2020`, and `(modified)` once you have
 rearranged, closed or reopened panels. Resizing alone does not count as a modification.

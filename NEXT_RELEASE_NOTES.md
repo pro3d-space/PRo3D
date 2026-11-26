@@ -14,3 +14,4 @@ release folds them into `PRODUCT_RELEASE_NOTES.md`.
   and an empty list (docs/Build-Deploy-System.md).
 
 ## Pending
+- Main menu: **menu lists no longer run off the bottom of the window** — every list of the top-left main menu (e.g. *Extras*, *Layout > Reopen Panel*) is capped to the space below it and scrolls when it is longer (docs/MainMenu.md)
