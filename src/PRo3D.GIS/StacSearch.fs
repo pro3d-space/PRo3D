@@ -549,8 +549,23 @@ module StacSearch =
                 | None -> return Ok (items.ToArray() |> Array.truncate q.limit, matched)
         }
 
-    /// Where all downloads land: %TEMP%\PRo3D\stac.
-    let cacheDirectory () = Path.Combine(Path.GetTempPath(), "PRo3D", "stac")
+    /// The folder the user chose (the Download Directory row; default %TEMP%\PRo3D).
+    /// Set by the Viewer when it changes (setDownloadRoot).
+    let mutable downloadRoot = StacSearchModel.initialDownloadDirectory ()
+
+    /// Where the downloads of a chosen folder land: its "stac" subfolder, so the
+    /// trash only ever looks inside a folder of PRo3D's own.
+    let cacheDirectoryOf (root : string) = Path.Combine(root, "stac")
+
+    /// Where all downloads land: <Download Directory>\stac (default %TEMP%\PRo3D\stac).
+    let cacheDirectory () = cacheDirectoryOf downloadRoot
+
+    /// Downloads go into this folder's "stac" subfolder from now on. The subfolder is
+    /// created at once, so the panel's folder icon has something to open.
+    let setDownloadRoot (root : string) =
+        downloadRoot <- root
+        try Directory.CreateDirectory(cacheDirectory ()) |> ignore
+        with e -> Log.warn "[STAC] could not create the download directory %s: %s" (cacheDirectory ()) e.Message
 
     /// Where an item's files land: one folder per item, so the folder's mbi index
     /// (InstrumentMetadata.buildMbiIndexCached) sees exactly that item's sidecar.
@@ -588,14 +603,33 @@ module StacSearch =
     let localImagePath (itemId : string) (assets : StacAssets) =
         Path.Combine(itemDirectory itemId, fileName assets.image)
 
-    /// Delete the download cache (the panel's broom). Files in use, e.g. an image
-    /// projected right now, stay; everything else goes.
+    /// A folder name itemDirectory makes: 8 lowercase hex digits (the id's hash),
+    /// alone or after "_". The trash deletes only folders named like this, so a
+    /// download directory the user chose never loses folders of their own.
+    let isItemFolderName (name : string) =
+        let isHex (c : char) = (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')
+        let n = name.Length
+        n >= 8
+        && (n = 8 || name.[n - 9] = '_')
+        && (let mutable ok = true
+            for i in n - 8 .. n - 1 do
+                if not (isHex name.[i]) then ok <- false
+            ok)
+
+    /// Delete the download cache (the panel's trash, after its confirmation): the
+    /// item folders PRo3D made (isItemFolderName); other folders and loose files in
+    /// the download directory stay. Files in use, e.g. an image projected right
+    /// now, stay too.
     let clearCache () =
         let dir = cacheDirectory ()
         if Directory.Exists dir then
             let mutable failed = 0
+            let mutable skipped = 0
             for sub in Directory.GetDirectories dir do
-                try Directory.Delete(sub, true) with _ -> failed <- failed + 1
+                if isItemFolderName (Path.GetFileName sub) then
+                    try Directory.Delete(sub, true) with _ -> failed <- failed + 1
+                else skipped <- skipped + 1
+            if skipped > 0 then Log.line "[STAC] cache: %d folder(s) not made by PRo3D, kept" skipped
             if failed > 0 then Log.warn "[STAC] cache: %d item folder(s) in use, kept" failed
             else Log.line "[STAC] cache cleared"
 

@@ -3101,9 +3101,15 @@ module ViewerApp =
                 // cleared results: the running search must not refill them
                 | PRo3D.ImageMapping.StacSearchMessage.ClearResults ->
                     (stacWorker mailbox).Cancel()
-                | PRo3D.ImageMapping.StacSearchMessage.ClearCache ->
+                | PRo3D.ImageMapping.StacSearchMessage.ConfirmClearCache ->
                     // file deletion off the update thread; the next search downloads anew
                     Threading.Tasks.Task.Run(fun () -> PRo3D.GIS.StacSearch.clearCache ()) |> ignore
+                // another download folder: new downloads go there, the next session
+                // starts with it; a running search would download into the old one
+                | PRo3D.ImageMapping.StacSearchMessage.SetDownloadDirectory _ when stacAfter.downloadDirectory <> stacBefore.downloadDirectory ->
+                    PRo3D.GIS.StacSearch.setDownloadRoot stacAfter.downloadDirectory
+                    PRo3D.ImageMapping.StacSearchModel.rememberDownloadDirectory stacAfter.downloadDirectory
+                    (stacWorker mailbox).Cancel()
                 | _ -> ()
             | _ -> ()
 

@@ -1076,7 +1076,93 @@ let private signIn =
         }
     ]
 
+/// The Download Directory row: where downloads go, what is remembered, and what the
+/// trash may delete.
+let private downloadDirectory =
+    testList "download directory" [
+        test "item folder names are recognized, nothing else" {
+            for id in [ "item"; "a/b:c"; ".."; ""; "Item_X" ] do
+                let name = IO.Path.GetFileName(StacSearch.itemDirectory id)
+                Expect.isTrue (StacSearch.isItemFolderName name) (sprintf "%A -> %s is an item folder" id name)
+            for name in [ "stac"; "Documents"; "foo_123"; "foo_DEADBEEF"; "foodeadbeef"; "deadbeef1"; "x_deadbee" ] do
+                Expect.isFalse (StacSearch.isItemFolderName name) (sprintf "%s is not an item folder" name)
+        }
+
+        test "downloads go into the chosen folder's stac subfolder; the trash deletes only item folders" {
+            let original = StacSearch.downloadRoot
+            let root = IO.Path.Combine(IO.Path.GetTempPath(), "pro3d-stac-download-" + Guid.NewGuid().ToString "N")
+            try
+                StacSearch.setDownloadRoot root
+                let cache = StacSearch.cacheDirectory ()
+                Expect.equal cache (IO.Path.Combine(root, "stac")) "the stac subfolder"
+                Expect.isTrue (IO.Directory.Exists cache) "created at once, for the folder icon"
+                let item = StacSearch.itemDirectory "some-item"
+                Expect.equal (IO.Path.GetDirectoryName item) cache "items land in it"
+                IO.Directory.CreateDirectory item |> ignore
+                IO.File.WriteAllText(IO.Path.Combine(item, "x.png"), "x")
+                let foreign = IO.Path.Combine(cache, "my-own-folder")
+                IO.Directory.CreateDirectory foreign |> ignore
+                let loose = IO.Path.Combine(cache, "notes.txt")
+                IO.File.WriteAllText(loose, "keep")
+                let beside = IO.Path.Combine(root, "beside")
+                IO.Directory.CreateDirectory beside |> ignore
+                StacSearch.clearCache ()
+                Expect.isFalse (IO.Directory.Exists item) "the item folder is deleted"
+                Expect.isTrue (IO.Directory.Exists foreign) "a folder not made by PRo3D stays"
+                Expect.isTrue (IO.File.Exists loose) "a loose file stays"
+                Expect.isTrue (IO.Directory.Exists beside) "the chosen folder's other folders stay"
+            finally
+                StacSearch.downloadRoot <- original
+                try IO.Directory.Delete(root, true) with _ -> ()
+        }
+
+        test "the download directory is remembered beside the catalog and user" {
+            let file = IO.Path.Combine(IO.Path.GetTempPath(), "pro3d-stac-remembered-" + Guid.NewGuid().ToString "N" + ".json")
+            let original = StacSearchModel.rememberedFile
+            StacSearchModel.rememberedFile <- file
+            try
+                Expect.equal (StacSearchModel.initialDownloadDirectory ()) (StacSearchModel.defaultDownloadDirectory ()) "the temp folder by default"
+                StacSearchModel.remember "http://127.0.0.1:9/api" (Some "tester")
+                let dir = IO.Path.Combine(IO.Path.GetTempPath(), "pro3d-chosen")
+                StacSearchModel.rememberDownloadDirectory dir
+                Expect.equal (StacSearchModel.initialDownloadDirectory ()) dir "the chosen folder next time"
+                Expect.equal (StacSearchModel.remembered ()) ("http://127.0.0.1:9/api", "tester") "url and user kept"
+                StacSearchModel.remember "http://127.0.0.1:10/api" None
+                Expect.equal (StacSearchModel.rememberedDownloadDirectory ()) dir "a connect keeps the folder"
+                StacSearchModel.rememberDownloadDirectory "not/rooted"
+                Expect.equal (StacSearchModel.initialDownloadDirectory ()) (StacSearchModel.defaultDownloadDirectory ()) "an unusable path falls back"
+            finally
+                StacSearchModel.rememberedFile <- original
+                try IO.File.Delete file with _ -> ()
+        }
+
+        test "another folder clears the results; the trash asks first" {
+            let stac (msg : StacSearchMessage) (m : ProjectedImageListModel) = ProjectedImageListApp.update m (StacMessage msg)
+            let row : StacCandidate =
+                { itemId = "a"; collection = "c"; title = "t"; time = DateTime(2000, 1, 1); instrument = "CAM"
+                  assets = { mbi = "https://example.org/a.mbi.json"; image = "https://example.org/a.tif"; imageMetadata = None; overview = None }
+                  check = StacCheck.Checking; values = None; otherTarget = None }
+            let m =
+                let m = ProjectedImageListModel.initial
+                { m with stacSearch = { m.stacSearch with candidates = IndexList.single row; fetched = HashMap.single "a" (Guid.NewGuid()) } }
+            let same = m |> stac (SetDownloadDirectory m.stacSearch.downloadDirectory)
+            Expect.equal same.stacSearch.candidates.Count 1 "the same folder changes nothing"
+            let moved = m |> stac (SetDownloadDirectory "/somewhere/else")
+            Expect.equal moved.stacSearch.downloadDirectory "/somewhere/else" "the new folder"
+            Expect.isTrue moved.stacSearch.candidates.IsEmpty "the results go"
+            let asking = m |> stac ClearCache
+            Expect.isTrue asking.stacSearch.confirmClearCache "the dialog opens"
+            Expect.isFalse asking.stacSearch.fetched.IsEmpty "nothing dropped yet"
+            let cancelled = asking |> stac CancelClearCache
+            Expect.isFalse cancelled.stacSearch.confirmClearCache "closed"
+            Expect.isFalse cancelled.stacSearch.fetched.IsEmpty "nothing dropped"
+            let confirmed = asking |> stac ConfirmClearCache
+            Expect.isFalse confirmed.stacSearch.confirmClearCache "closed"
+            Expect.isTrue confirmed.stacSearch.fetched.IsEmpty "the downloads' images go"
+        }
+    ]
+
 let tests () =
     // All of it one at a time: the live tests in parallel hit the server at once and time
     // out, and the sign-in tests and the live ones share the session's credentials.
-    testSequenced (testList "STAC image search" [ offline; local; signIn; catalogCoverage; online ])
+    testSequenced (testList "STAC image search" [ offline; local; signIn; downloadDirectory; catalogCoverage; online ])

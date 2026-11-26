@@ -208,6 +208,9 @@ at a time) is a different thing: it shows that image's 2D
 preview and display settings under *Selected Image* and makes its min/max and colour map drive the whole stack's legend. On
 its own it projects nothing, unless *Projection Settings → Projection* is *Selected*.
 
+The **copy icon** at the right end of a row's name copies the image's file name to
+the clipboard (a check mark confirms it). It does not select the row.
+
 ## 4. Build the stack
 
 The **+** in a row adds the image to the top of the **projection stack**

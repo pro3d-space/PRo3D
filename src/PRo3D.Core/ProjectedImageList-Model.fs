@@ -424,6 +424,12 @@ type StacSearchModel =
         sort         : Option<ImageSortKey * bool>
         /// the results' Images fold is unfolded
         imagesExpanded : bool
+        /// the folder the user chose for downloads (the Download Directory row); the
+        /// files go into its "stac" subfolder (StacSearch.cacheDirectory). Remembered
+        /// between sessions, not saved with the scene.
+        downloadDirectory : string
+        /// the trash icon's confirmation dialog is open
+        confirmClearCache : bool
     }
 
 module StacSearchModel =
@@ -445,8 +451,9 @@ module StacSearchModel =
             System.IO.Path.Combine(System.Environment.GetFolderPath System.Environment.SpecialFolder.ApplicationData, "Pro3D", "stac.json")
         | path -> path
 
-    /// (url, user); empty strings for what is not known
-    let remembered () : string * string =
+    /// The remembered fields: "url", "user", "downloadDirectory"; empty strings for
+    /// what is not known
+    let private rememberedFields () : Map<string, string> =
         try
             let f = rememberedFile
             if System.IO.File.Exists f then
@@ -455,21 +462,54 @@ module StacSearchModel =
                     match doc.RootElement.TryGetProperty name with
                     | true, v when v.ValueKind = System.Text.Json.JsonValueKind.String -> v.GetString().Trim()
                     | _ -> ""
-                field "url", field "user"
-            else "", ""
-        with _ -> "", ""
+                Map.ofList [ "url", field "url"; "user", field "user"; "downloadDirectory", field "downloadDirectory" ]
+            else Map.empty
+        with _ -> Map.empty
+
+    let private rememberedField (name : string) =
+        rememberedFields () |> Map.tryFind name |> Option.defaultValue ""
+
+    /// (url, user); empty strings for what is not known
+    let remembered () : string * string =
+        rememberedField "url", rememberedField "user"
+
+    /// The remembered download directory; empty when none was chosen
+    let rememberedDownloadDirectory () = rememberedField "downloadDirectory"
+
+    /// Rewrites the file with these fields changed; the others stay.
+    let private rememberFields (changes : list<string * string>) =
+        let fields =
+            changes |> List.fold (fun (m : Map<string, string>) (k, v) -> Map.add k v m) (rememberedFields ())
+        let f = rememberedFile
+        System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName f) |> ignore
+        let json = System.Text.Json.JsonSerializer.Serialize(fields |> Map.toSeq |> dict)
+        System.IO.File.WriteAllText(f, json)
 
     /// After a successful connect: this URL, and the user if one signed in (else the
     /// remembered user stays).
     let remember (url : string) (user : Option<string>) =
         try
-            let _, previousUser = remembered ()
-            let user = user |> Option.defaultValue previousUser
-            let f = rememberedFile
-            System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName f) |> ignore
-            let json = System.Text.Json.JsonSerializer.Serialize(dict [ "url", url.Trim(); "user", user ])
-            System.IO.File.WriteAllText(f, json)
+            let user = user |> Option.map (fun u -> [ "user", u ]) |> Option.defaultValue []
+            rememberFields (("url", url.Trim()) :: user)
         with e -> Log.warn "[STAC] could not remember the catalog: %s" e.Message
+
+    /// The Download Directory the user chose: the next session starts with it.
+    let rememberDownloadDirectory (dir : string) =
+        try rememberFields [ "downloadDirectory", dir.Trim() ]
+        with e -> Log.warn "[STAC] could not remember the download directory: %s" e.Message
+
+    /// Where downloads go unless the user chose otherwise: %TEMP%/PRo3D (the files
+    /// land in its "stac" subfolder, as before the Download Directory existed).
+    let defaultDownloadDirectory () =
+        System.IO.Path.Combine(System.IO.Path.GetTempPath(), "PRo3D")
+
+    /// The Download Directory at start: the remembered one, if it is a usable path,
+    /// else the default.
+    let initialDownloadDirectory () =
+        let dir = rememberedDownloadDirectory ()
+        let usable =
+            dir <> "" && (try System.IO.Path.IsPathRooted dir && System.IO.Path.GetFullPath dir <> "" with _ -> false)
+        if usable then dir else defaultDownloadDirectory ()
 
     /// The Catalog field at start: PRO3D_STAC_URL when set (tests, scripted runs), else
     /// the last catalog that connected.
@@ -510,6 +550,8 @@ module StacSearchModel =
             lastUser     = snd (remembered ())
             sort         = None
             imagesExpanded = true
+            downloadDirectory = initialDownloadDirectory ()
+            confirmClearCache = false
         }
 
 module ProjectedImages =
@@ -1111,8 +1153,15 @@ type StacSearchMessage =
     | CancelSignIn
     /// A connection attempt's answer, with the user it was made for.
     | ConnectFinished of user : Option<string> * StacProbe
-    /// Delete the downloaded files (%TEMP%\PRo3D\stac). Done by the Viewer.
+    /// The trash icon: asks first (the confirmation dialog)
     | ClearCache
+    /// The dialog's Delete: deletes PRo3D's item folders in the download
+    /// directory's "stac" subfolder. The files are deleted by the Viewer.
+    | ConfirmClearCache
+    | CancelClearCache
+    /// The Download Directory button: downloads go into this folder's "stac"
+    /// subfolder from now on (remembered by the Viewer).
+    | SetDownloadDirectory of string
     /// Fly to a checked result's projector, from its downloaded metadata (the
     /// Viewer frames it; GisApp moves the scene time to its epoch).
     | FlyToCandidate of itemId : string

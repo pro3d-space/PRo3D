@@ -2616,6 +2616,11 @@ module Gui =
                             |> UI.map Gis.GisAppAction.ProjectedImageListMessage
                             |> UI.map GisAppMessage
                             |> UI.map ViewerMessage
+                            // the STAC trash icon's confirmation
+                            PRo3D.ImageMapping.ProjectedImageListApp.clearCacheDialog m.scene.gisApp.projectedImageList
+                            |> UI.map Gis.GisAppAction.ProjectedImageListMessage
+                            |> UI.map GisAppMessage
+                            |> UI.map ViewerMessage
                             LayoutApp.UI.dialogs m.layout
                             |> UI.map (LayoutMessage >> ViewerMessage)
                             // Outermost page, so this one pill covers every docked panel.
