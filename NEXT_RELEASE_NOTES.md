@@ -15,5 +15,5 @@ release folds them into `PRODUCT_RELEASE_NOTES.md`.
 
 ## Pending
 - Main menu: **menu lists no longer run off the bottom of the window** — every list of the top-left main menu (e.g. *Extras*, *Layout > Reopen Panel*) is capped to the space below it and scrolls when it is longer (docs/MainMenu.md)
-- Image Search: **choose where downloaded images go** — a *Download Directory* row under *Catalog* shows the folder (default: the temp folder), opens it with the folder icon and is remembered between sessions; the bin now asks first and deletes only the image folders PRo3D downloaded (docs/StacImageSearch.md)
+- Image Search: **choose where downloaded images go** — a *Download Directory* row under *Catalog* shows the folder the images are saved in (default: the temp folder), opens it with the folder icon and is remembered between sessions; the bin now asks first and deletes only the image folders PRo3D downloaded (docs/StacImageSearch.md)
 - Image Library and Image Search: **copy an image's file name** — a copy icon at the end of each row's name puts the file name on the clipboard (docs/MultiImageProjection.md, docs/StacImageSearch.md)

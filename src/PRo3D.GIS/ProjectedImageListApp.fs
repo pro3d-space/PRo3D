@@ -83,11 +83,9 @@ module ProjectedImageListApp =
     /// would stay on screen until PRo3D is closed.
     let private dropStacImages (m : ProjectedImageListModel) =
         let m = endStacHover m
-        let cache =
-            let dir = Path.GetFullPath(PRo3D.GIS.StacSearch.cacheDirectory ())
-            if dir.EndsWith(string Path.DirectorySeparatorChar) then dir else dir + string Path.DirectorySeparatorChar
-        let fromCache (img : ProjectedImageModel) =
-            try Path.GetFullPath(img.texture).StartsWith(cache, StringComparison.OrdinalIgnoreCase) with _ -> false
+        // only files in PRo3D's item folders: the chosen folder may also hold the
+        // user's own images, which stay in the library
+        let fromCache (img : ProjectedImageModel) = PRo3D.GIS.StacSearch.isDownloaded img.texture
         // library images from the cache: added by earlier versions, which put
         // downloads into the library
         let gone =
@@ -576,8 +574,7 @@ module ProjectedImageListApp =
             alist {
                 let! confirm = s.confirmClearCache
                 if confirm then
-                    let! root = s.downloadDirectory
-                    let dir = PRo3D.GIS.StacSearch.cacheDirectoryOf root
+                    let! dir = s.downloadDirectory
                     yield div [
                         clazz "stac-clear-dimmer"
                         style "position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 20000; display: flex; align-items: center; justify-content: center"
@@ -1430,14 +1427,13 @@ module ProjectedImageListApp =
                             }))
                         ]
                     PRo3D.Core.UI.rowWithTip "Download Directory:"
-                        "Where the downloaded images and sidecars go: into this folder's \"stac\" subfolder. Default: the temp folder. Remembered for the next session. The folder icon opens it."
+                        "Where the downloaded images and sidecars go, one folder per image. Default: the temp folder (PRo3D\\stac). Remembered for the next session. The folder icon opens it."
                         [
                             div [style "display: flex; align-items: center; gap: 8px; min-width: 0; border: 1px solid rgba(255,255,255,0.15); border-radius: .28571429rem; background: rgba(255,255,255,0.03);"] [
                                 // as the surfaces' folder icon: opens the folder the files land in
                                 Incremental.i
                                     (AttributeMap.ofAMap (amap {
-                                        let! root = s.downloadDirectory
-                                        let dir = PRo3D.GIS.StacSearch.cacheDirectoryOf root
+                                        let! dir = s.downloadDirectory
                                         yield clazz "folder icon"
                                         yield style "cursor: pointer; flex-shrink: 0; margin: 0 0 0 6px"
                                         yield attribute "title" (sprintf "open %s" dir)
@@ -1536,7 +1532,7 @@ module ProjectedImageListApp =
                         })
                     i [clazz "eraser icon"; style "cursor: pointer"; attribute "title" "clear the results"; onClick (fun _ -> StacMessage ClearResults)] []
                     i [clazz "trash alternate outline icon"; style "cursor: pointer"
-                       attribute "title" "delete the downloaded images and sidecars (the item folders in the Download Directory's stac subfolder; asks first); a search downloads them again"
+                       attribute "title" "delete the downloaded images and sidecars (the image folders in the Download Directory; asks first); a search downloads them again"
                        onClick (fun _ -> StacMessage ClearCache)] []
                 ]
                 // the hovered row's overview, large, over the image column (its

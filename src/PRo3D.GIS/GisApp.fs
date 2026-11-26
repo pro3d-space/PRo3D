@@ -1275,7 +1275,7 @@ module GisApp =
                 spiceKernel             = spiceKernel |> Option.map (fst >> CooTransformation.SPICEKernel.ofPath)
                 spiceKernelLoadSuccess  = spiceKernel |> Option.forall snd
                 cameraFollowsSource     = true
-                projectedImageList      = ProjectedImageListModel.initial //{ ProjectedImages.initial with images = Directory.EnumerateFiles(@"C:\pro3ddata\HERA\simulated") |> Seq.map (fun a -> { fullName = a }) |> IndexList.ofSeq }
+                projectedImageList      = ProjectedImageListModel.create () //{ ProjectedImages.initial with images = Directory.EnumerateFiles(@"C:\pro3ddata\HERA\simulated") |> Seq.map (fun a -> { fullName = a }) |> IndexList.ofSeq }
                 showMarkers             = false
                 selectedMissionTimeRow  = None
                 missionTimesEntries     = Some (IndexList.ofList missionTimeEntries)

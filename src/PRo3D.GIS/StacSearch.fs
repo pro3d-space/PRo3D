@@ -549,29 +549,29 @@ module StacSearch =
                 | None -> return Ok (items.ToArray() |> Array.truncate q.limit, matched)
         }
 
-    /// The folder the user chose (the Download Directory row; default %TEMP%\PRo3D).
+    /// The folder the user chose (the Download Directory row; default %TEMP%\PRo3D\stac):
+    /// StacSearchModel.sessionDownloadDirectory, so new panel models show the same one.
     /// Set by the Viewer when it changes (setDownloadRoot).
-    let mutable downloadRoot = StacSearchModel.initialDownloadDirectory ()
+    let downloadRoot () = StacSearchModel.sessionDownloadDirectory
 
-    /// Where the downloads of a chosen folder land: its "stac" subfolder, so the
-    /// trash only ever looks inside a folder of PRo3D's own.
-    let cacheDirectoryOf (root : string) = Path.Combine(root, "stac")
+    /// Where all downloads land: the Download Directory itself, one folder per item
+    /// (itemDirectory). No subfolder of PRo3D's own: the user's folder is used as is.
+    let cacheDirectory () = downloadRoot ()
 
-    /// Where all downloads land: <Download Directory>\stac (default %TEMP%\PRo3D\stac).
-    let cacheDirectory () = cacheDirectoryOf downloadRoot
-
-    /// Downloads go into this folder's "stac" subfolder from now on. The subfolder is
-    /// created at once, so the panel's folder icon has something to open.
+    /// Downloads go into this folder from now on. It is created at once if missing (the
+    /// default temp folder), so the panel's folder icon has something to open.
     let setDownloadRoot (root : string) =
-        downloadRoot <- root
-        try Directory.CreateDirectory(cacheDirectory ()) |> ignore
-        with e -> Log.warn "[STAC] could not create the download directory %s: %s" (cacheDirectory ()) e.Message
+        StacSearchModel.sessionDownloadDirectory <- root
+        try Directory.CreateDirectory root |> ignore
+        with e -> Log.warn "[STAC] could not create the download directory %s: %s" root e.Message
 
     /// Where an item's files land: one folder per item, so the folder's mbi index
     /// (InstrumentMetadata.buildMbiIndexCached) sees exactly that item's sidecar.
     /// The id made a valid name, plus a short hash of the id itself: ids that differ
     /// only in case (one folder on Windows) or only in invalid characters, and ids
-    /// like "." or "..", still get folders of their own inside the cache.
+    /// like "." or "..", still get folders of their own inside the cache. Always
+    /// "<name>_<hash>" ("item" when nothing of the id is left), never the bare hash,
+    /// so a user's own folder named like a date (20240115) is never taken for one.
     /// The characters replaced are Windows' on every platform, not
     /// Path.GetInvalidFileNameChars: on Linux and macOS that is only '/' and NUL,
     /// so ':' or '*' would stay in the name there, and the same item would get a
@@ -588,7 +588,7 @@ module StacSearch =
             |> Array.take 4
             |> Array.map (fun b -> b.ToString "x2")
             |> String.concat ""
-        let name = if safe = "" then hash else safe + "_" + hash
+        let name = (if safe = "" then "item" else safe) + "_" + hash
         Path.Combine(cacheDirectory (), name)
 
     /// The remote file name, kept locally: the mbi sidecar names its band files, so
@@ -603,18 +603,31 @@ module StacSearch =
     let localImagePath (itemId : string) (assets : StacAssets) =
         Path.Combine(itemDirectory itemId, fileName assets.image)
 
-    /// A folder name itemDirectory makes: 8 lowercase hex digits (the id's hash),
-    /// alone or after "_". The trash deletes only folders named like this, so a
-    /// download directory the user chose never loses folders of their own.
+    /// A folder name itemDirectory makes: a name, "_", then 8 lowercase hex digits (the
+    /// id's hash). The trash deletes only folders named like this, so a download
+    /// directory the user chose never loses folders of their own.
     let isItemFolderName (name : string) =
         let isHex (c : char) = (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')
         let n = name.Length
-        n >= 8
-        && (n = 8 || name.[n - 9] = '_')
+        n > 9
+        && name.[n - 9] = '_'
         && (let mutable ok = true
             for i in n - 8 .. n - 1 do
                 if not (isHex name.[i]) then ok <- false
             ok)
+
+    /// The file lies in an item folder directly inside the Download Directory: an
+    /// image downloaded from the catalog. Library images that happen to be elsewhere in
+    /// the chosen folder are not.
+    let isDownloaded (file : string) =
+        try
+            let item = Path.GetDirectoryName(Path.GetFullPath file)
+            let parent = Path.GetDirectoryName item
+            let root = Path.GetFullPath(cacheDirectory ()).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            not (isNull parent)
+            && String.Equals(parent.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar), root, StringComparison.OrdinalIgnoreCase)
+            && isItemFolderName (Path.GetFileName item)
+        with _ -> false
 
     /// Delete the download cache (the panel's trash, after its confirmation): the
     /// item folders PRo3D made (isItemFolderName); other folders and loose files in

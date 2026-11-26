@@ -166,7 +166,7 @@ let main argv =
         cooTrafoInitialized <- true
         // the STAC download folder exists from the start: the Image Search panel's
         // folder icon opens it before the first download (docs/StacImageSearch.md)
-        PRo3D.GIS.StacSearch.setDownloadRoot PRo3D.GIS.StacSearch.downloadRoot
+        PRo3D.GIS.StacSearch.setDownloadRoot (PRo3D.GIS.StacSearch.downloadRoot ())
         //CooTransformation.getRelState viewerBody supportBody observer time referenceFrame
         let r = PRo3D.SPICE.CooTransformation.getRelState "HERA" "SUN" "MARS" (DateTime.Parse("2025-03-12T11:26:13.011Z")) "HERA_AFC-1"
         //use app = new VulkanApplication()

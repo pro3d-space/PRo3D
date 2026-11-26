@@ -1084,18 +1084,20 @@ let private downloadDirectory =
             for id in [ "item"; "a/b:c"; ".."; ""; "Item_X" ] do
                 let name = IO.Path.GetFileName(StacSearch.itemDirectory id)
                 Expect.isTrue (StacSearch.isItemFolderName name) (sprintf "%A -> %s is an item folder" id name)
-            for name in [ "stac"; "Documents"; "foo_123"; "foo_DEADBEEF"; "foodeadbeef"; "deadbeef1"; "x_deadbee" ] do
+            // a bare hash is not one: a user's folder named like a date stays
+            for name in [ "stac"; "Documents"; "foo_123"; "foo_DEADBEEF"; "foodeadbeef"; "deadbeef1"; "x_deadbee"; "deadbeef"; "20240115"; "_deadbeef" ] do
                 Expect.isFalse (StacSearch.isItemFolderName name) (sprintf "%s is not an item folder" name)
         }
 
-        test "downloads go into the chosen folder's stac subfolder; the trash deletes only item folders" {
-            let original = StacSearch.downloadRoot
+        test "downloads go into the chosen folder itself; the trash deletes only item folders" {
+            let original = StacSearch.downloadRoot ()
             let root = IO.Path.Combine(IO.Path.GetTempPath(), "pro3d-stac-download-" + Guid.NewGuid().ToString "N")
             try
                 StacSearch.setDownloadRoot root
                 let cache = StacSearch.cacheDirectory ()
-                Expect.equal cache (IO.Path.Combine(root, "stac")) "the stac subfolder"
+                Expect.equal cache root "the chosen folder, no subfolder"
                 Expect.isTrue (IO.Directory.Exists cache) "created at once, for the folder icon"
+                Expect.isFalse (IO.Directory.Exists (IO.Path.Combine(root, "stac"))) "no stac subfolder"
                 let item = StacSearch.itemDirectory "some-item"
                 Expect.equal (IO.Path.GetDirectoryName item) cache "items land in it"
                 IO.Directory.CreateDirectory item |> ignore
@@ -1104,16 +1106,51 @@ let private downloadDirectory =
                 IO.Directory.CreateDirectory foreign |> ignore
                 let loose = IO.Path.Combine(cache, "notes.txt")
                 IO.File.WriteAllText(loose, "keep")
-                let beside = IO.Path.Combine(root, "beside")
-                IO.Directory.CreateDirectory beside |> ignore
+                let dated = IO.Path.Combine(cache, "20240115")
+                IO.Directory.CreateDirectory dated |> ignore
+                // what the library may hold from the same folder
+                let ownImage = IO.Path.Combine(foreign, "mine.png")
+                IO.File.WriteAllText(ownImage, "x")
+                Expect.isTrue (StacSearch.isDownloaded (IO.Path.Combine(item, "x.png"))) "a download"
+                Expect.isFalse (StacSearch.isDownloaded ownImage) "the user's image in the folder is not"
+                Expect.isFalse (StacSearch.isDownloaded loose) "a loose file is not"
                 StacSearch.clearCache ()
                 Expect.isFalse (IO.Directory.Exists item) "the item folder is deleted"
                 Expect.isTrue (IO.Directory.Exists foreign) "a folder not made by PRo3D stays"
+                Expect.isTrue (IO.File.Exists ownImage) "its files too"
+                Expect.isTrue (IO.Directory.Exists dated) "a folder named like a date stays"
                 Expect.isTrue (IO.File.Exists loose) "a loose file stays"
-                Expect.isTrue (IO.Directory.Exists beside) "the chosen folder's other folders stay"
             finally
-                StacSearch.downloadRoot <- original
+                StacSearchModel.sessionDownloadDirectory <- original
                 try IO.Directory.Delete(root, true) with _ -> ()
+        }
+
+        test "a new or loaded scene's panel shows the folder chosen in this session" {
+            let original = StacSearch.downloadRoot ()
+            let root = IO.Path.Combine(IO.Path.GetTempPath(), "pro3d-stac-session-" + Guid.NewGuid().ToString "N")
+            try
+                StacSearch.setDownloadRoot root
+                Expect.equal (ProjectedImageListModel.create ()).stacSearch.downloadDirectory root "a new panel"
+                let gis = PRo3D.Core.Gis.GisApp.initial None
+                Expect.equal gis.projectedImageList.stacSearch.downloadDirectory root "a new scene"
+                // a loaded scene: the GisApp is read back from its json
+                let json = gis |> Chiron.Mapping.Json.serialize |> Chiron.Formatting.Json.formatWith Chiron.Formatting.JsonFormattingOptions.SingleLine
+                let loaded : PRo3D.Core.Gis.GisApp = json |> Chiron.Parsing.Json.parse |> Chiron.Mapping.Json.deserialize
+                Expect.equal loaded.projectedImageList.stacSearch.downloadDirectory root "a loaded scene"
+            finally
+                StacSearchModel.sessionDownloadDirectory <- original
+                try IO.Directory.Delete(root, true) with _ -> ()
+        }
+
+        test "the folder icon's code keeps a path with quotes in one string" {
+            let path = @"C:\Users\o'neil\say ""hi""\stac"
+            let js = PRo3D.Base.Electron.openPath path
+            Expect.isFalse (js.Contains "o'neil") "the quote is escaped"
+            let literal = js.Substring(js.IndexOf '(' + 1, js.LastIndexOf ')' - js.IndexOf '(' - 1)
+            Expect.isTrue (literal.StartsWith "'" && literal.EndsWith "'") "a single-quoted literal"
+            // the literal's content, read as JSON, is the path again
+            let back = JsonSerializer.Deserialize<string>("\"" + literal.Substring(1, literal.Length - 2) + "\"")
+            Expect.equal back path "the same path"
         }
 
         test "the download directory is remembered beside the catalog and user" {

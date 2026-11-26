@@ -75,7 +75,7 @@ the GIS tab under *Projected Images → Image Search (STAC)*.
    ([MultiImageProjection.md](MultiImageProjection.md), *Projection Settings*).
 
 5. **Add** (the row's + cell): its files are downloaded to a folder of its own under
-   the download directory's `stac` subfolder (see *Download Directory* below), the image is selected and put on top of the
+   the download directory (see *Download Directory* below), the image is selected and put on top of the
    projection stack. It is **not added to the Image Library**: the library holds
    the imported folder only. An image already downloaded (previewed or selected)
    is not downloaded again. A downloaded image stays available while its result
@@ -94,27 +94,32 @@ search; images on the stack or selected stay. The **bin** deletes the
 downloaded files and removes the images downloaded from the catalog from the
 stack and the selection. It asks first: a dialog names the folder, and only
 **Delete** removes anything. Only the item folders PRo3D created are deleted,
-recognized by their name (`<item id>_<8 hex digits>`); other files and folders
+recognized by their name (`<item id>_<8 hex digits>`, `item_<8 hex digits>` for an
+id with no usable characters); other files and folders
 in the download directory stay. The next search downloads what it needs again.
 Nothing else ever removes the files.
 
 ## Download Directory
 
 The **Download Directory:** row under *Catalog:* shows where downloads go.
-The files land in the shown folder's **`stac` subfolder**, one folder per item.
-The default is the temp folder (`%TEMP%\PRo3D`, so `%TEMP%\PRo3D\stac`).
+The files land **in the shown folder itself**, one folder per item; PRo3D adds no
+subfolder of its own. The default is `%TEMP%\PRo3D\stac`.
 
-- The **folder icon** opens the `stac` subfolder in Explorer / Finder. The
-  subfolder is created at start and when the folder changes, so the icon works
-  before the first download.
+- The **folder icon** opens the folder in Explorer / Finder. A folder that does not
+  exist yet (the default, at first) is created at start and when the folder
+  changes, so the icon works before the first download.
 - The **Download Directory** button picks another folder. New downloads go
   there. The result list is cleared, since its sidecars are in the old folder,
   so search again. Images already on the stack or selected stay where they are.
 - The folder is **remembered** for the next session, in `%APPDATA%\Pro3D\stac.json`
-  next to the catalog URL and the user name. It is not saved with the scene. A
+  next to the catalog URL and the user name. It is not saved with the scene:
+  loading a scene or starting a new one keeps the folder chosen in this session. A
   remembered folder that is not an absolute path falls back to the default.
-- Because the bin deletes only the item folders inside the `stac` subfolder,
-  any folder can be chosen without risking its other contents.
+- Because the bin deletes only the item folders directly in the chosen folder,
+  and only images from those folders leave the Image Library and the stack, any
+  folder can be chosen without risking its other contents. A folder of your own
+  that happens to be named `<name>_<8 hex digits>` (e.g. `scan_00012345`) would
+  be taken for one, so prefer a folder of its own for downloads.
 
 Downloads: one file is downloaded once, however many searches and clicks ask
 for it at the same time; a download that does not complete within five minutes

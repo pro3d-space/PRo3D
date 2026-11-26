@@ -1658,11 +1658,13 @@ module JsInterop =
         "'" + json.Substring(1, json.Length - 2) + "'"
 
 module Electron =
+    // stringLiteral, not escapePath: a path may hold a quote (/Users/o'neil/...), e.g.
+    // a folder the user chose, which would end a '%s' literal and break the click
     let openPath (s : string) =
-        sprintf "top.aardvark.electron.shell.openPath('%s');" (JsInterop.escapePath s)
+        sprintf "top.aardvark.electron.shell.openPath(%s);" (JsInterop.stringLiteral s)
 
     let showItemInFolder (s : string) =
-        sprintf "top.aardvark.electron.shell.showItemInFolder('%s');" (JsInterop.escapePath s)
+        sprintf "top.aardvark.electron.shell.showItemInFolder(%s);" (JsInterop.stringLiteral s)
 
 /// Copy to the clipboard from a click, in the page: no round trip to the server.
 module Clipboard =

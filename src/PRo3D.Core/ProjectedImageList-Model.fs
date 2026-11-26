@@ -425,7 +425,7 @@ type StacSearchModel =
         /// the results' Images fold is unfolded
         imagesExpanded : bool
         /// the folder the user chose for downloads (the Download Directory row); the
-        /// files go into its "stac" subfolder (StacSearch.cacheDirectory). Remembered
+        /// files go into it, one folder per item (StacSearch.itemDirectory). Remembered
         /// between sessions, not saved with the scene.
         downloadDirectory : string
         /// the trash icon's confirmation dialog is open
@@ -498,10 +498,10 @@ module StacSearchModel =
         try rememberFields [ "downloadDirectory", dir.Trim() ]
         with e -> Log.warn "[STAC] could not remember the download directory: %s" e.Message
 
-    /// Where downloads go unless the user chose otherwise: %TEMP%/PRo3D (the files
-    /// land in its "stac" subfolder, as before the Download Directory existed).
+    /// Where downloads go unless the user chose otherwise: %TEMP%/PRo3D/stac (where
+    /// they went before the Download Directory existed).
     let defaultDownloadDirectory () =
-        System.IO.Path.Combine(System.IO.Path.GetTempPath(), "PRo3D")
+        System.IO.Path.Combine(System.IO.Path.GetTempPath(), "PRo3D", "stac")
 
     /// The Download Directory at start: the remembered one, if it is a usable path,
     /// else the default.
@@ -510,6 +510,12 @@ module StacSearchModel =
         let usable =
             dir <> "" && (try System.IO.Path.IsPathRooted dir && System.IO.Path.GetFullPath dir <> "" with _ -> false)
         if usable then dir else defaultDownloadDirectory ()
+
+    /// This session's Download Directory: where StacSearch downloads to, and what every
+    /// new panel model starts with (create), so a scene load or a new scene keeps the
+    /// folder chosen in this session. The only copy besides the model's field; set it
+    /// through StacSearch.setDownloadRoot.
+    let mutable sessionDownloadDirectory = initialDownloadDirectory ()
 
     /// The Catalog field at start: PRO3D_STAC_URL when set (tests, scripted runs), else
     /// the last catalog that connected.
@@ -550,9 +556,13 @@ module StacSearchModel =
             lastUser     = snd (remembered ())
             sort         = None
             imagesExpanded = true
-            downloadDirectory = initialDownloadDirectory ()
+            downloadDirectory = sessionDownloadDirectory
             confirmClearCache = false
         }
+
+    /// A new panel's search, for a new or loaded scene: `initial` (a value, made at
+    /// start), with the Download Directory of this session.
+    let create () = { initial with downloadDirectory = sessionDownloadDirectory }
 
 module ProjectedImages =
     /// Upper bound on how many images can be projected at once. Sizes the
@@ -1092,6 +1102,11 @@ module ProjectedImageListModel =
         frameKernelWarning = None
     }
 
+    /// The panel of a new or loaded scene: `initial`, with this session's Download
+    /// Directory (StacSearchModel.create). Use this, not `initial`, wherever a scene's
+    /// model is built, or the panel shows the folder of the session's start.
+    let create () = { initial with stacSearch = StacSearchModel.create () }
+
 type ImageMessage =
     | SetCustomMin of float
     | SetCustomMax of float
@@ -1156,11 +1171,11 @@ type StacSearchMessage =
     /// The trash icon: asks first (the confirmation dialog)
     | ClearCache
     /// The dialog's Delete: deletes PRo3D's item folders in the download
-    /// directory's "stac" subfolder. The files are deleted by the Viewer.
+    /// directory. The files are deleted by the Viewer.
     | ConfirmClearCache
     | CancelClearCache
-    /// The Download Directory button: downloads go into this folder's "stac"
-    /// subfolder from now on (remembered by the Viewer).
+    /// The Download Directory button: downloads go into this folder from now on
+    /// (remembered by the Viewer).
     | SetDownloadDirectory of string
     /// Fly to a checked result's projector, from its downloaded metadata (the
     /// Viewer frames it; GisApp moves the scene time to its epoch).
