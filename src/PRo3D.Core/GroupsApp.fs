@@ -29,6 +29,12 @@ type GroupsAppAction =
     | ClearGroup            of list<Index>
     | AddLeafToSelection    of list<Index>*Guid*string 
     | SingleSelectLeaf      of list<Index>*Guid*string 
+    /// Plain click on a name in the annotation list: with a multi-selection it starts fresh,
+    /// like a plain pick in the 3D view. See GroupsApp.plainSelectLeaf.
+    | PlainSelectLeaf       of path : list<Index> * id : Guid
+    /// Shift+click in a list: select every leaf of the group at `path` between the anchor
+    /// (rangeAnchor, the last leaf clicked without Shift) and `id`. See GroupsApp.selectLeafRange.
+    | SelectLeafRange       of path : list<Index> * id : Guid
     | ToggleGroup           of list<Index>
     | SetVisibility         of path : list<Index> * isVisible : bool
     | SetSelection          of path : list<Index> * isSelected : bool
@@ -42,19 +48,29 @@ type GroupsAppAction =
 
 module GroupsApp =
                                         
-    let getNode (path : list<Index>) (root : Node) : Node =
-        let rec goDeeper (p : list<Index>) (node : Node) =
-            match p with 
-            | [] -> 
-                Log.warn "found %A" node.name
-                node
+    /// Walks `path` (stored innermost index first, hence the List.rev) down from `root`: the
+    /// deepest node reached, and whether the whole path matched.
+    let private walkPath (path : list<Index>) (root : Node) : Node * bool =
+        let rec go (p : list<Index>) (node : Node) =
+            match p with
+            | []        -> node, true
             | x :: rest ->
-                Log.warn "visiting %A" x
                 match IndexList.tryGet x node.subNodes with
-                | Some n -> goDeeper rest n
-                | None   -> Log.error "Index list does not match tree"; node
+                | Some n -> go rest n
+                | None   -> node, false
+        go (List.rev path) root
 
-        goDeeper (List.rev path) root
+    /// The node at `path`, if the whole path exists.
+    let tryGetNode (path : list<Index>) (root : Node) : Option<Node> =
+        match walkPath path root with
+        | n, true  -> Some n
+        | _, false -> None
+
+    /// The node at `path`; on a path that does not match the tree, the deepest node reached.
+    let getNode (path : list<Index>) (root : Node) : Node =
+        match walkPath path root with
+        | n, true  -> n
+        | n, false -> Log.error "Index list does not match tree"; n
 
     let collectLeaves (target : Node) =
         let rec loop (target : Node) =
@@ -242,6 +258,10 @@ module GroupsApp =
     let removeFromSelection id path model =
         { model with selectedLeaves = model.selectedLeaves |> HashSet.remove( { id = id; path = path; name = "" } ) }
     
+    /// The range anchor without `id`: a removed leaf must not start a later Shift+click range.
+    let private clearAnchor (id : Guid) (anchor : Option<Guid>) =
+        anchor |> Option.filter (fun a -> a <> id)
+
     let removeLeaf model (id:Guid) path removeFromFlat =        
         let func = (fun (x:Node) -> 
             Log.warn "[GroupsApp] removing id %A from group %A" id x.name
@@ -253,9 +273,9 @@ module GroupsApp =
 
         if removeFromFlat then
             let flat' = m.flat |> HashMap.remove id
-            { m with rootGroup = root'; flat = flat'; singleSelectLeaf = None }
+            { m with rootGroup = root'; flat = flat'; singleSelectLeaf = None; rangeAnchor = clearAnchor id m.rangeAnchor }
         else
-            { m with rootGroup = root'; singleSelectLeaf = None } 
+            { m with rootGroup = root'; singleSelectLeaf = None; rangeAnchor = clearAnchor id m.rangeAnchor } 
 
     /// Removes a leaf wherever it sits in the tree, by id alone. removeLeaf needs the owning
     /// group's path and silently leaves the tree untouched on a wrong one - a hazard when the
@@ -270,6 +290,7 @@ module GroupsApp =
             rootGroup        = strip model.rootGroup
             flat             = model.flat |> HashMap.remove id
             singleSelectLeaf = (match model.singleSelectLeaf with Some s when s = id -> None | s -> s)
+            rangeAnchor      = clearAnchor id model.rangeAnchor
             selectedLeaves   = model.selectedLeaves |> HashSet.filter (fun ts -> ts.id <> id) }
 
     /// `removeLeafById` for many leaves in one walk of the tree.
@@ -284,6 +305,7 @@ module GroupsApp =
                 rootGroup        = strip model.rootGroup
                 flat             = model.flat |> HashMap.filter (fun id _ -> not (ids |> HashSet.contains id))
                 singleSelectLeaf = (match model.singleSelectLeaf with Some s when ids |> HashSet.contains s -> None | s -> s)
+                rangeAnchor      = model.rangeAnchor |> Option.filter (fun a -> not (ids |> HashSet.contains a))
                 selectedLeaves   = model.selectedLeaves |> HashSet.filter (fun ts -> not (ids |> HashSet.contains ts.id)) }
 
     /// Expands every group from the root down to the one holding leaf `id`, so the list shows
@@ -335,6 +357,10 @@ module GroupsApp =
         |> HashSet.map(fun x -> if model.flat.ContainsKey x.id then Some x else None)
         |> HashSet.choose(fun x -> x)   
 
+    /// The range anchor, if its leaf still exists (after removing a group or clearing one).
+    let checkRangeAnchor (model : GroupsModel) =
+        model.rangeAnchor |> Option.filter (fun a -> HashMap.containsKey a model.flat)
+
     let checkLastSelected model = 
         match model.singleSelectLeaf with
         | Some x -> 
@@ -356,8 +382,95 @@ module GroupsApp =
             singleSelectLeaf = single; 
             activeChild      = treeSelection; 
             lastSelectedItem = SelectedItem.Child
+            rangeAnchor      = Some id
             }
             
+    /// Toggle one leaf in the multi-selection (the list's cube icon); an added leaf also becomes
+    /// the single (green) leaf and the active child. Entries match by id - one added by a 3D pick
+    /// may carry another path. Either way the leaf becomes the range anchor.
+    let toggleLeafInSelection (model : GroupsModel) (p : list<Index>) (id : Guid) (s : string) =
+        let isSelected = model.selectedLeaves |> HashSet.exists (fun ts -> ts.id = id)
+        if isSelected then
+            let singleSelect =
+                match model.singleSelectLeaf with
+                | Some single when single = id -> None
+                | _ -> model.singleSelectLeaf
+            { model with
+                singleSelectLeaf = singleSelect
+                selectedLeaves   = model.selectedLeaves |> HashSet.filter (fun ts -> ts.id <> id)
+                rangeAnchor      = Some id }
+        else
+            let incomingSelection = { id = id; path = p; name = s }
+            { model with
+                singleSelectLeaf = Some id
+                activeChild      = incomingSelection
+                lastSelectedItem = SelectedItem.Child
+                selectedLeaves   = HashSet.add incomingSelection model.selectedLeaves
+                rangeAnchor      = Some id }
+
+    /// Shift+click without a range: toggle `id` in the *effective* selection - the
+    /// multi-selection plus the single (green) leaf. The green leaf joins the multi-selection
+    /// first, so it does not look deselected when `id` becomes green (as in
+    /// DrawingApp.shiftPickAnnotation, which calls this). Entries match by id; the green leaf
+    /// gets its real path. `id` becomes the range anchor, so a following Shift+click spans from it.
+    let shiftToggleLeaf (model : GroupsModel) (p : list<Index>) (id : Guid) : GroupsModel =
+        let model =
+            match model.singleSelectLeaf with
+            | Some single when not (model.selectedLeaves |> HashSet.exists (fun ts -> ts.id = single)) ->
+                match leafPaths model.rootGroup |> HashMap.tryFind single with
+                | Some sp -> { model with selectedLeaves = HashSet.add { id = single; path = sp; name = "" } model.selectedLeaves }
+                | None    -> model
+            | _ -> model
+        toggleLeafInSelection model p id ""
+
+    /// Plain click (no Shift) on a leaf: in the annotation list and the 3D view. With a
+    /// multi-selection it starts fresh - the multi-selection is cleared and only the clicked leaf
+    /// is selected (and Delete, which removes multi plus green, then removes only what is visible
+    /// as selected). Without one it is the old single select, which toggles the green leaf.
+    let plainSelectLeaf (model : GroupsModel) (p : list<Index>) (id : Guid) : GroupsModel =
+        if model.selectedLeaves.IsEmpty then
+            addSingleSelectedLeaf model p id ""
+        else
+            { model with
+                selectedLeaves   = HashSet.empty
+                singleSelectLeaf = Some id
+                activeChild      = { id = id; path = p; name = "" }
+                lastSelectedItem = SelectedItem.Child
+                rangeAnchor      = Some id }
+
+    /// Shift+click in a list: the selection becomes every leaf of the group at `p` from the
+    /// anchor (rangeAnchor - the last leaf clicked without Shift) to `id`, inclusive, in list
+    /// order; `id` becomes the single (green) leaf and the active child (what the leaf panel's
+    /// Remove acts on). The anchor stays, so a further Shift+click re-spans from it. Leaves
+    /// without an entry in `flat` are skipped. Without an anchor in that group it toggles `id` in
+    /// the effective selection (see shiftToggleLeaf), and `id` becomes the anchor.
+    let selectLeafRange (model : GroupsModel) (p : list<Index>) (id : Guid) : GroupsModel =
+        match model.rangeAnchor, tryGetNode p model.rootGroup with
+        | Some anchor, Some node ->
+            let leaves = IndexList.toArray node.leaves
+            let mutable ai = -1
+            let mutable ti = -1
+            for i in 0 .. leaves.Length - 1 do
+                if leaves.[i] = anchor then ai <- i
+                if leaves.[i] = id then ti <- i
+            if ai < 0 || ti < 0 then
+                shiftToggleLeaf model p id
+            else
+                let lo = min ai ti
+                let hi = max ai ti
+                let mutable range = HashSet.empty
+                for i in lo .. hi do
+                    let leaf = leaves.[i]
+                    if HashMap.containsKey leaf model.flat then
+                        range <- HashSet.add { id = leaf; path = p; name = "" } range
+                { model with
+                    selectedLeaves   = range
+                    singleSelectLeaf = Some id
+                    activeChild      = { id = id; path = p; name = "" }
+                    lastSelectedItem = SelectedItem.Child }
+        | _ ->
+            shiftToggleLeaf model p id
+
     let createEmptyGroup () = 
         {
             version      = Node.current
@@ -498,7 +611,7 @@ module GroupsApp =
                 path = list.Empty
                 name = m'.rootGroup.name}
            
-            { m' with selectedLeaves = selection ; singleSelectLeaf = last; activeGroup = newSelection; }
+            { m' with selectedLeaves = selection ; singleSelectLeaf = last; activeGroup = newSelection; rangeAnchor = checkRangeAnchor m' }
 
         | AddLeaves (p,cs) ->
             failwith "addchildren"
@@ -543,42 +656,15 @@ module GroupsApp =
             let selection = checkSelection m'
             let last = checkLastSelected m'
 
-            { m' with selectedLeaves = selection ; singleSelectLeaf = last }
+            { m' with selectedLeaves = selection ; singleSelectLeaf = last; rangeAnchor = checkRangeAnchor m' }
         | SingleSelectLeaf (p,id,s) ->
             addSingleSelectedLeaf model p id s
         | AddLeafToSelection (p,id,s) ->
-            let incomingSelection = {   // CHECK-merge (treeSelection)
-                id = id
-                path = p
-                name = s
-            }
-            
-            if HashSet.contains incomingSelection model.selectedLeaves
-            then 
-                let a = HashSet.remove incomingSelection model.selectedLeaves
-                                            
-                let singleSelect = 
-                    match model.singleSelectLeaf with
-                    | Some single when single = incomingSelection.id -> None
-                    | _ -> model.singleSelectLeaf
-
-                { 
-                    model with 
-                        singleSelectLeaf = singleSelect
-                        //activeChild      = incomingSelection
-                      //  lastSelectedItem = SelectedItem.Child 
-                        selectedLeaves = a
-                }                    
-            else
-                let b = HashSet.add incomingSelection model.selectedLeaves //HashSet.empty
-
-                { 
-                    model with 
-                        singleSelectLeaf = incomingSelection.id |> Some
-                        activeChild      = incomingSelection
-                        lastSelectedItem = SelectedItem.Child 
-                        selectedLeaves = b
-                }                                                                          
+            toggleLeafInSelection model p id s
+        | PlainSelectLeaf (p,id) ->
+            plainSelectLeaf model p id
+        | SelectLeafRange (p,id) ->
+            selectLeafRange model p id
         | ToggleGroup p ->
             
             let leaves = 

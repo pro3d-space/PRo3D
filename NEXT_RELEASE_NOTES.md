@@ -15,3 +15,4 @@ release folds them into `PRODUCT_RELEASE_NOTES.md`.
 
 ## Pending
 - Main menu: **menu lists no longer run off the bottom of the window** — every list of the top-left main menu (e.g. *Extras*, *Layout > Reopen Panel*) is capped to the space below it and scrolls when it is longer (docs/MainMenu.md)
+- Annotations: **Shift+click in the annotation list selects every annotation between the last clicked one and the clicked one**; a plain click on a name now starts a fresh selection, as a click in the 3D view does (docs/AnnotationList.md)

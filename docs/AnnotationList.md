@@ -30,7 +30,42 @@ What follows from it:
   whichever was scrolled last; the other one shows the right rows again as soon as it is
   scrolled. (The page is built once for all windows, so the scroll position is shared.)
 
+## Selecting a range (Shift+click)
+
+Click an annotation in the list (its name or its cube icon), then Shift+click another one in
+the same group: every annotation between the two is selected, both included. The one
+Shift+clicked is the highlighted (green) annotation; the others are in the multi-selection,
+so Delete, *Move to active group* and the boolean operations act on all of them.
+
+- The range starts at the annotation last clicked **without** Shift (or picked in the 3D
+  view, with or without Shift) - also when that click deselected it. A further Shift+click spans
+  again from that same annotation and replaces the selection, so the range can be shortened
+  or flipped.
+- A plain click on a name (no Shift) starts fresh: the range and any cube checks are cleared
+  and only the clicked annotation is selected, as a click in the 3D view does. With nothing
+  but the highlighted annotation selected, clicking that annotation again deselects it.
+- Rows scrolled out of view are included.
+- The range stays inside one group. If the last clicked annotation is in another group (or
+  nothing was clicked yet), Shift+click selects or deselects just the clicked annotation and
+  keeps the rest of the selection, including the highlighted annotation, as a Shift+click in
+  the 3D view does. The range then starts at that annotation: the next Shift+click in the same
+  group spans from it.
+- Deleting the annotation the range starts at forgets it: the next Shift+click selects just
+  the clicked annotation (and the range starts there).
+
 ## For developers
+
+Range selection is `GroupsAppAction.SelectLeafRange` (`GroupsApp.selectLeafRange`): the anchor
+is `GroupsModel.rangeAnchor` (not persisted). Plain clicks, cube clicks and 3D picks (Shift
+too, adding or removing) set it; a Shift+click in a list that spans a range leaves it alone;
+removing its leaf clears it. Without a usable anchor, `GroupsApp.shiftToggleLeaf` toggles in
+the effective selection (multi-selection plus the green leaf) and makes the clicked leaf the
+anchor; `DrawingApp.shiftPickAnnotation` (Shift+pick in the 3D view) is the same function. A
+range makes the Shift+clicked leaf the `activeChild`, so the leaf panel's *Remove* acts on the
+green row. The list sends it from `DrawingUI.onClickShift`.
+A plain name click is `GroupsAppAction.PlainSelectLeaf` (`GroupsApp.plainSelectLeaf`, shared
+with the 3D pick); surface and bookmark lists still send `SingleSelectLeaf`, which keeps cube
+checks. They can send `SelectLeafRange` too.
 
 `PRo3D.Base.VirtualList.view` is the windowed list; any list with fixed-height rows can use
 it (surfaces and bookmarks still render every row). The scroll position is view-local state

@@ -242,6 +242,13 @@ module UI =
             ]
         )
                      
+    /// A click that tells whether Shift was held (range selection in the annotation list).
+    let onClickShift (f : bool -> 'msg) =
+        onEvent "onclick" [ "event.shiftKey" ] (fun args ->
+            match args with
+            | shift :: _ -> f (shift.Trim().Trim('"') = "true")
+            | []         -> f false)
+
     /// height of one annotation row in the list; rows are windowed (#900) and must not vary
     let annotationRowHeight = 42.0
 
@@ -255,8 +262,10 @@ module UI =
         (a            : AdaptiveAnnotation) 
         : DomNode<DrawingAction> =
             
-            let singleSelect = fun _ -> singleSelect(a,path)
-            let multiSelect  = fun _ -> multiSelect(a,path)
+            // Shift+click on the name or the icon selects the range from the last clicked row
+            let rangeSelect () = lift (GroupsAppAction.SelectLeafRange (path, a.key))
+            let singleSelect = fun shift -> if shift then rangeSelect () else singleSelect(a,path)
+            let multiSelect  = fun shift -> if shift then rangeSelect () else multiSelect(a,path)
             
             let ac = sprintf "color: %s" (Html.color C4b.White)
             
@@ -273,7 +282,7 @@ module UI =
             let iconAttributes =
                 amap {                  
                     yield clazz "cube middle aligned icon"
-                    yield onClick (multiSelect)
+                    yield onClickShift multiSelect
 
                     let! guh = model.selectedLeaves.Content
                     let! c = mkColor cbc model a
@@ -294,7 +303,7 @@ module UI =
 
             let headerAttributes =
                 amap {
-                    yield onClick singleSelect
+                    yield onClickShift singleSelect
                     //let! selected = isSingleSelect model a
                     //yield if selected then style ("text-transform:uppercase") else style "text-transform:none"
                 } |> AttributeMap.ofAMap
@@ -320,7 +329,10 @@ module UI =
             
                 }
             
-            div [clazz "item"; style (VirtualList.rowStyle annotationRowHeight)] [
+            // Shift+click must not highlight the text between the two rows; cancelling only the
+            // shift-mousedown keeps names and descriptions selectable for copying
+            div [clazz "item"; style (VirtualList.rowStyle annotationRowHeight)
+                 clientEvent "onmousedown" "if (event.shiftKey) event.preventDefault();"] [
                 Incremental.i iconAttributes AList.empty
                 div [clazz "content"] [                  
                 
@@ -403,7 +415,7 @@ module UI =
 
         let singleSelect = 
             fun (a:AdaptiveAnnotation,path:list<Index>) -> 
-                DrawingAction.GroupsMessage(GroupsAppAction.SingleSelectLeaf (path, a.key, ""))
+                DrawingAction.GroupsMessage(GroupsAppAction.PlainSelectLeaf (path, a.key))
 
         let multiSelect = 
             fun (a:AdaptiveAnnotation,path:list<Index>) -> 

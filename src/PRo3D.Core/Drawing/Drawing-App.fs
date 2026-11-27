@@ -1033,47 +1033,23 @@ module DrawingApp =
     /// The green leaf joins the multi-selection first, so a plain click followed by a
     /// Shift+click selects both. (GroupsApp.AddLeafToSelection made the new leaf green and left
     /// the old green one out of the multi-selection, so it looked deselected.) Matching is by id;
-    /// entries carry the real group path, like the box selection's.
+    /// entries carry the real group path, like the box selection's. It is the same toggle as a
+    /// Shift+click in the list without a range (GroupsApp.shiftToggleLeaf); a leaf that is not in
+    /// the tree is ignored. The leaf becomes the range anchor.
     let shiftPickAnnotation (id : Guid) (groups : GroupsModel) : GroupsModel =
-        let paths = GroupsApp.leafPaths groups.rootGroup
-        let entry (leaf : Guid) = paths |> HashMap.tryFind leaf |> Option.map (fun p -> { id = leaf; path = p; name = "" })
-        let contains (leaf : Guid) (set : HashSet<TreeSelection>) = set |> HashSet.exists (fun ts -> ts.id = leaf)
-        let effective =
-            match groups.singleSelectLeaf with
-            | Some single when not (contains single groups.selectedLeaves) ->
-                match entry single with
-                | Some e -> HashSet.add e groups.selectedLeaves
-                | None   -> groups.selectedLeaves
-            | _ -> groups.selectedLeaves
-        if contains id effective then
-            { groups with
-                selectedLeaves   = effective |> HashSet.filter (fun ts -> ts.id <> id)
-                singleSelectLeaf = groups.singleSelectLeaf |> Option.filter (fun s -> s <> id) }
-        else
-            match entry id with
-            | Some e ->
-                { groups with
-                    selectedLeaves   = HashSet.add e effective
-                    singleSelectLeaf = Some id
-                    activeChild      = e
-                    lastSelectedItem = SelectedItem.Child }
-            | None -> groups
+        match GroupsApp.leafPaths groups.rootGroup |> HashMap.tryFind id with
+        | Some path -> GroupsApp.shiftToggleLeaf groups path id
+        | None      -> groups
 
     /// Plain click (no Shift) on an annotation in the viewport. With a multi-selection it starts
     /// fresh: the multi-selection is cleared and only the clicked leaf is selected, as anywhere
     /// else (and Delete, which removes multi plus green, then removes only what is visible as
     /// selected). Without one it is the old single select, which toggles the green leaf.
     let plainPickAnnotation (id : Guid) (groups : GroupsModel) : GroupsModel =
-        if groups.selectedLeaves.IsEmpty then
-            GroupsApp.update groups (GroupsAppAction.SingleSelectLeaf(List.empty, id, String.Empty))
-        else
-            let paths = GroupsApp.leafPaths groups.rootGroup
-            let path  = paths |> HashMap.tryFind id |> Option.defaultValue List.empty
-            { groups with
-                selectedLeaves   = HashSet.empty
-                singleSelectLeaf = Some id
-                activeChild      = { id = id; path = path; name = "" }
-                lastSelectedItem = SelectedItem.Child }
+        let path =
+            if groups.selectedLeaves.IsEmpty then List.empty
+            else GroupsApp.leafPaths groups.rootGroup |> HashMap.tryFind id |> Option.defaultValue List.empty
+        GroupsApp.plainSelectLeaf groups path id
 
     // specifies which drawing actions trigger re-export of geo-json files.
     // the idea behind this is to keep out high-frequency updates (mouse move)

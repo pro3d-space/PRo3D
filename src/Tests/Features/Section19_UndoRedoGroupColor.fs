@@ -275,10 +275,24 @@ let private deleteTests =
             match Draw.annotations m |> List.map (fun a -> a.key) with
             | a :: b :: c :: _ ->
                 let sel = m |> multiSelect a |> multiSelect b
-                // clicking another name moves the green single selection, the cube checks stay
+                // a single select (SingleSelectLeaf, as surface/bookmark lists send it) moves the
+                // green leaf and keeps the cube checks; a name click in the annotation list is
+                // PlainSelectLeaf, see the next test
                 let sel = run sel (DrawingAction.GroupsMessage (GroupsAppAction.SingleSelectLeaf([], c, "")))
                 let after = run sel DrawingAction.DeleteSelectedAnnotations
                 Expect.isEmpty (Draw.annotations after) "a, b (multi) and c (single) are all deleted"
+            | _ -> failtest "expected three annotations"
+        }
+
+        test "TC-19.3 a name click in the list after cube checks starts fresh; Delete removes only it" {
+            let m = DrawingModel.initialdrawing |> line 0. |> line 10. |> line 20. |> deselect
+            match Draw.annotations m |> List.map (fun a -> a.key) with
+            | a :: b :: c :: _ ->
+                let sel = m |> multiSelect a |> multiSelect b
+                let sel = run sel (DrawingAction.GroupsMessage (GroupsAppAction.PlainSelectLeaf([], c)))
+                let after = run sel DrawingAction.DeleteSelectedAnnotations
+                Expect.equal (Draw.annotations after |> List.map (fun x -> x.key) |> Set.ofList) (Set.ofList [ a; b ])
+                    "only c is deleted"
             | _ -> failtest "expected three annotations"
         }
 

@@ -190,10 +190,139 @@ let private virtualListWindowTests =
         }
     ]
 
+/// Shift+click in the annotation list (docs/AnnotationList.md): everything between the anchor
+/// (the last row clicked without Shift) and the clicked row
+let private rangeSelectionTests =
+    testList "SelectLeafRange" [
+        // five leaves in the root, in list order
+        let setup () =
+            let leaves = List.init 5 (fun _ -> makeLeaf Geometry.Line Projection.Linear C4b.White)
+            let g = leaves |> List.fold (fun g l -> addLeaf l g) (initGroups ())
+            let ids = g.rootGroup.leaves |> IndexList.toArray
+            g, ids
+        let click (id : System.Guid) g = GroupsApp.update g (GroupsAppAction.PlainSelectLeaf(rootPath, id))
+        let cube  (id : System.Guid) g = GroupsApp.update g (GroupsAppAction.AddLeafToSelection(rootPath, id, ""))
+        let shift (id : System.Guid) g = GroupsApp.update g (GroupsAppAction.SelectLeafRange(rootPath, id))
+        let selected (g : GroupsModel) = g.selectedLeaves |> HashSet.map (fun ts -> ts.id)
+
+        test "click 2, Shift+click 4 selects 2..4, 4 green" {
+            let g, ids = setup ()
+            let g = g |> click ids.[1] |> shift ids.[3]
+            Expect.equal (selected g) (HashSet.ofList [ ids.[1]; ids.[2]; ids.[3] ]) "range 2..4"
+            Expect.equal g.singleSelectLeaf (Some ids.[3]) "clicked row is the single selection"
+        }
+
+        test "backwards: click 4, Shift+click 1 selects 1..4" {
+            let g, ids = setup ()
+            let g = g |> click ids.[3] |> shift ids.[0]
+            Expect.equal (selected g) (HashSet.ofList [ ids.[0]; ids.[1]; ids.[2]; ids.[3] ]) "range 1..4"
+        }
+
+        test "the anchor stays: a second Shift+click re-spans and replaces" {
+            let g, ids = setup ()
+            let g = g |> click ids.[1] |> shift ids.[4] |> shift ids.[2]
+            Expect.equal (selected g) (HashSet.ofList [ ids.[1]; ids.[2] ]) "range 2..3 only"
+        }
+
+        test "Shift+click on the anchor selects just it" {
+            let g, ids = setup ()
+            let g = g |> click ids.[2] |> shift ids.[2]
+            Expect.equal (selected g) (HashSet.ofList [ ids.[2] ]) "only the anchor"
+        }
+
+        test "a leaf missing from flat is skipped" {
+            let g, ids = setup ()
+            let g = { g with flat = HashMap.remove ids.[2] g.flat }
+            let g = g |> click ids.[1] |> shift ids.[3]
+            Expect.equal (selected g) (HashSet.ofList [ ids.[1]; ids.[3] ]) "stale leaf left out"
+        }
+
+        test "no anchor in the group: toggles the clicked leaf only" {
+            let g, ids = setup ()
+            let g = g |> shift ids.[3]
+            Expect.equal (selected g) (HashSet.ofList [ ids.[3] ]) "just the clicked leaf"
+        }
+
+        test "anchor in another group: toggles the clicked leaf only" {
+            let g, ids = setup ()
+            let g = { g with rangeAnchor = Some (System.Guid.NewGuid()) }
+            let g = g |> shift ids.[0]
+            Expect.equal (selected g) (HashSet.ofList [ ids.[0] ]) "just the clicked leaf"
+        }
+
+        test "no usable anchor: the green leaf stays selected beside the Shift+clicked one" {
+            let g, ids = setup ()
+            let g = g |> click ids.[0]
+            let g = { g with rangeAnchor = Some (System.Guid.NewGuid()) }
+            let g = g |> shift ids.[3]
+            Expect.equal (selected g) (HashSet.ofList [ ids.[0]; ids.[3] ]) "old green leaf joins the multi-selection"
+            Expect.equal g.singleSelectLeaf (Some ids.[3]) "the Shift+clicked leaf is green"
+        }
+
+        test "a Shift+click without an anchor becomes the anchor" {
+            let g, ids = setup ()
+            let g = g |> shift ids.[3] |> shift ids.[1]
+            Expect.equal (selected g) (HashSet.ofList [ ids.[1]; ids.[2]; ids.[3] ]) "range 2..4 from the first Shift+click"
+            let g, ids = setup ()
+            let g = { g with rangeAnchor = Some (System.Guid.NewGuid()) }
+            let g = g |> shift ids.[4] |> shift ids.[2]
+            Expect.equal (selected g) (HashSet.ofList [ ids.[2]; ids.[3]; ids.[4] ]) "anchor in another group is replaced"
+        }
+
+        test "deleting the anchor leaf clears the anchor" {
+            let g, ids = setup ()
+            let g = g |> click ids.[1] |> GroupsApp.removeLeafById ids.[1]
+            Expect.isNone g.rangeAnchor "removeLeafById"
+            let g, ids = setup ()
+            let g = g |> click ids.[1] |> GroupsApp.removeLeavesById (HashSet.single ids.[1])
+            Expect.isNone g.rangeAnchor "removeLeavesById"
+            let g, ids = setup ()
+            let g = GroupsApp.update (g |> click ids.[1]) (GroupsAppAction.RemoveLeaf(ids.[1], rootPath))
+            Expect.isNone g.rangeAnchor "RemoveLeaf"
+            let g, ids = setup ()
+            let g = GroupsApp.update (g |> click ids.[1]) (GroupsAppAction.ClearGroup rootPath)
+            Expect.isNone g.rangeAnchor "ClearGroup"
+        }
+
+        test "deleting another leaf keeps the anchor" {
+            let g, ids = setup ()
+            let g = g |> click ids.[1] |> GroupsApp.removeLeafById ids.[3]
+            Expect.equal g.rangeAnchor (Some ids.[1]) "anchor untouched"
+        }
+
+        test "a plain click after a range starts fresh" {
+            let g, ids = setup ()
+            let g = g |> click ids.[1] |> shift ids.[3] |> click ids.[4]
+            Expect.isEmpty (selected g) "the range is cleared"
+            Expect.equal g.singleSelectLeaf (Some ids.[4]) "only the clicked row is selected"
+        }
+
+        test "a cube-click deselect moves the anchor" {
+            let g, ids = setup ()
+            let g = g |> cube ids.[3] |> cube ids.[3] |> shift ids.[1]
+            Expect.equal (selected g) (HashSet.ofList [ ids.[1]; ids.[2]; ids.[3] ]) "range 2..4 from the deselected row"
+        }
+
+        test "after a range the active child is the Shift+clicked leaf" {
+            let g, ids = setup ()
+            let g = g |> click ids.[1] |> shift ids.[3]
+            Expect.equal g.activeChild.id ids.[3] "Remove acts on the green row"
+            Expect.equal g.rangeAnchor (Some ids.[1]) "the anchor stays"
+        }
+
+        test "a cube click toggles off an entry stored with another path" {
+            let g, ids = setup ()
+            let g = { g with selectedLeaves = HashSet.single { id = ids.[2]; path = []; name = "picked" } }
+            let g = GroupsApp.update g (GroupsAppAction.AddLeafToSelection([ Index.zero ], ids.[2], ""))
+            Expect.isEmpty (selected g) "removed, not added a second time"
+        }
+    ]
+
 let tests =
     testList "Section 10 — Grouping" [
         tc10Tests
         crudTests
         expandToLeafTests
         virtualListWindowTests
+        rangeSelectionTests
     ]

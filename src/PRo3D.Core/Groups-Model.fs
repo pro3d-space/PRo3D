@@ -226,6 +226,10 @@ type GroupsModel = {
     lastSelectedItem     : SelectedItem
     selectedLeaves       : HashSet<TreeSelection> 
     singleSelectLeaf     : option<Guid>
+    /// Where a Shift+click range in a list starts: the leaf last clicked without Shift (name or
+    /// cube icon, selecting or deselecting), picked in the 3D view, or Shift+clicked in a list
+    /// when there was no anchor in its group. Not persisted.
+    rangeAnchor          : Option<Guid>
 }
 
 module Leaf =
@@ -344,6 +348,7 @@ module GroupsModel =
                 lastSelectedItem    = SelectedItem.Child
                 selectedLeaves      = HashSet.Empty 
                 singleSelectLeaf    = None
+                rangeAnchor         = None
             }
         }
 
@@ -357,6 +362,7 @@ module GroupsModel =
         lastSelectedItem = SelectedItem.Child
         selectedLeaves   = HashSet.Empty
         singleSelectLeaf = None
+        rangeAnchor      = None
     }
 
     
@@ -403,6 +409,7 @@ module GroupsModel =
             rootGroup = mapNodeNames m.rootGroup; 
             groupsLookup = m.groupsLookup |> HashMap.toSeq |> Seq.map (fun (id, name) -> mapAnyName id, name) |> HashMap.ofSeq
             singleSelectLeaf = None
+            rangeAnchor = None
         }
 
 type GroupsModel with  
