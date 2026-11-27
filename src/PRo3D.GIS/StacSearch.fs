@@ -549,14 +549,49 @@ module StacSearch =
                 | None -> return Ok (items.ToArray() |> Array.truncate q.limit, matched)
         }
 
-    /// Where all downloads land: %TEMP%\PRo3D\stac.
-    let cacheDirectory () = Path.Combine(Path.GetTempPath(), "PRo3D", "stac")
+    /// The folder the user chose (the Download Directory row; default %TEMP%\PRo3D\stac):
+    /// StacSearchModel.sessionDownloadDirectory, so new panel models show the same one.
+    /// Set by the Viewer when it changes (setDownloadRoot).
+    let downloadRoot () = StacSearchModel.sessionDownloadDirectory
+
+    /// Where all downloads land: the Download Directory itself, one folder per item
+    /// (itemDirectory). No subfolder of PRo3D's own: the user's folder is used as is.
+    let cacheDirectory () = downloadRoot ()
+
+    /// Guards the root and `rootChanged` together, so a download's target folder and
+    /// the token that cancels it belong to the same root.
+    let private rootGate = obj ()
+
+    /// Cancelled when the Download Directory changes: the downloads still running go
+    /// into the old folder, so they stop (an image there without its sidecar beside
+    /// it, or the other way round, would have no projector). Never disposed: running
+    /// downloads may still read its token.
+    let mutable private rootChanged = new CancellationTokenSource()
+
+    /// What a download stopped by a new Download Directory answers.
+    let directoryChangedError (url : string) =
+        sprintf "%s: stopped, the download directory changed" url
+
+    /// Downloads go into this folder from now on. It is created at once if missing (the
+    /// default temp folder), so the panel's folder icon has something to open. Another
+    /// folder than before stops the downloads still running (rootChanged).
+    let setDownloadRoot (root : string) =
+        lock rootGate (fun () ->
+            if root <> StacSearchModel.sessionDownloadDirectory then
+                StacSearchModel.sessionDownloadDirectory <- root
+                let old = rootChanged
+                rootChanged <- new CancellationTokenSource()
+                old.Cancel())
+        try Directory.CreateDirectory root |> ignore
+        with e -> Log.warn "[STAC] could not create the download directory %s: %s" root e.Message
 
     /// Where an item's files land: one folder per item, so the folder's mbi index
     /// (InstrumentMetadata.buildMbiIndexCached) sees exactly that item's sidecar.
     /// The id made a valid name, plus a short hash of the id itself: ids that differ
     /// only in case (one folder on Windows) or only in invalid characters, and ids
-    /// like "." or "..", still get folders of their own inside the cache.
+    /// like "." or "..", still get folders of their own inside the cache. Always
+    /// "<name>_<hash>" ("item" when nothing of the id is left), never the bare hash,
+    /// so a user's own folder named like a date (20240115) is never taken for one.
     /// The characters replaced are Windows' on every platform, not
     /// Path.GetInvalidFileNameChars: on Linux and macOS that is only '/' and NUL,
     /// so ':' or '*' would stay in the name there, and the same item would get a
@@ -573,7 +608,7 @@ module StacSearch =
             |> Array.take 4
             |> Array.map (fun b -> b.ToString "x2")
             |> String.concat ""
-        let name = if safe = "" then hash else safe + "_" + hash
+        let name = (if safe = "" then "item" else safe) + "_" + hash
         Path.Combine(cacheDirectory (), name)
 
     /// The remote file name, kept locally: the mbi sidecar names its band files, so
@@ -588,14 +623,77 @@ module StacSearch =
     let localImagePath (itemId : string) (assets : StacAssets) =
         Path.Combine(itemDirectory itemId, fileName assets.image)
 
-    /// Delete the download cache (the panel's broom). Files in use, e.g. an image
-    /// projected right now, stay; everything else goes.
+    /// A folder name itemDirectory makes: a name, "_", then 8 lowercase hex digits (the
+    /// id's hash). Not enough on its own to tell PRo3D's folders (a user's
+    /// "survey_20240115" looks the same): see isItemFolder.
+    let isItemFolderName (name : string) =
+        let isHex (c : char) = (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')
+        let n = name.Length
+        n > 9
+        && name.[n - 9] = '_'
+        && (let mutable ok = true
+            for i in n - 8 .. n - 1 do
+                if not (isHex name.[i]) then ok <- false
+            ok)
+
+    /// The file PRo3D puts into every item folder it makes (markItemFolder): only
+    /// folders holding it are ever deleted by the trash.
+    [<Literal>]
+    let itemMarkerName = ".pro3d-stac-item"
+
+    /// Marks a folder as one of PRo3D's item folders, once (fetchTo, before the
+    /// first file goes in).
+    let markItemFolder (dir : string) =
+        let marker = Path.Combine(dir, itemMarkerName)
+        if not (File.Exists marker) then
+            try
+                File.WriteAllText(marker, "Made by PRo3D's Image Search: the trash may delete this folder.")
+                try File.SetAttributes(marker, File.GetAttributes marker ||| FileAttributes.Hidden) with _ -> ()
+            with e -> Log.warn "[STAC] could not mark %s as a download folder: %s" dir e.Message
+
+    let private trimSeparators (path : string) =
+        path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+
+    let private samePath (a : string) (b : string) =
+        String.Equals(trimSeparators (Path.GetFullPath a), trimSeparators (Path.GetFullPath b), StringComparison.OrdinalIgnoreCase)
+
+    /// One of PRo3D's item folders: named like one (isItemFolderName) and holding the
+    /// marker. Folders without it count only in the default temp folder, which
+    /// nothing but PRo3D writes to (downloads of releases before the marker).
+    let isItemFolder (dir : string) =
+        try
+            isItemFolderName (Path.GetFileName(trimSeparators dir))
+            && (File.Exists(Path.Combine(dir, itemMarkerName))
+                || (match Path.GetDirectoryName(trimSeparators (Path.GetFullPath dir)) with
+                    | null -> false
+                    | parent -> samePath parent (StacSearchModel.defaultDownloadDirectory ())))
+        with _ -> false
+
+    /// The file lies in an item folder directly inside the Download Directory: an
+    /// image downloaded from the catalog. Library images that happen to be elsewhere in
+    /// the chosen folder are not.
+    let isDownloaded (file : string) =
+        try
+            let item = Path.GetDirectoryName(Path.GetFullPath file)
+            match Path.GetDirectoryName item with
+            | null -> false
+            | parent -> samePath parent (cacheDirectory ()) && isItemFolder item
+        with _ -> false
+
+    /// Delete the download cache (the panel's trash, after its confirmation): the
+    /// item folders PRo3D made (isItemFolder); other folders and loose files in
+    /// the download directory stay. Files in use, e.g. an image projected right
+    /// now, stay too.
     let clearCache () =
         let dir = cacheDirectory ()
         if Directory.Exists dir then
             let mutable failed = 0
+            let mutable skipped = 0
             for sub in Directory.GetDirectories dir do
-                try Directory.Delete(sub, true) with _ -> failed <- failed + 1
+                if isItemFolder sub then
+                    try Directory.Delete(sub, true) with _ -> failed <- failed + 1
+                else skipped <- skipped + 1
+            if skipped > 0 then Log.line "[STAC] cache: %d folder(s) not made by PRo3D, kept" skipped
             if failed > 0 then Log.warn "[STAC] cache: %d item folder(s) in use, kept" failed
             else Log.line "[STAC] cache cleared"
 
@@ -609,48 +707,66 @@ module StacSearch =
     let private running =
         System.Collections.Concurrent.ConcurrentDictionary<string, Lazy<Task<Result<string, string>>>>()
 
-    let private fetchTo (url : string) (target : string) : Task<Result<string, string>> =
+    /// `rootToken`: cancelled when the Download Directory changes (rootChanged).
+    let private fetchTo (url : string) (target : string) (rootToken : CancellationToken) : Task<Result<string, string>> =
         task {
-            do! downloadSlots.WaitAsync()
-            try
-                try
-                    use timeout = new CancellationTokenSource(downloadTimeout)
-                    Directory.CreateDirectory(Path.GetDirectoryName target) |> ignore
-                    // a name of its own, so even a stray second writer cannot collide
-                    let partial = sprintf "%s.%s.part" target (Guid.NewGuid().ToString "N")
+            let! acquired =
+                task {
                     try
-                        use request = new HttpRequestMessage(HttpMethod.Get, url)
-                        use! response = send request HttpCompletionOption.ResponseHeadersRead timeout.Token
-                        if not response.IsSuccessStatusCode then
-                            return Result.Error (errorOf url response)
-                        else
-                            // its own task, so the file is closed before the move
-                            do! (task {
-                                    use file = File.Create partial
-                                    do! response.Content.CopyToAsync(file, timeout.Token)
-                                } : Task)
-                            File.Move(partial, target, true)
-                            return Ok target
-                    finally
-                        if File.Exists partial then
-                            try File.Delete partial with _ -> ()
-                with
-                | :? OperationCanceledException ->
-                    return Result.Error (sprintf "%s: no complete answer within %.0f s" url downloadTimeout.TotalSeconds)
-                | e ->
-                    return Result.Error (sprintf "%s: %s" url e.Message)
-            finally
-                downloadSlots.Release() |> ignore
+                        do! downloadSlots.WaitAsync rootToken
+                        return true
+                    with :? OperationCanceledException -> return false
+                }
+            if not acquired then return Result.Error (directoryChangedError url)
+            else
+                try
+                    try
+                        use timeout = CancellationTokenSource.CreateLinkedTokenSource rootToken
+                        timeout.CancelAfter downloadTimeout
+                        let dir = Path.GetDirectoryName target
+                        Directory.CreateDirectory dir |> ignore
+                        markItemFolder dir
+                        // a name of its own, so even a stray second writer cannot collide
+                        let partial = sprintf "%s.%s.part" target (Guid.NewGuid().ToString "N")
+                        try
+                            use request = new HttpRequestMessage(HttpMethod.Get, url)
+                            use! response = send request HttpCompletionOption.ResponseHeadersRead timeout.Token
+                            if not response.IsSuccessStatusCode then
+                                return Result.Error (errorOf url response)
+                            else
+                                // its own task, so the file is closed before the move
+                                do! (task {
+                                        use file = File.Create partial
+                                        do! response.Content.CopyToAsync(file, timeout.Token)
+                                    } : Task)
+                                File.Move(partial, target, true)
+                                return Ok target
+                        finally
+                            if File.Exists partial then
+                                try File.Delete partial with _ -> ()
+                    with
+                    | :? OperationCanceledException when rootToken.IsCancellationRequested ->
+                        return Result.Error (directoryChangedError url)
+                    | :? OperationCanceledException ->
+                        return Result.Error (sprintf "%s: no complete answer within %.0f s" url downloadTimeout.TotalSeconds)
+                    | e ->
+                        return Result.Error (sprintf "%s: %s" url e.Message)
+                finally
+                    downloadSlots.Release() |> ignore
         }
 
     /// Download into the item's folder, unless already there. Written to a temporary
     /// name first, so an interrupted download never looks complete; one download per
     /// file at a time, however many searches and clicks ask for it.
+    /// A new Download Directory stops it (setDownloadRoot): its file would land
+    /// in the old folder.
     let download (itemId : string) (url : string) : Task<Result<string, string>> =
-        let target = Path.Combine(itemDirectory itemId, fileName url)
+        // the folder and the token of the same root
+        let target, rootToken =
+            lock rootGate (fun () -> Path.Combine(itemDirectory itemId, fileName url), rootChanged.Token)
         if File.Exists target then Task.FromResult(Ok target)
         else
-            let lazyTask = running.GetOrAdd(target, fun _ -> lazy (fetchTo url target))
+            let lazyTask = running.GetOrAdd(target, fun _ -> lazy (fetchTo url target rootToken))
             let t = lazyTask.Value
             // forget it once done: a failed download may be tried again later
             t.ContinueWith(fun (_ : Task<Result<string, string>>) -> running.TryRemove(Collections.Generic.KeyValuePair(target, lazyTask)) |> ignore) |> ignore
@@ -1139,7 +1255,10 @@ module StacSearch =
                 return Ok (kept, matched, listing)
         }
 
-    /// Download all files of an item. Returns the local image path.
+    /// Download all files of an item. Returns the local image path. All into one
+    /// folder: when the Download Directory changed in between (a file finished in
+    /// the old folder, the next went into the new one), it fails, so the image is
+    /// never used without its sidecar.
     let fetch (itemId : string) (assets : StacAssets) : Task<Result<string, string>> =
         task {
             let! mbi = download itemId assets.mbi
@@ -1148,7 +1267,11 @@ module StacSearch =
                 | Some url -> download itemId url
                 | None -> Task.FromResult(Ok "")
             let! image = download itemId assets.image
+            let sameFolder (a : string) (b : string) =
+                a = "" || String.Equals(Path.GetDirectoryName a, Path.GetDirectoryName b, StringComparison.OrdinalIgnoreCase)
             match mbi, metadata, image with
+            | Ok mbi, Ok metadata, Ok image when not (sameFolder mbi image && sameFolder metadata image) ->
+                return Result.Error (directoryChangedError assets.image)
             | Ok _, Ok _, Ok image -> return Ok image
             | Result.Error e, _, _ | _, Result.Error e, _ | _, _, Result.Error e -> return Result.Error e
         }

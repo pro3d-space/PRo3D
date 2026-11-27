@@ -1649,12 +1649,36 @@ module JsInterop =
     let escapePath (s : string) =
         s.Replace("\\", "\\\\")
 
+    /// Any text as a single-quoted JavaScript string literal, for code in a
+    /// clientEvent: backslashes, quotes and line breaks are escaped (the default JSON
+    /// encoder writes ' and " as ' / "), so it never ends the literal nor
+    /// breaks the attribute aardvark.media sends.
+    let stringLiteral (s : string) =
+        let json = System.Text.Json.JsonSerializer.Serialize(s)
+        "'" + json.Substring(1, json.Length - 2) + "'"
+
 module Electron =
+    // stringLiteral, not escapePath: a path may hold a quote (/Users/o'neil/...), e.g.
+    // a folder the user chose, which would end a '%s' literal and break the click
     let openPath (s : string) =
-        sprintf "top.aardvark.electron.shell.openPath('%s');" (JsInterop.escapePath s)
-    
+        sprintf "top.aardvark.electron.shell.openPath(%s);" (JsInterop.stringLiteral s)
+
     let showItemInFolder (s : string) =
-        sprintf "top.aardvark.electron.shell.showItemInFolder('%s');" (JsInterop.escapePath s)
+        sprintf "top.aardvark.electron.shell.showItemInFolder(%s);" (JsInterop.stringLiteral s)
+
+/// Copy to the clipboard from a click, in the page: no round trip to the server.
+module Clipboard =
+    /// clientEvent "onclick" code for an icon: copies `text`, shows a check mark on the
+    /// icon for a second (then `iconClass` again), and stops the click there, so a
+    /// clickable row around the icon (e.g. select on click) does not get it.
+    /// navigator.clipboard first; the hidden-textarea copy where it is not available.
+    let copyOnClick (text : string) (iconClass : string) =
+        let t = JsInterop.stringLiteral text
+        let restore = JsInterop.stringLiteral iconClass
+        "event.stopPropagation(); var el = this; var t = " + t + ";"
+        + " var done = function () { el.className = 'green check icon'; setTimeout(function () { el.className = " + restore + "; }, 1000); };"
+        + " var fallback = function () { var a = document.createElement('textarea'); a.value = t; a.style.position = 'fixed'; a.style.opacity = '0'; document.body.appendChild(a); a.select(); try { document.execCommand('copy'); done(); } finally { document.body.removeChild(a); } };"
+        + " if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(t).then(done, fallback); } else { fallback(); }"
 
 module FrustumUtils =
     let withAspect (aspect : float) (frustum : Frustum) =

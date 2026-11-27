@@ -83,11 +83,9 @@ module ProjectedImageListApp =
     /// would stay on screen until PRo3D is closed.
     let private dropStacImages (m : ProjectedImageListModel) =
         let m = endStacHover m
-        let cache =
-            let dir = Path.GetFullPath(PRo3D.GIS.StacSearch.cacheDirectory ())
-            if dir.EndsWith(string Path.DirectorySeparatorChar) then dir else dir + string Path.DirectorySeparatorChar
-        let fromCache (img : ProjectedImageModel) =
-            try Path.GetFullPath(img.texture).StartsWith(cache, StringComparison.OrdinalIgnoreCase) with _ -> false
+        // only files in PRo3D's item folders: the chosen folder may also hold the
+        // user's own images, which stay in the library
+        let fromCache (img : ProjectedImageModel) = PRo3D.GIS.StacSearch.isDownloaded img.texture
         // library images from the cache: added by earlier versions, which put
         // downloads into the library
         let gone =
@@ -119,6 +117,12 @@ module ProjectedImageListApp =
                 // and its results: a click on one would go to the old catalog
                 // (the images selected or on the stack stay: their files are downloaded)
                 { m with stacSearch = { s with serverUrl = url; connection = Disconnected; candidates = IndexList.empty; query = None; status = StacSearchStatus.Idle; addWhenFetched = HashSet.empty; selectWhenFetched = None } }
+                |> keepStacHoverValid
+            | SetDownloadDirectory dir when dir = s.downloadDirectory || String.IsNullOrWhiteSpace dir -> m
+            | SetDownloadDirectory dir ->
+                // the results' sidecars were downloaded into the old folder: search
+                // again (the images selected or on the stack stay: absolute paths)
+                { m with stacSearch = { s with downloadDirectory = dir; candidates = IndexList.empty; query = None; status = StacSearchStatus.Idle; addWhenFetched = HashSet.empty; selectWhenFetched = None } }
                 |> keepStacHoverValid
             | Connect ->
                 match s.connection with
@@ -288,8 +292,13 @@ module ProjectedImageListApp =
                     // a preview whose result is no longer listed (and that nothing else
                     // holds) is not kept
                     keepStacHoverValid m
+            // the trash icon asks first
+            | ClearCache -> { m with stacSearch = { s with confirmClearCache = true } }
+            | CancelClearCache -> { m with stacSearch = { s with confirmClearCache = false } }
             // the Viewer deletes the files; their images go from everywhere
-            | ClearCache -> dropStacImages m
+            | ConfirmClearCache ->
+                let m = { m with stacSearch = { s with confirmClearCache = false } }
+                dropStacImages m
             | ClearResults ->
                 { m with stacSearch = { s with candidates = IndexList.empty; query = None; status = StacSearchStatus.Idle } }
                 |> keepStacHoverValid
@@ -554,6 +563,44 @@ module ProjectedImageListApp =
                         ]
                     ]
                 | _ -> ()
+            })
+
+    /// The trash icon's confirmation: which folder, and that only PRo3D's own item
+    /// folders in it go. Mounted beside signInDialog (ViewerGUI).
+    let clearCacheDialog (m : AdaptiveProjectedImageListModel) : DomNode<ProjectedImageListMessage> =
+        let s = m.stacSearch
+        let find (key : string) = sprintf "document.querySelector('.stac-clear-dimmer [data-stac=%s]')" key
+        Incremental.div AttributeMap.empty (
+            alist {
+                let! confirm = s.confirmClearCache
+                if confirm then
+                    let! dir = s.downloadDirectory
+                    yield div [
+                        clazz "stac-clear-dimmer"
+                        style "position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 20000; display: flex; align-items: center; justify-content: center"
+                    ] [
+                        div [style "width: 380px; background: #1b1c1d; color: #eee; border: 1px solid #555; border-radius: 6px; box-shadow: 0 8px 30px rgba(0,0,0,0.7); padding: 18px 20px; font-size: 14px"] [
+                            div [style "display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: bold"] [
+                                i [clazz "trash alternate outline icon"] []
+                                text "Delete the downloaded images?"
+                            ]
+                            div [style "color: #aaa; margin: 4px 0 12px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap"; attribute "title" dir] [
+                                text dir
+                            ]
+                            div [style "color: #ccc"] [
+                                text "Only the image folders PRo3D downloaded into this folder are deleted (named <item id>_<8 hex digits>). Other files and folders stay. Images on the projection stack or selected are removed from it; a search downloads them again."
+                            ]
+                            div [style "display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px"] [
+                                onBoot "setTimeout(() => document.getElementById('__ID__').focus(), 0);" (
+                                    button [
+                                        attribute "data-stac" "cancel"; clazz "ui button"
+                                        clientEvent "onkeydown" (sprintf "if (event.key === 'Escape') { event.preventDefault(); %s.click(); }" (find "cancel"))
+                                        onClick (fun _ -> StacMessage CancelClearCache)
+                                    ] [ text "Cancel" ])
+                                button [clazz "ui red button"; onClick (fun _ -> StacMessage ConfirmClearCache)] [ text "Delete" ]
+                            ]
+                        ]
+                    ]
             })
 
     let selectedImage (m : AdaptiveProjectedImageListModel) =
@@ -1053,6 +1100,14 @@ module ProjectedImageListApp =
             let border = if separator then $"border-right: 1px solid {borderColor}; " else ""
             attribute "style" $"{cursor}width: {width}px; flex-shrink: 0; {height}; {border}display: flex; justify-content: center; align-items: center; overflow: hidden; white-space: nowrap;"
         let listRowHeight = "height: 44px"
+        /// The name line's copy icon (right end): copies the file name, not the
+        /// click's select (Clipboard.copyOnClick stops it).
+        let copyIconClass = "copy outline icon"
+        let copyFileNameIcon (fileName : string) =
+            i [clazz copyIconClass
+               style "cursor: pointer; opacity: 0.6; flex-shrink: 0; margin: 0 0 0 6px"
+               attribute "title" (sprintf "copy the file name (%s)" fileName)
+               clientEvent "onclick" (Clipboard.copyOnClick fileName copyIconClass)] []
         let listHeaderHeight = "padding: 5px 0"
         let wPreview, wAdd, wFlyTo, wInstrument, wDistance, wDate, wResolution = 44, 32, 56, 70, 84, 110, 84
 
@@ -1298,16 +1353,20 @@ module ProjectedImageListApp =
                             let! selected = m.selectedImage
                             let selected = image.IsSome && selected = image
                             let background = if selected then "rgba(33,133,208,0.6)" else "#333"
-                            yield style $"cursor: pointer; padding: 0 5px; border-bottom: 1px solid {borderColor}; background: {background}; color: {nameColor}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis"
+                            yield style $"cursor: pointer; padding: 0 5px; border-bottom: 1px solid {borderColor}; background: {background}; color: {nameColor}; display: flex; align-items: center"
                             yield attribute "title" (if selected then "click to deselect" else "click to select (downloads the image)")
                             yield onClick (fun _ -> StacMessage (SelectCandidate id))
                         }))
                         (AList.ofList [
-                            yield text c.title
-                            // the catalog's target, when it is another body
-                            match c.otherTarget with
-                            | Some targets -> yield span [style "color: #999; font-weight: normal"] [text (sprintf " · %s" targets)]
-                            | None -> ()
+                            span [style "flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis"] [
+                                yield text c.title
+                                // the catalog's target, when it is another body
+                                match c.otherTarget with
+                                | Some targets -> yield span [style "color: #999; font-weight: normal"] [text (sprintf " · %s" targets)]
+                                | None -> ()
+                            ]
+                            // the image's file name, as it is saved when downloaded
+                            copyFileNameIcon (PRo3D.GIS.StacSearch.fileName c.assets.image)
                         ])
                     div [attribute "style" "display: flex; font-weight: bold"] [
                         div [cell wPreview true] [
@@ -1366,6 +1425,39 @@ module ProjectedImageListApp =
                                 yield style (inputStyle "100%")
                                 yield onChange (fun u -> StacMessage (SetServerUrl (u.Trim())))
                             }))
+                        ]
+                    PRo3D.Core.UI.rowWithTip "Download Directory:"
+                        "Where the downloaded images and sidecars go, one folder per image. Default: the temp folder (PRo3D\\stac). Remembered for the next session. The folder icon opens it."
+                        [
+                            div [style "display: flex; align-items: center; gap: 8px; min-width: 0; border: 1px solid rgba(255,255,255,0.15); border-radius: .28571429rem; background: rgba(255,255,255,0.03);"] [
+                                // as the surfaces' folder icon: opens the folder the files land in
+                                Incremental.i
+                                    (AttributeMap.ofAMap (amap {
+                                        let! dir = s.downloadDirectory
+                                        yield clazz "folder icon"
+                                        yield style "cursor: pointer; flex-shrink: 0; margin: 0 0 0 6px"
+                                        yield attribute "title" (sprintf "open %s" dir)
+                                        yield clientEvent "onclick" (Electron.openPath dir)
+                                    }))
+                                    AList.empty
+                                button [clazz "ui button tiny"
+                                        style "flex-shrink: 0; margin: -1px 0"
+                                        Dialogs.onChooseDirectory (Guid.NewGuid()) (fun (_, chosen) -> StacMessage (SetDownloadDirectory chosen))
+                                        clientEvent "onclick" jsImportDialog] [
+                                    text "Download Directory"
+                                ]
+                                // long paths are cut off; the tooltip shows the whole one
+                                Incremental.div
+                                    (AttributeMap.ofAMap (amap {
+                                        yield style "flex: 1; min-width: 0; padding-right: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap"
+                                        let! root = s.downloadDirectory
+                                        yield attribute "title" root
+                                    }))
+                                    (alist {
+                                        let! root = s.downloadDirectory
+                                        yield text root
+                                    })
+                            ]
                         ]
                     PRo3D.Core.UI.rowWithTip "Connection:"
                         "Off at start: nothing is sent to the catalog until you connect (or select the Image Search tool). If the catalog wants a sign-in, a dialog asks for it; the password is kept for this session only."
@@ -1440,7 +1532,7 @@ module ProjectedImageListApp =
                         })
                     i [clazz "eraser icon"; style "cursor: pointer"; attribute "title" "clear the results"; onClick (fun _ -> StacMessage ClearResults)] []
                     i [clazz "trash alternate outline icon"; style "cursor: pointer"
-                       attribute "title" "delete the downloaded images and sidecars (%TEMP%\\PRo3D\\stac); a search downloads them again"
+                       attribute "title" "delete the downloaded images and sidecars (the image folders in the Download Directory; asks first); a search downloads them again"
                        onClick (fun _ -> StacMessage ClearCache)] []
                 ]
                 // the hovered row's overview, large, over the image column (its
@@ -1515,11 +1607,15 @@ module ProjectedImageListApp =
                                         (AttributeMap.ofAMap (amap {
                                             let! selected = m.selectedImage |> AVal.map (fun sel -> sel = Some id)
                                             let background = if selected then "rgba(33,133,208,0.6)" else "#333"
-                                            yield style $"cursor: pointer; padding: 0 5px; border-bottom: 1px solid {borderColor}; background: {background}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis"
+                                            yield style $"cursor: pointer; padding: 0 5px; border-bottom: 1px solid {borderColor}; background: {background}; display: flex; align-items: center"
                                             yield attribute "title" (if selected then "click to deselect" else "click to select")
                                             yield onClick (fun _ -> SelectImage id)
                                         }))
-                                        (AList.single (Incremental.text (image.texture |> AVal.map Path.GetFileName)))
+                                        (alist {
+                                            let! fileName = image.texture |> AVal.map Path.GetFileName
+                                            yield span [style "flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis"] [ text fileName ]
+                                            yield copyFileNameIcon fileName
+                                        })
                                     div [attribute "style" "display: flex; font-weight: bold"]
                                         [
                                             // a thumbnail of the file (LibraryThumbnails, rendered on request)

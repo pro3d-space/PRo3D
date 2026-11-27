@@ -183,18 +183,26 @@ let tests () =
             }
 
             test "the bin removes downloaded images from library and stack" {
-                let cached = mkImage (IO.Path.Combine(PRo3D.GIS.StacSearch.cacheDirectory (), "item_1234", "x.png")) 1.0 DateTime.MinValue
-                let local = mkImage "C:/data/a.png" 1.0 DateTime.MinValue
-                let m =
-                    { mkModel [local; cached] with
-                        stack = IndexList.ofList [local.id; cached.id]
-                        selectedImage = Some cached.id
-                        hoveredImage = Some cached.id }
-                let m = m |> stac ClearCache
-                Expect.equal (m.images |> IndexList.toList |> List.map (fun i -> i.id)) [local.id] "only the local image stays"
-                Expect.equal (stackIds m) [local.id] "stack likewise"
-                Expect.isNone m.selectedImage "selection gone"
-                Expect.isNone m.hoveredImage "hover gone"
+                // a folder PRo3D made: named like one, with its marker
+                let folder = PRo3D.GIS.StacSearch.itemDirectory ("item-" + Guid.NewGuid().ToString "N")
+                IO.Directory.CreateDirectory folder |> ignore
+                PRo3D.GIS.StacSearch.markItemFolder folder
+                try
+                    let cached = mkImage (IO.Path.Combine(folder, "x.png")) 1.0 DateTime.MinValue
+                    let local = mkImage "C:/data/a.png" 1.0 DateTime.MinValue
+                    let m =
+                        { mkModel [local; cached] with
+                            stack = IndexList.ofList [local.id; cached.id]
+                            selectedImage = Some cached.id
+                            hoveredImage = Some cached.id }
+                    // the bin asks first; its Delete drops them
+                    let m = m |> stac ClearCache |> stac ConfirmClearCache
+                    Expect.equal (m.images |> IndexList.toList |> List.map (fun i -> i.id)) [local.id] "only the local image stays"
+                    Expect.equal (stackIds m) [local.id] "stack likewise"
+                    Expect.isNone m.selectedImage "selection gone"
+                    Expect.isNone m.hoveredImage "hover gone"
+                finally
+                    try IO.Directory.Delete(folder, true) with _ -> ()
             }
 
             test "the bin removes downloaded images that are only on the stack" {
@@ -202,7 +210,7 @@ let tests () =
                 let m = { m with stacSearch = { m.stacSearch with fetched = HashMap.single "x" img.id } }
                 let m = m |> stac (Fetch "x")
                 Expect.equal (stackIds m) [img.id] "on the stack"
-                let m = m |> stac ClearCache
+                let m = m |> stac ClearCache |> stac ConfirmClearCache
                 Expect.isEmpty (stackIds m) "off the stack"
                 Expect.isNone m.selectedImage "selection gone"
                 Expect.isTrue (HashMap.isEmpty m.stacImages) "no STAC image left"

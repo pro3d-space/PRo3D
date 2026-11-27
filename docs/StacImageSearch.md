@@ -36,7 +36,9 @@ the GIS tab under *Projected Images → Image Search (STAC)*.
    back and forth on the spot does not restart a running search.
 
    The list has the Image Library's columns, so both read the same. Above each
-   row is the product name (red when its pointing could not be resolved). Click it
+   row is the product name (red when its pointing could not be resolved). The
+   **copy icon** at its right end copies the image's file name (as it is saved when
+   downloaded) to the clipboard, without selecting the row. Click the name
    to **select** the image: it is downloaded if needed and shown under *Selected
    Image*, where its display settings can be changed as for a library image. It is
    **not added to the Image Library**, nor to the stack. The selected row is
@@ -73,7 +75,7 @@ the GIS tab under *Projected Images → Image Search (STAC)*.
    ([MultiImageProjection.md](MultiImageProjection.md), *Projection Settings*).
 
 5. **Add** (the row's + cell): its files are downloaded to a folder of its own under
-   `%TEMP%\PRo3D\stac\`, the image is selected and put on top of the
+   the download directory (see *Download Directory* below), the image is selected and put on top of the
    projection stack. It is **not added to the Image Library**: the library holds
    the imported folder only. An image already downloaded (previewed or selected)
    is not downloaded again. A downloaded image stays available while its result
@@ -89,9 +91,40 @@ counts them apart from the images found.
 
 The **eraser** clears the results and their previews, and stops a running
 search; images on the stack or selected stay. The **bin** deletes the
-downloaded files (`%TEMP%\PRo3D\stac`) and removes the images downloaded from
-the catalog from the stack and the selection. The next search downloads what it needs again. Nothing else
-ever removes the files.
+downloaded files and removes the images downloaded from the catalog from the
+stack and the selection. It asks first: a dialog names the folder, and only
+**Delete** removes anything. Only the item folders PRo3D created are deleted:
+named `<item id>_<8 hex digits>` (`item_<8 hex digits>` for an id with no usable
+characters) **and** holding the hidden marker file `.pro3d-stac-item` that PRo3D
+writes into every item folder it makes. Other files and folders in the download
+directory stay, even ones named like an item folder. (Item folders downloaded by
+earlier releases, which have no marker, are recognized in the default temp folder
+only.) The next search downloads what it needs again.
+Nothing else ever removes the files.
+
+## Download Directory
+
+The **Download Directory:** row under *Catalog:* shows where downloads go.
+The files land **in the shown folder itself**, one folder per item; PRo3D adds no
+subfolder of its own. The default is `%TEMP%\PRo3D\stac`.
+
+- The **folder icon** opens the folder in Explorer / Finder. A folder that does not
+  exist yet (the default, at first) is created at start and when the folder
+  changes, so the icon works before the first download.
+- The **Download Directory** button picks another folder. New downloads go
+  there. Downloads still running stop (their files would land in the old folder,
+  apart from their sidecars). The result list is cleared, since its sidecars are in the old folder,
+  so search again. Images already on the stack or selected stay where they are.
+- The folder is **remembered** for the next session, in `%APPDATA%\Pro3D\stac.json`
+  next to the catalog URL and the user name. It is not saved with the scene:
+  loading a scene or starting a new one keeps the folder chosen in this session. A
+  remembered folder that is not an absolute path, or that is not available at
+  start (e.g. on a drive that is unplugged, or not writable), falls back to the
+  default for that session, and the row shows the default. It stays remembered,
+  so the next session uses it again once it is back.
+- Because the bin deletes only PRo3D's marked item folders directly in the chosen
+  folder, and only images from those folders leave the Image Library and the
+  stack, any folder can be chosen without risking its other contents.
 
 Downloads: one file is downloaded once, however many searches and clicks ask
 for it at the same time; a download that does not complete within five minutes
@@ -325,8 +358,8 @@ Mars and therefore west-positive with the default kernels.
 - The client only calls `<server>/search` and the asset links. Use an https
   URL that answers directly; a redirect to plain http is refused.
 - Nothing of the search is saved with the scene, including the images put on
-  the stack from it. Downloaded images never enter the Image Library. Downloaded files stay in the temp
-  folder until it is cleaned.
+  the stack from it. Downloaded images never enter the Image Library. Downloaded files stay in the
+  download directory until the bin deletes them (or the temp folder is cleaned).
 
 # Testing
 

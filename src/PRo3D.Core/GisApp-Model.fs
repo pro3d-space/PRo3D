@@ -249,7 +249,7 @@ module GisAppJson =
                 cameraFollowsSource    = Option.defaultValue true cameraFollowsSource
                 spiceKernelLoadSuccess = false
                 projectedImageList        =
-                    { ProjectedImageListModel.initial with
+                    { ProjectedImageListModel.create () with
                         lightingMode = lightingMode
                         windingCorrection = Option.defaultValue false windingCorrection
                         // a value this release does not know (a newer scene): the full stack
