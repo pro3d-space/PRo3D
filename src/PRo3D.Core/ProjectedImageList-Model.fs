@@ -503,13 +503,31 @@ module StacSearchModel =
     let defaultDownloadDirectory () =
         System.IO.Path.Combine(System.IO.Path.GetTempPath(), "PRo3D", "stac")
 
-    /// The Download Directory at start: the remembered one, if it is a usable path,
-    /// else the default.
+    /// The folder exists (or can be made) and takes files: a probe file is written
+    /// and deleted again.
+    let private isWritableDirectory (dir : string) =
+        try
+            System.IO.Directory.CreateDirectory dir |> ignore
+            let probe = System.IO.Path.Combine(dir, sprintf ".pro3d-probe-%s" (System.Guid.NewGuid().ToString "N"))
+            System.IO.File.WriteAllText(probe, "")
+            System.IO.File.Delete probe
+            true
+        with _ -> false
+
+    /// The Download Directory at start: the remembered one, if it is a usable path
+    /// and the folder is there (or can be made) and writable -- else the default, so
+    /// a folder on a drive that is gone (an unplugged USB stick) does not fail every
+    /// download; the Download Directory row then shows the default. The remembered
+    /// folder stays remembered: the next session uses it again once it is back.
     let initialDownloadDirectory () =
         let dir = rememberedDownloadDirectory ()
-        let usable =
+        let isPath =
             dir <> "" && (try System.IO.Path.IsPathRooted dir && System.IO.Path.GetFullPath dir <> "" with _ -> false)
-        if usable then dir else defaultDownloadDirectory ()
+        if not isPath then defaultDownloadDirectory ()
+        elif isWritableDirectory dir then dir
+        else
+            Log.warn "[STAC] the download directory %s is not available; using %s for this session" dir (defaultDownloadDirectory ())
+            defaultDownloadDirectory ()
 
     /// This session's Download Directory: where StacSearch downloads to, and what every
     /// new panel model starts with (create), so a scene load or a new scene keeps the

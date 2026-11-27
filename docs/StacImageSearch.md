@@ -93,10 +93,13 @@ The **eraser** clears the results and their previews, and stops a running
 search; images on the stack or selected stay. The **bin** deletes the
 downloaded files and removes the images downloaded from the catalog from the
 stack and the selection. It asks first: a dialog names the folder, and only
-**Delete** removes anything. Only the item folders PRo3D created are deleted,
-recognized by their name (`<item id>_<8 hex digits>`, `item_<8 hex digits>` for an
-id with no usable characters); other files and folders
-in the download directory stay. The next search downloads what it needs again.
+**Delete** removes anything. Only the item folders PRo3D created are deleted:
+named `<item id>_<8 hex digits>` (`item_<8 hex digits>` for an id with no usable
+characters) **and** holding the hidden marker file `.pro3d-stac-item` that PRo3D
+writes into every item folder it makes. Other files and folders in the download
+directory stay, even ones named like an item folder. (Item folders downloaded by
+earlier releases, which have no marker, are recognized in the default temp folder
+only.) The next search downloads what it needs again.
 Nothing else ever removes the files.
 
 ## Download Directory
@@ -109,17 +112,19 @@ subfolder of its own. The default is `%TEMP%\PRo3D\stac`.
   exist yet (the default, at first) is created at start and when the folder
   changes, so the icon works before the first download.
 - The **Download Directory** button picks another folder. New downloads go
-  there. The result list is cleared, since its sidecars are in the old folder,
+  there. Downloads still running stop (their files would land in the old folder,
+  apart from their sidecars). The result list is cleared, since its sidecars are in the old folder,
   so search again. Images already on the stack or selected stay where they are.
 - The folder is **remembered** for the next session, in `%APPDATA%\Pro3D\stac.json`
   next to the catalog URL and the user name. It is not saved with the scene:
   loading a scene or starting a new one keeps the folder chosen in this session. A
-  remembered folder that is not an absolute path falls back to the default.
-- Because the bin deletes only the item folders directly in the chosen folder,
-  and only images from those folders leave the Image Library and the stack, any
-  folder can be chosen without risking its other contents. A folder of your own
-  that happens to be named `<name>_<8 hex digits>` (e.g. `scan_00012345`) would
-  be taken for one, so prefer a folder of its own for downloads.
+  remembered folder that is not an absolute path, or that is not available at
+  start (e.g. on a drive that is unplugged, or not writable), falls back to the
+  default for that session, and the row shows the default. It stays remembered,
+  so the next session uses it again once it is back.
+- Because the bin deletes only PRo3D's marked item folders directly in the chosen
+  folder, and only images from those folders leave the Image Library and the
+  stack, any folder can be chosen without risking its other contents.
 
 Downloads: one file is downloaded once, however many searches and clicks ask
 for it at the same time; a download that does not complete within five minutes

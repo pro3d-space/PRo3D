@@ -362,6 +362,10 @@ let private withItem (f : string -> unit) =
         let dir = StacSearch.itemDirectory id
         if IO.Directory.Exists dir then IO.Directory.Delete(dir, true)
 
+/// The files in an item folder besides PRo3D's marker (StacSearch.itemMarkerName).
+let private filesBut (dir : string) =
+    IO.Directory.GetFiles dir |> Array.filter (fun f -> IO.Path.GetFileName f <> StacSearch.itemMarkerName)
+
 let private aScene (lonDeg : float) : StacSearch.Scene =
     let lon = Conversion.RadiansFromDegrees lonDeg
     {
@@ -471,7 +475,7 @@ let private local =
                 | Result.Error e -> Expect.stringContains e "404" "the status in the message"
                 let dir = StacSearch.itemDirectory id
                 if IO.Directory.Exists dir then
-                    Expect.isEmpty (IO.Directory.GetFiles dir) "no file")
+                    Expect.isEmpty (filesBut dir) "no file")
         }
 
         test "a stalled download times out instead of hanging" {
@@ -492,7 +496,7 @@ let private local =
                     Expect.isLessThan sw.Elapsed.TotalSeconds 4.0 "gave up after the timeout"
                     let dir = StacSearch.itemDirectory id
                     if IO.Directory.Exists dir then
-                        Expect.isEmpty (IO.Directory.GetFiles dir) "no partial file left")
+                        Expect.isEmpty (filesBut dir) "no partial file left")
             finally
                 StacSearch.downloadTimeout <- saved
         }
@@ -1101,7 +1105,14 @@ let private downloadDirectory =
                 let item = StacSearch.itemDirectory "some-item"
                 Expect.equal (IO.Path.GetDirectoryName item) cache "items land in it"
                 IO.Directory.CreateDirectory item |> ignore
+                StacSearch.markItemFolder item
                 IO.File.WriteAllText(IO.Path.Combine(item, "x.png"), "x")
+                // the user's own folder, named like an item folder but without the marker
+                let lookalike = IO.Path.Combine(cache, "survey_20240115")
+                IO.Directory.CreateDirectory lookalike |> ignore
+                let lookalikeImage = IO.Path.Combine(lookalike, "y.png")
+                IO.File.WriteAllText(lookalikeImage, "y")
+                Expect.isTrue (StacSearch.isItemFolderName "survey_20240115") "named like one"
                 let foreign = IO.Path.Combine(cache, "my-own-folder")
                 IO.Directory.CreateDirectory foreign |> ignore
                 let loose = IO.Path.Combine(cache, "notes.txt")
@@ -1114,8 +1125,10 @@ let private downloadDirectory =
                 Expect.isTrue (StacSearch.isDownloaded (IO.Path.Combine(item, "x.png"))) "a download"
                 Expect.isFalse (StacSearch.isDownloaded ownImage) "the user's image in the folder is not"
                 Expect.isFalse (StacSearch.isDownloaded loose) "a loose file is not"
+                Expect.isFalse (StacSearch.isDownloaded lookalikeImage) "an image in an unmarked look-alike is not"
                 StacSearch.clearCache ()
                 Expect.isFalse (IO.Directory.Exists item) "the item folder is deleted"
+                Expect.isTrue (IO.File.Exists lookalikeImage) "an unmarked look-alike folder stays"
                 Expect.isTrue (IO.Directory.Exists foreign) "a folder not made by PRo3D stays"
                 Expect.isTrue (IO.File.Exists ownImage) "its files too"
                 Expect.isTrue (IO.Directory.Exists dated) "a folder named like a date stays"
@@ -1168,9 +1181,52 @@ let private downloadDirectory =
                 Expect.equal (StacSearchModel.rememberedDownloadDirectory ()) dir "a connect keeps the folder"
                 StacSearchModel.rememberDownloadDirectory "not/rooted"
                 Expect.equal (StacSearchModel.initialDownloadDirectory ()) (StacSearchModel.defaultDownloadDirectory ()) "an unusable path falls back"
+                // a folder that is gone and cannot be made (here: below a file; as a
+                // drive that is unplugged)
+                let gone = IO.Path.Combine(file, "stac")
+                StacSearchModel.rememberDownloadDirectory gone
+                Expect.equal (StacSearchModel.initialDownloadDirectory ()) (StacSearchModel.defaultDownloadDirectory ()) "an unavailable folder falls back"
+                Expect.equal (StacSearchModel.rememberedDownloadDirectory ()) gone "and stays remembered for when it is back"
             finally
                 StacSearchModel.rememberedFile <- original
                 try IO.File.Delete file with _ -> ()
+                try IO.Directory.Delete(IO.Path.Combine(IO.Path.GetTempPath(), "pro3d-chosen"), true) with _ -> ()
+        }
+
+        test "downloads mark their folder" {
+            use server = new LocalServer(fun _ stream -> answer "200 OK" "{}"B stream)
+            withItem (fun id ->
+                match (StacSearch.download id (server.Url "/data/x.mbi.json")).Result with
+                | Result.Error e -> failtestf "download failed: %s" e
+                | Ok path ->
+                    Expect.isTrue (IO.File.Exists(IO.Path.Combine(StacSearch.itemDirectory id, StacSearch.itemMarkerName))) "the marker is there"
+                    Expect.isTrue (StacSearch.isItemFolder (IO.Path.GetDirectoryName path)) "an item folder")
+        }
+
+        test "another download directory stops the downloads still running" {
+            use server = new LocalServer(fun _ stream ->
+                // promise 1000 bytes, send 10, then nothing
+                let h = Text.Encoding.ASCII.GetBytes "HTTP/1.1 200 OK\r\nContent-Length: 1000\r\nConnection: close\r\n\r\n0123456789"
+                stream.Write(h, 0, h.Length)
+                stream.Flush()
+                Threading.Thread.Sleep 5000)
+            let original = StacSearch.downloadRoot ()
+            let root = IO.Path.Combine(IO.Path.GetTempPath(), "pro3d-stac-moved-" + Guid.NewGuid().ToString "N")
+            try
+                withItem (fun id ->
+                    let oldFolder = StacSearch.itemDirectory id
+                    let t = StacSearch.download id (server.Url "/data/slow.tif")
+                    waitFor 3000 "the request reached the server" (fun () -> server.Requests > 0)
+                    let sw = Diagnostics.Stopwatch.StartNew()
+                    StacSearch.setDownloadRoot root
+                    match t.Result with
+                    | Ok _ -> failtest "a stopped download must not succeed"
+                    | Result.Error e -> Expect.stringContains e "download directory changed" "says why"
+                    Expect.isLessThan sw.Elapsed.TotalSeconds 3.0 "stopped at once, not after the timeout"
+                    try IO.Directory.Delete(oldFolder, true) with _ -> ())
+            finally
+                StacSearch.setDownloadRoot original
+                try IO.Directory.Delete(root, true) with _ -> ()
         }
 
         test "another folder clears the results; the trash asks first" {
